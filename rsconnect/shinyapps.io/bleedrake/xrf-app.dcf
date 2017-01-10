@@ -1,0 +1,8 @@
+name: xrf-app
+account: bleedrake
+server: shinyapps.io
+appId: 71585
+bundleId: 333656
+url:
+    https://bleedrake.shinyapps.io/xrf-app
+when: 1450321852.91883
