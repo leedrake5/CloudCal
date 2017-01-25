@@ -170,7 +170,11 @@ diagPlot<-function(model){
     p1<-p1+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
     p1<-p1+xlab("Fitted values")+ylab("Residuals")
     p1<-p1+ggtitle("Residual vs Fitted Plot")+theme_light()
-    a
+    
+    p2 <- ggplot(model, aes(qqnorm(.stdresid)[[1]], .stdresid))+geom_point(na.rm = TRUE)
+    p2 <- p2+geom_abline()+xlab("Theoretical Quantiles")+ylab("Standardized Residuals")
+    p2 <- p2+ggtitle("Normal Q-Q")+theme_bw()
+    p2
     
     p3<-ggplot(model, aes(as.vector(.fitted), sqrt(abs(as.vector(.stdresid)))))+geom_point(na.rm=TRUE)
     p3<-p3+stat_smooth(method="loess", na.rm = TRUE)+xlab("Fitted Value")
