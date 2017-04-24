@@ -202,9 +202,9 @@ condition='output$concentrationchoice',
 
 
 actionButton('createcalplot', "Plot"),
-actionButton('createcalelement', "Save"),
-actionButton('createcal', "Create Calibration"),
-downloadButton('downloadcal', " "),
+actionButton('createcalelement', "Update"),
+actionButton('createcal', "Save"),
+downloadButton('downloadModel', " "),
 
 tags$hr(),
 

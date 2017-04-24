@@ -1354,17 +1354,98 @@ output$calcurvediag <- renderPlot({
      }
      
 model
-     
-     
+
+
+#isolate(
+#input$createcalelement
+#cal.list[[input$calcurveelement]] <- model
+#)
+
+#cal.list[!sapply(cal.list, is.null)]
+
  })
  
+ 
+ 
+ #output$downloadcal <- downloadHandler(
+ #filename = function() { paste(input$dataset, '.csv', sep=',') },
+ #content = function(file
+ #) {
+ #  write.csv(metadataForm(), file)
+ # }
+ #)
+
+
+
+####alternative take
+
+nullList <- reactive({
+    cal.vector <- as.vector(spectra.line.table[input$show_vars])
+    cal.vector2 <- cal.vector[2:length(cal.vector)]
+    cal.list <- as.list(cal.vector2)
+    setNames(cal.list, cal.vector2)
+    cal.list <- pblapply(cal.list, function(x) return(NULL))
+    nullList <- cal.list
+
+    
+})
+
+calList <- nullList()
+
+
+#rf2 <- reactiveValues()
+#observe({
+#    if(input$createcalelement > 0){
+#    calList[[input$calcurveelement]] <- elementModel()
+#    }
+#    rf2 <<- calList
+#})
+
+emptyList <- reactive({
+    a.list <- list()
+    a.list
+})
+
+calList <- reactiveValues()
+
+observeEvent(input$hotableprocess2, {
+    isolate(calList <- emptyList())
+    calList <<- calList
+})
 
 
 
 
-
+calList <- reactiveValues()
+observeEvent(input$createcalelement, {
+    
+    
+     calList[[input$calcurveelement]] <- c(isolate(elementModel()))
+    calList <<- calList
 
 })
+
+rf2 <- reactiveValues()
+observeEvent(input$createcal, {
+    rf2 <<- calList
+
+    
+})
+
+
+output$downloadModel <- downloadHandler(
+filename <- function(){
+    paste("RF Model.RData")
+},
+
+content = function(file) {
+    save(rf2, file = file)
+}
+)
+
+
+
+    })
 
 })
 
