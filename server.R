@@ -1413,21 +1413,47 @@ observeEvent(input$hotableprocess2, {
     calList <<- calList
 })
 
-
+calConditons <- reactiveValues()
+                 observeEvent(input$createcalelement, {
+                              
+                              cal.condition <- input$radiocal
+                              norm.condition <- input$normcal
+                              
+                              norm.min <- print(input$comptonmin)
+                              norm.max <- print(input$comptonmax)
+                              
+                              cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max)
+                              colnames(cal.table) <- c("CalType", "NormType", "Min", "Max")
+                              
+                              slope.corrections <- input$slope_vars
+                              intercept.corrections <- input$intercept_vars
+                              
+                              cal.mode.list <- list(cal.table, slope.corrections, intercept.corrections)
+                              names(cal.mode.list) <- c("CalTable", "Slope", "Intercept")
+                              
+                              calConditons <<- cal.mode.list
+                              
+                              })
 
 
 calList <- reactiveValues()
 observeEvent(input$createcalelement, {
     
     
-     calList[[input$calcurveelement]] <- c(isolate(elementModel()))
+    calList[[input$calcurveelement]] <- list(isolate(calConditons), isolate(elementModel()))
     calList <<- calList
 
 })
 
-rf2 <- reactiveValues()
+Calibration <- reactiveValues()
 observeEvent(input$createcal, {
-    rf2 <<- calList
+             cal.intensities <- spectra.line.table
+             cal.values <- renderHotable()
+             
+             calibrationList <- list(cal.intensities, cal.values, calList)
+             names(calibrationList) <- c("Spectra", "Values", "calList")
+             
+    Calibration <<- calibrationList
 
     
 })
@@ -1435,11 +1461,11 @@ observeEvent(input$createcal, {
 
 output$downloadModel <- downloadHandler(
 filename <- function(){
-    paste("RF Model.RData")
+    paste(input$calname, "quant", sep=".")
 },
 
 content = function(file) {
-    save(rf2, file = file)
+    save(Calibration, file = file)
 }
 )
 

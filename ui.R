@@ -16,6 +16,9 @@ sidebarLayout(
 sidebarPanel(
 
 
+textInput("calname", label = "Calibration Name", value="myCalibration"),
+             
+             tags$hr(),
 
 actionButton("actionprocess", label = "Process Data"),
 actionButton("actionplot", label = "Plot Spectrum"),
