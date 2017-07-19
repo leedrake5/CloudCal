@@ -4,6 +4,7 @@ library(dplyr)
 library(shinyIncubator)
 library(shinythemes)
 library(data.table)
+library(dtplyr)
 
 
 
@@ -254,6 +255,37 @@ tabPanel('Standards', dataTableOutput("standardsperformance"))
 
 ))
 
+)),
+
+tabPanel("Validate Calibration",
+div(class="outer",
+
+fluidRow(
+sidebarLayout(
+sidebarPanel(
+
+actionButton('processvalspectra', "Quantify"),
+
+
+tags$hr(),
+
+fileInput('loadvaldata', 'Choose Spectra', multiple=TRUE,
+accept=c('text/csv',
+'text/comma-separated-values,text/plain',
+'.csv'))
+
+
+),
+
+
+mainPanel(
+tabsetPanel(
+id = 'dataset2',
+tabPanel('Counts', dataTableOutput('myvaltable1')),
+tabPanel('Validation', dataTableOutput('myvaltable2'))
+
+))
+))
 ))
 
 ))

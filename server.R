@@ -1471,12 +1471,173 @@ content = function(file) {
 
 
 
-    })
+
+    
+    
+    
+    observeEvent(input$processvalspectra, {
+        
+        
+        myValData <- reactive({
+            
+            withProgress(message = 'Processing Data', value = 0, {
+                
+                inFile <- input$loadvaldata
+                if (is.null(inFile)) return(NULL)
+                temp = inFile$name
+                temp <- gsub(".csv", "", temp)
+                id.seq <- seq(1, 2048,1)
+                
+                n <- length(temp)*id.seq
+                
+                myfiles.x = pblapply(inFile$datapath, read_csv_filename_x)
+                
+                
+                
+                myfiles.y = pblapply(inFile$datapath, read_csv_filename_y)
+                
+                
+                
+                
+                xrf.x <- data.frame(id.seq, myfiles.x)
+                colnames(xrf.x) <- c("ID", temp)
+                xrf.y <- data.frame(id.seq, myfiles.y)
+                colnames(xrf.y) <- c("ID", temp)
+                
+                
+                xrf.x <- data.table(xrf.x)
+                xrf.y <- data.table(xrf.y)
+                
+                
+                energy.m <- xrf.x[, list(variable = names(.SD), value = unlist(.SD, use.names = F)), by = ID]
+                cps.m <- xrf.y[, list(variable = names(.SD), value = unlist(.SD, use.names = F)), by = ID]
+                
+                
+                spectra.frame <- data.frame(energy.m$value, cps.m$value, cps.m$variable)
+                colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
+                data <- spectra.frame
+                
+                
+                incProgress(1/n)
+                Sys.sleep(0.1)
+            })
+            
+            data
+            
+        })
+        
+        valdata <- myValData()
+
+        
+        
+        output$contents2 <- renderTable({
+            
+            
+            
+            myValData()
+            
+        })
+        
+        calValHold <- reactive({
+            calsList <- Calibration$calList
+            calsList
+
+
+        })
+        
+        calValElements <- reactive({
+            calsList <- calValHold()
+            valelements <- ls(calsList)
+            valelements
+        })
+        
+        
+  
+  
+        
+        
+        tableInputValCounts <- reactive({
+            valelements <- calValElements()
+            val.data <- myValData()
+            
+            val.line.table <- spectra.line.fn(val.data)
+            val.line.table <- data.table(val.line.table[, c("Spectrum", valelements), drop = FALSE])
+            
+            val.line.table
+        })
+        
+        
+        
+        fullInputValCounts <- reactive({
+            valelements <- calValElements()
+            val.data <- myValData()
+            
+            val.line.table <- spectra.line.fn(val.data)
+            val.line.table <- data.table(val.line.table)
+            
+            val.line.table
+        })
+
+        
+        
+        output$myvaltable1 <- renderDataTable({
+            
+            tableInputValCounts()
+            
+        })
+        
+        tableInputValQuant <- reactive({
+            
+            count.table <- data.frame(fullInputValCounts())
+            the.cal <- calValHold()
+            elements <- calValElements()
+            
+            
+            
+            
+            predicted.list <- pblapply(elements, function (x)
+            if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType!=3){
+                predict(object=the.cal[[x]][[2]], newdata=as.data.frame(count.table))
+            } else if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+                predict(object=the.cal[[x]][[2]], newdata=simple.comp.prep(data=valdata, spectra.line.table=as.data.frame(count.table), norm.min=the.cal[[x]][[1]][1]$CalTable$Min, norm.max=the.cal[[x]][[1]][1]$CalTable$Max))
+            } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType!=3){
+                 predict(object=the.cal[[x]][[2]], newdata=lukas.simp.prep(spectra.line.table=as.data.frame(count.table), element.line=x, slope.element.lines=the.cal[[x]][[1]][2]$Slope, intercept.element.lines=the.cal[[x]][[1]][3]$Intercept))
+            } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(object=the.cal[[x]][[2]], newdata=lukas.comp.prep(data=valdata, spectra.line.table=as.data.frame(count.table), element.line=x, slope.element.lines=the.cal[[x]][[1]][2]$Slope, intercept.element.lines=the.cal[[x]][[1]][3]$Intercept, norm.min=the.cal[[x]][[1]][1]$CalTable$Min, norm.max=the.cal[[x]][[1]][1]$CalTable$Max))
+            })
+            
+            predicted.vector <- unlist(predicted.list)
+            
+           dim(predicted.vector) <- c(length(count.table$Spectrum), length(elements))
+            
+            predicted.frame <- data.frame(count.table$Spectrum, predicted.vector)
+            
+            colnames(predicted.frame) <- c("Spectrum", elements)
+
+            predicted.data.table <- data.table(predicted.frame)
+            #predicted.values <- t(predicted.values)
+            predicted.data.table
+            
+            
+        })
+        
+        output$myvaltable2 <- renderDataTable({
+            
+            tableInputValQuant()
+            
+        })
+        
+        
+        # valtest <- lapply(valelements, function(x) predict(calsList[[x]], as.data.frame(val.line.table[x])))
+        
+        
+        
+        
 
 })
+})
 
-
-
+ })
 
 
 
