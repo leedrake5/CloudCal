@@ -272,8 +272,8 @@ tags$hr(),
 fileInput('loadvaldata', 'Choose Spectra', multiple=TRUE,
 accept=c('text/csv',
 'text/comma-separated-values,text/plain',
-'.csv'))
-
+'.csv')),
+downloadButton('downloadValData', "Validation Table")
 
 ),
 
@@ -281,8 +281,8 @@ accept=c('text/csv',
 mainPanel(
 tabsetPanel(
 id = 'dataset2',
-tabPanel('Counts', dataTableOutput('myvaltable1')),
-tabPanel('Validation', dataTableOutput('myvaltable2'))
+tabPanel('Validation', dataTableOutput('myvaltable2')),
+tabPanel('Counts', dataTableOutput('myvaltable1'))
 
 ))
 ))

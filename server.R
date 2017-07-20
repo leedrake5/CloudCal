@@ -1598,8 +1598,12 @@ content = function(file) {
             predicted.list <- pblapply(elements, function (x)
             if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType!=3){
                 predict(object=the.cal[[x]][[2]], newdata=as.data.frame(count.table))
+            } else if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+                predict(object=the.cal[[x]][[2]], newdata=simple.tc.prep(data=valdata, spectra.line.table=as.data.frame(count.table), element.line=x))
             } else if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
                 predict(object=the.cal[[x]][[2]], newdata=simple.comp.prep(data=valdata, spectra.line.table=as.data.frame(count.table), norm.min=the.cal[[x]][[1]][1]$CalTable$Min, norm.max=the.cal[[x]][[1]][1]$CalTable$Max))
+            } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(object=the.cal[[x]][[2]], newdata=lukas.tc.prep(data=valdata, spectra.line.table=as.data.frame(count.table), element.line=x, slope.element.lines=the.cal[[x]][[1]][2]$Slope, intercept.element.lines=the.cal[[x]][[1]][3]$Intercept))
             } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType!=3){
                  predict(object=the.cal[[x]][[2]], newdata=lukas.simp.prep(spectra.line.table=as.data.frame(count.table), element.line=x, slope.element.lines=the.cal[[x]][[1]][2]$Slope, intercept.element.lines=the.cal[[x]][[1]][3]$Intercept))
             } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
@@ -1630,7 +1634,13 @@ content = function(file) {
         
         # valtest <- lapply(valelements, function(x) predict(calsList[[x]], as.data.frame(val.line.table[x])))
         
-        
+        output$downloadValData <- downloadHandler(
+        filename = function() { paste(input$calname, "_ValData", '.csv', sep='', collapse='') },
+        content = function(file
+        ) {
+            write.csv(tableInputValQuant(), file)
+        }
+        )
         
         
 

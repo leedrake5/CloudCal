@@ -2809,8 +2809,25 @@ lukas.comp <- function(data, concentration.table, spectra.line.table, element.li
     
 }
 
+simple.tc.prep <- function(data,spectra.line.table, element.line) {
+    
+    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
+    
+    
+    total.counts <- aggregate(CPS~Spectrum, data=data, sum)
+    colnames(total.counts) <- c("Spectrum", "CPS")
+    
+    
+    predict.frame.tc <- data.frame(intensity/total.counts$CPS)
+    colnames(predict.frame.tc) <- c("Intensity")
+    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)
+    colnames(predict.intensity.tc) <- c("Intensity")
+    
+    predict.intensity.tc
+}
 
-simple.comp.prep <- function(data, concentration.table, spectra.line.table, element.line, norm.min, norm.max) {
+
+simple.comp.prep <- function(data, spectra.line.table, element.line, norm.min, norm.max) {
     
     
     
@@ -2870,11 +2887,16 @@ lukas.simp.prep <- function(spectra.line.table, element.line, slope.element.line
 
 
 
-lukas.tc.prep <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lukas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
     
     intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
     
+    
+    total.counts <- aggregate(CPS~Spectrum, data=data, sum)
+    colnames(total.counts) <- c("Spectrum", "CPS")
+
+
     
     intercept.none <- rep(0, length(spectra.line.table$Spectrum))
     lukas.intercept.table.x <- data.frame(spectra.line.table[intercept.element.lines], intercept.none)
