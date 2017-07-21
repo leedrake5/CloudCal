@@ -3,14 +3,12 @@ library(shinysky)
 library(ggplot2)
 library(pbapply)
 library(reshape2)
-library(TTR)
 library(dplyr)
 library(shinyIncubator)
 library(data.table)
-library(ggtern)
-library(gridExtra)
-library(data.table)
 library(DT)
+library(gridExtra)
+library(rhandsontable)
 
 
 
@@ -261,20 +259,32 @@ print(plotInput())
     
          })
          
-         
- data <- myData()
- 
- spectra.line.table <- spectra.line.fn(data)
- select.line.table <- datatable(spectra.line.table[, input$show_vars, drop = FALSE])
- select.line.table
- concentration.names <- input$show_vars
 
-  
- fordownload <- spectra.line.table[input$show_vars]
+ 
+ spectraData <- reactive({
+     
+     data <- myData()
+     
+     spectra.line.list <- lapply(input$show_vars, function(x) elementGrab(element.line=x, data=data))
+     element.count.list <- lapply(spectra.line.list, `[`, 2)
+
+
+     spectra.line.vector <- as.numeric(unlist(element.count.list))
+     
+     dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(input$show_vars))
+     
+     spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
+     
+     colnames(spectra.line.frame) <- c("Spectrum", input$show_vars)
+     
+     spectra.line.frame <- as.data.frame(spectra.line.frame)
+     
+     spectra.line.frame
+     
+ })
  
  tableInput <- reactive({
-     spectra.line.table <- spectra.line.fn(data)
-     select.line.table <- datatable(spectra.line.table[, input$show_vars, drop = FALSE])
+     select.line.table <- spectraData()
      select.line.table
  })
 
@@ -287,13 +297,12 @@ print(plotInput())
   
 
   
- spectra.line.table[input$show_vars]
   
   output$downloadData <- downloadHandler(
   filename = function() { paste(input$dataset, '.csv', sep=',') },
   content = function(file
   ) {
-      write.csv(fordownload, file)
+      write.csv(spectraData(), file)
   }
   )
   
@@ -301,30 +310,45 @@ print(plotInput())
   })
 
 hotableInput <- reactive({
-  empty.line.table <-  spectra.line.table[input$show_vars] * 0
-  empty.line.table$Spectrum <- spectra.line.table$Spectrum
+    spectra.line.table <- spectraData()
+    empty.line.table <-  spectra.line.table[input$show_vars] * 0
+    #empty.line.table$Spectrum <- spectra.line.table$Spectrum
+    
+    hold.table <- data.frame(spectra.line.table$Spectrum, empty.line.table)
+    colnames(hold.table) <- c("Spectrum", input$show_vars)
+    
+    hold.table <- as.data.frame(hold.table)
   
-  empty.line.table
+    hold.table
   
 })
 
-output$hotable1 <- renderHotable(exp={
-    input$hotableprocess1
-    isolate(print(hotableInput()))}, readOnly=F)
+values <- reactiveValues()
 
 
-observeEvent(input$hotableprocess2, {
+observe({
+    if (!is.null(input$hot)) {
+        DF = hot_to_r(input$hot)
+    } else {
+        if (is.null(values[["DF"]]))
+        DF <- hotableInput()
+        else
+        DF <- values[["DF"]]
+    }
+    values[["DF"]] <- DF
 })
 
 
-      renderHotable <- reactive({
+## Handsontable
 
-         hot.to.df(input$hotable1) # this will convert your input into a data.frame
-          
-          
-          
-      })
-      
+output$hot <- renderRHandsontable({
+    DF <- values[["DF"]]
+    if (!is.null(DF))
+    rhandsontable(DF, useTypes = FALSE, stretchH = "all")
+})
+
+
+
       
       
       # randomInterList <- reactive({
@@ -349,33 +373,27 @@ observeEvent(input$hotableprocess2, {
 
 outVar <- reactive({
     input$hotableprocess2
-intensities <- spectra.line.table[input$show_vars]
-n.inten <- length(intensities)
-myelements <- names(intensities[2:n.inten])
 
-if(is.null(myelements)){
-    return("Ca.K.alpha")
-}else{
-    myelements
-}
+    myelements <- input$show_vars
+
+    if(is.null(myelements)){
+        return("Ca.K.alpha")
+    }else{
+        myelements
+    }
 
 
-})
+    })
 
 outVaralt <- reactive({
     input$hotableprocess2
     
     
-    none <- rep(0, length(spectra.line.table$Spectrum))
-    hold.table <- data.frame(spectra.line.table[input$show_vars], none)
-    colnames(hold.table) <- c(names(spectra.line.table[input$show_vars]), "None")
-    
-    
-    n.inten <- length(hold.table)
-    myelements <- names(hold.table[2:n.inten])
+    myelements <- c(input$show_vars, "None")
+
     
     if(is.null(myelements)){
-        paste(n.inten)
+        paste("Ca.K.alpha")
     }else{
         myelements
     }
@@ -397,31 +415,40 @@ output$inVar4 <- renderUI({
 
 
 
-concentration.table <- renderHotable()
-concentration.hold <- concentration.table
-
-
-
-
 
 
 
   plotInput2 <- reactive({
       
+      data <- myData()
       
-      concentration.table <- renderHotable()
+      
+      concentration.table <- values[["DF"]]
       concentration.hold <- concentration.table
+      
+      spectra.line.table <- spectraData()
+      
 
 
 
 
 
 
-          concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[input$calcurveelement]))))
+
+          concentration <- na.omit(as.vector(as.numeric(as.integer(unlist(concentration.table[input$calcurveelement])))))
           
           
-          intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[input$calcurveelement]))))
           
+          intensity <- na.omit(as.vector(as.numeric(as.integer(unlist(spectra.line.table[input$calcurveelement])))))
+          
+          # intensity <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26)
+          
+          
+          # concentration <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26)
+
+
+
+
           element.name <- gsub("[.]", "", substr(input$calcurveelement, 1, 2))
           intens <- " Counts per Second"
           norma <- " Normalized"
@@ -819,11 +846,15 @@ output$calcurveplots <- renderPlot({
 
 plotInput3 <- reactive({
     
-    concentration.table <- renderHotable()
+    data <- myData()
+
+
+    concentration.table <- values[["DF"]]
     concentration.hold <- concentration.table
     
-    
-    
+    spectra.line.table <- spectraData()
+
+
     
     
     
@@ -990,12 +1021,16 @@ output$calcurvediag <- renderPlot({
 
  tableInput2 <- reactive({
      
+     data <- myData()
+
+
      
-     concentration.table <- renderHotable()
+     concentration.table <- values[["DF"]]
      concentration.hold <- concentration.table
      
-     
-     
+     spectra.line.table <- spectraData()
+
+
      
      
      
@@ -1209,12 +1244,7 @@ output$calcurvediag <- renderPlot({
  
  })
  
- intensities <- spectra.line.table[input$show_vars]
- n.inten <- length(intensities)
- myelements <- names(intensities[2:n.inten])
- cal.list <- vector("list", length(myelements))
- names(cal.list) <- myelements
- 
+
  nullElementModel <- reactive({
      
      
@@ -1224,11 +1254,15 @@ output$calcurvediag <- renderPlot({
  
  elementModel <- reactive({
      
-     concentration.table <- renderHotable()
+     data <- myData()
+
+
+     concentration.table <- values[["DF"]]
      concentration.hold <- concentration.table
      
-     
-     
+     spectra.line.table <- spectraData()
+
+
      
      
      
@@ -1380,7 +1414,10 @@ model
 ####alternative take
 
 nullList <- reactive({
-    cal.vector <- as.vector(spectra.line.table[input$show_vars])
+    
+    spectra.line.table <- spectraData()
+
+    cal.vector <- input$show_vars
     cal.vector2 <- cal.vector[2:length(cal.vector)]
     cal.list <- as.list(cal.vector2)
     setNames(cal.list, cal.vector2)
@@ -1447,8 +1484,12 @@ observeEvent(input$createcalelement, {
 
 Calibration <- reactiveValues()
 observeEvent(input$createcal, {
+    
+    spectra.line.table <- spectraData()
+
              cal.intensities <- spectra.line.table
-             cal.values <- renderHotable()
+             cal.values <- values[["DF"]]
+
              
              calibrationList <- list(cal.intensities, cal.values, calList)
              names(calibrationList) <- c("Spectra", "Values", "calList")
@@ -1560,7 +1601,7 @@ content = function(file) {
             valelements <- calValElements()
             val.data <- myValData()
             
-            val.line.table <- spectra.line.fn(val.data)
+            val.line.table <- spectra.line.fn(val.data, choices=input$show_vars)
             val.line.table <- data.table(val.line.table[, c("Spectrum", valelements), drop = FALSE])
             
             val.line.table
@@ -1572,7 +1613,7 @@ content = function(file) {
             valelements <- calValElements()
             val.data <- myValData()
             
-            val.line.table <- spectra.line.fn(val.data)
+            val.line.table <- spectra.line.fn(val.data, choices=input$show_vars)
             val.line.table <- data.table(val.line.table)
             
             val.line.table
@@ -1586,41 +1627,105 @@ content = function(file) {
             
         })
         
+        
+        
+        
         tableInputValQuant <- reactive({
             
-            count.table <- data.frame(fullInputValCounts())
-            the.cal <- calValHold()
-            elements <- calValElements()
+        count.table <- data.frame(fullInputValCounts())
+        the.cal <- calValHold()
+        elements <- calValElements()
             
             
             
             
-            predicted.list <- pblapply(elements, function (x)
-            if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType!=3){
-                predict(object=the.cal[[x]][[2]], newdata=as.data.frame(count.table))
+        predicted.list <- pblapply(elements, function (x)
+            if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=general.prep(
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                            element.line=x)
+                )
             } else if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
-                predict(object=the.cal[[x]][[2]], newdata=simple.tc.prep(data=valdata, spectra.line.table=as.data.frame(count.table), element.line=x))
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=simple.tc.prep(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x
+                    )
+                )
             } else if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
-                predict(object=the.cal[[x]][[2]], newdata=simple.comp.prep(data=valdata, spectra.line.table=as.data.frame(count.table), norm.min=the.cal[[x]][[1]][1]$CalTable$Min, norm.max=the.cal[[x]][[1]][1]$CalTable$Max))
+                predict(
+                    object=the.cal[[x]][[2]],
+                        newdata=simple.comp.prep(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                                count.table
+                                ),
+                            element.line=x,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                            )
+                )
+            } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                 predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lukas.simp.prep(
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        )
+                 )
             } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
-                predict(object=the.cal[[x]][[2]], newdata=lukas.tc.prep(data=valdata, spectra.line.table=as.data.frame(count.table), element.line=x, slope.element.lines=the.cal[[x]][[1]][2]$Slope, intercept.element.lines=the.cal[[x]][[1]][3]$Intercept))
-            } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType!=3){
-                 predict(object=the.cal[[x]][[2]], newdata=lukas.simp.prep(spectra.line.table=as.data.frame(count.table), element.line=x, slope.element.lines=the.cal[[x]][[1]][2]$Slope, intercept.element.lines=the.cal[[x]][[1]][3]$Intercept))
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lukas.tc.prep(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    )
+                )
             } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
-                predict(object=the.cal[[x]][[2]], newdata=lukas.comp.prep(data=valdata, spectra.line.table=as.data.frame(count.table), element.line=x, slope.element.lines=the.cal[[x]][[1]][2]$Slope, intercept.element.lines=the.cal[[x]][[1]][3]$Intercept, norm.min=the.cal[[x]][[1]][1]$CalTable$Min, norm.max=the.cal[[x]][[1]][1]$CalTable$Max))
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lukas.comp.prep(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                        )
+                )
             })
             
-            predicted.vector <- unlist(predicted.list)
+        predicted.vector <- unlist(predicted.list)
             
-           dim(predicted.vector) <- c(length(count.table$Spectrum), length(elements))
+        dim(predicted.vector) <- c(length(count.table$Spectrum), length(elements))
             
-            predicted.frame <- data.frame(count.table$Spectrum, predicted.vector)
+        predicted.frame <- data.frame(count.table$Spectrum, predicted.vector)
             
-            colnames(predicted.frame) <- c("Spectrum", elements)
+        colnames(predicted.frame) <- c("Spectrum", elements)
 
-            predicted.data.table <- data.table(predicted.frame)
-            #predicted.values <- t(predicted.values)
-            predicted.data.table
+        predicted.data.table <- data.table(predicted.frame)
+        #predicted.values <- t(predicted.values)
+        predicted.data.table
             
             
         })

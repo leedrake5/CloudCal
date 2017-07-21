@@ -5,6 +5,8 @@ library(shinyIncubator)
 library(shinythemes)
 library(data.table)
 library(dtplyr)
+library(rhandsontable)
+
 
 
 
@@ -149,9 +151,9 @@ downloadButton('downloadData', "Table"),
 tags$hr(),
 
 conditionalPanel(
-condition='input.dataset === spectra.line.table',
+condition='input.dataset === myData()',
 checkboxGroupInput('show_vars', 'Elemental lines to show:',
-names(spectra.line.table), selected = standard)
+spectralLines, selected = standard)
 )),
 
 
@@ -179,7 +181,6 @@ sidebarLayout(
 sidebarPanel(
 
 
-actionButton('hotableprocess1', "Update Elements"),
 actionButton('hotableprocess2', "Enter Values")
 
 ),
@@ -188,7 +189,7 @@ actionButton('hotableprocess2', "Enter Values")
 mainPanel(
 tabsetPanel(
 id = 'dataset',
-tabPanel('Enter Concentrations', hotable('hotable1'))
+tabPanel('Enter Concentrations', rHandsontableOutput('hot'))
 ))
 ))
 )),

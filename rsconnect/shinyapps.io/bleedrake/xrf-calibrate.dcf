@@ -1,8 +1,0 @@
-name: xrf-calibrate
-account: bleedrake
-server: shinyapps.io
-appId: 75793
-bundleId: 340021
-url:
-    https://bleedrake.shinyapps.io/xrf-calibrate
-when: 1451293749.87827
