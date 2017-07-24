@@ -8,6 +8,7 @@ library(shinysky)
 library(DT)
 
 
+options(digits=4)
 
 
 Hodder.v <- function(y)
@@ -1495,3 +1496,8 @@ lukas.comp.prep <- function(data, spectra.line.table, element.line, slope.elemen
 
     predict.intensity.luk.comp
 }
+
+
+
+blank.data.frame <- data.frame(rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)))
+colnames(blank.data.frame) <- standard

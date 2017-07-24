@@ -121,7 +121,15 @@ c("(Ne) Neon" = "Ne.table",
 "(Th) Thorium" = "Th.table",
 "(Pa) Proactinum" = "Pa.table",
 "(U)  Uranium" = "U.table"),
-selected="Fe.table")),
+selected="Fe.table"),
+
+tags$hr(),
+
+fileInput('calfileinput', 'Loac Cal File', multiple=FALSE,
+accept='quant')
+
+
+),
 
 
 
@@ -146,7 +154,10 @@ fluidRow(
 sidebarLayout(
 sidebarPanel(
 
+actionButton('linecommit', "Confirm Elements"),
 downloadButton('downloadData', "Table"),
+checkboxInput('usecalfile', "Use Cal File"),
+
 
 tags$hr(),
 
@@ -179,7 +190,6 @@ div(class="outer",
 fluidRow(
 sidebarLayout(
 sidebarPanel(
-
 
 actionButton('hotableprocess2', "Enter Values")
 

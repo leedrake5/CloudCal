@@ -23,6 +23,7 @@ shinyServer(function(input, output, session) {
     
  
     
+    
     observeEvent(input$actionprocess, {
         
 
@@ -73,15 +74,22 @@ myfiles.x = pblapply(inFile$datapath, read_csv_filename_x)
      data
      
         })
-
-
-        output$contents <- renderTable({
+        
+        calFileInput <- reactive({
             
+            existingCalFile <- input$calfileinput
             
-
-           myData()
-          
+            load(existingCalFile$datapath, verbose=TRUE)
+            
+            Calibration
+            
         })
+
+
+        
+       
+        
+        
         
         # Return the requested dataset
         datasetInput <- reactive({
@@ -263,8 +271,8 @@ print(plotInput())
  
  spectraData <- reactive({
      
-     data <- myData()
-     
+     data <-  myData()
+
      spectra.line.list <- lapply(input$show_vars, function(x) elementGrab(element.line=x, data=data))
      element.count.list <- lapply(spectra.line.list, `[`, 2)
 
@@ -283,9 +291,12 @@ print(plotInput())
      
  })
  
+ 
+ 
  tableInput <- reactive({
      select.line.table <- spectraData()
-     select.line.table
+     
+     round(select.line.table[2:length(select.line.table)], digits=0)
  })
 
 
@@ -308,10 +319,15 @@ print(plotInput())
   
   observeEvent(input$hotableprocess1, {
   })
+  
 
 hotableInput <- reactive({
+    
+
+
     spectra.line.table <- spectraData()
-    empty.line.table <-  spectra.line.table[input$show_vars] * 0
+        
+    empty.line.table <-  spectra.line.table[input$show_vars] * 0.0000
     #empty.line.table$Spectrum <- spectra.line.table$Spectrum
     
     hold.table <- data.frame(spectra.line.table$Spectrum, empty.line.table)
@@ -328,9 +344,9 @@ values <- reactiveValues()
 
 observe({
     if (!is.null(input$hot)) {
-        DF = hot_to_r(input$hot)
+        DF <- hot_to_r(input$hot)
     } else {
-        if (is.null(values[["DF"]]))
+        if (is.null(values[["DF"]]) && input$linecommit)
         DF <- hotableInput()
         else
         DF <- values[["DF"]]
@@ -342,9 +358,13 @@ observe({
 ## Handsontable
 
 output$hot <- renderRHandsontable({
+
     DF <- values[["DF"]]
+    
     if (!is.null(DF))
-    rhandsontable(DF, useTypes = FALSE, stretchH = "all")
+    rhandsontable(DF) %>% hot_col(2:length(DF),type="numeric")
+    
+
 })
 
 
@@ -435,11 +455,11 @@ output$inVar4 <- renderUI({
 
 
 
-          concentration <- na.omit(as.vector(as.numeric(as.integer(unlist(concentration.table[input$calcurveelement])))))
+          concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[input$calcurveelement]))))
           
           
           
-          intensity <- na.omit(as.vector(as.numeric(as.integer(unlist(spectra.line.table[input$calcurveelement])))))
+          intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[input$calcurveelement]))))
           
           # intensity <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26)
           
@@ -1427,7 +1447,7 @@ nullList <- reactive({
     
 })
 
-calList <- nullList()
+
 
 
 #rf2 <- reactiveValues()
@@ -1509,7 +1529,6 @@ content = function(file) {
     save(Calibration, file = file)
 }
 )
-
 
 
 
@@ -1601,8 +1620,23 @@ content = function(file) {
             valelements <- calValElements()
             val.data <- myValData()
             
-            val.line.table <- spectra.line.fn(val.data, choices=input$show_vars)
-            val.line.table <- data.table(val.line.table[, c("Spectrum", valelements), drop = FALSE])
+            spectra.line.list <- lapply(input$show_vars, function(x) elementGrab(element.line=x, data=val.data))
+            element.count.list <- lapply(spectra.line.list, `[`, 2)
+            
+            
+            spectra.line.vector <- as.numeric(unlist(element.count.list))
+            
+            dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(input$show_vars))
+            
+            spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
+            
+            colnames(spectra.line.frame) <- c("Spectrum", input$show_vars)
+            
+            spectra.line.frame <- as.data.frame(spectra.line.frame)
+            
+            spectra.line.frame
+
+            val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])
             
             val.line.table
         })
@@ -1613,8 +1647,23 @@ content = function(file) {
             valelements <- calValElements()
             val.data <- myValData()
             
-            val.line.table <- spectra.line.fn(val.data, choices=input$show_vars)
-            val.line.table <- data.table(val.line.table)
+            spectra.line.list <- lapply(input$show_vars, function(x) elementGrab(element.line=x, data=val.data))
+            element.count.list <- lapply(spectra.line.list, `[`, 2)
+            
+            
+            spectra.line.vector <- as.numeric(unlist(element.count.list))
+            
+            dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(input$show_vars))
+            
+            spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
+            
+            colnames(spectra.line.frame) <- c("Spectrum", input$show_vars)
+            
+            spectra.line.frame <- as.data.frame(spectra.line.frame)
+            
+            spectra.line.frame
+            
+            val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])
             
             val.line.table
         })
@@ -1748,8 +1797,9 @@ content = function(file) {
         )
         
         
+    })
 
-})
+
 })
 
  })
