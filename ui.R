@@ -124,9 +124,12 @@ c("(Ne) Neon" = "Ne.table",
 selected="Fe.table"),
 
 tags$hr(),
+tags$hr(),
+tags$hr(),
 
-fileInput('calfileinput', 'Loac Cal File', multiple=FALSE,
-accept='quant')
+
+fileInput('calfileinput', 'Load Cal File', multiple=FALSE),
+checkboxInput('usecalfile', "Use Cal File")
 
 
 ),
@@ -156,15 +159,13 @@ sidebarPanel(
 
 actionButton('linecommit', "Confirm Elements"),
 downloadButton('downloadData', "Table"),
-checkboxInput('usecalfile', "Use Cal File"),
 
 
 tags$hr(),
 
 conditionalPanel(
-condition='input.dataset === myData()',
-checkboxGroupInput('show_vars', 'Elemental lines to show:',
-spectralLines, selected = standard)
+condition='input.dataset === dataHold()',
+uiOutput('checkboxElements')
 )),
 
 
@@ -227,24 +228,13 @@ tags$hr(),
 
 uiOutput('inVar2'),
 
+uiOutput('calTypeInput'),
 
+uiOutput('normTypeInput'),
 
-radioButtons("radiocal", label = "Calibration Curve",
-choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3),
-selected = 1),
+uiOutput('comptonMinInput'),
 
-radioButtons("normcal", label = "Normalization",
-choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3),
-selected = 1),
-
-div(class="row",
-  div(class="span2 offset1",numericInput('comptonmin', label=h6("Min"), step=0.001, value=18.5, min=0, max=50, width='30%')),
- div(class="span2",numericInput('comptonmax', label=h6("Max"), step=0.001, value=19.5, min=0, max=50, width='30%'))
-),
-tags$style(type="text/css", '#CPC {width: 50px;}'),
-tags$style(type="text/css", '#LPC {width: 50px;}'),
-
-
+uiOutput('comptonMaxInput'),
 
 uiOutput('inVar3'),
 uiOutput('inVar4')
@@ -268,7 +258,7 @@ tabPanel('Standards', dataTableOutput("standardsperformance"))
 
 )),
 
-tabPanel("Validate Calibration",
+tabPanel("Apply Calibration",
 div(class="outer",
 
 fluidRow(
@@ -284,7 +274,7 @@ fileInput('loadvaldata', 'Choose Spectra', multiple=TRUE,
 accept=c('text/csv',
 'text/comma-separated-values,text/plain',
 '.csv')),
-downloadButton('downloadValData', "Validation Table")
+downloadButton('downloadValData', "Results")
 
 ),
 

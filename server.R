@@ -12,7 +12,7 @@ library(rhandsontable)
 
 
 
-
+options(shiny.maxRequestSize=30*1024^2)
 
 
 
@@ -75,21 +75,36 @@ myfiles.x = pblapply(inFile$datapath, read_csv_filename_x)
      
         })
         
-        calFileInput <- reactive({
+        
+calFileContents <- reactive({
             
-            existingCalFile <- input$calfileinput
+    existingCalFile <- input$calfileinput
             
-            load(existingCalFile$datapath, verbose=TRUE)
+    if (is.null(existingCalFile)) return(NULL)
+
+
+    load(existingCalFile$datapath, verbose=TRUE)
             
-            Calibration
+    Calibration
             
         })
 
+dataHold <- reactive({
+    data <- if(input$usecalfile==FALSE){
+        myData()
+    }else if(input$usecalfile==TRUE){
+        calFileContents()$Spectra
+    }
+    
+    data
+    
+})
 
-        
-       
-        
-        
+
+
+
+
+
         
         # Return the requested dataset
         datasetInput <- reactive({
@@ -202,9 +217,10 @@ myfiles.x = pblapply(inFile$datapath, read_csv_filename_x)
         
          plotInput <- reactive({
              
+             data <- dataHold()
 
-
-             data <- myData()
+             
+             
              id.seq <- seq(1, 2048,1)
              
              n <- length(data$Energy)
@@ -267,11 +283,115 @@ print(plotInput())
     
          })
          
+         
+         
+         
+         
+
+
+calTypeSelection <- reactive({
+    
+    if(input$usecalfile==FALSE){
+        1
+    }else if(input$usecalfile==TRUE){
+        calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$CalType
+    }
+    
+})
+
+calNormSelection <- reactive({
+    
+    if(input$usecalfile==FALSE){
+        1
+    }else if(input$usecalfile==TRUE){
+        calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$NormType
+    }
+    
+})
+
+normMinSelection <- reactive({
+    
+    if(input$usecalfile==FALSE){
+        18.5
+    }else if(input$usecalfile==TRUE){
+        calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$Min
+    }
+    
+})
+
+normMaxSelection <- reactive({
+    if(input$usecalfile==FALSE){
+        19.5
+    }else if(input$usecalfile==TRUE){
+        calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$Max
+    }
+})
+
+standardElements <- reactive({
+    
+    if(input$usecalfile==FALSE){
+        standard
+    }else if(input$usecalfile==TRUE){
+        ls(calFileContents()$Intensities)
+    }
+    
+})
+
+output$checkboxElements <-  renderUI({
+
+    checkboxGroupInput("show_vars", label="Elemental lines to show:",
+    choices = spectralLines, selected = standardElements())
+    
+})
+
+
+output$calTypeInput <- renderUI({
+    
+    radioButtons("radiocal", label = "Calibration Curve",
+    choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3),
+    selected = calTypeSelection())
+    
+    
+})
+
+
+output$normTypeInput <- renderUI({
+    
+    radioButtons("normcal", label = "Normalization",
+    choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3),
+    selected = calNormSelection())
+    
+    
+})
+
+
+output$comptonMinInput <- renderUI({
+    
+    numericInput('comptonmin', label=h6("Min"), step=0.001, value=normMinSelection(), min=0, max=50, width='30%')
+    
+})
+
+output$comptonMaxInput <- renderUI({
+    
+    numericInput('comptonmax', label=h6("Max"), step=0.001, value=normMaxSelection(), min=0, max=50, width='30%')
+    
+})
+
+
+
+
+
+
+
 
  
  spectraData <- reactive({
      
-     data <-  myData()
+     data <- dataHold()
+
+
+
+
 
      spectra.line.list <- lapply(input$show_vars, function(x) elementGrab(element.line=x, data=data))
      element.count.list <- lapply(spectra.line.list, `[`, 2)
@@ -290,6 +410,8 @@ print(plotInput())
      spectra.line.frame
      
  })
+ 
+
  
  
  
@@ -327,7 +449,8 @@ hotableInput <- reactive({
 
     spectra.line.table <- spectraData()
         
-    empty.line.table <-  spectra.line.table[input$show_vars] * 0.0000
+        empty.line.table <- spectra.line.table[input$show_vars] * 0.0000
+
     #empty.line.table$Spectrum <- spectra.line.table$Spectrum
     
     hold.table <- data.frame(spectra.line.table$Spectrum, empty.line.table)
@@ -335,7 +458,11 @@ hotableInput <- reactive({
     
     hold.table <- as.data.frame(hold.table)
   
-    hold.table
+  if(input$usecalfile==FALSE){
+      hold.table
+  }else if(input$usecalfile==TRUE){
+      calFileContents()$Values
+  }
   
 })
 
@@ -424,15 +551,30 @@ output$inVar2 <- renderUI({
     selectInput(inputId = "calcurveelement", label = h4("Element"), choices =  outVar())
 })
 
+inVar3Selected <- reactive({
+    if(input$usecalfile==FALSE){
+        input$calcurveelement
+    }else if(input$usecalfile==TRUE){
+        calFileContents()$calList[[input$calcurveelement]][[1]]$Intercept
+    }
+})
+
 
 output$inVar3 <- renderUI({
-    checkboxGroupInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt(), selected=input$calcurveelement)
+    checkboxGroupInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt(), selected=inVar3Selected())
+})
+
+inVar4Selected <- reactive({
+    if(input$usecalfile==FALSE){
+        input$calcurveelement
+    }else if(input$usecalfile==TRUE){
+        calFileContents()$calList[[input$calcurveelement]][[1]]$Slope
+    }
 })
 
 output$inVar4 <- renderUI({
-    checkboxGroupInput(inputId = "slope_vars", label = h4("Slope"), choices =  outVaralt(), selected=input$calcurveelement)
+    checkboxGroupInput(inputId = "slope_vars", label = h4("Slope"), choices =  outVaralt(), selected=inVar4Selected())
 })
-
 
 
 
@@ -440,7 +582,7 @@ output$inVar4 <- renderUI({
 
   plotInput2 <- reactive({
       
-      data <- myData()
+      data <- dataHold()
       
       
       concentration.table <- values[["DF"]]
@@ -866,7 +1008,7 @@ output$calcurveplots <- renderPlot({
 
 plotInput3 <- reactive({
     
-    data <- myData()
+    data <- dataHold()
 
 
     concentration.table <- values[["DF"]]
@@ -1041,7 +1183,7 @@ output$calcurvediag <- renderPlot({
 
  tableInput2 <- reactive({
      
-     data <- myData()
+     data <- dataHold()
 
 
      
@@ -1274,7 +1416,7 @@ output$calcurvediag <- renderPlot({
  
  elementModel <- reactive({
      
-     data <- myData()
+     data <- dataHold()
 
 
      concentration.table <- values[["DF"]]
@@ -1509,10 +1651,11 @@ observeEvent(input$createcal, {
 
              cal.intensities <- spectra.line.table
              cal.values <- values[["DF"]]
+             cal.data <- dataHold()
 
              
-             calibrationList <- list(cal.intensities, cal.values, calList)
-             names(calibrationList) <- c("Spectra", "Values", "calList")
+             calibrationList <- list(cal.data, cal.intensities, cal.values, calList)
+             names(calibrationList) <- c("Spectra", "Intensities", "Values", "calList")
              
     Calibration <<- calibrationList
 
