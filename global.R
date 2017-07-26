@@ -3,8 +3,6 @@ library(ggplot2)
 library(pbapply)
 library(reshape2)
 library(dplyr)
-library(shinyIncubator)
-library(shinysky)
 library(DT)
 
 

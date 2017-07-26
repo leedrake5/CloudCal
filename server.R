@@ -1,10 +1,8 @@
 library(shiny)
-library(shinysky)
 library(ggplot2)
 library(pbapply)
 library(reshape2)
 library(dplyr)
-library(shinyIncubator)
 library(data.table)
 library(DT)
 library(gridExtra)
@@ -395,7 +393,6 @@ output$comptonMaxInput <- renderUI({
 
      spectra.line.list <- lapply(input$show_vars, function(x) elementGrab(element.line=x, data=data))
      element.count.list <- lapply(spectra.line.list, `[`, 2)
-
 
      spectra.line.vector <- as.numeric(unlist(element.count.list))
      

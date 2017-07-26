@@ -1,7 +1,6 @@
 library(shiny)
 library(DT)
 library(dplyr)
-library(shinyIncubator)
 library(shinythemes)
 library(data.table)
 library(dtplyr)
