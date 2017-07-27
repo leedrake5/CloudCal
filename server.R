@@ -439,6 +439,7 @@ output$comptonMaxInput <- renderUI({
   observeEvent(input$hotableprocess1, {
   })
   
+  
 
 hotableInput <- reactive({
     
@@ -454,11 +455,16 @@ hotableInput <- reactive({
     colnames(hold.table) <- c("Spectrum", input$show_vars)
     
     hold.table <- as.data.frame(hold.table)
+    
   
   if(input$usecalfile==FALSE){
       hold.table
   }else if(input$usecalfile==TRUE){
-      calFileContents()$Values
+      
+      data.frame(calFileContents()$Values, hold.table[! names(hold.table) %in% names(calFileContents()$Values)])
+      
+      #calFileContents()$Values
+      
   }
   
 })
@@ -1760,17 +1766,17 @@ content = function(file) {
             valelements <- calValElements()
             val.data <- myValData()
             
-            spectra.line.list <- lapply(input$show_vars, function(x) elementGrab(element.line=x, data=val.data))
+            spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))
             element.count.list <- lapply(spectra.line.list, `[`, 2)
             
             
             spectra.line.vector <- as.numeric(unlist(element.count.list))
             
-            dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(input$show_vars))
+            dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))
             
             spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
             
-            colnames(spectra.line.frame) <- c("Spectrum", input$show_vars)
+            colnames(spectra.line.frame) <- c("Spectrum", valelements)
             
             spectra.line.frame <- as.data.frame(spectra.line.frame)
             
@@ -1787,17 +1793,17 @@ content = function(file) {
             valelements <- calValElements()
             val.data <- myValData()
             
-            spectra.line.list <- lapply(input$show_vars, function(x) elementGrab(element.line=x, data=val.data))
+            spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))
             element.count.list <- lapply(spectra.line.list, `[`, 2)
             
             
             spectra.line.vector <- as.numeric(unlist(element.count.list))
             
-            dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(input$show_vars))
+            dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))
             
             spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
             
-            colnames(spectra.line.frame) <- c("Spectrum", input$show_vars)
+            colnames(spectra.line.frame) <- c("Spectrum", valelements)
             
             spectra.line.frame <- as.data.frame(spectra.line.frame)
             
