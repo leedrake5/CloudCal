@@ -42,6 +42,25 @@ read_csv_filename_y <- function(filename){
     return(return.cps)
 }
 
+
+read_csv_net <- function(filepath) {
+    
+    ret <- read.csv(file=filepath, sep=",", header=TRUE)
+    element <- ret$Element
+    line <- ret$Line
+    net <- ret$Net
+    background <- ret$Backgr.
+    eline <- paste(element, line, sep="-")
+    
+    simple.table <- data.frame(net)
+    colnames(simple.table) <- NULL
+    simple.transpose <- as.data.frame(t(simple.table))
+    colnames(simple.transpose) <- eline
+    
+    simple.transpose
+    
+}
+
 file.0 <- function(file) {
     if (length(file) > 0)
     {
@@ -1328,6 +1347,11 @@ lukas.comp <- function(data, concentration.table, spectra.line.table, element.li
 ###############
 
 
+###############
+###Raw Spectra##
+###############
+
+
 general.prep <- function(spectra.line.table, element.line) {
     
     intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
@@ -1494,6 +1518,185 @@ lukas.comp.prep <- function(data, spectra.line.table, element.line, slope.elemen
 
     predict.intensity.luk.comp
 }
+
+
+
+
+###############
+###Prep Data###
+###############
+
+
+###############
+###Net Counts##
+###############
+
+
+general.prep.net <- function(spectra.line.table, element.line) {
+    
+    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
+    
+    
+    predict.frame <- data.frame(intensity)
+    colnames(predict.frame) <- c("Intensity")
+    predict.intensity <- data.frame(predict.frame$Intensity)
+    colnames(predict.intensity) <- c("Intensity")
+    
+    predict.intensity
+}
+
+simple.tc.prep.net <- function(data,spectra.line.table, element.line) {
+    
+    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
+    
+    total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])
+    total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)
+    colnames(total.counts) <- c("Spectrum", "CPS")
+    
+    
+    predict.frame.tc <- data.frame(intensity/total.counts$CPS)
+    colnames(predict.frame.tc) <- c("Intensity")
+    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)
+    colnames(predict.intensity.tc) <- c("Intensity")
+    
+    predict.intensity.tc
+}
+
+
+simple.comp.prep.net <- function(data, spectra.line.table, element.line, norm.min, norm.max) {
+    
+    
+    
+    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
+    
+    
+    compton.ag.fake.Spectrum <- spectra.line.table$Spectrum
+    compton.ag.fake.Compton <- rep(1, length(spectra.line.table$Spectrum))
+    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
+    colnames(compton.ag.fake) <- c("Spectrum", "Compton")
+    
+    predict.frame.comp <- data.frame( intensity/compton.ag.fake$Compton)
+    colnames(predict.frame.comp) <- c("Intensity")
+    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)
+    colnames(predict.intensity.comp) <- c("Intensity")
+    
+    predict.intensity.comp
+    
+}
+
+
+
+###Prep Data
+
+
+
+lukas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+    
+    
+    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
+    
+    
+    intercept.none <- rep(0, length(spectra.line.table$Spectrum))
+    lukas.intercept.table.x <- data.frame(spectra.line.table[intercept.element.lines], intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table[intercept.element.lines]), "None")
+    
+    slope.none <- rep(1, length(spectra.line.table$Spectrum))
+    lukas.slope.table <- data.frame(spectra.line.table[slope.element.lines], slope.none)
+    colnames(lukas.slope.table) <- c(names(spectra.line.table[slope.element.lines]), "None")
+    
+    
+    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))
+    colnames(lukas.intercept.table) <- c("first")
+    lukas.intercept <- lukas.intercept.table$first
+    lukas.slope <- data.frame(lukas.slope.table[slope.element.lines])
+    
+    
+    predict.frame.luk <- data.frame((intensity*lukas.intercept),lukas.slope)
+    colnames(predict.frame.luk) <- c("Intensity", names(lukas.slope))
+    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lukas.slope)
+    colnames(predict.intensity.luk) <- c("Intensity", names(lukas.slope))
+    
+    predict.intensity.luk
+    
+    
+}
+
+
+
+lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+    
+    
+    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
+    
+    
+    total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])
+    total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)
+    colnames(total.counts) <- c("Spectrum", "CPS")
+    
+    
+    
+    intercept.none <- rep(0, length(spectra.line.table$Spectrum))
+    lukas.intercept.table.x <- data.frame(spectra.line.table[intercept.element.lines], intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table[intercept.element.lines]), "None")
+    
+    slope.none <- rep(1, length(spectra.line.table$Spectrum))
+    lukas.slope.table <- data.frame(spectra.line.table[slope.element.lines], slope.none)
+    colnames(lukas.slope.table) <- c(names(spectra.line.table[slope.element.lines]), "None")
+    
+    
+    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/total.counts$CPS
+    colnames(lukas.intercept.table.tc) <- c("first")
+    lukas.intercept.tc <- lukas.intercept.table.tc$first
+    lukas.slope.tc <- data.frame(lukas.slope.table[slope.element.lines])/total.counts$CPS
+    
+    
+    predict.frame.luk.tc <- data.frame((intensity/total.counts$CPS*lukas.intercept.tc),lukas.slope.tc)
+    colnames(predict.frame.luk.tc) <- c("Intensity", names(lukas.slope.tc))
+    predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
+    colnames(predict.intensity.luk.tc) <- c("Intensity", names(lukas.slope.tc))
+    
+    predict.intensity.luk.tc
+}
+
+
+lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {
+    
+    
+    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
+    
+    
+    
+    
+    compton.ag.fake.Spectrum <- spectra.line.table$Spectrum
+    compton.ag.fake.Compton <- rep(1, length(spectra.line.table$Spectrum))
+    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
+    colnames(compton.ag.fake) <- c("Spectrum", "Compton")
+    
+    
+    intercept.none <- rep(0, length(spectra.line.table$Spectrum))
+    lukas.intercept.table.x <- data.frame(spectra.line.table[intercept.element.lines], intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table[intercept.element.lines]), "None")
+    
+    slope.none <- rep(1, length(spectra.line.table$Spectrum))
+    lukas.slope.table <- data.frame(spectra.line.table[slope.element.lines], slope.none)
+    colnames(lukas.slope.table) <- c(names(spectra.line.table[slope.element.lines]), "None")
+    
+    
+    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/compton.ag.fake$Compton
+    colnames(lukas.intercept.table.comp) <- c("first")
+    lukas.intercept.comp <- lukas.intercept.table.comp$first
+    lukas.slope.comp <- data.frame(lukas.slope.table[slope.element.lines])/compton.frame.ag$Compton
+    
+    
+    predict.frame.luk.comp <- data.frame((intensity/compton.ag.fake$Compton*lukas.intercept.comp),lukas.slope.comp)
+    colnames(predict.frame.luk.comp) <- c("Intensity", names(lukas.slope.comp))
+    predict.intensity.luk.comp <- data.frame(predict.frame.luk.comp$Intensity, lukas.slope.comp)
+    colnames(predict.intensity.luk.comp) <- c("Intensity", names(lukas.slope.comp))
+    
+    
+    predict.intensity.luk.comp
+}
+
 
 
 

@@ -34,6 +34,9 @@ accept=c('text/csv',
 'text/comma-separated-values,text/plain',
 '.csv')),
 
+radioButtons("filetype", label=NULL, c("Spectra", "Net"), selected="Spectra"),
+
+
 tags$hr(),
 
 element <- selectInput(

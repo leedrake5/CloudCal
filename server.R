@@ -18,7 +18,97 @@ options(shiny.maxRequestSize=30*1024^2)
 shinyServer(function(input, output, session) {
     
     
+    fullSpectra <- reactive({
+        
+        
+        withProgress(message = 'Processing Data', value = 0, {
+            
+            inFile <- input$file1
+            if (is.null(inFile)) return(NULL)
+            temp = inFile$name
+            temp <- gsub(".csv", "", temp)
+            id.seq <- seq(1, 2048,1)
+            
+            n <- length(temp)*id.seq
+            
+            myfiles.x = pblapply(inFile$datapath, read_csv_filename_x)
+            
+            
+            
+            myfiles.y = pblapply(inFile$datapath, read_csv_filename_y)
+            
+            
+            
+            
+            xrf.x <- data.frame(id.seq, myfiles.x)
+            colnames(xrf.x) <- c("ID", temp)
+            xrf.y <- data.frame(id.seq, myfiles.y)
+            colnames(xrf.y) <- c("ID", temp)
+            
+            
+            xrf.x <- data.table(xrf.x)
+            xrf.y <- data.table(xrf.y)
+            
+            
+            energy.m <- xrf.x[, list(variable = names(.SD), value = unlist(.SD, use.names = F)), by = ID]
+            cps.m <- xrf.y[, list(variable = names(.SD), value = unlist(.SD, use.names = F)), by = ID]
+            
+            
+            spectra.frame <- data.frame(energy.m$value, cps.m$value, cps.m$variable)
+            colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
+            data <- spectra.frame
+            
+            
+            incProgress(1/n)
+            Sys.sleep(0.1)
+        })
+        
+        data
+    })
     
+    
+    netCounts <- reactive({
+        
+        withProgress(message = 'Processing Data', value = 0, {
+            
+            
+            inFile <- input$file1
+            if (is.null(inFile)) return(NULL)
+            
+            #inName <- inFile$name
+            #inPath <- inFile$datapath
+            
+            #inList <- list(inName, inPath)
+            #names(inList) <- c("inName", "inPath")
+            
+            
+            n <- length(inFile$name)
+            net.names <- gsub("\\@.*","",inFile$name)
+            
+            myfiles = pblapply(inFile$datapath,  read_csv_net)
+            
+            
+            myfiles.frame.list <- pblapply(myfiles, data.frame, stringsAsFactors=FALSE)
+            nms = unique(unlist(pblapply(myfiles.frame.list, names)))
+            myfiles.frame <- as.data.frame(do.call(rbind, lapply(myfiles.frame.list, "[", nms)))
+            myfiles.frame <- as.data.frame(sapply(myfiles.frame, as.numeric))
+            
+            
+            #myfiles.frame$Spectrum <- net.names
+            
+            united.frame <- data.frame(net.names, myfiles.frame)
+            colnames(united.frame) <- c("Spectrum", names(myfiles.frame))
+            #united.frame$None <- rep(1, length(united.frame$Spectrum))
+            
+            
+            incProgress(1/n)
+            Sys.sleep(0.1)
+        })
+        
+        united.frame <- as.data.frame(united.frame)
+        united.frame
+        
+    })
  
     
     
@@ -27,50 +117,15 @@ shinyServer(function(input, output, session) {
 
         myData <- reactive({
             
-            withProgress(message = 'Processing Data', value = 0, {
-
-            inFile <- input$file1
-            if (is.null(inFile)) return(NULL)
-            temp = inFile$name
-            temp <- gsub(".csv", "", temp)
-            id.seq <- seq(1, 2048,1)
+            data <- if(input$filetype=="Spectra"){
+                fullSpectra()
+            } else if(input$filetype=="Net"){
+                netCounts()
+            }
             
-            n <- length(temp)*id.seq
-
-myfiles.x = pblapply(inFile$datapath, read_csv_filename_x)
+                data
 
 
-
- myfiles.y = pblapply(inFile$datapath, read_csv_filename_y)
-
-            
-
-
-            xrf.x <- data.frame(id.seq, myfiles.x)
-            colnames(xrf.x) <- c("ID", temp)
-            xrf.y <- data.frame(id.seq, myfiles.y)
-            colnames(xrf.y) <- c("ID", temp)
-           
-           
-           xrf.x <- data.table(xrf.x)
-           xrf.y <- data.table(xrf.y)
-           
-           
-           energy.m <- xrf.x[, list(variable = names(.SD), value = unlist(.SD, use.names = F)), by = ID]
-           cps.m <- xrf.y[, list(variable = names(.SD), value = unlist(.SD, use.names = F)), by = ID]
-           
-
-            spectra.frame <- data.frame(energy.m$value, cps.m$value, cps.m$variable)
-            colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
-            data <- spectra.frame
-            
-            
-            incProgress(1/n)
-            Sys.sleep(0.1)
-            })
-
-     data
-     
         })
         
         
@@ -327,18 +382,41 @@ normMaxSelection <- reactive({
 
 standardElements <- reactive({
     
-    if(input$usecalfile==FALSE){
+    spectra.line.table <- dataHold()
+
+
+    if(input$usecalfile==FALSE && input$filetype=="Spectra"){
         standard
+    }else if(input$usecalfile==FALSE && input$filetype=="Net"){
+        colnames(spectra.line.table[2:4])
     }else if(input$usecalfile==TRUE){
         ls(calFileContents()$Intensities)
     }
     
 })
 
+standardLines <- reactive({
+    
+    spectra.line.table <- dataHold()
+    
+    n <- length(names(spectra.line.table))
+
+
+    choices <- if(input$filetype=="Spectra"){
+        spectralLines
+    } else if(input$filetype=="Net"){
+        colnames(spectra.line.table)[2:n]
+    }
+    
+    choices
+
+
+})
+
 output$checkboxElements <-  renderUI({
 
     checkboxGroupInput("show_vars", label="Elemental lines to show:",
-    choices = spectralLines, selected = standardElements())
+    choices = standardLines(), selected = standardElements())
     
 })
 
@@ -408,14 +486,26 @@ output$comptonMaxInput <- renderUI({
      
  })
  
+ netData <- reactive({
+     
+     net.data <- dataHold()
+     
+     net.data.partial <- net.data[input$show_vars]
+     net.data.partial
+     
+ })
+ 
 
  
  
  
  tableInput <- reactive({
-     select.line.table <- spectraData()
-     
-     round(select.line.table[2:length(select.line.table)], digits=0)
+     select.line.table <- if(input$filetype=="Spectra"){
+         spectraData()
+     }else if(input$filetype=="Net"){
+         netData()
+     }
+     round(select.line.table, digits=0)
  })
 
 
@@ -445,8 +535,11 @@ hotableInput <- reactive({
     
 
 
-    spectra.line.table <- spectraData()
-        
+spectra.line.table <- if(input$filetype=="Spectra"){
+    spectraData()
+}else if(input$filetype=="Net"){
+    dataHold()
+}
         empty.line.table <- spectra.line.table[input$show_vars] * 0.0000
 
     #empty.line.table$Spectrum <- spectra.line.table$Spectrum
@@ -591,7 +684,11 @@ output$inVar4 <- renderUI({
       concentration.table <- values[["DF"]]
       concentration.hold <- concentration.table
       
-      spectra.line.table <- spectraData()
+      spectra.line.table <- if(input$filetype=="Spectra"){
+          spectraData()
+      }else if(input$filetype=="Net"){
+          dataHold()
+      }
       
 
 
@@ -651,12 +748,27 @@ output$inVar4 <- renderUI({
         
     
         
-        compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
-        compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
-        compton.frame <- data.frame(is.0(compton.norm, compton.file))
-        colnames(compton.frame) <- c("Compton", "Spectrum")
-        compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
-        colnames(compton.frame.ag) <- c("Spectrum", "Compton")
+        if(input$filetype=="Spectra"){compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))}
+        if(input$filetype=="Spectra"){compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))}
+        if(input$filetype=="Spectra"){compton.frame <- data.frame(is.0(compton.norm, compton.file))}
+        if(input$filetype=="Spectra"){colnames(compton.frame) <- c("Compton", "Spectrum")}
+        if(input$filetype=="Spectra"){compton.frame.ag.hold <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")}
+        if(input$filetype=="Spectra"){colnames(compton.frame.ag.hold) <- c("Spectrum", "Compton")}
+        
+        compton.ag.fake.Spectrum <- spectra.line.table$Spectrum
+        compton.ag.fake.Compton <- rep(1, length(spectra.line.table$Spectrum))
+        compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
+        colnames(compton.ag.fake) <- c("Spectrum", "Compton")
+        
+        
+        compton.frame.ag <- if(input$filetype=="Spectra"){
+            compton.frame.ag.hold
+        }else if(input$filetype=="Net"){
+            compton.ag.fake
+        }
+        
+        
+        
         
         predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton)
         colnames(predict.frame.comp) <- c("Concentration", "Intensity")
@@ -682,9 +794,13 @@ output$inVar4 <- renderUI({
 
 
     
-        total.counts <- aggregate(CPS~Spectrum, data=data, sum)
-        colnames(total.counts) <- c("Spectrum", "CPS")
-        
+    if(input$filetype=="Spectra"){total.counts <- aggregate(CPS~Spectrum, data=data, sum)}
+    if(input$filetype=="Spectra"){colnames(total.counts) <- c("Spectrum", "CPS")}
+    
+    if(input$filetype=="Net"){total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])}
+    if(input$filetype=="Net"){total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)}
+    if(input$filetype=="Net"){colnames(total.counts) <- c("Spectrum", "CPS")}
+    
         predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS)
         colnames(predict.frame.tc) <- c("Concentration", "Intensity")
         predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)
@@ -1017,11 +1133,14 @@ plotInput3 <- reactive({
     concentration.table <- values[["DF"]]
     concentration.hold <- concentration.table
     
-    spectra.line.table <- spectraData()
+    spectra.line.table <- if(input$filetype=="Spectra"){
+        spectraData()
+    }else if(input$filetype=="Net"){
+        dataHold()
+    }
 
 
-    
-    
+
     
     concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[input$calcurveelement]))))
     
@@ -1041,12 +1160,23 @@ plotInput3 <- reactive({
     
     
     
-    compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
-    compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
-    compton.frame <- data.frame(is.0(compton.norm, compton.file))
-    colnames(compton.frame) <- c("Compton", "Spectrum")
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
-    colnames(compton.frame.ag) <- c("Spectrum", "Compton")
+    if(input$filetype=="Spectra"){compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))}
+    if(input$filetype=="Spectra"){compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))}
+    if(input$filetype=="Spectra"){compton.frame <- data.frame(is.0(compton.norm, compton.file))}
+    if(input$filetype=="Spectra"){colnames(compton.frame) <- c("Compton", "Spectrum")}
+    if(input$filetype=="Spectra"){compton.frame.ag.hold <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")}
+    if(input$filetype=="Spectra"){colnames(compton.frame.ag.hold) <- c("Spectrum", "Compton")}
+    
+    compton.ag.fake.Spectrum <- spectra.line.table$Spectrum
+    compton.ag.fake.Compton <- rep(1, length(spectra.line.table$Spectrum))
+    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
+    colnames(compton.ag.fake) <- c("Spectrum", "Compton")
+    
+    compton.frame.ag <- if(input$filetype=="Spectra"){
+        compton.frame.ag.hold
+    }else if(input$filetype=="Net"){
+        compton.ag.fake
+    }
     
     predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton)
     colnames(predict.frame.comp) <- c("Concentration", "Intensity")
@@ -1058,8 +1188,12 @@ plotInput3 <- reactive({
     
 
     
-    total.counts <- aggregate(CPS~Spectrum, data=data, sum)
-    colnames(total.counts) <- c("Spectrum", "CPS")
+    if(input$filetype=="Spectra"){total.counts <- aggregate(CPS~Spectrum, data=data, sum)}
+    if(input$filetype=="Spectra"){colnames(total.counts) <- c("Spectrum", "CPS")}
+    
+    if(input$filetype=="Net"){total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])}
+    if(input$filetype=="Net"){total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)}
+    if(input$filetype=="Net"){colnames(total.counts) <- c("Spectrum", "CPS")}
     
     predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS)
     colnames(predict.frame.tc) <- c("Concentration", "Intensity")
@@ -1193,10 +1327,13 @@ output$calcurvediag <- renderPlot({
      concentration.table <- values[["DF"]]
      concentration.hold <- concentration.table
      
-     spectra.line.table <- spectraData()
+     spectra.line.table <- if(input$filetype=="Spectra"){
+         spectraData()
+     }else if(input$filetype=="Net"){
+         dataHold()
+     }
 
 
-     
      
      
      concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[input$calcurveelement]))))
@@ -1232,12 +1369,23 @@ output$calcurvediag <- renderPlot({
      
      
      
-     compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
-     compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
-     compton.frame <- data.frame(is.0(compton.norm, compton.file))
-     colnames(compton.frame) <- c("Compton", "Spectrum")
-     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
-     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
+     if(input$filetype=="Spectra"){compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))}
+     if(input$filetype=="Spectra"){compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))}
+     if(input$filetype=="Spectra"){compton.frame <- data.frame(is.0(compton.norm, compton.file))}
+     if(input$filetype=="Spectra"){colnames(compton.frame) <- c("Compton", "Spectrum")}
+     if(input$filetype=="Spectra"){compton.frame.ag.hold <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")}
+     if(input$filetype=="Spectra"){colnames(compton.frame.ag.hold) <- c("Spectrum", "Compton")}
+     
+     compton.ag.fake.Spectrum <- spectra.line.table$Spectrum
+     compton.ag.fake.Compton <- rep(1, length(spectra.line.table$Spectrum))
+     compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
+     colnames(compton.ag.fake) <- c("Spectrum", "Compton")
+     
+     compton.frame.ag <- if(input$filetype=="Spectra"){
+         compton.frame.ag.hold
+     }else if(input$filetype=="Net"){
+         compton.ag.fake
+     }
      
      predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton)
      colnames(predict.frame.comp) <- c("Concentration", "Intensity")
@@ -1263,8 +1411,12 @@ output$calcurvediag <- renderPlot({
      
      
      
-     total.counts <- aggregate(CPS~Spectrum, data=data, sum)
-     colnames(total.counts) <- c("Spectrum", "CPS")
+     if(input$filetype=="Spectra"){total.counts <- aggregate(CPS~Spectrum, data=data, sum)}
+     if(input$filetype=="Spectra"){colnames(total.counts) <- c("Spectrum", "CPS")}
+     
+     if(input$filetype=="Net"){total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])}
+     if(input$filetype=="Net"){total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)}
+     if(input$filetype=="Net"){colnames(total.counts) <- c("Spectrum", "CPS")}
      
      predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS)
      colnames(predict.frame.tc) <- c("Concentration", "Intensity")
@@ -1425,10 +1577,13 @@ output$calcurvediag <- renderPlot({
      concentration.table <- values[["DF"]]
      concentration.hold <- concentration.table
      
-     spectra.line.table <- spectraData()
+     spectra.line.table <- if(input$filetype=="Spectra"){
+         spectraData()
+     }else if(input$filetype=="Net"){
+         dataHold()
+     }
 
 
-     
      
      
      concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[input$calcurveelement]))))
@@ -1448,12 +1603,23 @@ output$calcurvediag <- renderPlot({
      
      
      
-     compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
-     compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
-     compton.frame <- data.frame(is.0(compton.norm, compton.file))
-     colnames(compton.frame) <- c("Compton", "Spectrum")
-     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
-     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
+     if(input$filetype=="Spectra"){compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))}
+     if(input$filetype=="Spectra"){compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))}
+     if(input$filetype=="Spectra"){compton.frame <- data.frame(is.0(compton.norm, compton.file))}
+     if(input$filetype=="Spectra"){colnames(compton.frame) <- c("Compton", "Spectrum")}
+     if(input$filetype=="Spectra"){compton.frame.ag.hold <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")}
+     if(input$filetype=="Spectra"){colnames(compton.frame.ag.hold) <- c("Spectrum", "Compton")}
+     
+     compton.ag.fake.Spectrum <- spectra.line.table$Spectrum
+     compton.ag.fake.Compton <- rep(1, length(spectra.line.table$Spectrum))
+     compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
+     colnames(compton.ag.fake) <- c("Spectrum", "Compton")
+     
+     compton.frame.ag <- if(input$filetype=="Spectra"){
+         compton.frame.ag.hold
+     }else if(input$filetype=="Net"){
+         compton.ag.fake
+     }
      
      predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton)
      colnames(predict.frame.comp) <- c("Concentration", "Intensity")
@@ -1464,8 +1630,12 @@ output$calcurvediag <- renderPlot({
      cal.lm.poly.comp <- lm(predict.frame.comp$Concentration~poly(predict.frame.comp$Intensity, 2))
      
      
-     total.counts <- aggregate(CPS~Spectrum, data=data, sum)
-     colnames(total.counts) <- c("Spectrum", "CPS")
+     if(input$filetype=="Spectra"){total.counts <- aggregate(CPS~Spectrum, data=data, sum)}
+     if(input$filetype=="Spectra"){colnames(total.counts) <- c("Spectrum", "CPS")}
+     
+     if(input$filetype=="Net"){total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])}
+     if(input$filetype=="Net"){total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)}
+     if(input$filetype=="Net"){colnames(total.counts) <- c("Spectrum", "CPS")}
      
      predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS)
      colnames(predict.frame.tc) <- c("Concentration", "Intensity")
@@ -1650,15 +1820,18 @@ observeEvent(input$createcalelement, {
 Calibration <- reactiveValues()
 observeEvent(input$createcal, {
     
-    spectra.line.table <- spectraData()
-
+    spectra.line.table <- if(input$filetype=="Spectra"){
+        spectraData()
+    }else if(input$filetype=="Net"){
+        dataHold()
+    }
              cal.intensities <- spectra.line.table
              cal.values <- values[["DF"]]
              cal.data <- dataHold()
 
              
-             calibrationList <- list(cal.data, cal.intensities, cal.values, calList)
-             names(calibrationList) <- c("Spectra", "Intensities", "Values", "calList")
+             calibrationList <- list(input$filetype, cal.data, cal.intensities, cal.values, calList)
+             names(calibrationList) <- c("FileType", "Spectra", "Intensities", "Values", "calList")
              
     Calibration <<- calibrationList
 
@@ -1683,8 +1856,8 @@ content = function(file) {
     
     observeEvent(input$processvalspectra, {
         
-        
-        myValData <- reactive({
+        fullValSpectra <- reactive({
+            
             
             withProgress(message = 'Processing Data', value = 0, {
                 
@@ -1729,6 +1902,62 @@ content = function(file) {
             })
             
             data
+        })
+        
+        
+        netValCounts <- reactive({
+            
+            withProgress(message = 'Processing Data', value = 0, {
+                
+                
+                inFile <- input$loadvaldata
+                if (is.null(inFile)) return(NULL)
+                
+                #inName <- inFile$name
+                #inPath <- inFile$datapath
+                
+                #inList <- list(inName, inPath)
+                #names(inList) <- c("inName", "inPath")
+                
+                
+                n <- length(inFile$name)
+                net.names <- gsub("\\@.*","",inFile$name)
+                
+                myfiles = pblapply(inFile$datapath,  read_csv_net)
+                
+                
+                myfiles.frame.list <- pblapply(myfiles, data.frame, stringsAsFactors=FALSE)
+                nms = unique(unlist(pblapply(myfiles.frame.list, names)))
+                myfiles.frame <- as.data.frame(do.call(rbind, lapply(myfiles.frame.list, "[", nms)))
+                myfiles.frame <- as.data.frame(sapply(myfiles.frame, as.numeric))
+                
+                
+                #myfiles.frame$Spectrum <- net.names
+                
+                united.frame <- data.frame(net.names, myfiles.frame)
+                colnames(united.frame) <- c("Spectrum", names(myfiles.frame))
+                #united.frame$None <- rep(1, length(united.frame$Spectrum))
+                
+                
+                incProgress(1/n)
+                Sys.sleep(0.1)
+            })
+            
+            united.frame <- as.data.frame(united.frame)
+            united.frame
+            
+        })
+        
+        
+        myValData <- reactive({
+            
+            data <- if(input$filetype=="Spectra"){
+                fullValSpectra()
+            } else if(input$filetype=="Net"){
+                netValCounts()
+            }
+            
+            data
             
         })
         
@@ -1766,25 +1995,32 @@ content = function(file) {
             valelements <- calValElements()
             val.data <- myValData()
             
-            spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))
-            element.count.list <- lapply(spectra.line.list, `[`, 2)
+            if(input$filetype=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))}
+            if(input$filetype=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
             
             
-            spectra.line.vector <- as.numeric(unlist(element.count.list))
             
-            dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))
+            if(input$filetype=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
             
-            spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
+            if(input$filetype=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))}
             
-            colnames(spectra.line.frame) <- c("Spectrum", valelements)
+            if(input$filetype=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
             
-            spectra.line.frame <- as.data.frame(spectra.line.frame)
+            if(input$filetype=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", valelements)}
             
-            spectra.line.frame
+            if(input$filetype=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
+            
+            if(input$filetype=="Spectra"){spectra.line.frame}
+            
+            if(input$filetype=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])}
+            
+            
+            if(input$filetype=="Net"){val.line.table <- val.data[c("Spectrum", valelements), drop=FALSE]}
+                
+                
+                val.line.table
 
-            val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])
-            
-            val.line.table
+
         })
         
         
@@ -1793,23 +2029,23 @@ content = function(file) {
             valelements <- calValElements()
             val.data <- myValData()
             
-            spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))
-            element.count.list <- lapply(spectra.line.list, `[`, 2)
+            if(input$filetype=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))}
+            if(input$filetype=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
             
             
-            spectra.line.vector <- as.numeric(unlist(element.count.list))
+            if(input$filetype=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
             
-            dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))
+            if(input$filetype=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))}
             
-            spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
+            if(input$filetype=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
             
-            colnames(spectra.line.frame) <- c("Spectrum", valelements)
+            if(input$filetype=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", valelements)}
             
-            spectra.line.frame <- as.data.frame(spectra.line.frame)
+            if(input$filetype=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
             
-            spectra.line.frame
+            if(input$filetype=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])}
             
-            val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])
+            if(input$filetype=="Net"){val.line.table <- val.data}
             
             val.line.table
         })
@@ -1835,7 +2071,7 @@ content = function(file) {
             
             
         predicted.list <- pblapply(elements, function (x)
-            if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=general.prep(
@@ -1844,7 +2080,7 @@ content = function(file) {
                             ),
                             element.line=x)
                 )
-            } else if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+            } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple.tc.prep(
@@ -1855,7 +2091,7 @@ content = function(file) {
                         element.line=x
                     )
                 )
-            } else if(the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+            } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
                 predict(
                     object=the.cal[[x]][[2]],
                         newdata=simple.comp.prep(
@@ -1868,7 +2104,7 @@ content = function(file) {
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                             )
                 )
-            } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                  predict(
                     object=the.cal[[x]][[2]],
                     newdata=lukas.simp.prep(
@@ -1880,7 +2116,7 @@ content = function(file) {
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         )
                  )
-            } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lukas.tc.prep(
@@ -1893,7 +2129,7 @@ content = function(file) {
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     )
                 )
-            } else if(the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lukas.comp.prep(
@@ -1908,14 +2144,91 @@ content = function(file) {
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                         )
                 )
-            })
+            }else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=general.prep.net(
+                spectra.line.table=as.data.frame(
+                count.table
+                ),
+                element.line=x)
+                )
+            } else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=simple.tc.prep.net(
+                data=valdata,
+                spectra.line.table=as.data.frame(
+                count.table
+                ),
+                element.line=x
+                )
+                )
+            } else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=simple.comp.prep.net(
+                data=valdata,
+                spectra.line.table=as.data.frame(
+                count.table
+                ),
+                element.line=x,
+                norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                )
+                )
+            } else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=lukas.simp.prep.net(
+                spectra.line.table=as.data.frame(
+                count.table
+                ),
+                element.line=x,
+                slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                )
+                )
+            } else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=lukas.tc.prep.net(
+                data=valdata,
+                spectra.line.table=as.data.frame(
+                count.table
+                ),
+                element.line=x,
+                slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                )
+                )
+            } else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=lukas.comp.prep.net(
+                data=valdata,
+                spectra.line.table=as.data.frame(
+                count.table
+                ),
+                element.line=x,
+                slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                )
+                )
+            }
+            
+            
+            
+            )
             
         predicted.vector <- unlist(predicted.list)
-            
+        
         dim(predicted.vector) <- c(length(count.table$Spectrum), length(elements))
-            
+        
         predicted.frame <- data.frame(count.table$Spectrum, predicted.vector)
-            
+        
         colnames(predicted.frame) <- c("Spectrum", elements)
 
         predicted.data.table <- data.table(predicted.frame)
