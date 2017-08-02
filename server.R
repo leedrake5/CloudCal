@@ -1232,7 +1232,7 @@ plotInput3 <- reactive({
 
 
 
-    predict.frame <- data.frame(predict.frame$Concentration, intensity)
+    predict.frame <- data.frame(concentration, intensity)
     colnames(predict.frame) <- c("Concentration", "Intensity")
     
     
@@ -1470,7 +1470,7 @@ output$calcurvediag <- renderPlot({
 
 
 
-     predict.frame <- data.frame(predict.frame$Concentration, intensity)
+     predict.frame <- data.frame(concentration, intensity)
      colnames(predict.frame) <- c("Concentration", "Intensity")
      
      
