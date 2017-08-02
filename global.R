@@ -1807,7 +1807,7 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     
     
     lukas.intercept.comp <- lukas.intercept.table.comp$first
-    lukas.slope.comp <- data.frame(lukas.slope.table[slope.element.lines])/compton.frame.ag$Compton
+    lukas.slope.comp <- data.frame(lukas.slope.table[slope.element.lines])/compton.ag.fake$Compton
     
     
     
