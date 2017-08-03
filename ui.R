@@ -141,7 +141,7 @@ checkboxInput('usecalfile', "Use Cal File")
 mainPanel(
 fluidRow(
 column(width = 11, class = "well",
-plotOutput("distPlot", height = 455,
+plotOutput("distPlot", height = 685,
 dblclick = "plot1_dblclick",
 brush = brushOpts(
 id = "plot1_brush",
@@ -276,7 +276,14 @@ fileInput('loadvaldata', 'Choose Spectra', multiple=TRUE,
 accept=c('text/csv',
 'text/comma-separated-values,text/plain',
 '.csv')),
-downloadButton('downloadValData', "Results")
+downloadButton('downloadValData', "Results"),
+
+
+tags$hr(),
+tags$hr(),
+tags$hr(),
+
+fileInput('calfileinput2', 'Load Cal File', multiple=FALSE)
 
 ),
 

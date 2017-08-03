@@ -306,6 +306,7 @@ print(plotInput())
         # When a double-click happens, check if there's a brush on the plot.
         # If so, zoom to the brush bounds; if not, reset the zoom.
         observeEvent(input$plot1_dblclick, {
+            data <- dataHold()
             brush <- input$plot1_brush
             if (!is.null(brush)) {
                 ranges$x <- c(brush$xmin*mean(data$Energy), brush$xmax*max(data$Energy))
@@ -323,7 +324,7 @@ print(plotInput())
         output$downloadPlot <- downloadHandler(
         filename = function() { paste(input$dataset, '.png', sep='') },
         content = function(file) {
-            ggsave(file,plotInput(), width=10, height=7)
+            ggsave(file,plotInput(), width=10, height=10)
         }
         )
         
@@ -2061,7 +2062,7 @@ content = function(file) {
 
 
 
-    
+    })  
     
     
     observeEvent(input$processvalspectra, {
@@ -2171,6 +2172,21 @@ content = function(file) {
             
         })
         
+        
+        
+        calFileContents2 <- reactive({
+            
+            existingCalFile <- input$calfileinput2
+            
+            if (is.null(existingCalFile)) return(NULL)
+            
+            
+            load(existingCalFile$datapath, verbose=TRUE)
+            
+            Calibration
+            
+        })
+        
         valdata <- myValData()
 
         
@@ -2184,16 +2200,36 @@ content = function(file) {
         })
         
         calValHold <- reactive({
-            calsList <- Calibration$calList
-            calsList
+            
+
+            calFileContents2()$calList
+            
+            
+            
 
 
+        })
+        
+        calVariables <- reactive({
+            
+
+                calFileContents2()$Intensities
+
+            
+            
         })
         
         calValElements <- reactive({
             calsList <- calValHold()
             valelements <- ls(calsList)
             valelements
+        })
+        
+        calVariableElements <- reactive({
+            variables <- calVariables()
+            variableelements <- names(variables)
+            variableelements <- variableelements[2:length(variableelements)]
+            variableelements
         })
         
         
@@ -2203,10 +2239,11 @@ content = function(file) {
         
         tableInputValCounts <- reactive({
             valelements <- calValElements()
+            variableelements <- calVariableElements()
             val.data <- myValData()
             
             if(input$filetype=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))}
-            if(input$filetype=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
+            if(input$filetype=="Spectra"){element.count.list <- lapply(spectra.line.list, '[', 2)}
             
             
             
@@ -2237,23 +2274,24 @@ content = function(file) {
         
         fullInputValCounts <- reactive({
             valelements <- calValElements()
+            variableelements <- calVariableElements()
             val.data <- myValData()
             
-            if(input$filetype=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))}
+            if(input$filetype=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data))}
             if(input$filetype=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
             
             
             if(input$filetype=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
             
-            if(input$filetype=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))}
+            if(input$filetype=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(variableelements))}
             
             if(input$filetype=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
             
-            if(input$filetype=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", valelements)}
+            if(input$filetype=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", variableelements)}
             
             if(input$filetype=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
             
-            if(input$filetype=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])}
+            if(input$filetype=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", variableelements), drop = FALSE])}
             
             if(input$filetype=="Net"){val.line.table <- val.data}
             
@@ -2276,6 +2314,8 @@ content = function(file) {
         count.table <- data.frame(fullInputValCounts())
         the.cal <- calValHold()
         elements <- calValElements()
+        variables <- calVariableElements()
+
             
             
             
@@ -2288,7 +2328,7 @@ content = function(file) {
                         spectra.line.table=as.data.frame(
                             count.table
                             ),
-                            element.line=x)
+                        element.line=x)
                 )
             } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
                 predict(
@@ -2466,7 +2506,7 @@ content = function(file) {
         )
         
         
-    })
+  
 
 
 })

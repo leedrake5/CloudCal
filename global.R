@@ -999,7 +999,7 @@ colnames(Pu.table) <- c("Line", "Intensity")
 
 
 
-spectralLines <- c("Ne.K.alpha", "Ne.K.beta", "Na.K.alpha", "Na.K.beta", "Mg.K.alpha", "Mg.K.beta", "Al.K.alpha", "Al.K.beta", "Si.K.alpha", "Si.K.beta", "P.K.alpha", "P.K.beta", "S.K.alpha", "S.K.beta", "Cl.K.alpha", "Cl.K.beta", "Ar.K.alpha", "Ar.K.beta", "K.K.alpha", "K.K.beta", "Ca.K.alpha", "Ca.K.beta", "Sc.K.alpha", "Sc.K.beta", "Ti.K.alpha", "Ti.K.beta", "V.K.alpha", "V.K.beta", "Cr.K.alpha", "Cr.K.beta", "Mn.K.alpha", "Mn.K.beta", "Fe.K.alpha", "Fe.K.beta", "Co.K.alpha", "Co.K.beta", "Ni.K.alpha", "Ni.K.beta", "Cu.K.alpha", "Cu.K.beta", "Zn.K.alpha", "Zn.K.beta", "Ga.K.alpha", "Ga.K.beta", "Ge.K.alpha", "Ge.K.beta", "As.K.alpha", "As.K.beta", "Se.K.alpha", "Se.K.beta", "Br.K.alpha", "Br.K.beta", "Kr.K.alpha", "Kr.K.beta", "Rb.K.alpha", "Rb.K.beta", "Sr.K.alpha", "Sr.K.beta", "Y.K.beta", "Y.K.alpha", "Zr.K.alpha", "Zr.K.beta", "Nb.K.alpha", "Nb.K.beta", "Mo.K.alpha", "Mo.K.beta", "Mo.L.alpha", "Mo.L.beta", "Ru.K.alpha", "Ru.K.beta", "Ru.L.alpha", "Ru.L.beta", "Rh.K.alpha", "Rh.K.beta", "Rh.L.alpha", "Rh.L.beta", "Pd.K.alpha", "Pd.K.beta", "Pd.L.alpha", "Pd.L.beta", "Ag.K.alpha", "Ag.K.beta", "Ag.L.alpha", "Ag.L.beta", "Cd.K.alpha", "Cd.K.beta", "Cd.L.alpha", "Cd.L.beta", " In.K.alpha", "In.K.beta", "In.L.alpha", "Sn.K.alpha", "Sn.K.beta", "Sn.L.alpha", "Sn.L.beta", "Sb.K.alpha", "Sb.K.beta", "Sb.L.alpha", "Sb.L.beta", "Te.K.alpha", "Te.K.beta", "Te.L.alpha", "Te.L.beta", "I.K.alpha", "I.K.beta", "I.L.alpha", "I.L.beta", "Xe.K.alpha", "Xe.K.beta", "Xe.L.alpha", "Xe.L.beta", "Cs.K.alpha", "Cs.K.beta", "Cs.L.alpha", "Cs.L.beta", "Ba.K.alpha", "Ba.K.beta", "Ba.L.alpha", "Ba.L.beta", "La.K.alpha", "La.K.beta", "La.L.alpha", "La.L.beta", "Ce.K.alpha", "Ce.K.beta", "Ce.L.alpha", "Ce.L.beta", "Pr.K.alpha", "Pr.K.beta", "Pr.L.alpha", "Pr.L.beta", "Nd.K.alpha", "Nd.K.beta", "Nd.L.alpha", "Nd.L.beta", "Pm.L.alpha", "Pm.L.beta", "Sm.L.alpha", "Sm.L.beta", "Eu.L.alpha", "Eu.L.beta", "Gd.L.alpha", "Gd.L.beta", "Tb.L.alpha", "Tb.L.beta", "Dy.L.alpha", "Dy.L.beta", "Ho.L.alpha", "Ho.L.beta", "Er.L.alpha", "Er.L.beta", "Tm.L.alpha", "Tm.L.beta", "Yb.L.alpha", "Yb.L.beta", "Lu.L.alpha", "Lu.L.beta", "Hf.L.alpha", "Hf.L.beta", "Ta.L.alpha", "Ta.L.beta", "W.L.alpha", "W.L.beta", "Re.L.alpha", "Re.L.beta", "Os.L.alpha", "Os.L.beta", "Ir.L.alpha", "Ir.L.beta", "Pt.L.alpha", "Pt.L.beta", "Au.L.alpha", "Au.L.beta", "Hg.L.alpha", "Hg.L.beta", "Tl.L.alpha", "Tl.L.beta", "Pb.L.alpha", "Pb.L.beta", "Bi.L.alpha", "Bi.L.beta", "Po.L.alpha", "Po.L.beta", "At.L.alpha", "At.L.beta", "Rn.L.alpha", "Rn.L.beta", "Fr.L.alpha", "Fr.L.beta", "Ra.L.alpha", "Ra.L.beta", "Ac.L.alpha", "Ac.L.beta", "Th.L.alpha", "Th.L.beta", "Pa.L.alpha", "Pa.L.beta", "U.L.alpha", "U.L.beta", "Pu.L.alpha", "Pu.L.beta")
+spectralLines <- c("Ne.K.alpha", "Ne.K.beta", "Na.K.alpha", "Na.K.beta", "Mg.K.alpha", "Mg.K.beta", "Al.K.alpha", "Al.K.beta", "Si.K.alpha", "Si.K.beta", "P.K.alpha", "P.K.beta", "S.K.alpha", "S.K.beta", "Cl.K.alpha", "Cl.K.beta", "Ar.K.alpha", "Ar.K.beta", "K.K.alpha", "K.K.beta", "Ca.K.alpha", "Ca.K.beta", "Sc.K.alpha", "Sc.K.beta", "Ti.K.alpha", "Ti.K.beta", "V.K.alpha", "V.K.beta", "Cr.K.alpha", "Cr.K.beta", "Mn.K.alpha", "Mn.K.beta", "Fe.K.alpha", "Fe.K.beta", "Co.K.alpha", "Co.K.beta", "Ni.K.alpha", "Ni.K.beta", "Cu.K.alpha", "Cu.K.beta", "Zn.K.alpha", "Zn.K.beta", "Ga.K.alpha", "Ga.K.beta", "Ge.K.alpha", "Ge.K.beta", "As.K.alpha", "As.K.beta", "Se.K.alpha", "Se.K.beta", "Br.K.alpha", "Br.K.beta", "Kr.K.alpha", "Kr.K.beta", "Rb.K.alpha", "Rb.K.beta", "Sr.K.alpha", "Sr.K.beta", "Y.K.alpha", "Y.K.beta", "Zr.K.alpha", "Zr.K.beta", "Nb.K.alpha", "Nb.K.beta", "Mo.K.alpha", "Mo.K.beta", "Mo.L.alpha", "Mo.L.beta", "Ru.K.alpha", "Ru.K.beta", "Ru.L.alpha", "Ru.L.beta", "Rh.K.alpha", "Rh.K.beta", "Rh.L.alpha", "Rh.L.beta", "Pd.K.alpha", "Pd.K.beta", "Pd.L.alpha", "Pd.L.beta", "Ag.K.alpha", "Ag.K.beta", "Ag.L.alpha", "Ag.L.beta", "Cd.K.alpha", "Cd.K.beta", "Cd.L.alpha", "Cd.L.beta", " In.K.alpha", "In.K.beta", "In.L.alpha", "Sn.K.alpha", "Sn.K.beta", "Sn.L.alpha", "Sn.L.beta", "Sb.K.alpha", "Sb.K.beta", "Sb.L.alpha", "Sb.L.beta", "Te.K.alpha", "Te.K.beta", "Te.L.alpha", "Te.L.beta", "I.K.alpha", "I.K.beta", "I.L.alpha", "I.L.beta", "Xe.K.alpha", "Xe.K.beta", "Xe.L.alpha", "Xe.L.beta", "Cs.K.alpha", "Cs.K.beta", "Cs.L.alpha", "Cs.L.beta", "Ba.K.alpha", "Ba.K.beta", "Ba.L.alpha", "Ba.L.beta", "La.K.alpha", "La.K.beta", "La.L.alpha", "La.L.beta", "Ce.K.alpha", "Ce.K.beta", "Ce.L.alpha", "Ce.L.beta", "Pr.K.alpha", "Pr.K.beta", "Pr.L.alpha", "Pr.L.beta", "Nd.K.alpha", "Nd.K.beta", "Nd.L.alpha", "Nd.L.beta", "Pm.L.alpha", "Pm.L.beta", "Sm.L.alpha", "Sm.L.beta", "Eu.L.alpha", "Eu.L.beta", "Gd.L.alpha", "Gd.L.beta", "Tb.L.alpha", "Tb.L.beta", "Dy.L.alpha", "Dy.L.beta", "Ho.L.alpha", "Ho.L.beta", "Er.L.alpha", "Er.L.beta", "Tm.L.alpha", "Tm.L.beta", "Yb.L.alpha", "Yb.L.beta", "Lu.L.alpha", "Lu.L.beta", "Hf.L.alpha", "Hf.L.beta", "Ta.L.alpha", "Ta.L.beta", "W.L.alpha", "W.L.beta", "Re.L.alpha", "Re.L.beta", "Os.L.alpha", "Os.L.beta", "Ir.L.alpha", "Ir.L.beta", "Pt.L.alpha", "Pt.L.beta", "Au.L.alpha", "Au.L.beta", "Hg.L.alpha", "Hg.L.beta", "Tl.L.alpha", "Tl.L.beta", "Pb.L.alpha", "Pb.L.beta", "Bi.L.alpha", "Bi.L.beta", "Po.L.alpha", "Po.L.beta", "At.L.alpha", "At.L.beta", "Rn.L.alpha", "Rn.L.beta", "Fr.L.alpha", "Fr.L.beta", "Ra.L.alpha", "Ra.L.beta", "Ac.L.alpha", "Ac.L.beta", "Th.L.alpha", "Th.L.beta", "Pa.L.alpha", "Pa.L.beta", "U.L.alpha", "U.L.beta", "Pu.L.alpha", "Pu.L.beta")
 
 standard <- c("Spectrum", "Ca.K.alpha", "Ti.K.alpha", "Fe.K.alpha", "Cu.K.alpha", "Zn.K.alpha", "Pb.L.alpha")
 
@@ -1472,16 +1472,16 @@ lukas.simp.prep <- function(spectra.line.table, element.line, slope.element.line
     intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
     
     
-    intercept.none <- rep(0, length(spectra.line.table$Spectrum))
-    lukas.intercept.table.x <- data.frame(spectra.line.table[intercept.element.lines], intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table[intercept.element.lines]), "None")
+    intercept.none <- rep(0, length(spectra.line.table[,1]))
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
     
     
     
-    slope.none <- rep(1, length(spectra.line.table$Spectrum))
-    lukas.slope.table <- data.frame(spectra.line.table[slope.element.lines], slope.none)
-    colnames(lukas.slope.table) <- c(names(spectra.line.table[slope.element.lines]), "None")
     
+    slope.none <- rep(1, length(spectra.line.table[,1]))
+    lukas.slope.table <- data.frame(spectra.line.table, slope.none)
+    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
 
     lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))
@@ -1520,16 +1520,16 @@ lukas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.
     
 
     
-    intercept.none <- rep(0, length(spectra.line.table$Spectrum))
-    lukas.intercept.table.x <- data.frame(spectra.line.table[intercept.element.lines], intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table[intercept.element.lines]), "None")
+    intercept.none <- rep(0, length(spectra.line.table[,1]))
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
     
     
     
-    slope.none <- rep(1, length(spectra.line.table$Spectrum))
-    lukas.slope.table <- data.frame(spectra.line.table[slope.element.lines], slope.none)
-    colnames(lukas.slope.table) <- c(names(spectra.line.table[slope.element.lines]), "None")
     
+    slope.none <- rep(1, length(spectra.line.table[,1]))
+    lukas.slope.table <- data.frame(spectra.line.table, slope.none)
+    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
 
     lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/total.counts$CPS
@@ -1569,15 +1569,16 @@ lukas.comp.prep <- function(data, spectra.line.table, element.line, slope.elemen
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     
-    intercept.none <- rep(0, length(spectra.line.table$Spectrum))
-    lukas.intercept.table.x <- data.frame(spectra.line.table[intercept.element.lines], intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table[intercept.element.lines]), "None")
+    intercept.none <- rep(0, length(spectra.line.table[,1]))
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
+    
+
     
     
-    
-    slope.none <- rep(1, length(spectra.line.table$Spectrum))
-    lukas.slope.table <- data.frame(spectra.line.table[slope.element.lines], slope.none)
-    colnames(lukas.slope.table) <- c(names(spectra.line.table[slope.element.lines]), "None")
+    slope.none <- rep(1, length(spectra.line.table[,1]))
+    lukas.slope.table <- data.frame(spectra.line.table, slope.none)
+    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
     
 
@@ -1587,7 +1588,7 @@ lukas.comp.prep <- function(data, spectra.line.table, element.line, slope.elemen
     
     
     lukas.intercept.comp <- lukas.intercept.table.comp$first
-    lukas.slope.comp <- data.frame(lukas.slope.table[slope.element.lines])/compton.frame.ag$Compton
+    lukas.slope.comp <- data.frame(lukas.slope.table[c(slope.element.lines)])/compton.frame.ag$Compton
     
     
     
@@ -1689,17 +1690,16 @@ lukas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.
     
     intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
     
-    
-    intercept.none <- rep(0, length(spectra.line.table$Spectrum))
-    lukas.intercept.table.x <- data.frame(spectra.line.table[intercept.element.lines], intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table[intercept.element.lines]), "None")
-    
+    intercept.none <- rep(0, length(spectra.line.table[,1]))
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
     
     
-    slope.none <- rep(1, length(spectra.line.table$Spectrum))
-    lukas.slope.table <- data.frame(spectra.line.table[slope.element.lines], slope.none)
-    colnames(lukas.slope.table) <- c(names(spectra.line.table[slope.element.lines]), "None")
     
+    
+    slope.none <- rep(1, length(spectra.line.table[,1]))
+    lukas.slope.table <- data.frame(spectra.line.table, slope.none)
+    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
     
     lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))
@@ -1740,16 +1740,16 @@ lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.elem
     
     
     
-    intercept.none <- rep(0, length(spectra.line.table$Spectrum))
-    lukas.intercept.table.x <- data.frame(spectra.line.table[intercept.element.lines], intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table[intercept.element.lines]), "None")
+    intercept.none <- rep(0, length(spectra.line.table[,1]))
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
     
     
     
-    slope.none <- rep(1, length(spectra.line.table$Spectrum))
-    lukas.slope.table <- data.frame(spectra.line.table[slope.element.lines], slope.none)
-    colnames(lukas.slope.table) <- c(names(spectra.line.table[slope.element.lines]), "None")
     
+    slope.none <- rep(1, length(spectra.line.table[,1]))
+    lukas.slope.table <- data.frame(spectra.line.table, slope.none)
+    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
     
     
@@ -1789,20 +1789,22 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     colnames(compton.ag.fake) <- c("Spectrum", "Compton")
     
     
-    intercept.none <- rep(0, length(spectra.line.table$Spectrum))
-    lukas.intercept.table.x <- data.frame(spectra.line.table[intercept.element.lines], intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table[intercept.element.lines]), "None")
+    intercept.none <- rep(0, length(spectra.line.table[,1]))
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
     
     
     
-    slope.none <- rep(1, length(spectra.line.table$Spectrum))
-    lukas.slope.table <- data.frame(spectra.line.table[slope.element.lines], slope.none)
-    colnames(lukas.slope.table) <- c(names(spectra.line.table[slope.element.lines]), "None")
+    
+    slope.none <- rep(1, length(spectra.line.table[,1]))
+    lukas.slope.table <- data.frame(spectra.line.table, slope.none)
+    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
     
     
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/compton.ag.fake$Compton
+    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/compton.frame.ag$Compton
     colnames(lukas.intercept.table.comp) <- c("first")
+
     
     
     
