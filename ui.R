@@ -194,7 +194,9 @@ fluidRow(
 sidebarLayout(
 sidebarPanel(
 
-actionButton('hotableprocess2', "Enter Values")
+actionButton('hotableprocess2', "Enter Values"),
+textInput("calunits", label = "Units", value="Weight %")
+
 
 ),
 

@@ -2041,8 +2041,8 @@ observeEvent(input$createcal, {
              cal.data <- dataHold()
 
              
-             calibrationList <- list(input$filetype, cal.data, cal.intensities, cal.values, calList)
-             names(calibrationList) <- c("FileType", "Spectra", "Intensities", "Values", "calList")
+             calibrationList <- list(input$filetype, input$calunits, cal.data, cal.intensities, cal.values, calList)
+             names(calibrationList) <- c("FileType", "Units", "Spectra", "Intensities", "Values", "calList")
              
     Calibration <<- calibrationList
 
