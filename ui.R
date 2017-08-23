@@ -130,7 +130,7 @@ tags$hr(),
 tags$hr(),
 
 
-fileInput('calfileinput', 'Load Cal File', multiple=FALSE),
+fileInput('calfileinput', 'Load Cal File', accept=".quant", multiple=FALSE),
 checkboxInput('usecalfile', "Use Cal File")
 
 
@@ -195,6 +195,7 @@ sidebarLayout(
 sidebarPanel(
 
 actionButton('hotableprocess2', "Enter Values"),
+tags$hr(),
 textInput("calunits", label = "Units", value="Weight %")
 
 
@@ -278,14 +279,16 @@ fileInput('loadvaldata', 'Choose Spectra', multiple=TRUE,
 accept=c('text/csv',
 'text/comma-separated-values,text/plain',
 '.csv')),
-downloadButton('downloadValData', "Results"),
+radioButtons("valfiletype", label=NULL, c("Spectra", "Net"), selected="Spectra"),
 
 
 tags$hr(),
 tags$hr(),
 tags$hr(),
 
-fileInput('calfileinput2', 'Load Cal File', multiple=FALSE)
+fileInput('calfileinput2', 'Load Cal File', accept=".quant",multiple=FALSE),
+
+downloadButton('downloadValData', "Results")
 
 ),
 

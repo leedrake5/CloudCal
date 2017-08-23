@@ -406,7 +406,7 @@ standardLines <- reactive({
     choices <- if(input$filetype=="Spectra"){
         spectralLines
     } else if(input$filetype=="Net"){
-        colnames(spectra.line.table)[2:n]
+        colnames(spectra.line.table[2:n])
     }
     
     choices
@@ -492,7 +492,9 @@ output$comptonMaxInput <- renderUI({
      net.data <- dataHold()
      
      net.data.partial <- net.data[input$show_vars]
-     net.data.partial
+     net.data <- data.frame(net.data$Spectrum ,net.data.partial)
+     colnames(net.data) <- c("Spectrum", input$show_vars)
+     net.data
      
  })
  
@@ -504,9 +506,14 @@ output$comptonMaxInput <- renderUI({
      select.line.table <- if(input$filetype=="Spectra"){
          spectraData()
      }else if(input$filetype=="Net"){
-         dataHold()
+         netData()
      }
-     round(select.line.table[2:length(select.line.table)], digits=0)
+     
+     rounded <- round(select.line.table[input$show_vars], digits=0)
+     full <- data.frame(select.line.table$Spectrum, rounded)
+     colnames(full) <- c("Spectrum", input$show_vars)
+     
+     full
  })
 
 
@@ -2036,7 +2043,7 @@ observeEvent(input$createcal, {
     }else if(input$filetype=="Net"){
         dataHold()
     }
-             cal.intensities <- spectra.line.table
+             cal.intensities <- spectra.line.table[input$show_vars]
              cal.values <- values[["DF"]]
              cal.data <- dataHold()
 
@@ -2162,9 +2169,9 @@ content = function(file) {
         
         myValData <- reactive({
             
-            data <- if(input$filetype=="Spectra"){
+            data <- if(input$valfiletype=="Spectra"){
                 fullValSpectra()
-            } else if(input$filetype=="Net"){
+            } else if(input$valfiletype=="Net"){
                 netValCounts()
             }
             
@@ -2242,27 +2249,27 @@ content = function(file) {
             variableelements <- calVariableElements()
             val.data <- myValData()
             
-            if(input$filetype=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))}
-            if(input$filetype=="Spectra"){element.count.list <- lapply(spectra.line.list, '[', 2)}
+            if(input$valfiletype=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))}
+            if(input$valfiletype=="Spectra"){element.count.list <- lapply(spectra.line.list, '[', 2)}
             
             
             
-            if(input$filetype=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
+            if(input$valfiletype=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
             
-            if(input$filetype=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))}
+            if(input$valfiletype=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))}
             
-            if(input$filetype=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
+            if(input$valfiletype=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
             
-            if(input$filetype=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", valelements)}
+            if(input$valfiletype=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", valelements)}
             
-            if(input$filetype=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
+            if(input$valfiletype=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
             
-            if(input$filetype=="Spectra"){spectra.line.frame}
+            if(input$valfiletype=="Spectra"){spectra.line.frame}
             
-            if(input$filetype=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])}
+            if(input$valfiletype=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])}
             
             
-            if(input$filetype=="Net"){val.line.table <- val.data[c("Spectrum", valelements), drop=FALSE]}
+            if(input$valfiletype=="Net"){val.line.table <- val.data[c("Spectrum", valelements), drop=FALSE]}
                 
                 
                 val.line.table
@@ -2277,23 +2284,23 @@ content = function(file) {
             variableelements <- calVariableElements()
             val.data <- myValData()
             
-            if(input$filetype=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data))}
-            if(input$filetype=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
+            if(input$valfiletype=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data))}
+            if(input$valfiletype=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
             
             
-            if(input$filetype=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
+            if(input$valfiletype=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
             
-            if(input$filetype=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(variableelements))}
+            if(input$valfiletype=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(variableelements))}
             
-            if(input$filetype=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
+            if(input$valfiletype=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
             
-            if(input$filetype=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", variableelements)}
+            if(input$valfiletype=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", variableelements)}
             
-            if(input$filetype=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
+            if(input$valfiletype=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
             
-            if(input$filetype=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", variableelements), drop = FALSE])}
+            if(input$valfiletype=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", variableelements), drop = FALSE])}
             
-            if(input$filetype=="Net"){val.line.table <- val.data}
+            if(input$valfiletype=="Net"){val.line.table <- val.data}
             
             val.line.table
         })
@@ -2315,13 +2322,14 @@ content = function(file) {
         the.cal <- calValHold()
         elements <- calValElements()
         variables <- calVariableElements()
+        valdata <- myValData()
+
 
             
             
             
-            
         predicted.list <- pblapply(elements, function (x)
-            if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=general.prep(
@@ -2330,7 +2338,7 @@ content = function(file) {
                             ),
                         element.line=x)
                 )
-            } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+            } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple.tc.prep(
@@ -2341,7 +2349,7 @@ content = function(file) {
                         element.line=x
                     )
                 )
-            } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+            } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
                 predict(
                     object=the.cal[[x]][[2]],
                         newdata=simple.comp.prep(
@@ -2354,7 +2362,7 @@ content = function(file) {
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                             )
                 )
-            } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                  predict(
                     object=the.cal[[x]][[2]],
                     newdata=lukas.simp.prep(
@@ -2366,7 +2374,7 @@ content = function(file) {
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         )
                  )
-            } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lukas.tc.prep(
@@ -2379,7 +2387,7 @@ content = function(file) {
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     )
                 )
-            } else if(input$filetype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lukas.comp.prep(
@@ -2394,78 +2402,78 @@ content = function(file) {
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                         )
                 )
-            }else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            }else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
-                object=the.cal[[x]][[2]],
-                newdata=general.prep.net(
-                spectra.line.table=as.data.frame(
-                count.table
-                ),
-                element.line=x)
+                    object=the.cal[[x]][[2]],
+                    newdata=general.prep.net(
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x)
                 )
-            } else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+            } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
                 predict(
-                object=the.cal[[x]][[2]],
-                newdata=simple.tc.prep.net(
-                data=valdata,
-                spectra.line.table=as.data.frame(
-                count.table
-                ),
-                element.line=x
+                    object=the.cal[[x]][[2]],
+                    newdata=simple.tc.prep.net(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                            element.line=x
+                            )
                 )
-                )
-            } else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+            } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
                 predict(
-                object=the.cal[[x]][[2]],
-                newdata=simple.comp.prep.net(
-                data=valdata,
-                spectra.line.table=as.data.frame(
-                count.table
-                ),
-                element.line=x,
-                norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    object=the.cal[[x]][[2]],
+                    newdata=simple.comp.prep.net(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                 )
                 )
-            } else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
-                object=the.cal[[x]][[2]],
-                newdata=lukas.simp.prep.net(
-                spectra.line.table=as.data.frame(
-                count.table
-                ),
-                element.line=x,
-                slope.element.lines=the.cal[[x]][[1]][2]$Slope,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    object=the.cal[[x]][[2]],
+                    newdata=lukas.simp.prep.net(
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        )
                 )
-                )
-            } else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
-                object=the.cal[[x]][[2]],
-                newdata=lukas.tc.prep.net(
-                data=valdata,
-                spectra.line.table=as.data.frame(
-                count.table
-                ),
-                element.line=x,
-                slope.element.lines=the.cal[[x]][[1]][2]$Slope,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    object=the.cal[[x]][[2]],
+                    newdata=lukas.tc.prep.net(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        )
                 )
-                )
-            } else if(input$filetype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
-                object=the.cal[[x]][[2]],
-                newdata=lukas.comp.prep.net(
-                data=valdata,
-                spectra.line.table=as.data.frame(
-                count.table
-                ),
-                element.line=x,
-                slope.element.lines=the.cal[[x]][[1]][2]$Slope,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                norm.max=the.cal[[x]][[1]][1]$CalTable$Max
-                )
+                    object=the.cal[[x]][[2]],
+                    newdata=lukas.comp.prep.net(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                        )
                 )
             }
             
