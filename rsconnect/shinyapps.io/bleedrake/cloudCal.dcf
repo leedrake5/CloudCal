@@ -1,8 +1,9 @@
-name: CloudCal
+name: cloudCal
 title:
 account: bleedrake
 server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
 appId: 198669
-bundleId: 926812
+bundleId: 956169
 url: https://bleedrake.shinyapps.io/cloudCal/
-when: 1501791707.23052
+when: 1503827639.88948

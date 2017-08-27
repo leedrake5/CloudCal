@@ -266,10 +266,37 @@ tabPanel('Cal Curves',  splitLayout(cellWidths = c("50%", "50%"),
 #tabPanel('Cal Curves', plotOutput("calcurveplots", height = 455)),
 actionButton("exclude_toggle", "Toggle points"),
 actionButton("exclude_reset", "Reset")),
-tabPanel('Diagnostics', plotOutput("calcurvediag", height = 700, click = "plot_val_click",
-brush = brushOpts(
-id = "plot_val_brush"
-))),
+
+tabPanel('Diagnostics',
+    splitLayout(cellWidths = c("50%", "50%"),
+        plotOutput("residualsfitted", height=250, click="plot_residualsfitted_click", brush=brushOpts(
+            id="plot_residualsfitted_brush"
+            )),
+        plotOutput("qq", height=250, click="plot_qq_click",
+            brush=brushOpts(
+            id="plot_qq_brush"
+            ))
+),
+    splitLayout(cellWidths = c("50%", "50%"),
+        plotOutput("scalelocation", height=250, click="plot_scalelocation_click", brush=brushOpts(
+            id="plot_scalelocation_brush"
+            )),
+        plotOutput("cooksdistance", height=250, click="plot_cooksdistance_click", brush=brushOpts(
+            id="plot_cooksdistance_brush"
+            ))
+),
+    splitLayout(cellWidths = c("50%", "50%"),
+        plotOutput("residualleverage", height=250, click="plot_residualleverage_click", brush=brushOpts(
+            id="plot_residualleverage_brush"
+            )),
+        plotOutput("cooksleverage", height=250, click="plot_cooksleverage_click", brush=brushOpts(
+            id="plot_cooksleverage_brush"
+            ))
+),
+actionButton("exclude_toggle_diag", "Toggle points"),
+actionButton("exclude_reset_diag", "Reset")),
+
+
 tabPanel('Standards', dataTableOutput("standardsperformance"))
 
 ))

@@ -8,6 +8,7 @@ library(DT)
 library(gridExtra)
 library(rhandsontable)
 library(Cairo)
+library(broom)
 
 
 
@@ -3296,250 +3297,6 @@ observeEvent(input$exclude_reset, {
 
 
 
-
-
-
-plotInput3 <- reactive({
-    
-    data <- dataHold()
-    
-    
-    
-
-
-    concentration.table <- values[["DF"]]
-    concentration.hold <- concentration.table
-    
-    spectra.line.table <- if(input$filetype=="Spectra"){
-        spectraData()
-    }else if(input$filetype=="Net"){
-        dataHold()
-    }
-
-
-
-
-    concentration <- as.vector(as.numeric(unlist(concentration.table[input$calcurveelement])))
-    
-    
-    intensity <- as.vector(as.numeric(unlist(spectra.line.table[input$calcurveelement])))
-    
-    spectra.names <- spectra.line.table$Spectrum
-
-
-
-    hold.frame <- data.frame(spectra.names, concentration, intensity)
-    colnames(hold.frame) <- c("Spectrum", "Concentration", "Intensity")
-    hold.frame[hold.frame==999] <- NA
-    hold.frame <- na.omit(hold.frame)
-    
-    concentration <- hold.frame$Concentration
-    intensity <- hold.frame$Intensity
-    
-    data <- data[data$Spectrum %in% hold.frame$Spectrum, ]
-            spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% hold.frame$Spectrum, ]
-
-
-
-
-
-    predict.frame <- data.frame(concentration, intensity)
-    colnames(predict.frame) <- c("Concentration", "Intensity")
-    
-    
-    
-    predict.intensity <- data.frame(predict.frame$Intensity)
-    colnames(predict.intensity) <- c("Intensity")
-    
-    cal.lm <- lm(predict.frame$Concentration~predict.frame$Intensity)
-    cal.lm.poly <- lm(predict.frame$Concentration~poly(predict.frame$Intensity, 2))
-    
-    
-    
-    if(input$filetype=="Spectra"){compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))}
-    if(input$filetype=="Spectra"){compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))}
-    if(input$filetype=="Spectra"){compton.frame <- data.frame(is.0(compton.norm, compton.file))}
-    if(input$filetype=="Spectra"){colnames(compton.frame) <- c("Compton", "Spectrum")}
-    if(input$filetype=="Spectra"){compton.frame.ag.hold <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")}
-    if(input$filetype=="Spectra"){colnames(compton.frame.ag.hold) <- c("Spectrum", "Compton")}
-    
-    compton.ag.fake.Spectrum <- hold.frame$Spectrum
-    compton.ag.fake.Compton <- rep(1, length(hold.frame$Spectrum))
-    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
-    colnames(compton.ag.fake) <- c("Spectrum", "Compton")
-    
-    compton.frame.ag <- if(input$filetype=="Spectra"){
-        compton.frame.ag.hold
-    }else if(input$filetype=="Net"){
-        compton.ag.fake
-    }
-    
-    predict.frame.comp <- data.frame(predict.frame$Concentration, intensity/compton.frame.ag$Compton)
-    colnames(predict.frame.comp) <- c("Concentration", "Intensity")
-    
-    
-    
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)
-    colnames(predict.intensity.comp) <- c("Intensity")
-    
-    cal.lm.comp <- lm(predict.frame.comp$Concentration~predict.frame.comp$Intensity)
-    cal.lm.poly.comp <- lm(predict.frame.comp$Concentration~poly(predict.frame.comp$Intensity, 2))
-    
-
-    
-    if(input$filetype=="Spectra"){total.counts <- aggregate(CPS~Spectrum, data=data, sum)}
-    if(input$filetype=="Spectra"){colnames(total.counts) <- c("Spectrum", "CPS")}
-    
-    if(input$filetype=="Net"){total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])}
-    if(input$filetype=="Net"){total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)}
-    if(input$filetype=="Net"){colnames(total.counts) <- c("Spectrum", "CPS")}
-    
-    predict.frame.tc <- data.frame(predict.frame$Concentration, intensity/total.counts$CPS)
-    colnames(predict.frame.tc) <- c("Concentration", "Intensity")
-    
-    
-    
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)
-    colnames(predict.intensity.tc) <- c("Intensity")
-    
-    cal.lm.tc <- lm(predict.frame.tc$Concentration~predict.frame.tc$Intensity)
-    cal.lm.poly.tc <- lm(predict.frame.tc$Concentration~poly(predict.frame.tc$Intensity, 2))
-    
-    intercept.none <- rep(0, length(spectra.line.table$Spectrum))
-    lukas.intercept.table <- data.frame(spectra.line.table[input$show_vars], intercept.none)
-    colnames(lukas.intercept.table) <- c(names(spectra.line.table[input$show_vars]), "None")
-    
-    
-    
-    slope.none <- rep(1, length(spectra.line.table$Spectrum))
-    lukas.slope.table <- data.frame(spectra.line.table[input$show_vars], slope.none)
-    colnames(lukas.slope.table) <- c(names(spectra.line.table[input$show_vars]), "None")
-    
-    
-    
-    
-    
-    ####Fourth Iteration
-    lukas.intercept <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))
-    lukas.slope <- data.frame(lukas.slope.table[input$slope_vars])
-    
-    
-    predict.frame.luk <- data.frame(predict.frame$Concentration, (intensity*lukas.intercept),lukas.slope)
-    colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lukas.slope))
-    
-    
-    
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lukas.slope)
-    colnames(predict.intensity.luk) <- c("Intensity", names(lukas.slope))
-    
-    lukas.lm <- lm(Concentration~., data=predict.frame.luk)
-    
-    cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
-    cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
-    cal.est.conc.luk <- cal.est.conc.tab.luk$fit
-    cal.est.conc.luk.up <- cal.est.conc.tab.luk$upr
-    cal.est.conc.luk.low <- cal.est.conc.tab.luk$lwr
-    
-    
-    val.frame.luk <- data.frame(predict.frame$Concentration, intensity, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
-    colnames(val.frame.luk) <- c("Concentration", "Intensity", "Prediction", "Upper", "Lower")
-    
-    
-    
-    
-    lukas.intercept.comp <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))/compton.frame.ag$Compton
-    
-    
-    
-    lukas.slope.comp <- data.frame(rowSums(lukas.slope.table[input$slope_vars]))/compton.frame.ag$Compton
-    
-    
-    
-    lukas.intensity.comp <- (predict.frame.comp$Intensity+lukas.intercept.comp)*lukas.slope.comp
-    
-    
-    predict.frame.luk.comp <- data.frame(predict.frame$Concentration, lukas.intensity.comp)
-    colnames(predict.frame.luk.comp) <- c("Concentration", "Intensity")
-    
-    
-    
-    predict.intensity.luk.comp <- data.frame(predict.frame.luk.comp$Intensity)
-    colnames(predict.intensity.luk.comp) <- c("Intensity")
-    
-    cal.lm.luk.comp <- lm(predict.frame.luk.comp$Concentration~predict.frame.luk.comp$Intensity)
-    
-
-    lukas.intercept.comp <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))/compton.frame.ag$Compton
-    lukas.slope.comp <- data.frame(lukas.slope.table[input$slope_vars])/compton.frame.ag$Compton
-    
-    
-    predict.frame.luk.comp <- data.frame(predict.frame$Concentration, (intensity/compton.frame.ag$Compton*lukas.intercept.comp),lukas.slope.comp)
-    colnames(predict.frame.luk.comp) <- c("Concentration", "Intensity", names(lukas.slope.comp))
-    
-    
-    
-    predict.intensity.luk.comp <- data.frame(predict.frame.luk.comp$Intensity, lukas.slope.comp)
-    colnames(predict.intensity.luk.comp) <- c("Intensity", names(lukas.slope.comp))
-    
-    lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp)
-    
-  
-    lukas.intercept.tc <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))/total.counts$CPS
-    lukas.slope.tc <- data.frame(lukas.slope.table[input$slope_vars])/total.counts$CPS
-    
-    
-    predict.frame.luk.tc <- data.frame(predict.frame$Concentration, (intensity/total.counts$CPS*lukas.intercept.tc),lukas.slope.tc)
-    colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
-    
-    
-    
-    predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
-    colnames(predict.intensity.luk.tc) <- c("Intensity", names(lukas.slope.tc))
-    
-    lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
-    
-
-
-    lm.model <- if(input$radiocal==1 && input$normcal==1) {
-        cal.lm
-    } else if (input$radiocal==2 && input$normcal==1){
-        cal.lm.poly
-    } else if (input$radiocal==1 && input$normcal==2){
-        cal.lm.tc
-    } else if (input$radiocal==2 && input$normcal==2) {
-        cal.lm.poly.tc
-    } else if (input$radiocal==1 && input$normcal==3) {
-        cal.lm.comp
-    } else if (input$radiocal==2 && input$normcal==3) {
-        cal.lm.poly.comp
-    } else if (input$radiocal==3 && input$normcal==1) {
-        lukas.lm
-    } else if (input$radiocal==3 && input$normcal==2){
-        lukas.lm.tc
-    } else if (input$radiocal==3 && input$normcal==3) {
-        lukas.lm.comp
-    } else if (is.na(input$calcurveelement)) {
-        return()
-    }
-    
-    
-    diagPlts<-diagPlot(lm.model)
-    
-    do.call(grid.arrange, c(diagPlts, ncol=2, nrow=3))
-
-
-})
-
-
-output$calcurvediag <- renderPlot({
-    input$createcalplot
-    isolate(plotInput3())
-    
-    
-})
-
-
-
  tableInput2 <- reactive({
      
      data <- dataHold()
@@ -4051,16 +3808,309 @@ output$calcurvediag <- renderPlot({
      
 model
 
+ })
+ 
+ 
+ modelFrame <- reactive({
+     
+     
+     model <- elementModel()
+     
+     model.frame <- as.data.frame(augment(model))
+     
+     model.frame$qq <- qqnorm(model.frame$.std.resid)[[1]]
+     
+     model.frame$sqrt.std.resid <- sqrt(abs(model.frame$.std.resid))
+     
+     model.frame$seq.cooksd <- seq_along(model.frame$.cooksd)
 
-#isolate(
-#input$createcalelement
-#cal.list[[input$calcurveelement]] <- model
-#)
 
-#cal.list[!sapply(cal.list, is.null)]
+     model.frame
+
 
  })
  
+
+ 
+ 
+ 
+ diagResidualsFitted <- reactive({
+     
+     model <- modelFrame()
+     
+     p1 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(.fitted, .resid)) +
+     stat_smooth(method="loess") +
+     geom_hline(yintercept=0, col="red", linetype="dashed") +
+     xlab("Fitted values") +
+     ylab("Residuals") +
+     ggtitle("Residual vs Fitted Plot") +
+     theme_light() +
+     geom_point() +
+     geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.fitted, .resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
+     
+     p1
+     
+ })
+ 
+ output$residualsfitted <- renderPlot({
+     
+     diagResidualsFitted()
+     
+ })
+ 
+ 
+ diagQQ <- reactive({
+     
+     model <- modelFrame()
+     
+     p2 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(qq, .std.resid))+geom_point(na.rm = TRUE) +
+     geom_abline() +
+     xlab("Theoretical Quantiles") +
+     ylab("Standardized Residuals") +
+     ggtitle("Normal Q-Q") +
+     theme_light() +
+     geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(qq, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
+
+     
+     p2
+
+ })
+ 
+ 
+ output$qq <- renderPlot({
+     
+     diagQQ()
+     
+ })
+ 
+ diagScaleLocation <- reactive({
+     
+     model <- modelFrame()
+     
+     
+     p3 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(.fitted, sqrt.std.resid)) +
+     stat_smooth(method="loess", na.rm = TRUE) +
+     xlab("Fitted Value") +
+     ylab(expression(sqrt("|Standardized residuals|"))) +
+     ggtitle("Scale-Location") +
+     theme_light() +
+     geom_point(na.rm=TRUE) +
+     geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.fitted, sqrt.std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
+
+     
+     p3
+     
+
+ })
+ 
+ 
+ output$scalelocation <- renderPlot({
+     
+     diagScaleLocation()
+     
+ })
+ 
+ 
+ diagCooksDistance <- reactive({
+     
+     model <- modelFrame()
+     
+     p4 <- ggplot(model, aes(seq.cooksd, .cooksd)) +
+     geom_bar(stat="identity", position="identity") +
+     xlab("Obs. Number") +
+     ylab("Cook's distance") +
+     ggtitle("Cook's distance") +
+     theme_light()
+     
+     p4
+     
+ })
+ 
+ output$cooksdistance <- renderPlot({
+     
+     diagCooksDistance()
+     
+ })
+ 
+ 
+ diagResidualLeverage <- reactive({
+     
+     model <- modelFrame()
+
+
+     p5<-ggplot(model[ vals$keeprows, , drop = FALSE], aes(.hat, .std.resid))+
+     geom_point(aes(size=.cooksd), na.rm=TRUE) +
+     geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.hat, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+     stat_smooth(method="loess", na.rm=TRUE) +
+     xlab("Leverage") +
+     ylab("Standardized Residuals") +
+     ggtitle("Residual vs Leverage Plot") +
+     scale_size_continuous("Cook's Distance", range=c(1,5)) +
+     theme_light() +
+     theme(legend.position="bottom")
+     
+     p5
+     
+ })
+ 
+ output$residualleverage <- renderPlot({
+     
+     diagResidualLeverage()
+     
+ })
+ 
+ 
+ diagCooksLeverage <- reactive({
+     
+     model <- modelFrame()
+
+
+     p6 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(.hat, .cooksd)) +
+     stat_smooth(method="loess", na.rm=TRUE) +
+     xlab("Leverage hii") +
+     ylab("Cook's Distance") +
+     ggtitle("Cook's dist vs Leverage hii/(1-hii)") +
+     geom_abline(slope=seq(0,3,0.5), color="gray", linetype="dashed") +
+     theme_light() +
+     geom_point(na.rm=TRUE) +
+      geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.hat, .cooksd), shape = 21, fill = "red", color = "black", alpha = 0.25) 
+     
+     p6
+     
+ })
+ 
+ 
+ output$cooksleverage <- renderPlot({
+     
+     diagCooksLeverage()
+     
+ })
+ 
+ #########Diagnostic Plot Controls#######
+ ####Residuals Fitted
+ # Toggle points that are clicked
+ observeEvent(input$plot_residualsfitted_click, {
+     
+     predict.frame <- modelFrame()
+     
+     res <- nearPoints(predict.frame, input$plot_residualsfitted_click, allRows = TRUE)
+     
+     vals$keeprows <- xor(vals$keeprows, res$selected_)
+ })
+ 
+ 
+ # Toggle points that are brushed, when button is clicked
+ observeEvent(input$exclude_toggle_diag, {
+     
+     predict.frame <- modelFrame()
+     
+     res <- brushedPoints(predict.frame, input$plot_residualsfitted_brush, allRows = TRUE)
+     
+     vals$keeprows <- xor(vals$keeprows, res$selected_)
+ })
+ 
+ 
+ ####QQ Norm
+ # Toggle points that are clicked
+ observeEvent(input$plot_qq_click, {
+     
+     predict.frame <- modelFrame()
+     
+     res <- nearPoints(predict.frame, input$plot_qq_click, allRows = TRUE)
+     
+     vals$keeprows <- xor(vals$keeprows, res$selected_)
+ })
+ 
+ 
+ # Toggle points that are brushed, when button is clicked
+ observeEvent(input$exclude_toggle_diag, {
+     
+     predict.frame <- modelFrame()
+     
+     res <- brushedPoints(predict.frame, input$plot_qq_brush, allRows = TRUE)
+     
+     vals$keeprows <- xor(vals$keeprows, res$selected_)
+ })
+ 
+ 
+ ####Scaled Residuals
+ # Toggle points that are clicked
+ observeEvent(input$plot_scalelocation_click, {
+     
+     predict.frame <- modelFrame()
+     
+     res <- nearPoints(predict.frame, input$plot_scalelocation_click, allRows = TRUE)
+     
+     vals$keeprows <- xor(vals$keeprows, res$selected_)
+ })
+ 
+ 
+ # Toggle points that are brushed, when button is clicked
+ observeEvent(input$exclude_toggle_diag, {
+     
+     predict.frame <- modelFrame()
+     
+     res <- brushedPoints(predict.frame, input$plot_scalelocation_brush, allRows = TRUE)
+     
+     vals$keeprows <- xor(vals$keeprows, res$selected_)
+ })
+ 
+ 
+ ####Residuals Leverage
+ # Toggle points that are clicked
+ observeEvent(input$plot_residualleverage_click, {
+     
+     predict.frame <- modelFrame()
+     
+     res <- nearPoints(predict.frame, input$plot_residualleverage_click, allRows = TRUE)
+     
+     vals$keeprows <- xor(vals$keeprows, res$selected_)
+ })
+ 
+ 
+ # Toggle points that are brushed, when button is clicked
+ observeEvent(input$exclude_toggle_diag, {
+     
+     predict.frame <- modelFrame()
+     
+     res <- brushedPoints(predict.frame, input$plot_residualleverage_brush, allRows = TRUE)
+     
+     vals$keeprows <- xor(vals$keeprows, res$selected_)
+ })
+ 
+ 
+ ####Cooks Leverage
+ # Toggle points that are clicked
+ observeEvent(input$plot_cooksleverage_click, {
+     
+     predict.frame <- modelFrame()
+     
+     res <- nearPoints(predict.frame, input$plot_cooksleverage_click, allRows = TRUE)
+     
+     vals$keeprows <- xor(vals$keeprows, res$selected_)
+ })
+ 
+ 
+ # Toggle points that are brushed, when button is clicked
+ observeEvent(input$exclude_toggle_diag, {
+     
+     predict.frame <- modelFrame()
+     
+     res <- brushedPoints(predict.frame, input$plot_cooksleverage_brush, allRows = TRUE)
+     
+     vals$keeprows <- xor(vals$keeprows, res$selected_)
+ })
+
+ 
+ 
+ # Reset all points
+ observeEvent(input$exclude_reset_diag, {
+     
+     predict.frame <- modelFrame()
+     
+     vals$keeprows <- rep(TRUE, nrow(predict.frame))
+ })
+
  
  
  #output$downloadcal <- downloadHandler(
