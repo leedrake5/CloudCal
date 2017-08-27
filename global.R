@@ -7,7 +7,8 @@ library(DT)
 
 
 options(digits=4)
-
+options(warn=-1)
+assign("last.warning", NULL, envir = baseenv())
 
 Hodder.v <- function(y)
 {

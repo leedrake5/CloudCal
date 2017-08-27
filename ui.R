@@ -5,9 +5,10 @@ library(shinythemes)
 library(data.table)
 library(dtplyr)
 library(rhandsontable)
+library(Cairo)
 
-
-
+options(warn=-1)
+assign("last.warning", NULL, envir = baseenv())
 
 shinyUI(navbarPage("CloudCal", id="nav", theme = shinytheme("flatly"),
 
@@ -252,8 +253,23 @@ uiOutput('inVar4')
 mainPanel(
 tabsetPanel(
 id = 'dataset',
-tabPanel('View Curves', plotOutput("calcurveplots", height = 455)),
-tabPanel('Diagnostics', plotOutput("calcurvediag", height = 700)),
+tabPanel('Cal Curves',  splitLayout(cellWidths = c("50%", "50%"),
+    plotOutput("calcurveplots", height = 455, click = "plot_cal_click",
+        brush = brushOpts(
+        id = "plot_cal_brush"
+        )),
+    plotOutput("valcurveplots", height = 455, click = "plot_val_click",
+        brush = brushOpts(
+        id = "plot_val_brush"
+        ))
+),
+#tabPanel('Cal Curves', plotOutput("calcurveplots", height = 455)),
+actionButton("exclude_toggle", "Toggle points"),
+actionButton("exclude_reset", "Reset")),
+tabPanel('Diagnostics', plotOutput("calcurvediag", height = 700, click = "plot_val_click",
+brush = brushOpts(
+id = "plot_val_brush"
+))),
 tabPanel('Standards', dataTableOutput("standardsperformance"))
 
 ))

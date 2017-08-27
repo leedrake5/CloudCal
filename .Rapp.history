@@ -1,159 +1,3 @@
-ggplotColours(8)
-climate.time.series.line <- qplot(Age2,Temperature..C., geom="line", data = gisp2, colour = as.factor(Climate)) +#
-scale_colour_manual("Climatic Period",#
-breaks=c("1. Late Holocene", "2. Altithermal", "3. Holocene Transition", "4. Younger Dryas", "5. Bølling-Allerød", "6. Deglaciation", "7. Last Glacial Maximum", "8. Glacial"),#
-values=c("#F8766D", "#CD9600", "#7CAE00", "#00BE67", "#00BFC4", "#00A9FF", "#C77CFF", "#FF61CC" )) +#
-theme_light() +#
-theme(axis.text.x = element_text(size=15)) +#
-theme(axis.text.y = element_text(size=15)) +#
-theme(axis.title.x = element_text(size=15)) +#
-theme(axis.title.y = element_text(size=15, angle=90)) +#
-theme(plot.title=element_text(size=20)) +#
-theme(legend.title=element_text(size=15)) +#
-theme(legend.text=element_text(size=15)) +#
-scale_x_continuous("cal yr BP", limits=c(-27000, -3000), label=comma)+#
-scale_y_continuous("Temperature (ºC)")
-climate.time.series.line
-climate.time.series.line <- qplot(Age2,Temperature..C., geom="line", data = gisp2, colour = as.factor(Climate)) +#
-scale_colour_discrete("Climatic Period", drop=FALSE) +#
-theme_light() +#
-theme(axis.text.x = element_text(size=15)) +#
-theme(axis.text.y = element_text(size=15)) +#
-theme(axis.title.x = element_text(size=15)) +#
-theme(axis.title.y = element_text(size=15, angle=90)) +#
-theme(plot.title=element_text(size=20)) +#
-theme(legend.title=element_text(size=15)) +#
-theme(legend.text=element_text(size=15)) +#
-scale_x_continuous("cal yr BP", limits=c(-27000, -1000), label=comma)+#
-scale_y_continuous("Temperature (ºC)")
-climate.time.series.line
-gisp2 <- read.csv(file="~/Dropbox/Documents/University of Utah/gisp2.csv")
-###GIPS2#
-#
-lateholocene <- subset(gisp2$Age, gisp2$Age <= 5000 & gisp2$Age > -1000)#
-#
-altithermal <- subset(gisp2$Age, gisp2$Age <= 9000 & gisp2$Age > 5000)#
-#
-holocenetransition <- subset(gisp2$Age, gisp2$Age <= 11700 & gisp2$Age > 9000)#
-#
-youngerdryas <- subset(gisp2$Age, gisp2$Age <= 12900 & gisp2$Age > 11700)#
-#
-bollingalerod <- subset(gisp2$Age, gisp2$Age <= 14700 & gisp2$Age > 12900)#
-#
-deglaciation <- subset(gisp2$Age, gisp2$Age <= 19000 & gisp2$Age > 14700)#
-#
-lastglacialmax <- subset(gisp2$Age, gisp2$Age <= 25000 & gisp2$Age > 19000)#
-#
-glacial <- subset(gisp2$Age, gisp2$Age <= 120000 & gisp2$Age > 25000)#
-#
-climateperiods <- c(#
-rep("1. Late Holocene", length(lateholocene)),#
-rep("2. Altithermal", length(altithermal)),#
-rep("3. Holocene Transition", length(holocenetransition)),#
-rep("4. Younger Dryas", length(youngerdryas)),#
-rep("5. Bølling-Allerød", length(bollingalerod)),#
-rep("6. Deglaciation", length(deglaciation)),#
-rep("7. Last Glacial Maximum", length(lastglacialmax)),#
-rep("8. Glacial", length(glacial))#
-)#
-#
-gisp2$Climate <- rev(climateperiods)#
-gisp2$Age2 <- gisp2$Age*-1
-climate.time.series.line <- qplot(Age2,Temperature..C., geom="line", data = gisp2, colour = as.factor(Climate)) +#
-scale_colour_discrete("Climatic Period", drop=FALSE) +#
-theme_light() +#
-theme(axis.text.x = element_text(size=15)) +#
-theme(axis.text.y = element_text(size=15)) +#
-theme(axis.title.x = element_text(size=15)) +#
-theme(axis.title.y = element_text(size=15, angle=90)) +#
-theme(plot.title=element_text(size=20)) +#
-theme(legend.title=element_text(size=15)) +#
-theme(legend.text=element_text(size=15)) +#
-scale_x_continuous("cal yr BP", limits=c(-27000, -1000), label=comma)+#
-scale_y_continuous("Temperature (ºC)")
-climate.time.series.line
-gisp2$Climate <- climateperiods#
-gisp2$Age2 <- gisp2$Age*-1
-climate.time.series.line <- qplot(Age2,Temperature..C., geom="line", data = gisp2, colour = as.factor(Climate)) +#
-scale_colour_discrete("Climatic Period", drop=FALSE) +#
-theme_light() +#
-theme(axis.text.x = element_text(size=15)) +#
-theme(axis.text.y = element_text(size=15)) +#
-theme(axis.title.x = element_text(size=15)) +#
-theme(axis.title.y = element_text(size=15, angle=90)) +#
-theme(plot.title=element_text(size=20)) +#
-theme(legend.title=element_text(size=15)) +#
-theme(legend.text=element_text(size=15)) +#
-scale_x_continuous("cal yr BP", limits=c(-27000, -1000), label=comma)+#
-scale_y_continuous("Temperature (ºC)")
-climate.time.series.line
-ggsave("~/Desktop/GIS2.jpg",climate.time.series.line, device="jpg", dpi=300, width=12, height=7)
-runApp("~/GitHub/CloudCore")
-runApp("~/GitHub/CongressionalImpact")
-runApp("~/GitHub/CongressImpact")
-runApp("~/GitHub/CloudCore")
-runApp("~/GitHub/Cezanne")
-?interp
-runApp("~/GitHub/Cezanne")
-library(shiny)
-runApp("~/GitHub/CloudCore")
-GGSAVE
-ggsave
-runApp("~/GitHub/CloudCore")
-ggplot2::ggsave
-runApp("~/GitHub/CloudCore")
-plot_dev
-ggplot2::plot_dev
-runApp("~/GitHub/CloudCore")
-library(shiny)
-runApp("~/GitHub/CloudCore")
-library(shiny)
-runApp("~/GitHub/Berkeley-webGeochemistry")
-library(rgl)
-bg3d("white") # if you want a black background#
-rgl.spheres(0, 0, 0, texture="~/Dropbox/Documents/Anacom/Maps/Raw/Silicon.png", lit=FALSE)
-raw <- read.csv(file="~/Dropbox/Documents/XRF-UNM-Stanford/Tokyo Test Results/Belize Total K0732/Total-Table 1.csv")
-small.Ka1 <- data.frame(Rb.Ka1, Zr.Ka1, Y.Ka1, Nb.Ka1)#
-#
-hyp.Ka1 <- kmeans(small.Ka1, 3)#
-#
-plot3d(x= Rb.Ka1/Zr.Ka1, y= Sr.Ka1/Zr.Ka1, z= Y.Ka1/Zr.Ka1, zlab="Y/Zr", ylab="Sr/Zr", xlab="Rb/Zr", type="s",  size=.009, radius=.009, box=F)
-####RATIOS#
-ppm.plot <- qplot(Rb.ppm/Zr.ppm, Sr.ppm/Zr.ppm, data=raw, ylab = "Rb/Zr (ppm)", xlab = "Sr/Zr (ppm)", main = "Calibrated Data", colour=hyp.ppm$cluster) + theme_bw() + theme(legend.position="none") +  theme(legend.position="none")
-small.Ka1 <- data.frame(Rb.Ka1, Zr.Ka1, Y.Ka1, Nb.Ka1)#
-#
-hyp.Ka1 <- kmeans(small.Ka1, 3)#
-#
-plot3d(x= Rb.Ka1/Zr.Ka1, y= Sr.Ka1/Zr.Ka1, z= Y.Ka1/Zr.Ka1, zlab="Y/Zr", ylab="Sr/Zr", xlab="Rb/Zr", type="s",  size=.009, radius=.009, box=F)
-attach(raw)
-small.Ka1 <- data.frame(Rb.Ka1, Zr.Ka1, Y.Ka1, Nb.Ka1)#
-#
-hyp.Ka1 <- kmeans(small.Ka1, 3)#
-#
-plot3d(x= Rb.Ka1/Zr.Ka1, y= Sr.Ka1/Zr.Ka1, z= Y.Ka1/Zr.Ka1, zlab="Y/Zr", ylab="Sr/Zr", xlab="Rb/Zr", type="s",  size=.009, radius=.009, box=F)
-library(readxl)
-?readxl
-data <- read_excel("~/GitHub/web_geochemistry-master/inbound/Obsidian Sources.xlsx")
-ls(data)
-data <- read_excel("~/GitHub/web_geochemistry-master/inbound/Obsidian Sources.xlsx", 3)
-ls(data)
-head(data)
-data <- read_excel("~/GitHub/web_geochemistry-master/inbound/Obsidian Sources.xlsx", 3, header=FALSE)
-? read_excel
-data <- read_excel("~/GitHub/web_geochemistry-master/inbound/Obsidian Sources.xlsx", 3, col_names=FALSE)
-head(data)
-data
-data <- read_excel("~/GitHub/web_geochemistry-master/inbound/Obsidian Sources.xlsx", 3)
-head(data)
-data["Rb m"]
-is.data.table(data)
-data.dt <- data.table(data)
-library(data.table)
-data.dt <- data.table(data)
-head(data.dt)
-data.dt
-library(shiny)
-runApp("~/GitHub/Cezanne")
 x <- c(1, 2)
 y <- c(3, 4)
 xy.frame <- data.frame(x, y)
@@ -225,257 +69,191 @@ deployApp("~/GitHub/CloudCal", appName="cloudCal")
 library(rsconnect)
 deployApp("~/GitHub/CloudCal", appName="cloudCal")
 library(shiny)
-runApp("~/GitHub/Cezanne")
-runGitHub("leedrake5/Cezanne")
-runApp(~/Desktop/Cezanne-master")
-runApp("~/Desktop/Cezanne-master")
 runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-deployApp("~/GitHub/CloudCal", appName="cloudCal")
 library(rsconnect)
 deployApp("~/GitHub/CloudCal", appName="cloudCal")
+install.packages("shinyIncubator")
 runApp("~/GitHub/CloudCal")
+runApp("~/GitHub/CloudCore")
+x <- c(1, 2, 3)
+y <- c(4, 5, 6)
+z <- c(7, 8, 9)
+xy.frame <- data.frame(x, y)
+xz.frame <- data.frame(x, z)
+xy.frame + xz.frame
+xy.frame[match(xy.frame$x, xz.frame$x), ] <- xz.frame
+xy.frame
+test <- xy.frame[match(xy.frame$x, xz.frame$x), ] <- xz.frame
+test
+pd.concat(xy.frame[:,:3], xy.frame, axis=1)
+pd.concat(xy.frame, xy.frame, axis=1)
+xy.frame <- xz.frame
+xy.frame
+xy.frame <- data.frame(x, y)
+xy.frame.ioc <- xz.frame
+xy.frame.ioc
+xy.frame.ioc = xz.frame
+xy.frame.ioc
+xy.frame.ioc[:, 2] = xz.frame
+xy.frame <- data.frame(c(0, 0, 0), y)
+colnames(xy.frame) <- c("x", "y")
+xy.frame
+xz.frame
+xy.frame["x"] <- xz.frame["x"]
+xy.frame
+apply("x", 2, function(x) xy.frame["x"] <- xz.frame["x"])
+apply("x", 1, function(x) xy.frame["x"] <- xz.frame["x"])
 runApp("~/GitHub/CloudCal")
+xy.frame
+xy.frame[!"x"]
+xy.frame[!("x")]
 runApp("~/GitHub/CloudCal")
-load(~/GitHub/CloudCal/data/Mudrock/MudrockMajor.quant, verbose=TRUE)
-load("~/GitHub/CloudCal/data/Mudrock/MudrockMajor.quant", verbose=TRUE)
-rf2
+runApp("~/GitHub/CloudCore")
 runApp("~/GitHub/CloudCal")
-elementGrabKalpha <- function(element, data) {#
-    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)#
-    hold.cps <- subset(data$CPS, !(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02))#
-    hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02))#
-    hold.frame <- data.frame(is.0(hold.cps, hold.file))#
-    colnames(hold.frame) <- c("Counts", "Spectrum")#
-    hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")#
-    colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))#
-    hold.ag#
-}#
-#
-elementGrabKbeta <- function(element, data) {#
-    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)#
-    hold.cps <- subset(data$CPS, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))#
-    hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))#
-    hold.frame <- data.frame(is.0(hold.cps, hold.file))#
-    colnames(hold.frame) <- c("Counts", "Spectrum")#
-    hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")#
-    colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))#
-    hold.ag#
-}#
-#
-elementGrabLalpha <- function(element, data) {#
-    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)#
-    hold.cps <- subset(data$CPS, !(data$Energy < elementLine[11][1,]-0.02 | data$Energy > elementLine[10][1,]+0.02))#
-    hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[11][1,]-0.02 | data$Energy > elementLine[10][,1]+0.02))#
-    hold.frame <- data.frame(is.0(hold.cps, hold.file))#
-    colnames(hold.frame) <- c("Counts", "Spectrum")#
-    hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")#
-    colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))#
-    hold.ag#
-}#
-#
-elementGrabLbeta <- function(element, data) {#
-    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)#
-    hold.cps <- subset(data$CPS, !(data$Energy < elementLine[12][1,]-0.02 | data$Energy > elementLine[14][1,]+0.02))#
-    hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[12][1,]-0.02 | data$Energy > elementLine[14][1,]+0.02))#
-#
-    hold.frame <- data.frame(is.0(hold.cps, hold.file))#
-    colnames(hold.frame) <- c("Counts", "Spectrum")#
-    hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")#
-    colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))#
-    hold.ag#
-}#
-#
-elementGrab <- function(element.line, data) {#
-    element <- strsplit(x=element.line, split="\\.")[[1]][1]#
-    destination <- strsplit(x=element.line, split="\\.")[[1]][2]#
-    distance <- strsplit(x=element.line, split="\\.")[[1]][3]#
-    elementSelection <- if(destination=="K" && distance=="alpha"){#
-        elementGrabKalpha(element, data)#
-    } else if(destination=="K" && distance=="beta"){#
-        elementGrabKbeta(element, data)#
-    } else if(destination=="L" && distance=="alpha"){#
-        elementGrabLalpha(element, data)#
-    } else if (destination=="L" && distance=="beta"){#
-        elementGrabLbeta(element, data)#
-    }#
-    elementSelection#
-}
-elementGrabKalpha <- function(element, data) {#
-    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)#
-    hold.cps <- subset(data$CPS, !(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02))#
-    hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02))#
-    hold.frame <- data.frame(is.0(hold.cps, hold.file))#
-    colnames(hold.frame) <- c("Counts", "Spectrum")#
-    hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")#
-    colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))#
-    hold.ag#
-}#
-#
-elementGrabKbeta <- function(element, data) {#
-    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)#
-    hold.cps <- subset(data$CPS, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))#
-    hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))#
-    hold.frame <- data.frame(is.0(hold.cps, hold.file))#
-    colnames(hold.frame) <- c("Counts", "Spectrum")#
-    hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")#
-    colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))#
-    hold.ag#
-}#
-#
-elementGrabLalpha <- function(element, data) {#
-    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)#
-    hold.cps <- subset(data$CPS, !(data$Energy < elementLine[11][1,]-0.02 | data$Energy > elementLine[10][1,]+0.02))#
-    hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[11][1,]-0.02 | data$Energy > elementLine[10][,1]+0.02))#
-    hold.frame <- data.frame(is.0(hold.cps, hold.file))#
-    colnames(hold.frame) <- c("Counts", "Spectrum")#
-    hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")#
-    colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))#
-    hold.ag#
-}#
-#
-elementGrabLbeta <- function(element, data) {#
-    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)#
-    hold.cps <- subset(data$CPS, !(data$Energy < elementLine[12][1,]-0.02 | data$Energy > elementLine[14][1,]+0.02))#
-    hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[12][1,]-0.02 | data$Energy > elementLine[14][1,]+0.02))#
-#
-    hold.frame <- data.frame(is.0(hold.cps, hold.file))#
-    colnames(hold.frame) <- c("Counts", "Spectrum")#
-    hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")#
-    colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))#
-    hold.ag#
-}#
-#
-elementGrab <- function(element.line, data) {#
-    element <- strsplit(x=element.line, split="\\.")[[1]][1]#
-    destination <- strsplit(x=element.line, split="\\.")[[1]][2]#
-    distance <- strsplit(x=element.line, split="\\.")[[1]][3]#
-    elementSelection <- if(destination=="K" && distance=="alpha"){#
-        elementGrabKalpha(element, data)#
-    } else if(destination=="K" && distance=="beta"){#
-        elementGrabKbeta(element, data)#
-    } else if(destination=="L" && distance=="alpha"){#
-        elementGrabLalpha(element, data)#
-    } else if (destination=="L" && distance=="beta"){#
-        elementGrabLbeta(element, data)#
-    }#
-    elementSelection#
-}
-element <- strsplit(x=P.K.alpha, split="\\.")[[1]][1]
-element <- strsplit(x="P.K.alpha", split="\\.")[[1]][1]
-element
-destination <- strsplit(x="P.K.alpha", split="\\.")[[1]][2]
-destination
-distance <- strsplit(x="P.K.alpha", split="\\.")[[1]][3]
-distance
-setwd("~/GitHub/CloudCal")
-black.diamond <- read.csv("data/blackdiamond.csv", header=FALSE, sep=",")#
-black.diamond.melt <- read.csv(file="data/blackdiamondmelt.csv")
-######Load lines#
-k.lines <- read.csv(file="data/K Line-Table 1.csv", sep=",")#
-l.lines <- read.csv(file="data/L Line-Table 1.csv", sep=",")#
-fluorescence.lines <- read.csv("data/FluorescenceLines.csv")
-elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol=="P")
-elementLine
-fluorescence.lines
-fluorescenceLines$Symbol
-fluorescence.lines$Symbol
-fluorescence.lines$Symbol[15]
-elementGrabKalpha <- function(element, data) {#
-    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)#
-    hold.cps <- subset(data$CPS, !(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02))#
-    hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02))#
-    hold.frame <- data.frame(is.0(hold.cps, hold.file))#
-    colnames(hold.frame) <- c("Counts", "Spectrum")#
-    hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")#
-    colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))#
-    hold.ag#
-}
-elementGrabKalpha("P", black.diamond.melt)
-elementGrabKalpha("Pd", black.diamond.melt)
-elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol=="P")
-elementLine
-elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol=="Pd")
-elementLine
+library(shiny)
 runApp("~/GitHub/CloudCal")
+lsframe <- data.frame("data", 7000)
+lsframe
+colnames(lsframe) <- c("Value", "Number")
+lsframe
+lsframe$Number <- 1
+lsframe
+colnames(lsframe) <- c("Value", "Number")
 runApp("~/GitHub/CloudCal")
+madeup.frame$thing <- rep(1, 10)
 runApp("~/GitHub/CloudCal")
+xy.frame
+x <- c(1, 2, 3)
+y<- c(4, 5, 6)
+xy.frame <- data.frame(x, y)
+sum(xy.rame)
+sum(xy.frame)
+apply(xy.frame, 1, sum)
+apply(xy.frame, 2, sum)
+?rosums
+?rowsums
+?rowsum
+rowsum(xy.frame)
+xy.frame$z <- c(6, 7, 8)
+xy.frame
+rowsum(xy.frame, group="x")
+x
+rowSums(xy.frame)
+sumr.frame <- data.frame(c("b", "c", "d"), xy.frame)
+rowSums(xy.frame)
+rowSums(sumr.frame)
 runApp("~/GitHub/CloudCal")
+library(shiny)
 runApp("~/GitHub/CloudCal")
+x <- c(1, 2,  )
+x <- c(1, 2,  "")
+x
+y <- c(3, 4, 5)
+xy.frame <- data.frame(x, y)
+xy.frame
+xy.frame[rowSums(is.na(xy.frame)) != ncol(xy.frame),]
+xy.frame[rowSums(is.na(xy.frame)) == 0,]
+xy.frame[complete.cases(xy.frame),]
+xy.frame[!(is.na(xy.frame) | xy.frame ==""), ]
+xy.frame[xy.frame==""] <- NA
+xy.rame
+xy.frame
+foo <- na.omit(xy.frame)
+foo
 runApp("~/GitHub/CloudCal")
+xy.test <- xy.frame[xy.frame==""] <- NA
+xy.test
+xy.frame
 runApp("~/GitHub/CloudCal")
+xy.frame
 runApp("~/GitHub/CloudCal")
+x
+y
+xy.frame <- data.frame(x, y)
+xy.frame
+xy.frame[xy.frame==""] <- NA
+xy.frame
 runApp("~/GitHub/CloudCal")
+library(shiny)
+runApp("source('~/GitHub/CloudCal/server.R', chdir = TRUE)")
 runApp("~/GitHub/CloudCal")
+runApp("~/GitHub/Cezanne")
+x <- "Ca"
+y <- "K.alpha"
+paste(x, ".", y, sep="")
+runApp("~/GitHub/Cezanne")
 runApp("~/GitHub/CloudCal")
+intall.github("AnalytixWare/ShinySky")
+library(devtools)
+intall.github("AnalytixWare/ShinySky")
+install_github("AnalytixWare/ShinySky")
 runApp("~/GitHub/CloudCal")
+library(rsconnect)
+deployApp("~/GitHub/CloudCal", "xrf-calibrate")
+deployApp("~/GitHub/CloudCal", "CloudCal")
+deployApp("~/GitHub/CloudCal", appName="CloudCal")
+deployApp("~/GitHub/CloudCal", "CloudCal")
 runApp("~/GitHub/CloudCal")
+runApp("~/GitHub/CloudCore")
+library(shiny)
+runApp("~/GitHub/CloudCore")
+library(shiny)
 runApp("~/GitHub/CloudCal")
+library(shiny)
 runApp("~/GitHub/CloudCal")
+library(shiny)
 runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-?hot_to_r
-?hot_to_r
-runApp("~/GitHub/CloudCal")
-?rhandsontable
-?data.frame
-?data.frame
-runApp("~/GitHub/CloudCal")
-?hot_to_r
-?hot_to_r
-?data.frame
-runApp("~/GitHub/CloudCal")
-?rHandsontableOutput
-?reactiveValues
-runApp("~/GitHub/CloudCal")
-hot_to_r
-toR
-toR
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-?hot_col
-?hot_col
-?hot_col
-runApp("~/GitHub/CloudCal")
-?hot_col
-?hot_col
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-load("~/GitHub/CloudCal/data/Mudrock/mudrockMajor.quant", verbose=TRUE)
-str(Calibration)
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
+library(shiny)
 runApp("~/GitHub/CloudCal")
 ?fileInput
+runApp("~/GitHub/CloudCal")
+library(Cairo)
+library(shiny)
+runApp("~/GitHub/CloudCal")
+library(shiny)
+runApp("~/GitHub/CloudCore")
+library(shiny)
+runApp("~/GitHub/CloudCore")
+x <- c(1, 2, 3)
+y <- 4, 5, 6
+y <- c(4, 5, 6)
+names <-c("bob", "nancy", "drew")
+data.frame(names, x, y)
+xy.frame <- data.frame(names, x, y)
+xy.frmae[c("names 'x', "y"")]
+xy.frmae[c("names",'x', "y"")]
+)
+"
+xy.frmae[c("names","x", "y")]
+xy.frame[c("names","x", "y")]
+library(shiny)
+?splitLayout
+runApp("~/GitHub/CloudCal")
+library(shiny)
+runApp("~/GitHub/CloudCal")
+library(shiny)
+runApp("~/GitHub/CloudCal")
+?isNull
+?is.null
+runApp("~/GitHub/CloudCal")
+x <- 1
+is.null(x)
+runApp("~/GitHub/CloudCal")
+library(shiny)
+runApp("~/GitHub/CloudCal")
+library(shiny)
+runApp("~/GitHub/CloudCal")
+library(shiny)
+runApp("~/GitHub/CloudCal")
+load("~/Desktop/testRowExclude.quant")
+Calibration$calList[["Ca.K.alpha"]][[1]][[4]]
+Calibration$calList[[input$calcurveelement]][[1]]$CalTable$CalType
+Calibration$calList[["Ca.K.alpha"]][[1]]$CalTable$CalType
+library(shiny)
+runApp("~/GitHub/CloudCal")
+runApp("~/GitHub/CloudCal")
+runApp("~/GitHub/CloudCal")
+runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
