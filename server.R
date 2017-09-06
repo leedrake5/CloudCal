@@ -3665,8 +3665,8 @@ observeEvent(input$exclude_reset, {
      predict.intensity <- data.frame(predict.frame$Intensity)
      colnames(predict.intensity) <- c("Intensity")
      
-     cal.lm <- lm(predict.frame$Concentration~predict.frame$Intensity)
-     cal.lm.poly <- lm(predict.frame$Concentration~poly(predict.frame$Intensity, 2))
+     cal.lm <- lm(Concentration~Intensity, data=predict.frame)
+     cal.lm.poly <- lm(Concentration~poly(Intensity, 2), data=predict.frame)
      
      
      
@@ -3697,8 +3697,8 @@ observeEvent(input$exclude_reset, {
      predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)
      colnames(predict.intensity.comp) <- c("Intensity")
      
-     cal.lm.comp <- lm(predict.frame.comp$Concentration~predict.frame.comp$Intensity)
-     cal.lm.poly.comp <- lm(predict.frame.comp$Concentration~poly(predict.frame.comp$Intensity, 2))
+     cal.lm.comp <- lm(Concentration~Intensity, data=predict.frame.comp)
+     cal.lm.poly.comp <- lm(Concentration~poly(Intensity, 2), data=predict.frame.comp)
      
      
      if(input$filetype=="Spectra"){total.counts <- aggregate(CPS~Spectrum, data=data, sum)}
@@ -3716,8 +3716,8 @@ observeEvent(input$exclude_reset, {
      predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)
      colnames(predict.intensity.tc) <- c("Intensity")
      
-     cal.lm.tc <- lm(predict.frame.tc$Concentration~predict.frame.tc$Intensity)
-     cal.lm.poly.tc <- lm(predict.frame.tc$Concentration~poly(predict.frame.tc$Intensity, 2))
+     cal.lm.tc <- lm(Concentration~Intensity, data=predict.frame.tc)
+     cal.lm.poly.tc <- lm(Concentration~poly(Intensity, 2), data=predict.frame.tc)
      
      
      intercept.none <- rep(0, length(spectra.line.table$Spectrum))
