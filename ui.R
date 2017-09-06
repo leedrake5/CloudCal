@@ -329,7 +329,7 @@ tags$hr(),
 tags$hr(),
 tags$hr(),
 
-fileInput('calfileinput2', 'Load Cal File', accept=".quant",multiple=FALSE),
+fileInput('calfileinput2', 'Load Cal File', accept=".quant", multiple=FALSE),
 
 downloadButton('downloadValData', "Results")
 

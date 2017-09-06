@@ -12,7 +12,7 @@ library(broom)
 
 
 
-options(shiny.maxRequestSize=30*1024^2)
+options(shiny.maxRequestSize=90*1024^2)
 
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
@@ -156,7 +156,15 @@ dataHold <- reactive({
 })
 
 
-
+dataCount <- reactive({
+    inFile <- input$file1
+    
+    if(input$usecalfile==FALSE){
+        length(inFile$datapath)
+    }else if(input$usefile==TRUE){
+        length(calFileContents()$Spectra)
+    }
+})
 
 
 
@@ -426,6 +434,8 @@ output$checkboxElements <-  renderUI({
      net.data
      
  })
+ 
+ 
  
 
  
@@ -762,7 +772,7 @@ output$comptonMaxInput <- renderUI({
       standards <- if(input$usecalfile==TRUE){
           calFileContents()$calList[[elementHold]][[1]][[4]]
       } else if(input$usecalfile==FALSE){
-          rep(TRUE, length(dataHold()$Spectrum))
+          rep(TRUE, dataCount())
       }
       
       standards
@@ -775,10 +785,9 @@ output$comptonMaxInput <- renderUI({
   
   vals <- reactiveValues()
   
-  vals$keeprows <- rep(TRUE, length(dataHold()$Spectrum))
-
-
-  vals$keeprows <- calFileStandards()
+  vals$keeprows <- vals$keeprows[ vals$keeprows != TRUE]
+  vals$keeprows <- vals$keeprows[ vals$keeprows != FALSE]
+  vals$keeprows = calFileStandards()
 
   
 
@@ -3806,7 +3815,9 @@ observeEvent(input$exclude_reset, {
          lukas.lm.comp
      }
      
-model
+
+     
+strip_glm(model)
 
  })
  
@@ -4192,12 +4203,14 @@ observeEvent(input$createcalelement, {
     
     
     calList[[input$calcurveelement]] <- list(isolate(calConditons), isolate(elementModel()))
+
     calList <<- calList
 
 })
 
 Calibration <- reactiveValues()
 observeEvent(input$createcal, {
+    
     
     spectra.line.table <- if(input$filetype=="Spectra"){
         spectraData()
@@ -4208,7 +4221,7 @@ observeEvent(input$createcal, {
              cal.values <- values[["DF"]]
              cal.data <- dataHold()
 
-             
+             calibrationList <- NULL
              calibrationList <- list(input$filetype, input$calunits, cal.data, cal.intensities, cal.values, calList)
              names(calibrationList) <- c("FileType", "Units", "Spectra", "Intensities", "Values", "calList")
              
@@ -4224,7 +4237,7 @@ filename <- function(){
 },
 
 content = function(file) {
-    save(Calibration, file = file)
+    saveRDS(Calibration, file = file)
 }
 )
 
@@ -4349,7 +4362,7 @@ content = function(file) {
             if (is.null(existingCalFile)) return(NULL)
             
             
-            load(existingCalFile$datapath, verbose=TRUE)
+            Calibration <- readRDS(existingCalFile$datapath)
             
             Calibration
             
@@ -4370,7 +4383,7 @@ content = function(file) {
         calValHold <- reactive({
             
 
-            calFileContents2()$calList
+            calFileContents2()[[6]]
             
             
             
@@ -4388,15 +4401,14 @@ content = function(file) {
         })
         
         calValElements <- reactive({
-            calsList <- calValHold()
-            valelements <- ls(calsList)
+            calList <- calValHold()
+            valelements <- ls(calList)
             valelements
         })
         
         calVariableElements <- reactive({
             variables <- calVariables()
-            variableelements <- names(variables)
-            variableelements <- variableelements[2:length(variableelements)]
+            variableelements <- ls(variables)
             variableelements
         })
         
@@ -4459,7 +4471,7 @@ content = function(file) {
             
             if(input$valfiletype=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
             
-            if(input$valfiletype=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", variableelements), drop = FALSE])}
+            if(input$valfiletype=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
             if(input$valfiletype=="Net"){val.line.table <- val.data}
             
@@ -4470,7 +4482,7 @@ content = function(file) {
         
         output$myvaltable1 <- renderDataTable({
             
-            tableInputValCounts()
+            fullInputValCounts()
             
         })
         
