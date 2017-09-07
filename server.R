@@ -649,6 +649,34 @@ output$inVar4 <- renderUI({
 
 
 
+
+calConditons <- reactiveValues()
+
+observeEvent(input$hotableprocess2, {
+    
+    cal.condition <- 1
+    norm.condition <- 1
+    
+    norm.min <- 18.5
+    norm.max <- 19.5
+    
+    cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max)
+    colnames(cal.table) <- c("CalType", "NormType", "Min", "Max")
+    
+    slope.corrections <- input$slope_vars
+    intercept.corrections <- input$intercept_vars
+    
+    standards.used <- vals$keeprows
+    
+    cal.mode.list <- list(cal.table, slope.corrections, intercept.corrections, standards.used)
+    names(cal.mode.list) <- c("CalTable", "Slope", "Intercept", "StandardsUsed")
+    
+    calConditons <<- cal.mode.list
+    
+})
+
+
+
 calTypeSelection <- reactive({
     
     hold <- values[["DF"]]
@@ -660,8 +688,8 @@ calTypeSelection <- reactive({
     }
     
     if(input$usecalfile==FALSE){
-        1
-    }else if(input$usecalfile==TRUE){
+        calConditons[[1]][[1]]
+    } else if(input$usecalfile==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$CalType
     }
     
@@ -678,7 +706,7 @@ calNormSelection <- reactive({
     }
     
     if(input$usecalfile==FALSE){
-        1
+        calConditons[[1]][[2]]
     }else if(input$usecalfile==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$NormType
     }
@@ -696,7 +724,7 @@ normMinSelection <- reactive({
     }
     
     if(input$usecalfile==FALSE){
-        18.5
+        calConditons[[1]][[3]]
     }else if(input$usecalfile==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$Min
     }
@@ -714,7 +742,7 @@ normMaxSelection <- reactive({
     }
     
     if(input$usecalfile==FALSE){
-        19.5
+        calConditons[[1]][[4]]
     }else if(input$usecalfile==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$Max
     }
@@ -4173,7 +4201,9 @@ observeEvent(input$hotableprocess2, {
     calList <<- calList
 })
 
-calConditons <- reactiveValues()
+
+
+
                  observeEvent(input$createcalelement, {
                               
                               cal.condition <- input$radiocal
