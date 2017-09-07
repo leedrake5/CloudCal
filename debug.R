@@ -436,8 +436,8 @@ simple.tc.prep.net <- function(data,spectra.line.table, element.line) {
     
     intensity <- spectra.line.table[,element.line]
     
-    total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])
-    total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)
+    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])
+    total.counts <- data.frame(data$Spectrum, total.counts.net)
     colnames(total.counts) <- c("Spectrum", "CPS")
     
     
@@ -461,8 +461,8 @@ simple.comp.prep.net <- function(data, spectra.line.table, element.line, norm.mi
     intensity <- spectra.line.table[,element.line]
     
     
-    compton.ag.fake.Spectrum <- spectra.line.table$Spectrum
-    compton.ag.fake.Compton <- rep(1, length(spectra.line.table$Spectrum))
+    compton.ag.fake.Spectrum <- data$Spectrum
+    compton.ag.fake.Compton <- rep(1, length(data$Spectrum))
     compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
     colnames(compton.ag.fake) <- c("Spectrum", "Compton")
     
@@ -501,7 +501,7 @@ lukas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.
     colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
     
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,intercept.element.lines]))
+    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))
     colnames(lukas.intercept.table) <- c("first")
     
     
@@ -533,8 +533,8 @@ lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.elem
     intensity <- spectra.line.table[,element.line]
     
     
-    total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])
-    total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)
+    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])
+    total.counts <- data.frame(data$Spectrum, total.counts.net)
     colnames(total.counts) <- c("Spectrum", "CPS")
     
     
@@ -553,7 +553,7 @@ lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.elem
     
     
     
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,intercept.element.lines]))/total.counts$CPS
+    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/total.counts$CPS
     colnames(lukas.intercept.table.tc) <- c("first")
     
     
@@ -584,8 +584,8 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     
     
     
-    compton.ag.fake.Spectrum <- spectra.line.table$Spectrum
-    compton.ag.fake.Compton <- rep(1, length(spectra.line.table$Spectrum))
+    compton.ag.fake.Spectrum <- data$Spectrum
+    compton.ag.fake.Compton <- rep(1, length(data$Spectrum))
     compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
     colnames(compton.ag.fake) <- c("Spectrum", "Compton")
     
@@ -603,12 +603,12 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     
     
     
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,,c(intercept.element.lines, "None")]))/compton.frame.ag$Compton
+    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/compton.ag.fake$Compton
     colnames(lukas.intercept.table.comp) <- c("first")
     
     
     
-    head
+    
     lukas.intercept.comp <- lukas.intercept.table.comp$first
     lukas.slope.comp <- data.frame(lukas.slope.table[,slope.element.lines])/compton.ag.fake$Compton
     colnames(lukas.slope.comp) <- slope.element.lines
@@ -628,21 +628,30 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
 }
 
 
+####Spectra Debug
 
 
+linearTime <- readRDS("~/Desktop/Cal Variations/Spectra/linearTime.quant")
+linearTC <- readRDS("~/Desktop/Cal Variations/Spectra/linearTC.quant")
+linearCompton <- readRDS("~/Desktop/Cal Variations/Spectra/linearCompton.quant")
 
-linearTime <- readRDS("~/Desktop/Cal Variations/linearTime.quant")
-linearTC <- readRDS("~/Desktop/Cal Variations/linearTC.quant")
-linearCompton <- readRDS("~/Desktop/Cal Variations/linearCompton.quant")
+lukasTime <- readRDS("~/Desktop/Cal Variations/Spectra/lukasTime.quant")
+lukasTC <- readRDS("~/Desktop/Cal Variations/Spectra/lukasTC.quant")
+lukasCompton <- readRDS("~/Desktop/Cal Variations/Spectra/lukasCompton.quant")
 
-lukasTime <- readRDS("~/Desktop/Cal Variations/lukasTime.quant")
-lukasTC <- readRDS("~/Desktop/Cal Variations/lukasTC.quant")
-lukasCompton <- readRDS("~/Desktop/Cal Variations/lukasCompton.quant")
+###Net Debug
+linearTime <- readRDS("~/Desktop/Cal Variations/Net/netLinearTime.quant")
+linearTC <- readRDS("~/Desktop/Cal Variations/Net/netLinearTC.quant")
+linearCompton <- readRDS("~/Desktop/Cal Variations/Net/netLinearCompton.quant")
+
+lukasTime <- readRDS("~/Desktop/Cal Variations/Net/netLukasTime.quant")
+lukasTC <- readRDS("~/Desktop/Cal Variations/Net/netLukasTC.quant")
+lukasCompton <- readRDS("~/Desktop/Cal Variations/Net/netLukasCompton.quant")
 
 
 valdata  <- linearTime$Spectra
 count.table <- linearTime$Intensities
-x <- "Ca.K.alpha"
+x <- "Ca.K12"
 
 element.line <- x
 spectra.line.table <- count.table
@@ -651,7 +660,7 @@ data <- valdata
 the.cal <- linearTime[[6]]
 timelinquant <- predict(
                     object=the.cal[[x]][[2]],
-                    newdata=general.prep(
+                    newdata=general.prep.net(
                         spectra.line.table=as.data.frame(
                             count.table
                             ),
@@ -662,7 +671,7 @@ timelinquant <- predict(
 the.cal <- linearTC[[6]]
 tclinquant <- predict(
                     object=the.cal[[x]][[2]],
-                    newdata=simple.tc.prep(
+                    newdata=simple.tc.prep.net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                             count.table
@@ -675,7 +684,7 @@ tclinquant <- predict(
 the.cal <- linearCompton[[6]]
 complinquant <- predict(
                     object=the.cal[[x]][[2]],
-                        newdata=simple.comp.prep(
+                        newdata=simple.comp.prep.net(
                             data=valdata,
                             spectra.line.table=as.data.frame(
                                 count.table
@@ -690,7 +699,7 @@ complinquant <- predict(
 the.cal <- lukasTime[[6]]
 timelukquant <- predict(
                     object=the.cal[[x]][[2]],
-                    newdata=lukas.simp.prep(
+                    newdata=lukas.simp.prep.net(
                         spectra.line.table=as.data.frame(
                             count.table
                             ),
@@ -703,7 +712,7 @@ timelukquant <- predict(
 the.cal <- lukasTC[[6]]
 tclukquant <- predict(
                     object=the.cal[[x]][[2]],
-                    newdata=lukas.tc.prep(
+                    newdata=lukas.tc.prep.net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                             count.table
@@ -717,7 +726,7 @@ tclukquant <- predict(
 the.cal <- lukasCompton[[6]]
 complukquant <-predict(
                     object=the.cal[[x]][[2]],
-                    newdata=lukas.comp.prep(
+                    newdata=lukas.comp.prep.net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                             count.table
@@ -729,6 +738,10 @@ complukquant <-predict(
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                         )
                 )
+
+
+
+
 
 
 

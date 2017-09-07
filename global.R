@@ -1668,8 +1668,8 @@ simple.tc.prep.net <- function(data,spectra.line.table, element.line) {
     
     intensity <- spectra.line.table[,element.line]
     
-    total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])
-    total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)
+    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])
+    total.counts <- data.frame(data$Spectrum, total.counts.net)
     colnames(total.counts) <- c("Spectrum", "CPS")
     
     
@@ -1693,8 +1693,8 @@ simple.comp.prep.net <- function(data, spectra.line.table, element.line, norm.mi
     intensity <- spectra.line.table[,element.line]
     
     
-    compton.ag.fake.Spectrum <- spectra.line.table$Spectrum
-    compton.ag.fake.Compton <- rep(1, length(spectra.line.table$Spectrum))
+    compton.ag.fake.Spectrum <- data$Spectrum
+    compton.ag.fake.Compton <- rep(1, length(data$Spectrum))
     compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
     colnames(compton.ag.fake) <- c("Spectrum", "Compton")
     
@@ -1733,7 +1733,7 @@ lukas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.
     colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
     
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,intercept.element.lines]))
+    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))
     colnames(lukas.intercept.table) <- c("first")
     
     
@@ -1765,8 +1765,8 @@ lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.elem
     intensity <- spectra.line.table[,element.line]
     
     
-    total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])
-    total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)
+    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])
+    total.counts <- data.frame(data$Spectrum, total.counts.net)
     colnames(total.counts) <- c("Spectrum", "CPS")
     
     
@@ -1785,7 +1785,7 @@ lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.elem
     
     
     
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,intercept.element.lines]))/total.counts$CPS
+    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/total.counts$CPS
     colnames(lukas.intercept.table.tc) <- c("first")
     
     
@@ -1816,8 +1816,8 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     
     
     
-    compton.ag.fake.Spectrum <- spectra.line.table$Spectrum
-    compton.ag.fake.Compton <- rep(1, length(spectra.line.table$Spectrum))
+    compton.ag.fake.Spectrum <- data$Spectrum
+    compton.ag.fake.Compton <- rep(1, length(data$Spectrum))
     compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
     colnames(compton.ag.fake) <- c("Spectrum", "Compton")
     
@@ -1835,12 +1835,12 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     
     
     
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,,c(intercept.element.lines, "None")]))/compton.frame.ag$Compton
+    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/compton.ag.fake$Compton
     colnames(lukas.intercept.table.comp) <- c("first")
     
     
     
-    head
+    
     lukas.intercept.comp <- lukas.intercept.table.comp$first
     lukas.slope.comp <- data.frame(lukas.slope.table[,slope.element.lines])/compton.ag.fake$Compton
     colnames(lukas.slope.comp) <- slope.element.lines
@@ -1858,7 +1858,6 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     
     predict.intensity.luk.comp
 }
-
 
 
 blank.data.frame <- data.frame(rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)))
