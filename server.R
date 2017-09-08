@@ -829,9 +829,11 @@ output$comptonMaxInput <- renderUI({
       
       
       
-      concentration.table <- values[["DF"]]
-      concentration.hold <- concentration.table
+      concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+      concentration.table[concentration.table==""] <- 999
       
+
+
       spectra.line.table <- if(input$filetype=="Spectra"){
           spectraData()
       }else if(input$filetype=="Net"){
@@ -882,8 +884,8 @@ calCurveFrame <- reactive({
     
     
     
-    concentration.table <- values[["DF"]]
-    concentration.hold <- concentration.table
+    concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+    concentration.table[concentration.table==""] <- 999
     
     spectra.line.table <- if(input$filetype=="Spectra"){
         spectraData()
@@ -1257,8 +1259,8 @@ calValFrame <- reactive({
     data <- dataHold()
     
     
-    concentration.table <- values[["DF"]]
-    concentration.hold <- concentration.table
+    concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+    concentration.table[concentration.table==""] <- 999
     
     spectra.line.table <- if(input$filetype=="Spectra"){
         spectraData()
@@ -1637,8 +1639,8 @@ calCurvePlot <- reactive({
 
     
     
-    concentration.table <- values[["DF"]]
-    concentration.hold <- concentration.table
+    concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+    concentration.table[concentration.table==""] <- 999
     
     spectra.line.table <- if(input$filetype=="Spectra"){
         spectraData()
@@ -2145,8 +2147,8 @@ valCurvePlot <- reactive({
     
     #if(input$usecalfile==TRUE && input$plot_val_click==FALSE){vals$keeprows <- calFileContents()$calList[[input$calcurveelement]][[1]][[4]]}
     
-    concentration.table <- values[["DF"]]
-    concentration.hold <- concentration.table
+    concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+    concentration.table[concentration.table==""] <- 999
     
     spectra.line.table <- if(input$filetype=="Spectra"){
         spectraData()
@@ -2653,8 +2655,8 @@ plotInput2 <- reactive({
     
     
     
-    concentration.table <- values[["DF"]]
-    concentration.hold <- concentration.table
+    concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+    concentration.table[concentration.table==""] <- 999
     
     spectra.line.table <- if(input$filetype=="Spectra"){
         spectraData()
@@ -3343,8 +3345,8 @@ observeEvent(input$exclude_reset, {
 
 
 
-     concentration.table <- values[["DF"]]
-     concentration.hold <- concentration.table
+     concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+     concentration.table[concentration.table==""] <- 999
      
      spectra.line.table <- if(input$filetype=="Spectra"){
          spectraData()
@@ -3649,8 +3651,8 @@ observeEvent(input$exclude_reset, {
      
 
 
-     concentration.table <- values[["DF"]]
-     concentration.hold <- concentration.table
+     concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+     concentration.table[concentration.table==""] <- 999
      
      spectra.line.table <- if(input$filetype=="Spectra"){
          spectraData()
