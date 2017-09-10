@@ -163,6 +163,10 @@ sidebarPanel(
 actionButton('linecommit', "Confirm Elements"),
 downloadButton('downloadData', "Table"),
 
+tags$hr(),
+
+checkboxInput('usespectravalues', "Use Imported Spectra", value=TRUE),
+
 
 tags$hr(),
 
@@ -223,10 +227,10 @@ conditionalPanel(
 condition='output$concentrationchoice',
 
 
-actionButton('createcalplot', "Plot"),
+downloadButton('downloadcloudplot', "Plot"),
 actionButton('createcalelement', "Update"),
 actionButton('createcal', "Save"),
-downloadButton('downloadModel', " "),
+downloadButton('downloadModel', "Model"),
 
 tags$hr(),
 
