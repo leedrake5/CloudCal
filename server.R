@@ -9,6 +9,7 @@ library(gridExtra)
 library(rhandsontable)
 library(Cairo)
 library(broom)
+library(shinyjs)
 
 
 
@@ -489,7 +490,7 @@ spectra.line.table <- if(input$filetype=="Spectra"){
 }else if(input$filetype=="Net"){
     dataHold()
 }
-        empty.line.table <- spectra.line.table[input$show_vars] * 0.0000
+        empty.line.table <- spectra.line.table[,input$show_vars] * 0.0000
 
     #empty.line.table$Spectrum <- spectra.line.table$Spectrum
     
@@ -503,7 +504,7 @@ spectra.line.table <- if(input$filetype=="Spectra"){
       hold.frame
   }else if(input$usecalfile==TRUE){
       
-      data.frame(calFileContents()$Values, hold.frame[! names(hold.frame) %in% names(calFileContents()$Values)])
+      data.frame(calFileContents()$Values, hold.frame[,! names(hold.frame) %in% names(calFileContents()$Values)])
 
   }
   
@@ -512,14 +513,19 @@ spectra.line.table <- if(input$filetype=="Spectra"){
 
 })
 
+
+
 values <- reactiveValues()
+
+
+
 
 
 observe({
     if (!is.null(input$hot)) {
         DF <- hot_to_r(input$hot)
     } else {
-        if (is.null(values[["DF"]]) && input$linecommit)
+        if (input$linecommit)
         DF <- hotableInput()
         else
         DF <- values[["DF"]]
@@ -527,11 +533,17 @@ observe({
     values[["DF"]] <- DF
 })
 
+eventReactive(input$linecommit,{
+    
+    values[["DF"]] <- hotableInput()
+    
+})
+
 
 ## Handsontable
 
 output$hot <- renderRHandsontable({
-
+    
     DF <- values[["DF"]]
     
     
@@ -539,13 +551,19 @@ output$hot <- renderRHandsontable({
     if (!is.null(DF))
     rhandsontable(DF) %>% hot_col(2:length(DF),type="numeric")
     
-
+    
 })
 
 
+observeEvent(input$resethotable, {
+    
+   values[["DF"]] <- NULL
+   
+   values[["DF"]] <- hotableInput()
 
-      
-      
+    
+})
+
       # randomInterList <- reactive({
       #   if (is.null(input$intercept_vars))
       #   paste(,2)

@@ -199,6 +199,7 @@ fluidRow(
 sidebarLayout(
 sidebarPanel(
 
+actionButton('resethotable', "Reset"),
 actionButton('hotableprocess2', "Enter Values"),
 tags$hr(),
 textInput("calunits", label = "Units", value="Weight %")
