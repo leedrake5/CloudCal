@@ -1120,10 +1120,10 @@ calCurveFrame <- reactive({
             lukas.intercept <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))
             lukas.slope <- data.frame(lukas.slope.table[input$slope_vars])
             
-            lukas.x <- data.frame((intensity-lukas.intercept)*rowMeans(lukas.slope))
+            lukas.x <- data.frame(((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept)))*rowMeans(lukas.slope))
             
             
-            predict.frame.luk <- data.frame(predict.frame$Concentration, (intensity-lukas.intercept),lukas.slope)
+            predict.frame.luk <- data.frame(predict.frame$Concentration, ((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept))),lukas.slope)
             colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lukas.slope))
             
             
@@ -1159,9 +1159,9 @@ calCurveFrame <- reactive({
             
             
             
-            lukas.intensity.comp <- (predict.frame.comp$Intensity-lukas.intercept.comp)*lukas.slope.comp
+            lukas.intensity.comp <- ((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*lukas.slope.comp
             
-            lukas.x.comp <- data.frame((predict.frame.comp$Intensity-lukas.intercept.comp)*rowMeans(lukas.slope.comp))
+            lukas.x.comp <- data.frame(((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*rowMeans(lukas.slope.comp))
             
             
             predict.frame.luk.comp <- data.frame(predict.frame$Concentration, lukas.intensity.comp)
@@ -1232,7 +1232,7 @@ calCurveFrame <- reactive({
             colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
             
             
-            lukas.x.tc <- data.frame((predict.frame.tc$Intensity-lukas.intercept.tc)*rowMeans(lukas.slope.tc))
+            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
             
             
             predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -1511,10 +1511,10 @@ calValFrame <- reactive({
             lukas.intercept <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))
             lukas.slope <- data.frame(lukas.slope.table[input$slope_vars])
             
-            lukas.x <- data.frame((intensity-lukas.intercept)*rowMeans(lukas.slope))
+            lukas.x <- data.frame(((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept)))*rowMeans(lukas.slope))
             
             
-            predict.frame.luk <- data.frame(predict.frame$Concentration, (intensity-lukas.intercept),lukas.slope)
+            predict.frame.luk <- data.frame(predict.frame$Concentration, ((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept))),lukas.slope)
             colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lukas.slope))
             
             
@@ -1550,9 +1550,9 @@ calValFrame <- reactive({
             
             
             
-            lukas.intensity.comp <- (predict.frame.comp$Intensity-lukas.intercept.comp)*lukas.slope.comp
+            lukas.intensity.comp <- ((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*lukas.slope.comp
             
-            lukas.x.comp <- data.frame((predict.frame.comp$Intensity-lukas.intercept.comp)*rowMeans(lukas.slope.comp))
+            lukas.x.comp <- data.frame(((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*rowMeans(lukas.slope.comp))
             
             
             predict.frame.luk.comp <- data.frame(predict.frame$Concentration, lukas.intensity.comp)
@@ -1623,7 +1623,7 @@ calValFrame <- reactive({
             colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
             
             
-            lukas.x.tc <- data.frame((predict.frame.tc$Intensity-lukas.intercept.tc)*rowMeans(lukas.slope.tc))
+            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
             
             
             predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -1902,10 +1902,10 @@ calCurvePlot <- reactive({
     lukas.intercept <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))
     lukas.slope <- data.frame(lukas.slope.table[input$slope_vars])
     
-    lukas.x <- data.frame((intensity-lukas.intercept)*rowMeans(lukas.slope))
+    lukas.x <- data.frame(((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept)))*rowMeans(lukas.slope))
     
     
-    predict.frame.luk <- data.frame(predict.frame$Concentration, (intensity-lukas.intercept),lukas.slope)
+    predict.frame.luk <- data.frame(predict.frame$Concentration, ((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept))),lukas.slope)
     colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lukas.slope))
     
     
@@ -1941,9 +1941,9 @@ calCurvePlot <- reactive({
 
 
     
-    lukas.intensity.comp <- (predict.frame.comp$Intensity-lukas.intercept.comp)*lukas.slope.comp
+    lukas.intensity.comp <- ((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*lukas.slope.comp
     
-    lukas.x.comp <- data.frame((predict.frame.comp$Intensity-lukas.intercept.comp)*rowMeans(lukas.slope.comp))
+    lukas.x.comp <- data.frame(((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*rowMeans(lukas.slope.comp))
 
 
     predict.frame.luk.comp <- data.frame(predict.frame$Concentration, lukas.intensity.comp)
@@ -2014,7 +2014,7 @@ calCurvePlot <- reactive({
     colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
     
     
-    lukas.x.tc <- data.frame((predict.frame.tc$Intensity-lukas.intercept.tc)*rowMeans(lukas.slope.tc))
+    lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
 
 
     predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -2406,23 +2406,23 @@ valCurvePlot <- reactive({
     if (input$radiocal==3){
         
         intercept.none <- rep(0, length(spectra.line.table$Spectrum))
-        lukas.intercept.table <- data.frame(spectra.line.table[input$show_vars], intercept.none)
-        colnames(lukas.intercept.table) <- c(names(spectra.line.table[input$show_vars]), "None")
+        lukas.intercept.table <- data.frame(spectra.line.table[,input$show_vars], intercept.none)
+        colnames(lukas.intercept.table) <- c(names(spectra.line.table[,input$show_vars]), "None")
         
         
         
         slope.none <- rep(1, length(spectra.line.table$Spectrum))
-        lukas.slope.table <- data.frame(spectra.line.table[input$show_vars], slope.none)
-        colnames(lukas.slope.table) <- c(names(spectra.line.table[input$show_vars]), "None")
+        lukas.slope.table <- data.frame(spectra.line.table[,input$show_vars], slope.none)
+        colnames(lukas.slope.table) <- c(names(spectra.line.table[,input$show_vars]), "None")
         
         if(input$normcal==1){
             lukas.intercept <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))
-            lukas.slope <- data.frame(lukas.slope.table[input$slope_vars])
+            lukas.slope <- data.frame(lukas.slope.table[,input$slope_vars])
             
-            lukas.x <- data.frame((intensity-lukas.intercept)*rowMeans(lukas.slope))
+            lukas.x <- data.frame(((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept)))*rowMeans(lukas.slope))
             
             
-            predict.frame.luk <- data.frame(predict.frame$Concentration, (intensity-lukas.intercept),lukas.slope)
+            predict.frame.luk <- data.frame(predict.frame$Concentration, ((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept))),lukas.slope)
             colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lukas.slope))
             
             
@@ -2458,9 +2458,9 @@ valCurvePlot <- reactive({
             
             
             
-            lukas.intensity.comp <- (predict.frame.comp$Intensity-lukas.intercept.comp)*lukas.slope.comp
+            lukas.intensity.comp <- ((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*lukas.slope.comp
             
-            lukas.x.comp <- data.frame((predict.frame.comp$Intensity-lukas.intercept.comp)*rowMeans(lukas.slope.comp))
+            lukas.x.comp <- data.frame(((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*rowMeans(lukas.slope.comp))
             
             
             predict.frame.luk.comp <- data.frame(predict.frame$Concentration, lukas.intensity.comp)
@@ -2531,7 +2531,7 @@ valCurvePlot <- reactive({
             colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
             
             
-            lukas.x.tc <- data.frame((predict.frame.tc$Intensity-lukas.intercept.tc)*rowMeans(lukas.slope.tc))
+            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
             
             
             predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -2565,6 +2565,7 @@ valCurvePlot <- reactive({
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
         stat_smooth(method="lm") +
+        geom_abline(intercept=0, slope=1, lty=2) +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
         scale_x_continuous(paste(element.name, predi)) +
@@ -2573,6 +2574,7 @@ valCurvePlot <- reactive({
         calval.poly.plot <- ggplot(data=val.frame.poly[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame.poly[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -2588,6 +2590,7 @@ valCurvePlot <- reactive({
         calval.linear.plot.tc <- ggplot(data=val.frame.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -2597,6 +2600,7 @@ valCurvePlot <- reactive({
         calval.poly.plot.tc <- ggplot(data=val.frame.poly.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame.poly.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -2611,6 +2615,7 @@ valCurvePlot <- reactive({
         calval.linear.plot.comp <- ggplot(data=val.frame.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -2620,6 +2625,7 @@ valCurvePlot <- reactive({
         calval.poly.plot.comp <- ggplot(data=val.frame.poly.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame.poly.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -2641,6 +2647,7 @@ valCurvePlot <- reactive({
             theme_bw() +
             annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luk[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
             stat_smooth(method="lm") +
+            geom_abline(intercept=0, slope=1, lty=2) +
             geom_point() +
             geom_point(aes(Prediction, Concentration),  data = val.frame.luk[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
             scale_x_continuous(paste(element.name, predi)) +
@@ -2656,6 +2663,7 @@ valCurvePlot <- reactive({
             theme_bw() +
             annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luk.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
             stat_smooth(method="lm") +
+            geom_abline(intercept=0, slope=1, lty=2) +
             geom_point() +
             geom_point(aes(Prediction, Concentration),  data = val.frame.luk.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
             scale_x_continuous(paste(element.name, predi)) +
@@ -2672,6 +2680,7 @@ valCurvePlot <- reactive({
             calval.linear.plot.luk.comp <- ggplot(data=val.frame.luk.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
             theme_bw() +
             annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luk.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm") +
             geom_point() +
             geom_point(aes(Prediction, Concentration),  data = val.frame.luk.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -2939,10 +2948,10 @@ calPlotDownlaod <- reactive({
             lukas.intercept <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))
             lukas.slope <- data.frame(lukas.slope.table[input$slope_vars])
             
-            lukas.x <- data.frame((intensity-lukas.intercept)*rowMeans(lukas.slope))
+            lukas.x <- data.frame(((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept)))*rowMeans(lukas.slope))
             
             
-            predict.frame.luk <- data.frame(predict.frame$Concentration, (intensity-lukas.intercept),lukas.slope)
+            predict.frame.luk <- data.frame(predict.frame$Concentration, ((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept))),lukas.slope)
             colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lukas.slope))
             
             
@@ -2978,9 +2987,9 @@ calPlotDownlaod <- reactive({
             
             
             
-            lukas.intensity.comp <- (predict.frame.comp$Intensity-lukas.intercept.comp)*lukas.slope.comp
+            lukas.intensity.comp <- ((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*lukas.slope.comp
             
-            lukas.x.comp <- data.frame((predict.frame.comp$Intensity-lukas.intercept.comp)*rowMeans(lukas.slope.comp))
+            lukas.x.comp <- data.frame(((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*rowMeans(lukas.slope.comp))
             
             
             predict.frame.luk.comp <- data.frame(predict.frame$Concentration, lukas.intensity.comp)
@@ -3051,7 +3060,7 @@ calPlotDownlaod <- reactive({
             colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
             
             
-            lukas.x.tc <- data.frame((predict.frame.tc$Intensity-lukas.intercept.tc)*rowMeans(lukas.slope.tc))
+            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
             
             
             predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -3092,6 +3101,7 @@ calPlotDownlaod <- reactive({
         calval.linear.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -3111,6 +3121,7 @@ calPlotDownlaod <- reactive({
         calval.poly.plot <- ggplot(data=val.frame.poly[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame.poly[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -3135,6 +3146,7 @@ calPlotDownlaod <- reactive({
         calval.linear.plot.tc <- ggplot(data=val.frame.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -3153,6 +3165,7 @@ calPlotDownlaod <- reactive({
         calval.poly.plot.tc <- ggplot(data=val.frame.poly.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame.poly.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -3175,6 +3188,7 @@ calPlotDownlaod <- reactive({
         calval.linear.plot.comp <- ggplot(data=val.frame.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -3193,6 +3207,7 @@ calPlotDownlaod <- reactive({
         calval.poly.plot.comp <- ggplot(data=val.frame.poly.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
         theme_bw() +
         annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
         stat_smooth(method="lm") +
         geom_point() +
         geom_point(aes(Prediction, Concentration), data = val.frame.poly.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -3219,6 +3234,7 @@ calPlotDownlaod <- reactive({
             calval.linear.plot.luk <- ggplot(data=val.frame.luk[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
             theme_bw() +
             annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luk[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm") +
             geom_point() +
             geom_point(aes(Prediction, Concentration),  data = val.frame.luk[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -3245,6 +3261,7 @@ calPlotDownlaod <- reactive({
             calval.linear.plot.luk.tc <- ggplot(data=val.frame.luk.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
             theme_bw() +
             annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luk.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm") +
             geom_point() +
             geom_point(aes(Prediction, Concentration),  data = val.frame.luk.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -3269,6 +3286,7 @@ calPlotDownlaod <- reactive({
             calval.linear.plot.luk.comp <- ggplot(data=val.frame.luk.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
             theme_bw() +
             annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luk.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm") +
             geom_point() +
             geom_point(aes(Prediction, Concentration),  data = val.frame.luk.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -3630,10 +3648,10 @@ observeEvent(input$exclude_reset, {
              lukas.intercept <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))
              lukas.slope <- data.frame(lukas.slope.table[input$slope_vars])
              
-             lukas.x <- data.frame((intensity-lukas.intercept)*rowMeans(lukas.slope))
+             lukas.x <- data.frame(((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept)))*rowMeans(lukas.slope))
              
              
-             predict.frame.luk <- data.frame(predict.frame$Concentration, (intensity-lukas.intercept),lukas.slope)
+             predict.frame.luk <- data.frame(predict.frame$Concentration, ((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept))),lukas.slope)
              colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lukas.slope))
              
              
@@ -3669,9 +3687,9 @@ observeEvent(input$exclude_reset, {
              
              
              
-             lukas.intensity.comp <- (predict.frame.comp$Intensity-lukas.intercept.comp)*lukas.slope.comp
+             lukas.intensity.comp <- ((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*lukas.slope.comp
              
-             lukas.x.comp <- data.frame((predict.frame.comp$Intensity-lukas.intercept.comp)*rowMeans(lukas.slope.comp))
+             lukas.x.comp <- data.frame(((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*rowMeans(lukas.slope.comp))
              
              
              predict.frame.luk.comp <- data.frame(predict.frame$Concentration, lukas.intensity.comp)
@@ -3742,7 +3760,7 @@ observeEvent(input$exclude_reset, {
              colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
              
              
-             lukas.x.tc <- data.frame((predict.frame.tc$Intensity-lukas.intercept.tc)*rowMeans(lukas.slope.tc))
+             lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
              
              
              predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -4038,10 +4056,10 @@ observeEvent(input$exclude_reset, {
              lukas.intercept <- data.frame(rowSums(lukas.intercept.table[input$intercept_vars]))
              lukas.slope <- data.frame(lukas.slope.table[input$slope_vars])
              
-             lukas.x <- data.frame((intensity-lukas.intercept)*rowMeans(lukas.slope))
+             lukas.x <- data.frame(((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept)))*rowMeans(lukas.slope))
              
              
-             predict.frame.luk <- data.frame(predict.frame$Concentration, (intensity-lukas.intercept),lukas.slope)
+             predict.frame.luk <- data.frame(predict.frame$Concentration, ((1+intensity/(intensity+lukas.intercept)-lukas.intercept/(intensity+lukas.intercept))),lukas.slope)
              colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lukas.slope))
              
              
@@ -4077,9 +4095,9 @@ observeEvent(input$exclude_reset, {
              
              
              
-             lukas.intensity.comp <- (predict.frame.comp$Intensity-lukas.intercept.comp)*lukas.slope.comp
+             lukas.intensity.comp <- ((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*lukas.slope.comp
              
-             lukas.x.comp <- data.frame((predict.frame.comp$Intensity-lukas.intercept.comp)*rowMeans(lukas.slope.comp))
+             lukas.x.comp <- data.frame(((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lukas.intercept.comp)-lukas.intercept.comp/(predict.frame.comp$Intensity+lukas.intercept.comp)))*rowMeans(lukas.slope.comp))
              
              
              predict.frame.luk.comp <- data.frame(predict.frame$Concentration, lukas.intensity.comp)
@@ -4150,7 +4168,7 @@ observeEvent(input$exclude_reset, {
              colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
              
              
-             lukas.x.tc <- data.frame((predict.frame.tc$Intensity-lukas.intercept.tc)*rowMeans(lukas.slope.tc))
+             lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
              
              
              predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
