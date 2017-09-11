@@ -1232,7 +1232,7 @@ calCurveFrame <- reactive({
             colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
             
             
-            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
+            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.tc/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
             
             
             predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -1623,7 +1623,7 @@ calValFrame <- reactive({
             colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
             
             
-            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
+            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.tc/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
             
             
             predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -2014,7 +2014,7 @@ calCurvePlot <- reactive({
     colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
     
     
-    lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
+    lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.tc/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
 
 
     predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -2531,7 +2531,7 @@ valCurvePlot <- reactive({
             colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
             
             
-            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
+            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.tc/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
             
             
             predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -3060,7 +3060,7 @@ calPlotDownlaod <- reactive({
             colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
             
             
-            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
+            lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.tc/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
             
             
             predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -3760,7 +3760,7 @@ observeEvent(input$exclude_reset, {
              colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
              
              
-             lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
+             lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.tc/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
              
              
              predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)
@@ -4168,7 +4168,7 @@ observeEvent(input$exclude_reset, {
              colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))
              
              
-             lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.comp/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
+             lukas.x.tc <- data.frame(((1+predict.frame.tc$Intensity/(predict.frame.tc$Intensity+lukas.intercept.tc)-lukas.intercept.tc/(predict.frame.tc$Intensity+lukas.intercept.tc)))*rowMeans(lukas.slope.tc))
              
              
              predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)

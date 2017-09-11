@@ -1499,8 +1499,8 @@ lukas.simp.prep <- function(spectra.line.table, element.line, slope.element.line
     
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     
     
@@ -1510,7 +1510,7 @@ lukas.simp.prep <- function(spectra.line.table, element.line, slope.element.line
     colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
     
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))
+    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))
     colnames(lukas.intercept.table) <- c("first")
     
     
@@ -1546,8 +1546,8 @@ lukas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.
     
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     
     
@@ -1557,7 +1557,7 @@ lukas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.
     colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
     
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/total.counts$CPS
+    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))/total.counts$CPS
     colnames(lukas.intercept.table.tc) <- c("first")
     
     
@@ -1601,8 +1601,8 @@ lukas.comp.prep <- function(data, spectra.line.table, element.line, slope.elemen
     
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     
     
@@ -1613,7 +1613,7 @@ lukas.comp.prep <- function(data, spectra.line.table, element.line, slope.elemen
     
     
     
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/compton.frame.ag$Compton
+    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))/compton.frame.ag$Compton
     colnames(lukas.intercept.table.comp) <- c("first")
     
     
@@ -1722,8 +1722,8 @@ lukas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.
     intensity <- spectra.line.table[,element.line]
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     
     
@@ -1733,7 +1733,7 @@ lukas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.
     colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")
     
     
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))
+    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))
     colnames(lukas.intercept.table) <- c("first")
     
     
@@ -1773,8 +1773,8 @@ lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.elem
     
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     
     
@@ -1785,7 +1785,7 @@ lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.elem
     
     
     
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/total.counts$CPS
+    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))/total.counts$CPS
     colnames(lukas.intercept.table.tc) <- c("first")
     
     
@@ -1823,8 +1823,8 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")
+    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
+    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     
     
@@ -1835,7 +1835,7 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     
     
     
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/compton.ag.fake$Compton
+    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))/compton.ag.fake$Compton
     colnames(lukas.intercept.table.comp) <- c("first")
     
     
