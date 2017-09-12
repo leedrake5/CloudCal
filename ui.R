@@ -165,7 +165,7 @@ downloadButton('downloadData', "Table"),
 
 tags$hr(),
 
-checkboxInput('usespectravalues', "Use Imported Spectra", value=TRUE),
+checkboxInput('usespectravalues', "Use Imported Spectra", value=FALSE),
 
 
 tags$hr(),

@@ -3824,7 +3824,10 @@ observeEvent(input$exclude_reset, {
          val.frame.luk.comp
      }
      
-     this.table <- DT::datatable(standard.table)
+     standard.table.summary <- data.frame(hold.frame$Spectrum, standard.table$Concentration, standard.table$Prediction, standard.table$Concentration-standard.table$Prediction, (standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration)
+     colnames(standard.table.summary) <- c("Standard", "Concentration", "Prediction", "Difference", "Relative")
+     
+     this.table <- DT::datatable(standard.table.summary)
      this.table
 
  })
@@ -4514,7 +4517,7 @@ emptyList <- reactive({
 
 calList <- reactiveValues()
 
-observeEvent(input$hotableprocess2, {
+observeEvent(input$actionprocess, {
     isolate(calList <- emptyList())
     calList <<- calList
 })
