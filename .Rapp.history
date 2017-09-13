@@ -1,3 +1,400 @@
+year.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="year"))#
+trees <- names(year.list)#
+year <- as.vector(unlist(year.list))#
+result.frame <- data.frame(trees, year)#
+colnames(result.frame) <- c("Tree", "Year")#
+#
+t.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="howmanyt"))#
+trees <- names(t.list)#
+how.many.t <- as.vector(unlist(t.list))#
+result.frame$HowManyTValues <- how.many.t#
+#
+p.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="howmanyp"))#
+trees <- names(p.list)#
+how.many.p <- as.vector(unlist(p.list))#
+result.frame$HowManypValues <- how.many.p#
+#
+years.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="whichyears"))#
+trees <- names(years.list)#
+which.years <- as.vector(unlist(years.list))#
+result.frame$WhichYears <- which.years#
+write.table(result.frame, "treeresultssmall.csv", sep=",")
+head(chaco.trees)
+ls(chacotrees)
+yearJackKnife <- function(tree.sequence, source.sequence, return=c("fullframe", "year", "howmanyt", "howmanyp", "whichyears", "summaryframe")){#
+    tree.sequence <- as.data.frame(tree.sequence)#
+    tree.sequence <- tree.sequence[,1][!is.na(tree.sequence[,1])]#
+    tree.sequence <- as.data.frame(tree.sequence)#
+    tree.length <- length(tree.sequence[,1])#
+    source.length <- length(source.sequence[,1])#
+    the.gap <- source.length-tree.length#
+    tree.order <- seq(1, source.length, 1)#
+    tree.sequence.na <- c(tree.sequence[,1], rep(NA, the.gap))#
+    r2.vector <- as.vector(unlist(lapply(tree.order, function(x) summary(lm(tree.sequence.na~treeShift(source.sequence[,2], x)))$r.squared)))#
+    t.value.vector <- as.vector(unlist(lapply(r2.vector, function(x) tValue(x, tree.length))))#
+    t.scale.vector <- scale(t.value.vector)[,1]#
+    scaled.mean <- mean(t.scale.vector)#
+    scaled.sd <- sd(t.scale.vector)#
+    scaled.z.vector <- as.vector(unlist(lapply(t.scale.vector, function(x) zValueVector(x, scaled.mean, scaled.sd))))#
+    scaled.p.vector <- as.vector(unlist(lapply(scaled.z.vector, pValueVector)))#
+    results.frame <- data.frame(source.sequence[,1], r2.vector, t.value.vector, scaled.z.vector, scaled.p.vector)#
+    colnames(results.frame) <- c("Year", "r2", "t.value", "Z score", "p.value")#
+    result.min <- which.min(results.frame[,5])#
+    result.year <- results.frame$Year[result.min]#
+    result.year <- as.data.frame(result.year)#
+    #colnames(result.year) <- colnames(tree.sequence)#
+    t.results <- subset(results.frame, t.value>=3.5)#
+    how.many.t <- length(t.results[,1])#
+    p.results <- subset(results.frame, p.value<=0.05)#
+    how.many.p <- length(p.results[,1])#
+    which.years <- p.results$Year#
+    if(return=="fullframe"){#
+        results.frame#
+    }else if(return=="year"){#
+        result.year#
+    } else if(return=="howmanyt"){#
+        how.many.t#
+    }else if(return=="howmanyp"){#
+        how.many.p#
+    }else if(return=="whichyears"){#
+        which.years#
+    }else if(return=="summaryframe"){#
+        summary.frame#
+    }#
+}#
+#
+year.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="year"))#
+trees <- names(year.list)#
+year <- as.vector(unlist(year.list))#
+result.frame <- data.frame(trees, year)#
+colnames(result.frame) <- c("Tree", "Year")#
+#
+t.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="howmanyt"))#
+trees <- names(t.list)#
+how.many.t <- as.vector(unlist(t.list))#
+result.frame$HowManyTValues <- how.many.t#
+#
+p.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="howmanyp"))#
+trees <- names(p.list)#
+how.many.p <- as.vector(unlist(p.list))#
+result.frame$HowManypValues <- how.many.p#
+#
+years.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="whichyears"))#
+trees <- names(years.list)#
+which.years <- as.vector(unlist(years.list))#
+result.frame$WhichYears <- which.years#
+write.table(result.frame, "treeresultssmall.csv", sep=",")
+yearJackKnife <- function(tree.sequence, source.sequence, return=c("fullframe", "yearp", "yeart", "howmanyt", "howmanyp", "whichyears", "summaryframe")){#
+    tree.sequence <- as.data.frame(tree.sequence)#
+    tree.sequence <- tree.sequence[,1][!is.na(tree.sequence[,1])]#
+    tree.sequence <- as.data.frame(tree.sequence)#
+    tree.length <- length(tree.sequence[,1])#
+    source.length <- length(source.sequence[,1])#
+    the.gap <- source.length-tree.length#
+    tree.order <- seq(1, source.length, 1)#
+    tree.sequence.na <- c(tree.sequence[,1], rep(NA, the.gap))#
+    r2.vector <- as.vector(unlist(lapply(tree.order, function(x) summary(lm(tree.sequence.na~treeShift(source.sequence[,2], x)))$r.squared)))#
+    t.value.vector <- as.vector(unlist(lapply(r2.vector, function(x) tValue(x, tree.length))))#
+    t.scale.vector <- scale(t.value.vector)[,1]#
+    scaled.mean <- mean(t.scale.vector)#
+    scaled.sd <- sd(t.scale.vector)#
+    scaled.z.vector <- as.vector(unlist(lapply(t.scale.vector, function(x) zValueVector(x, scaled.mean, scaled.sd))))#
+    scaled.p.vector <- as.vector(unlist(lapply(scaled.z.vector, pValueVector)))#
+    results.frame <- data.frame(source.sequence[,1], r2.vector, t.value.vector, scaled.z.vector, scaled.p.vector)#
+    colnames(results.frame) <- c("Year", "r2", "t.value", "Z score", "p.value")#
+    result.min <- which.min(results.frame[,5])#
+    result.max <- which.max(results.frame[,3])#
+    result.year.p <- results.frame$Year[result.min]#
+    result.year.t <- results.frame$Year[result.max]#
+    result.year.p <- as.data.frame(result.year.p)#
+    result.year.t <- as.data.frame(result.year.t)#
+#
+    #colnames(result.year) <- colnames(tree.sequence)#
+    t.results <- subset(results.frame, t.value>=3.5)#
+    how.many.t <- length(t.results[,1])#
+    p.results <- subset(results.frame, p.value<=0.05)#
+    how.many.p <- length(p.results[,1])#
+    which.years <- p.results$Year#
+    if(return=="fullframe"){#
+        results.frame#
+    }else if(return=="yearp"){#
+        result.year.p#
+        results.frame#
+    }else if(return=="yeart"){#
+        result.year.t#
+    } else if(return=="howmanyt"){#
+        how.many.t#
+    }else if(return=="howmanyp"){#
+        how.many.p#
+    }else if(return=="whichyears"){#
+        which.years#
+    }else if(return=="whichts"){#
+        which.t.values#
+    }else if (return=="whichps"){#
+        which.p.values#
+    }#
+}#
+#
+year.p.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="yearp"))#
+trees <- names(year.p.list)#
+year.p <- as.vector(unlist(year.p.list))#
+result.frame <- data.frame(trees, year.p)#
+colnames(result.frame) <- c("Tree", "Yearp")#
+#
+year.t.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="yeart"))#
+trees <- names(year.t.list)#
+year.t <- as.vector(unlist(year.t.list))#
+result.frame$YearT <- year.t#
+t.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="howmanyt"))#
+trees <- names(t.list)#
+how.many.t <- as.vector(unlist(t.list))#
+result.frame$HowManyTValues <- how.many.t#
+#
+p.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="howmanyp"))#
+trees <- names(p.list)#
+how.many.p <- as.vector(unlist(p.list))#
+result.frame$HowManypValues <- how.many.p#
+#
+#years.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="whichyears"))#
+#trees <- names(years.list)#
+#which.years <- as.vector(unlist(years.list))#
+#result.frame$WhichYears <- which.years#
+write.table(result.frame, "treeresultssmall.csv", sep=",")
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults", sheetName="Summary")
+library(xlsx)
+curl -#ROL https://www.rforge.net/rJava/snapshot/rJava_0.9-8.tar.gz#
+R CMD INSTALL rJava_0.9-8.tar.gz
+dyn.load('/Library/Java/JavaVirtualMachines/jdk1.8.0_66.jdk/Contents/Home/jre/lib/server/libjvm.dylib')#
+require(rJava)
+dyn.load('/Library/Java/JavaVirtualMachines/jdk1.8.0_66.jdk/Contents/Home/jre/lib/server/libjvm.dylib')
+sudo ln -f -s $(/usr/libexec/java_home)/jre/lib/server/libjvm.dylib /usr/local/lib
+dyn.load('/Library/Java/JavaVirtualMachines/jdk1.8.0_66.jdk/Contents/Home/jre/lib/server/libjvm.dylib')
+dyn.load(paste0(system2('/usr/libexec/java_home', stdout = TRUE), '/jre/lib/server/libjvm.dylib'))
+library(xlsx)
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults", sheetName="Summary")
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName="Summary")
+results.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="fullframe"))
+head(result.frame)
+yearJackKnife <- function(tree.sequence, source.sequence, return=c("fullframe", "yearp", "yeart", "howmanyt", "howmanyp", "whichyears", "summaryframe")){#
+    tree.sequence <- as.data.frame(tree.sequence)#
+    tree.sequence <- tree.sequence[,1][!is.na(tree.sequence[,1])]#
+    tree.sequence <- as.data.frame(tree.sequence)#
+    tree.length <- length(tree.sequence[,1])#
+    source.length <- length(source.sequence[,1])#
+    the.gap <- source.length-tree.length#
+    tree.order <- seq(1, source.length, 1)#
+    tree.sequence.na <- c(tree.sequence[,1], rep(NA, the.gap))#
+    r2.vector <- as.vector(unlist(lapply(tree.order, function(x) summary(lm(tree.sequence.na~treeShift(source.sequence[,2], x)))$r.squared)))#
+    t.value.vector <- as.vector(unlist(lapply(r2.vector, function(x) tValue(x, tree.length))))#
+    t.scale.vector <- scale(t.value.vector)[,1]#
+    scaled.mean <- mean(t.scale.vector)#
+    scaled.sd <- sd(t.scale.vector)#
+    scaled.z.vector <- as.vector(unlist(lapply(t.scale.vector, function(x) zValueVector(x, scaled.mean, scaled.sd))))#
+    scaled.p.vector <- as.vector(unlist(lapply(scaled.z.vector, pValueVector)))#
+    results.frame <- data.frame(source.sequence[,1], r2.vector, t.value.vector, scaled.z.vector, scaled.p.vector)#
+    colnames(results.frame) <- c("Year", "r2", "t.value", "Z score", "p.value")#
+    result.min <- which.min(results.frame[,5])#
+    result.max <- which.max(results.frame[,3])#
+    result.year.p <- results.frame$Year[result.min]#
+    result.year.t <- results.frame$Year[result.max]#
+    result.year.p <- as.data.frame(result.year.p)#
+    result.year.t <- as.data.frame(result.year.t)#
+#
+    #colnames(result.year) <- colnames(tree.sequence)#
+    t.results <- subset(results.frame, t.value>=3.5)#
+    how.many.t <- length(t.results[,1])#
+    p.results <- subset(results.frame, p.value>=0.05)#
+    how.many.p <- length(p.results[,1])#
+    which.years <- p.results$Year#
+    if(return=="fullframe"){#
+        results.frame#
+    }else if(return=="yearp"){#
+        result.year.p#
+        results.frame#
+    }else if(return=="yeart"){#
+        result.year.t#
+    } else if(return=="howmanyt"){#
+        how.many.t#
+    }else if(return=="howmanyp"){#
+        how.many.p#
+    }else if(return=="whichyears"){#
+        which.years#
+    }else if(return=="whichts"){#
+        which.t.values#
+    }else if (return=="whichps"){#
+        which.p.values#
+    }#
+}
+example <-yearJackKnife(chacotrees$CK.10, source.sequence, return="fullframe")
+head(example)
+result.mins <- which.min(example[,5])
+result.year.ps <- example$Year[result.mins]
+result.year.ps
+year.p.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="yearp"))#
+trees <- names(year.p.list)#
+year.p <- as.vector(unlist(year.p.list))#
+result.frame <- data.frame(trees, year.p)#
+colnames(result.frame) <- c("Tree", "Yearp")
+result.frame$YearT <- year.t
+result.frame$HowManyTValues <- how.many.t
+result.frame$HowManypValues <- how.many.p
+write.table(result.frame, "treeresultssmall.csv", sep=",")
+head(result.frame)
+yearJackKnife <- function(tree.sequence, source.sequence, return=c("fullframe", "yearp", "yeart", "howmanyt", "howmanyp", "whichyears", "summaryframe")){#
+    tree.sequence <- as.data.frame(tree.sequence)#
+    tree.sequence <- tree.sequence[,1][!is.na(tree.sequence[,1])]#
+    tree.sequence <- as.data.frame(tree.sequence)#
+    tree.length <- length(tree.sequence[,1])#
+    source.length <- length(source.sequence[,1])#
+    the.gap <- source.length-tree.length#
+    tree.order <- seq(1, source.length, 1)#
+    tree.sequence.na <- c(tree.sequence[,1], rep(NA, the.gap))#
+    r2.vector <- as.vector(unlist(lapply(tree.order, function(x) summary(lm(tree.sequence.na~treeShift(source.sequence[,2], x)))$r.squared)))#
+    t.value.vector <- as.vector(unlist(lapply(r2.vector, function(x) tValue(x, tree.length))))#
+    t.scale.vector <- scale(t.value.vector)[,1]#
+    scaled.mean <- mean(t.scale.vector)#
+    scaled.sd <- sd(t.scale.vector)#
+    scaled.z.vector <- as.vector(unlist(lapply(t.scale.vector, function(x) zValueVector(x, scaled.mean, scaled.sd))))#
+    scaled.p.vector <- as.vector(unlist(lapply(scaled.z.vector, pValueVector)))#
+    results.frame <- data.frame(source.sequence[,1], r2.vector, t.value.vector, scaled.z.vector, scaled.p.vector)#
+    colnames(results.frame) <- c("Year", "r2", "t.value", "Z score", "p.value")#
+    result.min <- which.min(results.frame[,5])#
+    result.max <- which.max(results.frame[,3])#
+    result.year.p <- results.frame$Year[result.min]#
+    result.year.t <- results.frame$Year[result.max]#
+    result.year.p <- as.data.frame(result.year.p)#
+    result.year.t <- as.data.frame(result.year.t)#
+#
+    #colnames(result.year) <- colnames(tree.sequence)#
+    t.results <- subset(results.frame, t.value>=3.5)#
+    how.many.t <- length(t.results[,1])#
+    p.results <- subset(results.frame, p.value<=0.05)#
+    how.many.p <- length(p.results[,1])#
+    which.years <- p.results$Year#
+    if(return=="fullframe"){#
+        results.frame#
+    }else if(return=="yearp"){#
+        result.year.p#
+        results.frame#
+    }else if(return=="yeart"){#
+        result.year.t#
+    } else if(return=="howmanyt"){#
+        how.many.t#
+    }else if(return=="howmanyp"){#
+        how.many.p#
+    }else if(return=="whichyears"){#
+        which.years#
+    }else if(return=="whichts"){#
+        which.t.values#
+    }else if (return=="whichps"){#
+        which.p.values#
+    }#
+}
+head(results.list[[1]])
+yearJackKnife <- function(tree.sequence, source.sequence, return=c("fullframe", "yearp", "yeart", "howmanyt", "howmanyp", "whichyears", "summaryframe")){#
+    tree.sequence <- as.data.frame(tree.sequence)#
+    tree.sequence <- tree.sequence[,1][!is.na(tree.sequence[,1])]#
+    tree.sequence <- as.data.frame(tree.sequence)#
+    tree.length <- length(tree.sequence[,1])#
+    source.length <- length(source.sequence[,1])#
+    the.gap <- source.length-tree.length#
+    tree.order <- seq(1, source.length, 1)#
+    tree.sequence.na <- c(tree.sequence[,1], rep(NA, the.gap))#
+    r2.vector <- as.vector(unlist(lapply(tree.order, function(x) summary(lm(tree.sequence.na~treeShift(source.sequence[,2], x)))$r.squared)))#
+    t.value.vector <- as.vector(unlist(lapply(r2.vector, function(x) tValue(x, tree.length))))#
+    t.scale.vector <- scale(t.value.vector)[,1]#
+    scaled.mean <- mean(t.scale.vector)#
+    scaled.sd <- sd(t.scale.vector)#
+    scaled.z.vector <- as.vector(unlist(lapply(t.scale.vector, function(x) zValueVector(x, scaled.mean, scaled.sd))))#
+    scaled.p.vector <- as.vector(unlist(lapply(scaled.z.vector, pValueVector)))#
+    results.frame <- data.frame(source.sequence[,1], r2.vector, t.value.vector, scaled.z.vector, scaled.p.vector)#
+    colnames(results.frame) <- c("Year", "r2", "t.value", "Z score", "p.value")#
+    result.min <- which.min(results.frame[,5])#
+    result.max <- which.max(results.frame[,3])#
+    result.year.p <- results.frame$Year[result.min]#
+    result.year.t <- results.frame$Year[result.max]#
+    result.year.p <- as.data.frame(result.year.p)#
+    result.year.t <- as.data.frame(result.year.t)#
+#
+    #colnames(result.year) <- colnames(tree.sequence)#
+    t.results <- subset(results.frame, t.value>=3.5)#
+    how.many.t <- length(t.results[,1])#
+    p.results <- subset(results.frame, p.value<=0.05)#
+    how.many.p <- length(p.results[,1])#
+    which.years <- p.results$Year#
+    if(return=="fullframe"){#
+        results.frame#
+    }else if(return=="yearp"){#
+        result.year.p#
+    }else if(return=="yeart"){#
+        result.year.t#
+    } else if(return=="howmanyt"){#
+        how.many.t#
+    }else if(return=="howmanyp"){#
+        how.many.p#
+    }else if(return=="whichyears"){#
+        which.years#
+    }else if(return=="whichts"){#
+        which.t.values#
+    }else if (return=="whichps"){#
+        which.p.values#
+    }#
+}
+year.p.list <- pblapply(chacotrees, function(x) yearJackKnife(x, source.sequence, return="yearp"))#
+trees <- names(year.p.list)#
+year.p <- as.vector(unlist(year.p.list))#
+result.frame <- data.frame(trees, year.p)#
+colnames(result.frame) <- c("Tree", "Yearp")
+result.frame$YearT <- year.t
+result.frame$HowManyTValues <- how.many.t
+result.frame$HowManypValues <- how.many.p
+head(result.frame)
+write.table(result.frame, "treeresultssmall.csv", sep=",")
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName="Summary")#
+#
+pblapply(result.list, function(x) write.xlsx(x, file=file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=names(x), append=TRUE))
+pblapply(result.list, function(x) write.xlsx(x, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=names(x), append=TRUE))
+pblapply(results.list, function(x) write.xlsx(x, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=names(x), append=TRUE))
+pblapply(results.list, function(x) write.xlsx(x, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName="test", append=TRUE))
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName="Summary")
+pblapply(results.list, function(x) write.xlsx(x, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", append=TRUE))
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName="Summary")
+?write.xlsx
+pblapply(results.list, function(x) write.xlsx(x, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=paste(names(x)), append=TRUE))
+pblapply(results.list, function(x) write.xlsx(x, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=as.character(names(x)), append=TRUE))
+pblapply(results.list, function(x) write.xlsx(x, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=paste0("Tree", names(x)), append=TRUE))
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName="Summary")
+pblapply(results.list, function(x) write.xlsx(x, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=paste0("Tree", names(x)), append=TRUE))
+paste0("Tree", names(results.list[[1]]))
+paste0("Tree", names(results.list[1]]))
+paste0("Tree", names(results.list[1]))
+results.list.names <- names(results.list)
+head(results.list.names)
+results.list.names["CK.10"]
+pblapply(results.list.names, function(x) write.xlsx(results.list[[x]], file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=x, append=TRUE))
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName="Summary")
+pblapply(results.list.names, function(x) write.xlsx2(results.list[[x]], file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=x, append=TRUE))
+options(java.parameters = "-Xmx2048m")
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName="Summary")
+x
+test
+library(xlsx)
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName="Summary")
+saveRDS(result.frame, "/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/ResultFrame.rds")
+saveRDS(results.list, "/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/ResultsList.rds")
+libraryxlsx
+library(xlsx)
+dyn.load(paste0(system2('/usr/libexec/java_home', stdout = TRUE), '/jre/lib/server/libjvm.dylib'))
+library(xlsx)
+loadRDS("~/Dropbox/Documents/Chaco/Tree Rings/Results/ResultFrame.rds")
+readRDS("~/Dropbox/Documents/Chaco/Tree Rings/Results/ResultFrame.rds")
+result.frame <- readRDS("~/Dropbox/Documents/Chaco/Tree Rings/Results/ResultFrame.rds")
+results.list <- readRDS("~/Dropbox/Documents/Chaco/Tree Rings/Results/ResultsList.rds")
+head(results.list[[1]])
+write.xlsx(result.frame, file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName="Summary")
+results.list.names <- names(results.list)
+options(java.parameters = "-Xmx2048m")
+pblapply(results.list.names, function(x) write.xlsx2(results.list[[x]], file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=x, append=TRUE))
 library(pbapply)
 pblapply(results.list.names, function(x) write.xlsx2(results.list[[x]], file="/Users/lee/Dropbox/Documents/Chaco/Tree Rings/Results/DendrochronologyResults.xlsx", sheetName=x, append=TRUE))
 library(xlsx)
@@ -137,13 +534,14 @@ runApp("~/GitHub/CloudCal")
 library(shiny)
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
+library(formattable)
+install.packages("formattable")
+install.packages("formattable")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
-deployApp("~/GitHub/CloudCal", appName="cloudCal")
-library(rsconnect)
-deployApp("~/GitHub/CloudCal", appName="cloudCal")
+percent(.05)
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
@@ -153,870 +551,28 @@ runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
+runApp(list(#
+  ui = basicPage(#
+    tags$head(tags$style(".table .alignRight {color: blue; text-align:right;}")),#
+    h2('The mtcars data'),#
+    dataTableOutput('mytable')#
+  ),#
+  server = function(input, output) {#
+    output$mytable = renderDataTable({#
+      mtcars#
+    }, options =list(aoColumnDefs = list(list(sClass="alignRight",aTargets=c(list(3),list(4),list(5))))  ))#
+  }#
+))
 runApp("~/GitHub/CloudCal")
-general.prep.net <- function(spectra.line.table, element.line) {#
-    intensity <- spectra.line.table[,element.line]#
-    predict.frame <- data.frame(intensity)#
-    colnames(predict.frame) <- c("Intensity")#
-    predict.intensity <- data.frame(predict.frame$Intensity)#
-    colnames(predict.intensity) <- c("Intensity")#
-    predict.intensity#
-}#
-#
-simple.tc.prep.net <- function(data,spectra.line.table, element.line) {#
-    intensity <- spectra.line.table[,element.line]#
-    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])#
-    total.counts <- data.frame(data$Spectrum, total.counts.net)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    predict.frame.tc <- data.frame(intensity/total.counts$CPS)#
-    colnames(predict.frame.tc) <- c("Intensity")#
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)#
-    colnames(predict.intensity.tc) <- c("Intensity")#
-    predict.intensity.tc#
-}#
-simple.comp.prep.net <- function(data, spectra.line.table, element.line, norm.min, norm.max) {#
-    intensity <- spectra.line.table[,element.line]#
-    compton.ag.fake.Spectrum <- data$Spectrum#
-    compton.ag.fake.Compton <- rep(1, length(data$Spectrum))#
-    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)#
-    colnames(compton.ag.fake) <- c("Spectrum", "Compton")#
-    predict.frame.comp <- data.frame( intensity/compton.ag.fake$Compton)#
-    colnames(predict.frame.comp) <- c("Intensity")#
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)#
-    colnames(predict.intensity.comp) <- c("Intensity")#
-    predict.intensity.comp#
-}#
-###Prep Data#
-lukas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    intensity <- spectra.line.table[,element.line]#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))#
-    colnames(lukas.intercept.table) <- c("first")#
-    lukas.intercept <- lukas.intercept.table$first#
-    lukas.slope <- data.frame(lukas.slope.table[,slope.element.lines])#
-    colnames(lukas.slope) <- slope.element.lines#
-    predict.frame.luk <- data.frame(((1+intensity/(intensity+lukas.intercept))-lukas.intercept/(intensity+lukas.intercept)),lukas.slope)#
-    colnames(predict.frame.luk) <- c("Intensity", names(lukas.slope))#
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lukas.slope)#
-    colnames(predict.intensity.luk) <- c("Intensity", names(lukas.slope))#
-    predict.intensity.luk#
-}#
-lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    intensity <- spectra.line.table[,element.line]#
-    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])#
-    total.counts <- data.frame(data$Spectrum, total.counts.net)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/total.counts$CPS#
-    colnames(lukas.intercept.table.tc) <- c("first")#
-    lukas.intercept.tc <- lukas.intercept.table.tc$first#
-    lukas.slope.tc <- data.frame(lukas.slope.table[,slope.element.lines])/total.counts$CPS#
-    colnames(lukas.slope.tc) <- slope.element.lines#
-    predict.frame.luk.tc <- data.frame(((intensity/total.counts$CPS-lukas.intercept.tc)/(intensity/total.counts$CPS+lukas.intercept.tc)),lukas.slope.tc)#
-    colnames(predict.frame.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)#
-    colnames(predict.intensity.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc#
-}#
-lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {#
-    intensity <- spectra.line.table[,element.line]#
-    compton.ag.fake.Spectrum <- data$Spectrum#
-    compton.ag.fake.Compton <- rep(1, length(data$Spectrum))#
-    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)#
-    colnames(compton.ag.fake) <- c("Spectrum", "Compton")#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/compton.ag.fake$Compton#
-    colnames(lukas.intercept.table.comp) <- c("first")#
-    lukas.intercept.comp <- lukas.intercept.table.comp$first#
-    lukas.slope.comp <- data.frame(lukas.slope.table[,slope.element.lines])/compton.ag.fake$Compton#
-    colnames(lukas.slope.comp) <- slope.element.lines#
-    predict.frame.luk.comp <- data.frame(((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)-lukas.intercept.comp/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)),lukas.slope.comp)#
-    colnames(predict.frame.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp <- data.frame(predict.frame.luk.comp$Intensity, lukas.slope.comp)#
-    colnames(predict.intensity.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp#
-}
-####Cal Models#
-#
-linear.simp <- function(concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    predict.frame <- data.frame(concentration, intensity)#
-    colnames(predict.frame) <- c("Concentration", "Intensity")#
-    predict.intensity <- data.frame(predict.frame$Intensity)#
-    colnames(predict.intensity) <- c("Intensity")#
-    cal.lm <- lm(predict.frame$Concentration~predict.frame$Intensity)#
-#
-    cal.lm#
-}#
-#
-poly.simp <- function(concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    predict.frame <- data.frame(concentration, intensity)#
-    colnames(predict.frame) <- c("Concentration", "Intensity")#
-    predict.intensity <- data.frame(predict.frame$Intensity)#
-    colnames(predict.intensity) <- c("Intensity")#
-    cal.lm.poly <- lm(predict.frame$Concentration~poly(predict.frame$Intensity, 2))#
-    cal.lm.poly#
-}#
-#
-lukas.simp <- function(concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))#
-    colnames(lukas.intercept.table) <- c("first")#
-    lukas.intercept <- lukas.intercept.table$first#
-    lukas.slope <- data.frame(lukas.slope.table[slope.element.lines])#
-    predict.frame.luk <- data.frame(concentration, ((1+intensity/(intensity+lukas.intercept))-lukas.intercept/(intensity+lukas.intercept)),lukas.slope)#
-    colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lukas.slope))#
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lukas.slope)#
-    colnames(predict.intensity.luk) <- c("Intensity", names(lukas.slope))#
-    lukas.lm <- lm(Concentration~., data=predict.frame.luk)#
-    lukas.lm#
-}#
-linear.tc <- function(concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    total.counts <- aggregate(CPS~Spectrum, data=data, sum)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS)#
-    colnames(predict.frame.tc) <- c("Concentration", "Intensity")#
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)#
-    colnames(predict.intensity.tc) <- c("Intensity")#
-    cal.lm.tc <- lm(predict.frame.tc$Concentration~predict.frame.tc$Intensity)#
-    cal.lm.tc#
-}#
-#
-poly.tc <- function(concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    total.counts <- aggregate(CPS~Spectrum, data=data, sum)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS)#
-    colnames(predict.frame.tc) <- c("Concentration", "Intensity")#
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)#
-    colnames(predict.intensity.tc) <- c("Intensity")#
-    cal.lm.poly.tc <- lm(predict.frame.tc$Concentration~poly(predict.frame.tc$Intensity, 2))#
-    cal.lm.poly.tc#
-}#
-lukas.tc <- function(concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/total.counts$CPS#
-    colnames(lukas.intercept.table.tc) <- c("first")#
-    lukas.intercept.tc <- lukas.intercept.table.tc$first#
-    lukas.slope.tc <- data.frame(lukas.slope.table[slope.element.lines])/total.counts$CPS#
-    predict.frame.luk.tc <- data.frame(concentration, ((intensity/total.counts$CPS-lukas.intercept.tc)/(intensity/total.counts$CPS+lukas.intercept.tc)),lukas.slope.tc)#
-    colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)#
-    colnames(predict.intensity.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)#
-    lukas.lm.tc#
-}#
-#
-linear.comp <- function(data, concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))#
-    compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))#
-    compton.frame <- data.frame(is.0(compton.norm, compton.file))#
-    colnames(compton.frame) <- c("Compton", "Spectrum")#
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")#
-    colnames(compton.frame.ag) <- c("Spectrum", "Compton")#
-    predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton)#
-    colnames(predict.frame.comp) <- c("Concentration", "Intensity")#
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)#
-    colnames(predict.intensity.comp) <- c("Intensity")#
-    cal.lm.comp <- lm(predict.frame.comp$Concentration~predict.frame.comp$Intensity)#
-    cal.lm.comp#
-}#
-#
-poly.comp <- function(data, concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))#
-    compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))#
-    compton.frame <- data.frame(is.0(compton.norm, compton.file))#
-    colnames(compton.frame) <- c("Compton", "Spectrum")#
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")#
-    colnames(compton.frame.ag) <- c("Spectrum", "Compton")#
-    predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton)#
-    colnames(predict.frame.comp) <- c("Concentration", "Intensity")#
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)#
-    colnames(predict.intensity.comp) <- c("Intensity")#
-    cal.lm.poly.comp <- lm(predict.frame.comp$Concentration~poly(predict.frame.comp$Intensity, 2))#
-    cal.lm.poly.comp#
-}#
-#
-lukas.comp <- function(data, concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/compton.frame.ag$Compton#
-    colnames(lukas.intercept.table.comp) <- c("first")#
-    lukas.intercept.comp <- lukas.intercept.table.comp$first#
-    lukas.slope.comp <- data.frame(lukas.slope.table[slope.element.lines])/compton.frame.ag$Compton#
-    predict.frame.luk.comp <- data.frame(concentration, ((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)-lukas.intercept.comp/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)),lukas.slope.comp)#
-    colnames(predict.frame.luk.comp) <- c("Concentration", "Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp <- data.frame(predict.frame.luk.comp$Intensity, lukas.slope.comp)#
-    colnames(predict.intensity.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp)#
-    lukas.lm.comp#
-}#
-################
-###Prep Data####
-################
-################
-###Raw Spectra###
-################
-general.prep <- function(spectra.line.table, element.line) {#
-    intensity <- spectra.line.table[,element.line]#
-    predict.frame <- data.frame(intensity)#
-    colnames(predict.frame) <- c("Intensity")#
-    predict.intensity <- data.frame(predict.frame$Intensity)#
-    colnames(predict.intensity) <- c("Intensity")#
-    predict.intensity#
-}#
-#
-simple.tc.prep <- function(data,spectra.line.table, element.line) {#
-    intensity <- spectra.line.table[,element.line]#
-    total.counts <- aggregate(CPS~Spectrum, data=data, sum)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    predict.frame.tc <- data.frame(intensity/total.counts$CPS)#
-    colnames(predict.frame.tc) <- c("Intensity")#
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)#
-    colnames(predict.intensity.tc) <- c("Intensity")#
-    predict.intensity.tc#
-}#
-simple.comp.prep <- function(data, spectra.line.table, element.line, norm.min, norm.max) {#
-    intensity <- spectra.line.table[,element.line]#
-    compton.norm <- subset(data$CPS, !(data$Energy < norm.min | data$Energy > norm.max))#
-    compton.file <- subset(data$Spectrum, !(data$Energy < norm.min | data$Energy > norm.max))#
-    compton.frame <- data.frame(is.0(compton.norm, compton.file))#
-    colnames(compton.frame) <- c("Compton", "Spectrum")#
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")#
-    colnames(compton.frame.ag) <- c("Spectrum", "Compton")#
-    predict.frame.comp <- data.frame( intensity/compton.frame.ag$Compton)#
-    colnames(predict.frame.comp) <- c("Intensity")#
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)#
-    colnames(predict.intensity.comp) <- c("Intensity")#
-    predict.intensity.comp#
-}#
-###Prep Data#
-lukas.simp.prep <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    intensity <- spectra.line.table[,element.line]#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))#
-    colnames(lukas.intercept.table) <- c("first")#
-    lukas.intercept <- lukas.intercept.table$first#
-    lukas.slope <- data.frame(lukas.slope.table[,slope.element.lines])#
-    colnames(lukas.slope) <- slope.element.lines#
-    predict.frame.luk <- data.frame(((1+intensity/(intensity+lukas.intercept))-lukas.intercept/(intensity+lukas.intercept)),lukas.slope)#
-    colnames(predict.frame.luk) <- c("Intensity", names(lukas.slope))#
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lukas.slope)#
-    colnames(predict.intensity.luk) <- c("Intensity", names(lukas.slope))#
-    predict.intensity.luk#
-}#
-lukas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    intensity <- spectra.line.table[,element.line]#
-    total.counts <- aggregate(CPS~Spectrum, data=data, sum)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/total.counts$CPS#
-    colnames(lukas.intercept.table.tc) <- c("first")#
-    lukas.intercept.tc <- lukas.intercept.table.tc$first#
-    lukas.slope.tc <- data.frame(lukas.slope.table[,slope.element.lines])/total.counts$CPS#
-    colnames(lukas.slope.tc) <- slope.element.lines#
-    test <- data.frame(lukas.slope.tc, total.counts$CPS)#
-    test2 <- data.frame(lukas.slope.tc, intensity)#
-    test3 <- data.frame(lukas.slope.tc, lukas.intercept.tc)#
-    predict.frame.luk.tc <- data.frame(((intensity/total.counts$CPS-lukas.intercept.tc)/(intensity/total.counts$CPS+lukas.intercept.tc)),lukas.slope.tc)#
-    colnames(predict.frame.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)#
-    colnames(predict.intensity.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc#
-}#
-lukas.comp.prep <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {#
-    intensity <- spectra.line.table[,element.line]#
-    compton.norm <- subset(data$CPS, !(data$Energy < norm.min | data$Energy > norm.max))#
-    compton.file <- subset(data$Spectrum, !(data$Energy < norm.min | data$Energy > norm.max))#
-    compton.frame <- data.frame(is.0(compton.norm, compton.file))#
-    colnames(compton.frame) <- c("Compton", "Spectrum")#
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")#
-    colnames(compton.frame.ag) <- c("Spectrum", "Compton")#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/compton.frame.ag$Compton#
-    colnames(lukas.intercept.table.comp) <- c("first")#
-    lukas.intercept.comp <- lukas.intercept.table.comp$first#
-    lukas.slope.comp <- data.frame(lukas.slope.table[,slope.element.lines])/compton.frame.ag$Compton#
-    colnames(lukas.slope.comp) <- slope.element.lines#
-    predict.frame.luk.comp <- data.frame(((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)-lukas.intercept.comp/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)),lukas.slope.comp)#
-    colnames(predict.frame.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp <- data.frame(predict.frame.luk.comp$Intensity, lukas.slope.comp)#
-    colnames(predict.intensity.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp#
-}#
-################
-###Prep Data####
-################
-################
-###Net Counts###
-################
-general.prep.net <- function(spectra.line.table, element.line) {#
-    intensity <- spectra.line.table[,element.line]#
-    predict.frame <- data.frame(intensity)#
-    colnames(predict.frame) <- c("Intensity")#
-    predict.intensity <- data.frame(predict.frame$Intensity)#
-    colnames(predict.intensity) <- c("Intensity")#
-    predict.intensity#
-}#
-#
-simple.tc.prep.net <- function(data,spectra.line.table, element.line) {#
-    intensity <- spectra.line.table[,element.line]#
-    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])#
-    total.counts <- data.frame(data$Spectrum, total.counts.net)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    predict.frame.tc <- data.frame(intensity/total.counts$CPS)#
-    colnames(predict.frame.tc) <- c("Intensity")#
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)#
-    colnames(predict.intensity.tc) <- c("Intensity")#
-    predict.intensity.tc#
-}#
-simple.comp.prep.net <- function(data, spectra.line.table, element.line, norm.min, norm.max) {#
-    intensity <- spectra.line.table[,element.line]#
-    compton.ag.fake.Spectrum <- data$Spectrum#
-    compton.ag.fake.Compton <- rep(1, length(data$Spectrum))#
-    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)#
-    colnames(compton.ag.fake) <- c("Spectrum", "Compton")#
-    predict.frame.comp <- data.frame( intensity/compton.ag.fake$Compton)#
-    colnames(predict.frame.comp) <- c("Intensity")#
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)#
-    colnames(predict.intensity.comp) <- c("Intensity")#
-    predict.intensity.comp#
-}#
-###Prep Data#
-lukas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    intensity <- spectra.line.table[,element.line]#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))#
-    colnames(lukas.intercept.table) <- c("first")#
-    lukas.intercept <- lukas.intercept.table$first#
-    lukas.slope <- data.frame(lukas.slope.table[,slope.element.lines])#
-    colnames(lukas.slope) <- slope.element.lines#
-    predict.frame.luk <- data.frame(((1+intensity/(intensity+lukas.intercept))-lukas.intercept/(intensity+lukas.intercept)),lukas.slope)#
-    colnames(predict.frame.luk) <- c("Intensity", names(lukas.slope))#
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lukas.slope)#
-    colnames(predict.intensity.luk) <- c("Intensity", names(lukas.slope))#
-    predict.intensity.luk#
-}#
-lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    intensity <- spectra.line.table[,element.line]#
-    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])#
-    total.counts <- data.frame(data$Spectrum, total.counts.net)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/total.counts$CPS#
-    colnames(lukas.intercept.table.tc) <- c("first")#
-    lukas.intercept.tc <- lukas.intercept.table.tc$first#
-    lukas.slope.tc <- data.frame(lukas.slope.table[,slope.element.lines])/total.counts$CPS#
-    colnames(lukas.slope.tc) <- slope.element.lines#
-    predict.frame.luk.tc <- data.frame(((intensity/total.counts$CPS-lukas.intercept.tc)/(intensity/total.counts$CPS+lukas.intercept.tc)),lukas.slope.tc)#
-    colnames(predict.frame.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)#
-    colnames(predict.intensity.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc#
-}#
-lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {#
-    intensity <- spectra.line.table[,element.line]#
-    compton.ag.fake.Spectrum <- data$Spectrum#
-    compton.ag.fake.Compton <- rep(1, length(data$Spectrum))#
-    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)#
-    colnames(compton.ag.fake) <- c("Spectrum", "Compton")#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/compton.ag.fake$Compton#
-    colnames(lukas.intercept.table.comp) <- c("first")#
-    lukas.intercept.comp <- lukas.intercept.table.comp$first#
-    lukas.slope.comp <- data.frame(lukas.slope.table[,slope.element.lines])/compton.ag.fake$Compton#
-    colnames(lukas.slope.comp) <- slope.element.lines#
-    predict.frame.luk.comp <- data.frame(((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)-lukas.intercept.comp/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)),lukas.slope.comp)#
-    colnames(predict.frame.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp <- data.frame(predict.frame.luk.comp$Intensity, lukas.slope.comp)#
-    colnames(predict.intensity.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp#
-}
 runApp("~/GitHub/CloudCal")
-?geom_abline
-?geom_abline
-####Cal Models#
-#
-linear.simp <- function(concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    predict.frame <- data.frame(concentration, intensity)#
-    colnames(predict.frame) <- c("Concentration", "Intensity")#
-    predict.intensity <- data.frame(predict.frame$Intensity)#
-    colnames(predict.intensity) <- c("Intensity")#
-    cal.lm <- lm(predict.frame$Concentration~predict.frame$Intensity)#
-#
-    cal.lm#
-}#
-#
-poly.simp <- function(concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    predict.frame <- data.frame(concentration, intensity)#
-    colnames(predict.frame) <- c("Concentration", "Intensity")#
-    predict.intensity <- data.frame(predict.frame$Intensity)#
-    colnames(predict.intensity) <- c("Intensity")#
-    cal.lm.poly <- lm(predict.frame$Concentration~poly(predict.frame$Intensity, 2))#
-    cal.lm.poly#
-}#
-#
-lukas.simp <- function(concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))#
-    colnames(lukas.intercept.table) <- c("first")#
-    lukas.intercept <- lukas.intercept.table$first#
-    lukas.slope <- data.frame(lukas.slope.table[slope.element.lines])#
-    predict.frame.luk <- data.frame(concentration, ((1+intensity/(intensity+lukas.intercept))-lukas.intercept/(intensity+lukas.intercept)),lukas.slope)#
-    colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lukas.slope))#
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lukas.slope)#
-    colnames(predict.intensity.luk) <- c("Intensity", names(lukas.slope))#
-    lukas.lm <- lm(Concentration~., data=predict.frame.luk)#
-    lukas.lm#
-}#
-linear.tc <- function(concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    total.counts <- aggregate(CPS~Spectrum, data=data, sum)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS)#
-    colnames(predict.frame.tc) <- c("Concentration", "Intensity")#
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)#
-    colnames(predict.intensity.tc) <- c("Intensity")#
-    cal.lm.tc <- lm(predict.frame.tc$Concentration~predict.frame.tc$Intensity)#
-    cal.lm.tc#
-}#
-#
-poly.tc <- function(concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    total.counts <- aggregate(CPS~Spectrum, data=data, sum)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS)#
-    colnames(predict.frame.tc) <- c("Concentration", "Intensity")#
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)#
-    colnames(predict.intensity.tc) <- c("Intensity")#
-    cal.lm.poly.tc <- lm(predict.frame.tc$Concentration~poly(predict.frame.tc$Intensity, 2))#
-    cal.lm.poly.tc#
-}#
-lukas.tc <- function(concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/total.counts$CPS#
-    colnames(lukas.intercept.table.tc) <- c("first")#
-    lukas.intercept.tc <- lukas.intercept.table.tc$first#
-    lukas.slope.tc <- data.frame(lukas.slope.table[slope.element.lines])/total.counts$CPS#
-    predict.frame.luk.tc <- data.frame(concentration, ((intensity/total.counts$CPS-lukas.intercept.tc)/(intensity/total.counts$CPS+lukas.intercept.tc)),lukas.slope.tc)#
-    colnames(predict.frame.luk.tc) <- c("Concentration", "Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)#
-    colnames(predict.intensity.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)#
-    lukas.lm.tc#
-}#
-#
-linear.comp <- function(data, concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))#
-    compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))#
-    compton.frame <- data.frame(is.0(compton.norm, compton.file))#
-    colnames(compton.frame) <- c("Compton", "Spectrum")#
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")#
-    colnames(compton.frame.ag) <- c("Spectrum", "Compton")#
-    predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton)#
-    colnames(predict.frame.comp) <- c("Concentration", "Intensity")#
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)#
-    colnames(predict.intensity.comp) <- c("Intensity")#
-    cal.lm.comp <- lm(predict.frame.comp$Concentration~predict.frame.comp$Intensity)#
-    cal.lm.comp#
-}#
-#
-poly.comp <- function(data, concentration.table, spectra.line.table, element.line) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))#
-    compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))#
-    compton.frame <- data.frame(is.0(compton.norm, compton.file))#
-    colnames(compton.frame) <- c("Compton", "Spectrum")#
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")#
-    colnames(compton.frame.ag) <- c("Spectrum", "Compton")#
-    predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton)#
-    colnames(predict.frame.comp) <- c("Concentration", "Intensity")#
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)#
-    colnames(predict.intensity.comp) <- c("Intensity")#
-    cal.lm.poly.comp <- lm(predict.frame.comp$Concentration~poly(predict.frame.comp$Intensity, 2))#
-    cal.lm.poly.comp#
-}#
-#
-lukas.comp <- function(data, concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))#
-    intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))#
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/compton.frame.ag$Compton#
-    colnames(lukas.intercept.table.comp) <- c("first")#
-    lukas.intercept.comp <- lukas.intercept.table.comp$first#
-    lukas.slope.comp <- data.frame(lukas.slope.table[slope.element.lines])/compton.frame.ag$Compton#
-    predict.frame.luk.comp <- data.frame(concentration, ((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)-lukas.intercept.comp/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)),lukas.slope.comp)#
-    colnames(predict.frame.luk.comp) <- c("Concentration", "Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp <- data.frame(predict.frame.luk.comp$Intensity, lukas.slope.comp)#
-    colnames(predict.intensity.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp)#
-    lukas.lm.comp#
-}#
-################
-###Prep Data####
-################
-################
-###Raw Spectra###
-################
-general.prep <- function(spectra.line.table, element.line) {#
-    intensity <- spectra.line.table[,element.line]#
-    predict.frame <- data.frame(intensity)#
-    colnames(predict.frame) <- c("Intensity")#
-    predict.intensity <- data.frame(predict.frame$Intensity)#
-    colnames(predict.intensity) <- c("Intensity")#
-    predict.intensity#
-}#
-#
-simple.tc.prep <- function(data,spectra.line.table, element.line) {#
-    intensity <- spectra.line.table[,element.line]#
-    total.counts <- aggregate(CPS~Spectrum, data=data, sum)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    predict.frame.tc <- data.frame(intensity/total.counts$CPS)#
-    colnames(predict.frame.tc) <- c("Intensity")#
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)#
-    colnames(predict.intensity.tc) <- c("Intensity")#
-    predict.intensity.tc#
-}#
-simple.comp.prep <- function(data, spectra.line.table, element.line, norm.min, norm.max) {#
-    intensity <- spectra.line.table[,element.line]#
-    compton.norm <- subset(data$CPS, !(data$Energy < norm.min | data$Energy > norm.max))#
-    compton.file <- subset(data$Spectrum, !(data$Energy < norm.min | data$Energy > norm.max))#
-    compton.frame <- data.frame(is.0(compton.norm, compton.file))#
-    colnames(compton.frame) <- c("Compton", "Spectrum")#
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")#
-    colnames(compton.frame.ag) <- c("Spectrum", "Compton")#
-    predict.frame.comp <- data.frame( intensity/compton.frame.ag$Compton)#
-    colnames(predict.frame.comp) <- c("Intensity")#
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)#
-    colnames(predict.intensity.comp) <- c("Intensity")#
-    predict.intensity.comp#
-}#
-###Prep Data#
-lukas.simp.prep <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    intensity <- spectra.line.table[,element.line]#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))#
-    colnames(lukas.intercept.table) <- c("first")#
-    lukas.intercept <- lukas.intercept.table$first#
-    lukas.slope <- data.frame(lukas.slope.table[,slope.element.lines])#
-    colnames(lukas.slope) <- slope.element.lines#
-    predict.frame.luk <- data.frame(((1+intensity/(intensity+lukas.intercept))-lukas.intercept/(intensity+lukas.intercept)),lukas.slope)#
-    colnames(predict.frame.luk) <- c("Intensity", names(lukas.slope))#
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lukas.slope)#
-    colnames(predict.intensity.luk) <- c("Intensity", names(lukas.slope))#
-    predict.intensity.luk#
-}#
-lukas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    intensity <- spectra.line.table[,element.line]#
-    total.counts <- aggregate(CPS~Spectrum, data=data, sum)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/total.counts$CPS#
-    colnames(lukas.intercept.table.tc) <- c("first")#
-    lukas.intercept.tc <- lukas.intercept.table.tc$first#
-    lukas.slope.tc <- data.frame(lukas.slope.table[,slope.element.lines])/total.counts$CPS#
-    colnames(lukas.slope.tc) <- slope.element.lines#
-    test <- data.frame(lukas.slope.tc, total.counts$CPS)#
-    test2 <- data.frame(lukas.slope.tc, intensity)#
-    test3 <- data.frame(lukas.slope.tc, lukas.intercept.tc)#
-    predict.frame.luk.tc <- data.frame(((intensity/total.counts$CPS-lukas.intercept.tc)/(intensity/total.counts$CPS+lukas.intercept.tc)),lukas.slope.tc)#
-    colnames(predict.frame.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)#
-    colnames(predict.intensity.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc#
-}#
-lukas.comp.prep <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {#
-    intensity <- spectra.line.table[,element.line]#
-    compton.norm <- subset(data$CPS, !(data$Energy < norm.min | data$Energy > norm.max))#
-    compton.file <- subset(data$Spectrum, !(data$Energy < norm.min | data$Energy > norm.max))#
-    compton.frame <- data.frame(is.0(compton.norm, compton.file))#
-    colnames(compton.frame) <- c("Compton", "Spectrum")#
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")#
-    colnames(compton.frame.ag) <- c("Spectrum", "Compton")#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/compton.frame.ag$Compton#
-    colnames(lukas.intercept.table.comp) <- c("first")#
-    lukas.intercept.comp <- lukas.intercept.table.comp$first#
-    lukas.slope.comp <- data.frame(lukas.slope.table[,slope.element.lines])/compton.frame.ag$Compton#
-    colnames(lukas.slope.comp) <- slope.element.lines#
-    predict.frame.luk.comp <- data.frame(((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)-lukas.intercept.comp/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)),lukas.slope.comp)#
-    colnames(predict.frame.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp <- data.frame(predict.frame.luk.comp$Intensity, lukas.slope.comp)#
-    colnames(predict.intensity.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp#
-}#
-################
-###Prep Data####
-################
-################
-###Net Counts###
-################
-general.prep.net <- function(spectra.line.table, element.line) {#
-    intensity <- spectra.line.table[,element.line]#
-    predict.frame <- data.frame(intensity)#
-    colnames(predict.frame) <- c("Intensity")#
-    predict.intensity <- data.frame(predict.frame$Intensity)#
-    colnames(predict.intensity) <- c("Intensity")#
-    predict.intensity#
-}#
-#
-simple.tc.prep.net <- function(data,spectra.line.table, element.line) {#
-    intensity <- spectra.line.table[,element.line]#
-    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])#
-    total.counts <- data.frame(data$Spectrum, total.counts.net)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    predict.frame.tc <- data.frame(intensity/total.counts$CPS)#
-    colnames(predict.frame.tc) <- c("Intensity")#
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)#
-    colnames(predict.intensity.tc) <- c("Intensity")#
-    predict.intensity.tc#
-}#
-simple.comp.prep.net <- function(data, spectra.line.table, element.line, norm.min, norm.max) {#
-    intensity <- spectra.line.table[,element.line]#
-    compton.ag.fake.Spectrum <- data$Spectrum#
-    compton.ag.fake.Compton <- rep(1, length(data$Spectrum))#
-    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)#
-    colnames(compton.ag.fake) <- c("Spectrum", "Compton")#
-    predict.frame.comp <- data.frame( intensity/compton.ag.fake$Compton)#
-    colnames(predict.frame.comp) <- c("Intensity")#
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)#
-    colnames(predict.intensity.comp) <- c("Intensity")#
-    predict.intensity.comp#
-}#
-###Prep Data#
-lukas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    intensity <- spectra.line.table[,element.line]#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))#
-    colnames(lukas.intercept.table) <- c("first")#
-    lukas.intercept <- lukas.intercept.table$first#
-    lukas.slope <- data.frame(lukas.slope.table[,slope.element.lines])#
-    colnames(lukas.slope) <- slope.element.lines#
-    predict.frame.luk <- data.frame(((1+intensity/(intensity+lukas.intercept))-lukas.intercept/(intensity+lukas.intercept)),lukas.slope)#
-    colnames(predict.frame.luk) <- c("Intensity", names(lukas.slope))#
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lukas.slope)#
-    colnames(predict.intensity.luk) <- c("Intensity", names(lukas.slope))#
-    predict.intensity.luk#
-}#
-lukas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {#
-    intensity <- spectra.line.table[,element.line]#
-    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])#
-    total.counts <- data.frame(data$Spectrum, total.counts.net)#
-    colnames(total.counts) <- c("Spectrum", "CPS")#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table.tc <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/total.counts$CPS#
-    colnames(lukas.intercept.table.tc) <- c("first")#
-    lukas.intercept.tc <- lukas.intercept.table.tc$first#
-    lukas.slope.tc <- data.frame(lukas.slope.table[,slope.element.lines])/total.counts$CPS#
-    colnames(lukas.slope.tc) <- slope.element.lines#
-    predict.frame.luk.tc <- data.frame(((intensity/total.counts$CPS-lukas.intercept.tc)/(intensity/total.counts$CPS+lukas.intercept.tc)),lukas.slope.tc)#
-    colnames(predict.frame.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc <- data.frame(predict.frame.luk.tc$Intensity, lukas.slope.tc)#
-    colnames(predict.intensity.luk.tc) <- c("Intensity", names(lukas.slope.tc))#
-    predict.intensity.luk.tc#
-}#
-lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {#
-    intensity <- spectra.line.table[,element.line]#
-    compton.ag.fake.Spectrum <- data$Spectrum#
-    compton.ag.fake.Compton <- rep(1, length(data$Spectrum))#
-    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)#
-    colnames(compton.ag.fake) <- c("Spectrum", "Compton")#
-    intercept.none <- rep(0, length(spectra.line.table[,1]))#
-    lukas.intercept.table.x <- data.frame(spectra.line.table, intercept.none)#
-    colnames(lukas.intercept.table.x) <- c(names(spectra.line.table), "None")#
-    slope.none <- rep(1, length(spectra.line.table[,1]))#
-    lukas.slope.table <- data.frame(spectra.line.table, slope.none)#
-    colnames(lukas.slope.table) <- c(names(spectra.line.table), "None")#
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None")]))/compton.ag.fake$Compton#
-    colnames(lukas.intercept.table.comp) <- c("first")#
-    lukas.intercept.comp <- lukas.intercept.table.comp$first#
-    lukas.slope.comp <- data.frame(lukas.slope.table[,slope.element.lines])/compton.ag.fake$Compton#
-    colnames(lukas.slope.comp) <- slope.element.lines#
-    predict.frame.luk.comp <- data.frame(((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)-lukas.intercept.comp/(intensity/compton.frame.ag$Compton+lukas.intercept.comp)),lukas.slope.comp)#
-    colnames(predict.frame.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp <- data.frame(predict.frame.luk.comp$Intensity, lukas.slope.comp)#
-    colnames(predict.intensity.luk.comp) <- c("Intensity", names(lukas.slope.comp))#
-    predict.intensity.luk.comp#
-}
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
-sum(5)
-?rowSums
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-?hot_col
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-x <- c(1, 2, 3)
-y <- c(4, 5, 6)
-xy.frame <- data.frame(xy)
-xy.frame <- data.frame(x, y)
-sum(xy.frame)
-xy.frame <- xy.frame*0
-sum(xy.frame)
-sum(xy.frame)
-runApp("~/GitHub/CloudCal")
-?hot_to_r
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-library(shinyjs)
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-setwd("~/GitHub/CloudCal")
-runApp("")
-runApp()
-fluorescence.lines <- read.csv("data/FluorescenceLines.csv")
-head(fluorescence.lines)
-length(fluorescence.lines)
-fluorescence.lines[19:23]
-head(fluorescence.lines[19:23])
-head(fluorescence.lines[20:23])
-tail(fluorescence.lines[20:23])
-tail(fluorescence.lines[1, 20:23])
-tests <- fluorescence.lines[78:81,]
-head(tests)
-tests <- fluorescence.lines[78:83,]
-tests
-tests[,12]
-tests[,14]
-2791*12
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
-runApp("~/GitHub/CloudCal")
+?tagList
+?tagList
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")
 runApp("~/GitHub/CloudCal")

@@ -7,8 +7,14 @@ library(dtplyr)
 library(rhandsontable)
 library(Cairo)
 
+
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
+
+ui=list(
+tagList(
+header=tags$head(tags$style(".table .alignRight {color: black; text-align:right;}"))),
+
 
 shinyUI(navbarPage("CloudCal", id="nav", theme = shinytheme("flatly"),
 
@@ -232,6 +238,8 @@ downloadButton('downloadcloudplot', "Plot"),
 actionButton('createcalelement', "Update"),
 actionButton('createcal', "Save"),
 downloadButton('downloadModel', "Model"),
+downloadButton('downloadReport', "Report"),
+
 
 tags$hr(),
 
@@ -353,7 +361,7 @@ tabPanel('Counts', dataTableOutput('myvaltable1'))
 
 ))
 
-
+)
 
 
 
