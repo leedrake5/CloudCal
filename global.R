@@ -1411,6 +1411,16 @@ lukas.comp <- function(data, concentration.table, spectra.line.table, element.li
     
     intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
     
+    
+    compton.norm <- subset(data$CPS, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
+    compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
+    compton.frame <- data.frame(is.0(compton.norm, compton.file))
+    colnames(compton.frame) <- c("Compton", "Spectrum")
+    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    colnames(compton.frame.ag) <- c("Spectrum", "Compton")
+
+
+    
     lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/compton.frame.ag$Compton
     colnames(lukas.intercept.table.comp) <- c("first")
     
@@ -1637,13 +1647,13 @@ lukas.comp.prep <- function(data, spectra.line.table, element.line, slope.elemen
     
     
     
-    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))/compton.frame.ag$Compton
+    lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")])/compton.frame.ag$Compton)
     colnames(lukas.intercept.table.comp) <- c("first")
     
     
     
     lukas.intercept.comp <- lukas.intercept.table.comp$first
-    lukas.slope.comp <- data.frame(lukas.slope.table[,slope.element.lines])/compton.frame.ag$Compton
+    lukas.slope.comp <- data.frame(lukas.slope.table[,slope.element.lines]/compton.frame.ag$Compton)
     colnames(lukas.slope.comp) <- slope.element.lines
     
     
