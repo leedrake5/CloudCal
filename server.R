@@ -1781,11 +1781,25 @@ calCurvePlot <- reactive({
             predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
             colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
             
-            lukas.x <- rowMeans(predict.intensity.luk)
-            
             
     lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
     
+    
+    xmin = 0; xmax=10
+    N = length(predict.frame.luk$Concentration)
+    means = colMeans(predict.frame.luk)
+    dummyDF = t(as.data.frame(means))
+    for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+    xv=seq(xmin,xmax, length.out=N)
+    dummyDF$Concentration = xv
+    yv=predict(lukas.lm, newdata=predict.intensity.luk)
+
+    
+    
+    lukas.x <- yv
+
+
+
     cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
     cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
     cal.est.conc.luk <- cal.est.conc.tab.luk$fit
@@ -1812,11 +1826,24 @@ calCurvePlot <- reactive({
         
         predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
         colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
-    
-    lukas.x.comp <- rowMeans(predict.intensity.luk.comp)
+        
+
 
     
     lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+    
+    
+    xmin = 0; xmax=10
+    N = length(predict.frame.luk.comp$Concentration)
+    means = colMeans(predict.frame.luk.comp)
+    dummyDF = t(as.data.frame(means))
+    for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+    xv=seq(xmin,xmax, length.out=N)
+    dummyDF$Concentration = xv
+    yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+    
+    
+    lukas.x.comp <- yv
     
     cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
     cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
@@ -1845,10 +1872,20 @@ calCurvePlot <- reactive({
     predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
     colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
     
-    lukas.x.tc <- rowMeans(predict.intensity.luk.tc)
-
 
     lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+    
+    xmin = 0; xmax=10
+    N = length(predict.frame.luk.tc$Concentration)
+    means = colMeans(predict.frame.luk.tc)
+    dummyDF = t(as.data.frame(means))
+    for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+    xv=seq(xmin,xmax, length.out=N)
+    dummyDF$Concentration = xv
+    yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+    
+    
+    lukas.x.tc <- yv
     
     cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
     cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
@@ -1947,7 +1984,7 @@ calCurvePlot <- reactive({
     if(input$normcal==1){
     calcurve.linear.plot.luk <- ggplot(data=val.frame.luk[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
     theme_light() +
-    annotate("text", label=lm_eqn(lm(Concentration~IntensityNorm, val.frame.luk[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+    annotate("text", label=lm_eqn(lm(Concentration~., val.frame.luk[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
     geom_point() +
     geom_point(aes(IntensityNorm, Concentration), data = val.frame.luk[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
     geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
@@ -1963,7 +2000,7 @@ calCurvePlot <- reactive({
         
     calcurve.linear.plot.luk.tc <- ggplot(data=val.frame.luk.tc[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
     theme_light() +
-    annotate("text", label=lm_eqn(lm(Concentration~Intensity, predict.frame.luk.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+    annotate("text", label=lm_eqn(lm(Concentration~., predict.frame.luk.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
     geom_point() +
     geom_point(aes(IntensityNorm, Concentration), data = val.frame.luk.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
     geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
@@ -1978,7 +2015,7 @@ calCurvePlot <- reactive({
     if(input$normcal==3){
     calcurve.linear.plot.luk.comp <- ggplot(data=val.frame.luk.comp[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
     theme_light() +
-    annotate("text", label=lm_eqn(lm(Concentration~Intensity, predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+    annotate("text", label=lm_eqn(lm(Concentration~., predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
     geom_point() +
     geom_point(aes(IntensityNorm, Concentration), data = val.frame.luk.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
     geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
