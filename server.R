@@ -723,10 +723,14 @@ calTypeSelection <- reactive({
         input$calcurveelement
     }
     
-    if(input$usecalfile==FALSE){
+    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
         calConditons[[1]][[1]]
-    } else if(input$usecalfile==TRUE){
+    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$CalType
+    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[1]][[1]]$CalTable$CalType
+    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[1]][[1]]$CalTable$CalType
     }
     
 })
@@ -741,10 +745,14 @@ calNormSelection <- reactive({
         input$calcurveelement
     }
     
-    if(input$usecalfile==FALSE){
+    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
         calConditons[[1]][[2]]
-    }else if(input$usecalfile==TRUE){
+    }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$NormType
+    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[1]][[1]]$CalTable$NormType
+    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[1]][[1]]$CalTable$NormType
     }
     
 })
@@ -759,10 +767,14 @@ normMinSelection <- reactive({
         input$calcurveelement
     }
     
-    if(input$usecalfile==FALSE){
+    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
         calConditons[[1]][[3]]
-    }else if(input$usecalfile==TRUE){
+    }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$Min
+    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[1]][[1]]$CalTable$Min
+    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[1]][[1]]$CalTable$Min
     }
     
 })
@@ -777,10 +789,14 @@ normMaxSelection <- reactive({
         input$calcurveelement
     }
     
-    if(input$usecalfile==FALSE){
+    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
         calConditons[[1]][[4]]
-    }else if(input$usecalfile==TRUE){
+    }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$Max
+    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[1]][[1]]$CalTable$Max
+    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[1]][[1]]$CalTable$MAx
     }
 })
 
