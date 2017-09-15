@@ -645,10 +645,14 @@ inVar3Selected <- reactive({
         input$calcurveelement
     }
     
-    if(input$usecalfile==FALSE){
+    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
         input$calcurveelement
-    }else if(input$usecalfile==TRUE){
+    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$Intercept
+    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[input$calcurveelement]][[1]]$Intercept
+    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[input$calcurveelement]][[1]]$Intercept
     }
     
     
@@ -657,7 +661,7 @@ inVar3Selected <- reactive({
 
 output$inVar3 <- renderUI({
     
-    checkboxGroupInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt2(), selected=inVar3Selected())
+    selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt2(), selected=inVar3Selected(), multiple=TRUE)
 })
 
 inVar4Selected <- reactive({
@@ -671,16 +675,19 @@ inVar4Selected <- reactive({
     }
     
     
-    if(input$usecalfile==FALSE){
+    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
         input$calcurveelement
-    }else if(input$usecalfile==TRUE){
+    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$Slope
-        
+    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[input$calcurveelement]][[1]]$Slope
+    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+        calList[[input$calcurveelement]][[1]]$Slope
     }
 })
 
 output$inVar4 <- renderUI({
-    checkboxGroupInput(inputId = "slope_vars", label = h4("Slope"), choices =  outVaralt(), selected=inVar4Selected())
+    selectInput(inputId = "slope_vars", label = h4("Slope"), choices =  outVaralt(), selected=inVar4Selected(), multiple=TRUE)
 })
 
 
@@ -728,9 +735,9 @@ calTypeSelection <- reactive({
     } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$CalType
     } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[1]][[1]]$CalTable$CalType
+        calList[[input$calcurveelement]][[1]]$CalTable$CalType
     } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[1]][[1]]$CalTable$CalType
+        calList[[input$calcurveelement]][[1]]$CalTable$CalType
     }
     
 })
@@ -750,9 +757,9 @@ calNormSelection <- reactive({
     }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$NormType
     } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[1]][[1]]$CalTable$NormType
+        calList[[input$calcurveelement]][[1]]$CalTable$NormType
     } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[1]][[1]]$CalTable$NormType
+        calList[[input$calcurveelement]][[1]]$CalTable$NormType
     }
     
 })
@@ -772,9 +779,9 @@ normMinSelection <- reactive({
     }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$Min
     } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[1]][[1]]$CalTable$Min
+        calList[[input$calcurveelement]][[1]]$CalTable$Min
     } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[1]][[1]]$CalTable$Min
+        calList[[input$calcurveelement]][[1]]$CalTable$Min
     }
     
 })
@@ -794,11 +801,13 @@ normMaxSelection <- reactive({
     }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$Max
     } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[1]][[1]]$CalTable$Max
+        calList[[input$calcurveelement]][[1]]$CalTable$Max
     } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[1]][[1]]$CalTable$MAx
+        calList[[input$calcurveelement]][[1]]$CalTable$MAx
     }
 })
+
+
 
 
 
@@ -1000,7 +1009,6 @@ calCurveFrame <- reactive({
     predict.frame <- data.frame(concentration, intensity)
     colnames(predict.frame) <- c("Concentration", "Intensity")
     
-    
     predict.intensity <- if(input$filetype=="Spectra"){
         general.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
     } else if(input$filetype=="Net"){
@@ -1010,17 +1018,6 @@ calCurveFrame <- reactive({
     
     if(input$normcal==2){
         
-        if(input$filetype=="Spectra"){total.counts <- aggregate(CPS~Spectrum, data=data, sum)}
-        if(input$filetype=="Spectra"){colnames(total.counts) <- c("Spectrum", "CPS")}
-        
-        if(input$filetype=="Net"){total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])}
-        if(input$filetype=="Net"){total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)}
-        if(input$filetype=="Net"){colnames(total.counts) <- c("Spectrum", "CPS")}
-        
-        predict.frame.tc <- data.frame(predict.frame$Concentration, intensity/total.counts$CPS)
-        colnames(predict.frame.tc) <- c("Concentration", "Intensity")
-        
-        
         
         predict.intensity.tc <- if(input$filetype=="Spectra"){
             simple.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
@@ -1028,11 +1025,14 @@ calCurveFrame <- reactive({
             simple.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
         }
         
+        predict.frame.tc <- data.frame(predict.intensity.tc, predict.frame$Concentration)
+        colnames(predict.frame.tc) <- c(names(predict.intensity.tc), "Concentration")
         
         
     }
     
     if(input$normcal==3){
+        
         predict.intensity.comp <- if(input$filetype=="Spectra"){
             simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
         } else if(input$filetype=="Net"){
@@ -1074,6 +1074,7 @@ calCurveFrame <- reactive({
         
         
         cal.lm.comp <- lm(Concentration~Intensity, data=predict.frame.comp[ vals$keeprows, , drop = FALSE])
+        
         cal.lm.poly.comp <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame.comp[ vals$keeprows, , drop = FALSE])
         
         cal.est.conc.pred.comp <- predict(object=cal.lm.comp, newdata=predict.intensity.comp, interval='confidence')
@@ -1128,21 +1129,37 @@ calCurveFrame <- reactive({
     
     if (input$radiocal==3){
         
-
+        
         
         if(input$normcal==1){
             
             predict.intensity.luk <- if(input$filetype=="Spectra"){
                 lukas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             } else if(input$filetype=="Net"){
-                 lukas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                lukas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
-            predit.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
-            colnames(predit.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
+            predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
+            colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
             
             
             lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+            
+            
+            xmin = 0; xmax=10
+            N = length(predict.frame.luk$Concentration)
+            means = colMeans(predict.frame.luk)
+            dummyDF = t(as.data.frame(means))
+            for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+            xv=seq(xmin,xmax, length.out=N)
+            dummyDF$Concentration = xv
+            yv=predict(lukas.lm, newdata=predict.intensity.luk)
+            
+            
+            
+            lukas.x <- yv
+            
+            
             
             cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
             cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
@@ -1151,7 +1168,7 @@ calCurveFrame <- reactive({
             cal.est.conc.luk.low <- cal.est.conc.tab.luk$lwr
             
             
-            val.frame.luk <- data.frame(predict.frame$Concentration, intensity, lukas.x, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
+            val.frame.luk <- data.frame(predict.frame$Concentration, predict.intensity.luk$Intensity, lukas.x, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
             colnames(val.frame.luk) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
         }
         
@@ -1160,6 +1177,7 @@ calCurveFrame <- reactive({
         
         
         if(input$normcal==3){
+            
             
             predict.intensity.luk.comp <- if(input$filetype=="Spectra"){
                 lukas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
@@ -1171,20 +1189,22 @@ calCurveFrame <- reactive({
             colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
             
             
-            cal.lm.luk.comp <- lm(Concentration~Intensity, data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
-            
-            cal.est.conc.pred.luk.comp <- predict(object=cal.lm.luk.comp, newdata=predict.intensity.luk.comp, interval='confidence')
-            cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
-            cal.est.conc.luk.comp <- cal.est.conc.tab.luk.comp$fit
-            
-            val.frame.luk.comp <- data.frame(predict.frame$Concentration, cal.est.conc.luk.comp)
-            colnames(val.frame.luk.comp) <- c("Concentration", "Prediction")
-            
-            
-            lukas.x.comp <- rowMeans(predict.intensity.luk.comp)
             
             
             lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+            
+            
+            xmin = 0; xmax=10
+            N = length(predict.frame.luk.comp$Concentration)
+            means = colMeans(predict.frame.luk.comp)
+            dummyDF = t(as.data.frame(means))
+            for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+            xv=seq(xmin,xmax, length.out=N)
+            dummyDF$Concentration = xv
+            yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+            
+            
+            lukas.x.comp <- yv
             
             cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
             cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
@@ -1213,9 +1233,20 @@ calCurveFrame <- reactive({
             predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
             colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
             
-            lukas.x.tc <- rowMeans(predict.intensity.luk.tc)
             
             lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+            
+            xmin = 0; xmax=10
+            N = length(predict.frame.luk.tc$Concentration)
+            means = colMeans(predict.frame.luk.tc)
+            dummyDF = t(as.data.frame(means))
+            for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+            xv=seq(xmin,xmax, length.out=N)
+            dummyDF$Concentration = xv
+            yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+            
+            
+            lukas.x.tc <- yv
             
             cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
             cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
@@ -1230,6 +1261,7 @@ calCurveFrame <- reactive({
         }
         
     }
+
     
 
     
@@ -1337,20 +1369,11 @@ calValFrame <- reactive({
         general.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
     } else if(input$filetype=="Net"){
         general.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-    }    
+    }
     
     
     if(input$normcal==2){
         
-        if(input$filetype=="Spectra"){total.counts <- aggregate(CPS~Spectrum, data=data, sum)}
-        if(input$filetype=="Spectra"){colnames(total.counts) <- c("Spectrum", "CPS")}
-        
-        if(input$filetype=="Net"){total.counts.net <- rowSums(spectra.line.table[2:length(spectra.line.table)])}
-        if(input$filetype=="Net"){total.counts <- data.frame(spectra.line.table$Spectrum, total.counts.net)}
-        if(input$filetype=="Net"){colnames(total.counts) <- c("Spectrum", "CPS")}
-        
-        predict.frame.tc <- data.frame(predict.frame$Concentration, intensity/total.counts$CPS)
-        colnames(predict.frame.tc) <- c("Concentration", "Intensity")
         
         predict.intensity.tc <- if(input$filetype=="Spectra"){
             simple.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
@@ -1358,10 +1381,14 @@ calValFrame <- reactive({
             simple.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
         }
         
+        predict.frame.tc <- data.frame(predict.intensity.tc, predict.frame$Concentration)
+        colnames(predict.frame.tc) <- c(names(predict.intensity.tc), "Concentration")
+        
         
     }
     
     if(input$normcal==3){
+        
         predict.intensity.comp <- if(input$filetype=="Spectra"){
             simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
         } else if(input$filetype=="Net"){
@@ -1403,6 +1430,7 @@ calValFrame <- reactive({
         
         
         cal.lm.comp <- lm(Concentration~Intensity, data=predict.frame.comp[ vals$keeprows, , drop = FALSE])
+        
         cal.lm.poly.comp <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame.comp[ vals$keeprows, , drop = FALSE])
         
         cal.est.conc.pred.comp <- predict(object=cal.lm.comp, newdata=predict.intensity.comp, interval='confidence')
@@ -1457,22 +1485,37 @@ calValFrame <- reactive({
     
     if (input$radiocal==3){
         
-
+        
         
         if(input$normcal==1){
             
             predict.intensity.luk <- if(input$filetype=="Spectra"){
                 lukas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             } else if(input$filetype=="Net"){
-                 lukas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                lukas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
             predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
             colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
             
             
-            
             lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+            
+            
+            xmin = 0; xmax=10
+            N = length(predict.frame.luk$Concentration)
+            means = colMeans(predict.frame.luk)
+            dummyDF = t(as.data.frame(means))
+            for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+            xv=seq(xmin,xmax, length.out=N)
+            dummyDF$Concentration = xv
+            yv=predict(lukas.lm, newdata=predict.intensity.luk)
+            
+            
+            
+            lukas.x <- yv
+            
+            
             
             cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
             cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
@@ -1481,7 +1524,7 @@ calValFrame <- reactive({
             cal.est.conc.luk.low <- cal.est.conc.tab.luk$lwr
             
             
-            val.frame.luk <- data.frame(predict.frame$Concentration, intensity, lukas.x, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
+            val.frame.luk <- data.frame(predict.frame$Concentration, predict.intensity.luk$Intensity, lukas.x, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
             colnames(val.frame.luk) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
         }
         
@@ -1500,22 +1543,24 @@ calValFrame <- reactive({
             
             predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
             colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
-
-
-            cal.lm.luk.comp <- lm(Concentration~Intensity, data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
-            
-            cal.est.conc.pred.luk.comp <- predict(object=cal.lm.luk.comp, newdata=predict.intensity.luk.comp, interval='confidence')
-            cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
-            cal.est.conc.luk.comp <- cal.est.conc.tab.luk.comp$fit
-            
-            val.frame.luk.comp <- data.frame(predict.frame$Concentration, cal.est.conc.luk.comp)
-            colnames(val.frame.luk.comp) <- c("Concentration", "Prediction")
             
             
-            lukas.x.comp <- rowMeans(predict.intensity.luk.comp)
-
+            
             
             lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+            
+            
+            xmin = 0; xmax=10
+            N = length(predict.frame.luk.comp$Concentration)
+            means = colMeans(predict.frame.luk.comp)
+            dummyDF = t(as.data.frame(means))
+            for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+            xv=seq(xmin,xmax, length.out=N)
+            dummyDF$Concentration = xv
+            yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+            
+            
+            lukas.x.comp <- yv
             
             cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
             cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
@@ -1544,9 +1589,20 @@ calValFrame <- reactive({
             predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
             colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
             
-            lukas.x.tc <- rowMeans(predict.intensity.luk.tc)
             
             lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+            
+            xmin = 0; xmax=10
+            N = length(predict.frame.luk.tc$Concentration)
+            means = colMeans(predict.frame.luk.tc)
+            dummyDF = t(as.data.frame(means))
+            for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+            xv=seq(xmin,xmax, length.out=N)
+            dummyDF$Concentration = xv
+            yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+            
+            
+            lukas.x.tc <- yv
             
             cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
             cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
@@ -1561,6 +1617,7 @@ calValFrame <- reactive({
         }
         
     }
+
     
     
 
@@ -2278,10 +2335,27 @@ valCurvePlot <- reactive({
             predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
             colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
             
-            lukas.x <- rowMeans(predict.intensity.luk)
-            
             
             lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+            
+            
+            
+            
+            
+            xmin = 0; xmax=10
+            N = length(predict.frame.luk$Concentration)
+            means = colMeans(predict.frame.luk)
+            dummyDF = t(as.data.frame(means))
+            for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+            xv=seq(xmin,xmax, length.out=N)
+            dummyDF$Concentration = xv
+            yv=predict(lukas.lm, newdata=predict.intensity.luk)
+            
+            
+            
+            lukas.x <- yv
+            
+            
             
             cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
             cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
@@ -2310,10 +2384,23 @@ valCurvePlot <- reactive({
             predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
             colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
             
-            lukas.x.comp <- rowMeans(predict.intensity.luk.comp)
+            
             
             
             lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+            
+            
+            xmin = 0; xmax=10
+            N = length(predict.frame.luk.comp$Concentration)
+            means = colMeans(predict.frame.luk.comp)
+            dummyDF = t(as.data.frame(means))
+            for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+            xv=seq(xmin,xmax, length.out=N)
+            dummyDF$Concentration = xv
+            yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+            
+            
+            lukas.x.comp <- yv
             
             cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
             cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
@@ -2342,10 +2429,20 @@ valCurvePlot <- reactive({
             predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
             colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
             
-            lukas.x.tc <- rowMeans(predict.intensity.luk.tc)
-            
             
             lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+            
+            xmin = 0; xmax=10
+            N = length(predict.frame.luk.tc$Concentration)
+            means = colMeans(predict.frame.luk.tc)
+            dummyDF = t(as.data.frame(means))
+            for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+            xv=seq(xmin,xmax, length.out=N)
+            dummyDF$Concentration = xv
+            yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+            
+            
+            lukas.x.tc <- yv
             
             cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
             cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
@@ -2361,88 +2458,87 @@ valCurvePlot <- reactive({
         
     }
     
-    
-    
     if (input$radiocal!=3){
+        
+        
+        ####Linear Calibration Curve Model Display, Time Normalized
+        if(input$normcal==1){
+            
+            calval.linear.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+            theme_bw() +
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            stat_smooth(method="lm") +
+            geom_abline(intercept=0, slope=1, lty=2) +
+            geom_point() +
+            geom_point(aes(Prediction, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            scale_x_continuous(paste(element.name, predi)) +
+            scale_y_continuous(paste(element.name, conen))
+            
+            calval.poly.plot <- ggplot(data=val.frame.poly[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+            theme_bw() +
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
+            stat_smooth(method="lm") +
+            geom_point() +
+            geom_point(aes(Prediction, Concentration), data = val.frame.poly[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            scale_x_continuous(paste(element.name, predi)) +
+            scale_y_continuous(paste(element.name, conen))
+        }
+        
+        
+        
+        ####Linear Calibration Curve Model Display, Total Count Normalized
+        if(input$normcal==2){
+            
+            calval.linear.plot.tc <- ggplot(data=val.frame.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+            theme_bw() +
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
+            stat_smooth(method="lm") +
+            geom_point() +
+            geom_point(aes(Prediction, Concentration), data = val.frame.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            scale_x_continuous(paste(element.name, predi)) +
+            scale_y_continuous(paste(element.name, conen))
+            
+            calval.poly.plot.tc <- ggplot(data=val.frame.poly.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+            theme_bw() +
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
+            stat_smooth(method="lm") +
+            geom_point() +
+            geom_point(aes(Prediction, Concentration), data = val.frame.poly.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            scale_x_continuous(paste(element.name, predi)) +
+            scale_y_continuous(paste(element.name, conen))
+        }
+        
+        
+        ####Linear Calibration Curve Model Display, Compton Normalized
+        if(input$normcal==3){
+            
+            calval.linear.plot.comp <- ggplot(data=val.frame.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+            theme_bw() +
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
+            stat_smooth(method="lm") +
+            geom_point() +
+            geom_point(aes(Prediction, Concentration), data = val.frame.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            scale_x_continuous(paste(element.name, predi)) +
+            scale_y_continuous(paste(element.name, conen))
+            
+            calval.poly.plot.comp <- ggplot(data=val.frame.poly.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+            theme_bw() +
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
+            stat_smooth(method="lm") +
+            geom_point() +
+            geom_point(aes(Prediction, Concentration), data = val.frame.poly.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            scale_x_continuous(paste(element.name, predi)) +
+            scale_y_continuous(paste(element.name, conen))
+            
+        }
+        
+    }
 
-
-    ####Linear Calibration Curve Model Display, Time Normalized
-    if(input$normcal==1){
-        
-        calval.linear.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
-        theme_bw() +
-        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-        stat_smooth(method="lm") +
-        geom_abline(intercept=0, slope=1, lty=2) +
-        geom_point() +
-        geom_point(aes(Prediction, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-        scale_x_continuous(paste(element.name, predi)) +
-        scale_y_continuous(paste(element.name, conen))
-        
-        calval.poly.plot <- ggplot(data=val.frame.poly[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
-        theme_bw() +
-        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-        geom_abline(intercept=0, slope=1, lty=2) +
-        stat_smooth(method="lm") +
-        geom_point() +
-        geom_point(aes(Prediction, Concentration), data = val.frame.poly[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-        scale_x_continuous(paste(element.name, predi)) +
-        scale_y_continuous(paste(element.name, conen))
-    }
-    
-    
-    
-    ####Linear Calibration Curve Model Display, Total Count Normalized
-    if(input$normcal==2){
-        
-        calval.linear.plot.tc <- ggplot(data=val.frame.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
-        theme_bw() +
-        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-        geom_abline(intercept=0, slope=1, lty=2) +
-        stat_smooth(method="lm") +
-        geom_point() +
-        geom_point(aes(Prediction, Concentration), data = val.frame.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-        scale_x_continuous(paste(element.name, predi)) +
-        scale_y_continuous(paste(element.name, conen))
-        
-        calval.poly.plot.tc <- ggplot(data=val.frame.poly.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
-        theme_bw() +
-        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-        geom_abline(intercept=0, slope=1, lty=2) +
-        stat_smooth(method="lm") +
-        geom_point() +
-        geom_point(aes(Prediction, Concentration), data = val.frame.poly.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-        scale_x_continuous(paste(element.name, predi)) +
-        scale_y_continuous(paste(element.name, conen))
-    }
-    
-    
-    ####Linear Calibration Curve Model Display, Compton Normalized
-    if(input$normcal==3){
-        
-        calval.linear.plot.comp <- ggplot(data=val.frame.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
-        theme_bw() +
-        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-        geom_abline(intercept=0, slope=1, lty=2) +
-        stat_smooth(method="lm") +
-        geom_point() +
-        geom_point(aes(Prediction, Concentration), data = val.frame.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-        scale_x_continuous(paste(element.name, predi)) +
-        scale_y_continuous(paste(element.name, conen))
-        
-        calval.poly.plot.comp <- ggplot(data=val.frame.poly.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
-        theme_bw() +
-        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.poly.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-        geom_abline(intercept=0, slope=1, lty=2) +
-        stat_smooth(method="lm") +
-        geom_point() +
-        geom_point(aes(Prediction, Concentration), data = val.frame.poly.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-        scale_x_continuous(paste(element.name, predi)) +
-        scale_y_continuous(paste(element.name, conen))
-
-    }
-    
-    }
     
     
     if (input$radiocal==3){
@@ -2530,7 +2626,7 @@ output$valcurveplots <- renderPlot({
 
 
 
-calPlotDownlaod <- reactive({
+calPlotDownload <- reactive({
     
     grid.arrange(calCurvePlot(), valCurvePlot(), ncol=2)
     
@@ -2540,7 +2636,7 @@ calPlotDownlaod <- reactive({
 output$downloadcloudplot <- downloadHandler(
 filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement), collapse=''), '.tiff',  sep='') },
 content = function(file) {
-    ggsave(file,calPlotDownlaod(), device="tiff", compression="lzw", type="cairo", dpi=300, width=12, height=7)
+    ggsave(file,calPlotDownload(), device="tiff", compression="lzw", type="cairo", dpi=300, width=12, height=7)
 }
 )
 
@@ -2636,7 +2732,7 @@ observeEvent(input$exclude_reset, {
 
 
 
- tableInput2 <- reactive({
+ calValTable <- reactive({
      
      data <- dataHold()
      
@@ -2840,10 +2936,24 @@ observeEvent(input$exclude_reset, {
              predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
              colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
              
-             lukas.x <- rowMeans(predict.intensity.luk)
-             
              
              lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+             
+             
+             xmin = 0; xmax=10
+             N = length(predict.frame.luk$Concentration)
+             means = colMeans(predict.frame.luk)
+             dummyDF = t(as.data.frame(means))
+             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+             xv=seq(xmin,xmax, length.out=N)
+             dummyDF$Concentration = xv
+             yv=predict(lukas.lm, newdata=predict.intensity.luk)
+             
+             
+             
+             lukas.x <- yv
+             
+             
              
              cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
              cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
@@ -2872,10 +2982,23 @@ observeEvent(input$exclude_reset, {
              predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
              colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
              
-             lukas.x.comp <- rowMeans(predict.intensity.luk.comp)
+             
              
              
              lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+             
+             
+             xmin = 0; xmax=10
+             N = length(predict.frame.luk.comp$Concentration)
+             means = colMeans(predict.frame.luk.comp)
+             dummyDF = t(as.data.frame(means))
+             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+             xv=seq(xmin,xmax, length.out=N)
+             dummyDF$Concentration = xv
+             yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+             
+             
+             lukas.x.comp <- yv
              
              cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
              cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
@@ -2904,10 +3027,20 @@ observeEvent(input$exclude_reset, {
              predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
              colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
              
-             lukas.x.tc <- rowMeans(predict.intensity.luk.tc)
-             
              
              lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+             
+             xmin = 0; xmax=10
+             N = length(predict.frame.luk.tc$Concentration)
+             means = colMeans(predict.frame.luk.tc)
+             dummyDF = t(as.data.frame(means))
+             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+             xv=seq(xmin,xmax, length.out=N)
+             dummyDF$Concentration = xv
+             yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+             
+             
+             lukas.x.tc <- yv
              
              cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
              cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
@@ -2922,6 +3055,7 @@ observeEvent(input$exclude_reset, {
          }
          
      }
+
      
 
      
@@ -2964,7 +3098,7 @@ observeEvent(input$exclude_reset, {
  output$standardsperformance <- DT::renderDataTable({
     
 
-    standard.table <- tableInput2()
+    standard.table <- calValTable()
   standard.table
  
  }, options =list(aoColumnDefs = list(list(sClass="alignRight",aTargets=c(list(2), list(3),list(4),list(5))))  ))
@@ -3181,10 +3315,24 @@ observeEvent(input$exclude_reset, {
              predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
              colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
              
-             lukas.x <- rowMeans(predict.intensity.luk)
-             
              
              lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+             
+             
+             xmin = 0; xmax=10
+             N = length(predict.frame.luk$Concentration)
+             means = colMeans(predict.frame.luk)
+             dummyDF = t(as.data.frame(means))
+             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+             xv=seq(xmin,xmax, length.out=N)
+             dummyDF$Concentration = xv
+             yv=predict(lukas.lm, newdata=predict.intensity.luk)
+             
+             
+             
+             lukas.x <- yv
+             
+             
              
              cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
              cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
@@ -3213,10 +3361,23 @@ observeEvent(input$exclude_reset, {
              predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
              colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
              
-             lukas.x.comp <- rowMeans(predict.intensity.luk.comp)
+             
              
              
              lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+             
+             
+             xmin = 0; xmax=10
+             N = length(predict.frame.luk.comp$Concentration)
+             means = colMeans(predict.frame.luk.comp)
+             dummyDF = t(as.data.frame(means))
+             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+             xv=seq(xmin,xmax, length.out=N)
+             dummyDF$Concentration = xv
+             yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+             
+             
+             lukas.x.comp <- yv
              
              cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
              cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
@@ -3245,10 +3406,20 @@ observeEvent(input$exclude_reset, {
              predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
              colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
              
-             lukas.x.tc <- rowMeans(predict.intensity.luk.tc)
-             
              
              lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+             
+             xmin = 0; xmax=10
+             N = length(predict.frame.luk.tc$Concentration)
+             means = colMeans(predict.frame.luk.tc)
+             dummyDF = t(as.data.frame(means))
+             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+             xv=seq(xmin,xmax, length.out=N)
+             dummyDF$Concentration = xv
+             yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+             
+             
+             lukas.x.tc <- yv
              
              cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
              cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
@@ -3263,6 +3434,7 @@ observeEvent(input$exclude_reset, {
          }
          
      }
+
      
 
 
@@ -3639,6 +3811,10 @@ emptyList <- reactive({
     a.list
 })
 
+
+
+
+
 calList <- reactiveValues()
 
 observeEvent(input$actionprocess, {
@@ -3706,6 +3882,7 @@ observeEvent(input$createcal, {
 })
 
 
+
 output$downloadModel <- downloadHandler(
 filename <- function(){
     paste(input$calname, "quant", sep=".")
@@ -3713,17 +3890,6 @@ filename <- function(){
 
 content = function(file) {
     saveRDS(Calibration, file = file, compress="xz")
-}
-)
-
-output$downloadReport <- downloadHandler(
-filename <- function(){
-    paste(input$calname, "pdf", sep=".")
-},
-
-content = function(file) {
-    pdf(Calibration, file = file, compress="xz")
-    
 }
 )
 

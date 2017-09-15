@@ -745,3 +745,39 @@ complukquant <-predict(
 
 
 
+reportList <- reactiveValues()
+reportList <- list()
+
+observeEvent(input$createcalelement, {
+    
+    
+    reportList <<- isolate(calPlotDownload())
+    
+    
+})
+
+
+observeEvent(input$createcal, {
+    
+    forReport <<- reportList
+    
+})
+
+
+
+
+output$downloadReport <- downloadHandler(
+filename <- function(){
+    paste(input$calname, "pdf", sep=".")
+},
+
+content = function(file) {
+    pdf(file = file)
+    
+    for (i in 1:length(forReport$reportList)) {
+        print(forReport$reportList[[i]])
+    }
+    dev.off()
+    
+}
+)
