@@ -179,6 +179,13 @@ tags$hr(),
 conditionalPanel(
 condition='input.dataset === dataHold()',
 uiOutput('checkboxElements')
+#uiOutput('checkboxElementsKalpha'),
+#uiOutput('checkboxElementsKbeta'),
+#uiOutput('checkboxElementsLalpha'),
+#uiOutput('checkboxElementsLbeta'),
+#uiOutput('checkboxElementsM')
+
+
 )),
 
 

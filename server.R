@@ -397,6 +397,49 @@ output$checkboxElements <-  renderUI({
     
 })
 
+output$checkboxElementsKalpha <-  renderUI({
+    
+    selectInput("show_vars_k_alpha", label="K-alpha",
+    choices = kalphaLines, selected = c("Ca.K.alpha", "Ti.K.alpha", "Fe.K.alpha"), multiple=TRUE)
+    
+})
+
+output$checkboxElementsKbeta <-  renderUI({
+    
+    selectInput("show_vars_k_beta", label="K-beta",
+    choices = kbetaLines, selected = NULL, multiple=TRUE)
+    
+})
+
+output$checkboxElementsLalpha <-  renderUI({
+    
+    selectInput("show_vars_l_alpha", label="L-alpha",
+    choices = lalphaLines, selected = "Rh.L.alpha", multiple=TRUE)
+    
+})
+
+output$checkboxElementsLbeta <-  renderUI({
+    
+    selectInput("show_vars_l_beta", label="L-beta",
+    choices = lbetaLines, selected = NULL, multiple=TRUE)
+    
+})
+
+output$checkboxElementsM <-  renderUI({
+    
+    selectInput("show_vars_m", label="M",
+    choices = mLines, selected = "Pb.M.line", multiple=TRUE)
+    
+})
+
+elementallinestouse <- reactive({
+    
+    #c(input$show_vars_k_alpha, input$show_vars_k_beta, input$show_vars_l_alpha, input$show_vars_l_beta, input$show_vars_m)
+    
+    input$show_vars
+    
+    
+})
 
 
 
@@ -406,21 +449,23 @@ output$checkboxElements <-  renderUI({
  spectraData <- reactive({
      
      data <- dataHold()
+     
+     elements <- elementallinestouse()
 
 
 
 
 
-     spectra.line.list <- lapply(input$show_vars, function(x) elementGrab(element.line=x, data=data))
+     spectra.line.list <- lapply(elements, function(x) elementGrab(element.line=x, data=data))
      element.count.list <- lapply(spectra.line.list, '[', 2)
 
      spectra.line.vector <- as.numeric(unlist(element.count.list))
      
-     dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(input$show_vars))
+     dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
      
      spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
      
-     colnames(spectra.line.frame) <- c("Spectrum", input$show_vars)
+     colnames(spectra.line.frame) <- c("Spectrum", elements)
      
      spectra.line.frame <- as.data.frame(spectra.line.frame)
      
@@ -432,9 +477,12 @@ output$checkboxElements <-  renderUI({
      
      net.data <- dataHold()
      
-     net.data.partial <- net.data[input$show_vars]
+     elements <- elementallinestouse()
+
+
+     net.data.partial <- net.data[,elements]
      net.data <- data.frame(net.data$Spectrum ,net.data.partial)
-     colnames(net.data) <- c("Spectrum", input$show_vars)
+     colnames(net.data) <- c("Spectrum", elements)
      net.data
      
  })
@@ -446,15 +494,19 @@ output$checkboxElements <-  renderUI({
  
  
  tableInput <- reactive({
+     
+     elements <- elementallinestouse()
+
+
      select.line.table <- if(input$filetype=="Spectra"){
          spectraData()
      }else if(input$filetype=="Net"){
          netData()
      }
      
-     rounded <- round(select.line.table[input$show_vars], digits=0)
+     rounded <- round(select.line.table[elements], digits=0)
      full <- data.frame(select.line.table$Spectrum, rounded)
-     colnames(full) <- c("Spectrum", input$show_vars)
+     colnames(full) <- c("Spectrum", elements)
      
      full
  })
@@ -484,6 +536,9 @@ output$checkboxElements <-  renderUI({
 
 hotableInput <- reactive({
     
+    elements <- elementallinestouse()
+
+
 
 
 spectra.line.table <- if(input$filetype=="Spectra"){
@@ -491,12 +546,12 @@ spectra.line.table <- if(input$filetype=="Spectra"){
 }else if(input$filetype=="Net"){
     dataHold()
 }
-        empty.line.table <- spectra.line.table[,input$show_vars] * 0.0000
+        empty.line.table <- spectra.line.table[,elements] * 0.0000
 
     #empty.line.table$Spectrum <- spectra.line.table$Spectrum
     
     hold.frame <- data.frame(spectra.line.table$Spectrum, empty.line.table)
-    colnames(hold.frame) <- c("Spectrum", input$show_vars)
+    colnames(hold.frame) <- c("Spectrum", elements)
     
     hold.frame <- as.data.frame(hold.frame)
     
@@ -588,7 +643,7 @@ observeEvent(input$resethotable, {
 outVar <- reactive({
     input$hotableprocess2
 
-    myelements <- input$show_vars
+    myelements <- elementallinestouse()
 
     result <- if(is.null(myelements)){
         "Ca.K.alpha"
@@ -605,7 +660,7 @@ outVaralt <- reactive({
     input$hotableprocess2
     
     
-    myelements <- c(input$show_vars, "None")
+    myelements <- c(elementallinestouse(), "None")
 
     
     if(is.null(myelements)){
@@ -620,7 +675,7 @@ outVaralt2 <- reactive({
     input$hotableprocess2
     
     
-    myelements <- c(input$show_vars, "None")
+    myelements <- c(elementallinestouse(), "None")
     
     
     if(is.null(myelements)){
@@ -3458,9 +3513,11 @@ observeEvent(input$exclude_reset, {
          lukas.lm.comp
      }
      
+     
+     
+     model
 
      
-strip_glm(model)
 
  })
  
@@ -3785,7 +3842,7 @@ nullList <- reactive({
     
     spectra.line.table <- spectraData()
 
-    cal.vector <- input$show_vars
+    cal.vector <- elementallinestouse()
     cal.vector2 <- cal.vector[2:length(cal.vector)]
     cal.list <- as.list(cal.vector2)
     setNames(cal.list, cal.vector2)
@@ -3853,7 +3910,7 @@ calList <- reactiveValues()
 observeEvent(input$createcalelement, {
     
     
-    calList[[input$calcurveelement]] <- list(isolate(calConditons), isolate(elementModel()))
+    calList[[input$calcurveelement]] <- list(isolate(calConditons), isolate(strip_glm(elementModel())))
 
     calList <<- calList
 
@@ -3868,7 +3925,7 @@ observeEvent(input$createcal, {
     }else if(input$filetype=="Net"){
         dataHold()
     }
-             cal.intensities <- spectra.line.table[input$show_vars]
+             cal.intensities <- spectra.line.table[elementallinestouse()]
              cal.values <- values[["DF"]]
              cal.data <- dataHold()
 

@@ -243,24 +243,24 @@ rbind.match.columns <- function(input1, input2) {
 
 
 strip_glm <- function(cm) {
-    #cm$y = c()
-    #cm$model = c()
+    cm$y = c()
+    cm$model = c()
     
-    #cm$residuals = c()
-    #cm$fitted.values = c()
-    #cm$effects = c()
-    #cm$qr$qr = c()
-    #cm$linear.predictors = c()
-    #cm$weights = c()
-    #cm$prior.weights = c()
-    #cm$data = c()
+    cm$residuals = c()
+    cm$fitted.values = c()
+    cm$effects = c()
+    cm$qr$qr = c()
+    cm$linear.predictors = c()
+    cm$weights = c()
+    cm$prior.weights = c()
+    cm$data = c()
     
     
-    #cm$family$variance = c()
-    #cm$family$dev.resids = c()
-    #cm$family$aic = c()
-    #cm$family$validmu = c()
-    #cm$family$simulate = c()
+    cm$family$variance = c()
+    cm$family$dev.resids = c()
+    cm$family$aic = c()
+    cm$family$validmu = c()
+    cm$family$simulate = c()
     attr(cm$terms,".Environment") = c()
     attr(cm$formula,".Environment") = c()
     
@@ -1037,6 +1037,16 @@ spectralLines <- c("Ne.K.alpha", "Ne.K.beta", "Na.K.alpha", "Na.K.beta", "Mg.K.a
 
 standard <- c("Spectrum", "Ca.K.alpha", "Ti.K.alpha", "Fe.K.alpha")
 
+kalphaLines <- c("Na.K.alpha",  "Mg.K.alpha", "Al.K.alpha", "Si.K.alpha", "P.K.alpha", "S.K.alpha", "Cl.K.alpha", "Ar.K.alpha", "K.K.alpha", "Ca.K.alpha", "Sc.K.alpha", "Ti.K.alpha", "V.K.alpha", "Cr.K.alpha", "Mn.K.alpha", "Fe.K.alpha", "Co.K.alpha", "Ni.K.alpha", "Cu.K.alpha", "Zn.K.alpha", "Ga.K.alpha", "Ge.K.alpha", "As.K.alpha", "Se.K.alpha", "Br.K.alpha", "Kr.K.alpha", "Rb.K.alpha", "Sr.K.alpha", "Y.K.alpha", "Zr.K.alpha", "Nb.K.alpha", "Mo.K.alpha", "Ru.K.alpha", "Rh.K.alpha", "Pd.K.alpha", "Ag.K.alpha", "Cd.K.alpha", "In.K.alpha", "Sn.K.alpha", "Sb.K.alpha", "Te.K.alpha", "Te.K.beta", "I.K.alpha", "Xe.K.alpha", "Cs.K.alpha", "Ba.K.alpha", "La.K.alpha", "Ce.K.alpha", "Pr.K.alpha", "Nd.K.alpha")
+
+kbetaLines <- c("Na.K.beta",  "Mg.K.beta", "Al.K.beta", "Si.K.beta", "P.K.beta", "S.K.beta", "Cl.K.beta", "Ar.K.beta", "K.K.beta", "Ca.K.beta", "Sc.K.beta", "Ti.K.beta", "V.K.beta", "Cr.K.beta", "Mn.K.beta", "Fe.K.beta", "Co.K.beta", "Ni.K.beta", "Cu.K.beta", "Zn.K.beta", "Ga.K.beta", "Ge.K.beta", "As.K.beta", "Se.K.beta", "Br.K.beta", "Kr.K.beta", "Rb.K.beta", "Sr.K.beta", "Y.K.beta", "Zr.K.beta", "Nb.K.beta", "Mo.K.beta", "Ru.K.beta", "Rh.K.beta", "Pd.K.beta", "Ag.K.beta", "Cd.K.beta", "In.K.beta", "Sn.K.beta", "Sb.K.beta", "Te.K.beta", "Te.K.beta", "I.K.beta", "Xe.K.beta", "Cs.K.beta", "Ba.K.beta", "La.K.beta", "Ce.K.beta", "Pr.K.beta", "Nd.K.beta")
+
+lalphaLines <- c("Mo.L.alpha", "Ru.L.alpha", "Rh.L.alpha", "Pd.L.alpha", "Ag.L.alpha", "Cd.L.alpha", "In.L.alpha", "Sn.L.alpha", "Sb.L.alpha", "Te.L.alpha", "I.L.alpha", "Xe.L.alpha", "Cs.L.alpha", "Ba.L.alpha", "La.L.alpha", "Ce.L.alpha", "Pr.L.alpha", "Nd.L.alpha", "Pm.L.alpha", "Sm.L.alpha", "Eu.L.alpha", "Gd.L.alpha", "Tb.L.alpha", "Dy.L.alpha", "Ho.L.alpha", "Er.L.alpha", "Tm.L.alpha", "Yb.L.alpha", "Lu.L.alpha", "Hf.L.alpha", "Ta.L.alpha", "W.L.alpha", "Re.L.alpha", "Os.L.alpha", "Ir.L.alpha", "Pt.L.alpha", "Au.L.alpha", "Hg.L.alpha", "Tl.L.alpha", "Pb.L.alpha", "Bi.L.alpha", "Po.L.alpha", "At.L.alpha", "Rn.L.alpha", "Fr.L.alpha", "Ra.L.alpha", "Ac.L.alpha", "Th.L.alpha", "Pa.L.alpha", "U.L.alpha")
+
+lbetaLines <- c("Mo.L.beta", "Ru.L.beta", "Rh.L.beta", "Pd.L.beta", "Ag.L.beta", "Cd.L.beta", "In.L.beta", "Sn.L.beta", "Sb.L.beta", "Te.L.beta", "I.L.beta", "Xe.L.beta", "Cs.L.beta", "Ba.L.beta", "La.L.beta", "Ce.L.beta", "Pr.L.beta", "Nd.L.beta", "Pm.L.beta", "Sm.L.beta", "Eu.L.beta", "Gd.L.beta", "Tb.L.beta", "Dy.L.beta", "Ho.L.beta", "Er.L.beta", "Tm.L.beta", "Yb.L.beta", "Lu.L.beta", "Hf.L.beta", "Ta.L.beta", "W.L.beta", "Re.L.beta", "Os.L.beta", "Ir.L.beta", "Pt.L.beta", "Au.L.beta", "Hg.L.beta", "Tl.L.beta", "Pb.L.beta", "Bi.L.beta", "Po.L.beta", "At.L.beta", "Rn.L.beta", "Fr.L.beta", "Ra.L.beta", "Ac.L.beta", "Th.L.beta", "Pa.L.beta", "U.L.beta")
+
+mLines <- c("Au.M.line", "Hg.M.line", "Pb.M.line", "U.M.line")
+
 
 elementGrabKalpha <- function(element, data) {
     
@@ -1180,7 +1190,7 @@ linear.simp <- function(concentration.table, spectra.line.table, element.line) {
     colnames(predict.intensity) <- c("Intensity")
     
     cal.lm <- lm(predict.frame$Concentration~predict.frame$Intensity)
-
+    
     cal.lm
     
 }
@@ -1301,7 +1311,7 @@ poly.tc <- function(concentration.table, spectra.line.table, element.line) {
     
     cal.lm.poly.tc
     
-
+    
     
 }
 
@@ -1337,7 +1347,7 @@ lukas.tc <- function(concentration.table, spectra.line.table, element.line, slop
     lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
     
     lukas.lm.tc
-
+    
     
 }
 
@@ -1418,8 +1428,8 @@ lukas.comp <- function(data, concentration.table, spectra.line.table, element.li
     colnames(compton.frame) <- c("Compton", "Spectrum")
     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
-
-
+    
+    
     
     lukas.intercept.table.comp <- data.frame(rowSums(lukas.intercept.table.x[intercept.element.lines]))/compton.frame.ag$Compton
     colnames(lukas.intercept.table.comp) <- c("first")
@@ -1606,7 +1616,7 @@ lukas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.
     lukas.slope.tc <- data.frame(lukas.slope.table[,slope.element.lines])/total.counts$CPS
     colnames(lukas.slope.tc) <- slope.element.lines
     
-
+    
     
     predict.intensity.luk.tc <- data.frame(((1+intensity/(intensity+lukas.intercept.tc)-lukas.intercept.tc/(intensity+lukas.intercept.tc))),lukas.slope.tc)
     colnames(predict.intensity.luk.tc) <- c("Intensity", names(lukas.slope.tc))
@@ -1888,6 +1898,7 @@ lukas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     
     predict.intensity.luk.comp
 }
+
 
 
 blank.data.frame <- data.frame(rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)))
