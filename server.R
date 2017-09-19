@@ -749,6 +749,8 @@ output$inVar4 <- renderUI({
 
 
 calConditons <- reactiveValues()
+calList <- reactiveValues()
+calList <- NULL
 
 observeEvent(input$hotableprocess2, {
     
@@ -858,7 +860,7 @@ normMaxSelection <- reactive({
     } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
         calList[[input$calcurveelement]][[1]]$CalTable$Max
     } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$CalTable$MAx
+        calList[[input$calcurveelement]][[1]]$CalTable$Max
     }
 })
 
@@ -913,10 +915,14 @@ output$comptonMaxInput <- renderUI({
           input$calcurveelement
       }
       
-      standards <- if(input$usecalfile==TRUE){
+      standards <- if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
           calFileContents()$calList[[elementHold]][[1]][[4]]
-      } else if(input$usecalfile==FALSE){
+      } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
           rep(TRUE, dataCount())
+      } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+          calList[[elementHold]][[1]][[4]]
+      } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+          calList[[elementHold]][[1]][[4]]
       }
       
       standards
