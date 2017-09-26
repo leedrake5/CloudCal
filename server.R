@@ -166,7 +166,7 @@ dataCount <- reactive({
     if(input$usecalfile==FALSE){
         length(inFile$datapath)
     }else if(input$usefile==TRUE){
-        length(calFileContents()$Spectra)
+        length(calFileContents()$Intensities)
     }
 })
 
@@ -795,6 +795,8 @@ calTypeSelection <- reactive({
         calList[[input$calcurveelement]][[1]]$CalTable$CalType
     } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
         calList[[input$calcurveelement]][[1]]$CalTable$CalType
+    } else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+        calConditons[[1]][[1]]
     }
     
 })
@@ -817,6 +819,8 @@ calNormSelection <- reactive({
         calList[[input$calcurveelement]][[1]]$CalTable$NormType
     } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
         calList[[input$calcurveelement]][[1]]$CalTable$NormType
+    } else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+        calConditons[[1]][[2]]
     }
     
 })
@@ -839,6 +843,8 @@ normMinSelection <- reactive({
         calList[[input$calcurveelement]][[1]]$CalTable$Min
     } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
         calList[[input$calcurveelement]][[1]]$CalTable$Min
+    } else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+        calConditons[[1]][[3]]
     }
     
 })
@@ -861,6 +867,8 @@ normMaxSelection <- reactive({
         calList[[input$calcurveelement]][[1]]$CalTable$Max
     } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
         calList[[input$calcurveelement]][[1]]$CalTable$Max
+    } else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+        calConditons[[1]][[4]]
     }
 })
 
@@ -923,6 +931,8 @@ output$comptonMaxInput <- renderUI({
           calList[[elementHold]][[1]][[4]]
       } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
           calList[[elementHold]][[1]][[4]]
+      } else if(input$usecalfile==TRUE && is.null(vals$keeoprows)==TRUE){
+          vals$keeprows = rep(TRUE, dataCount())
       }
       
       standards
@@ -938,6 +948,7 @@ output$comptonMaxInput <- renderUI({
   vals$keeprows <- vals$keeprows[ vals$keeprows != TRUE]
   vals$keeprows <- vals$keeprows[ vals$keeprows != FALSE]
   vals$keeprows = calFileStandards()
+
 
   
 
@@ -1817,10 +1828,9 @@ calCurvePlot <- reactive({
     }
     
     
-    
+
 
     if (input$normcal==1){
-
     cal.lm <- lm(Concentration~Intensity, data=predict.frame[ vals$keeprows, , drop = FALSE])
     cal.lm.poly <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame[ vals$keeprows, , drop = FALSE])
     
