@@ -33,7 +33,7 @@ It will ask you to choose a download mirror (you can choose anyone, the result i
 
 The first time it runs, it may take some time to download the supporting software. After that, you should be good to go. If you'd like to download a copy and run it offline, you can instead download it from GitHub (https://github.com/leedrake5/CloudCal) and then run it locally:
 
->shiny::runApp("your/computer/directory/CloudCal"
+>shiny::runApp("your/computer/directory/CloudCal")
 
 ## What format for the data?
 Currently, the data operates with .csv files exported from either S1PXRF or Artax. It can't read binary files like .pdz yet, but I'm hoping to get there. 
