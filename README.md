@@ -1,8 +1,8 @@
-#CloudCal
+# CloudCal
 
 This app will allow you to build & apply calibrations for the Tracer & Artax series of XRF devices. It works with .csv files produced from S1PXRF and .csv files of net counts produced from Artax (7.4 or later). 
 
-##How it works
+## How it works
 It is based on the Lucas-Tooth and Price (1961) algorithm<sup>1</sup>, though I have added modifications to make it more robust (it's really hard to get a validation plot slope that isn't 1). The algorithm goes like this:
 
 C<sub>i</sub> = r<sub>0</sub> + I<sub>i</sub>[r<sub>i</sub> + Σ(r<sub>in</sub>I<sub>n</sub>]
@@ -16,7 +16,7 @@ In which y is C<sub>i</sub>, b is r<sub>0</sub>, m is r<sub>i</sub>, and I<sub>i
 The algorithm is simply a way to a) estimate concentrations from the x-ray spectrum, b) account for variation from the spectrum itself, and c) make results from instruments comparable to one another reliably<sup>2</sup>. That said, you do not have to use a Lucas-Tooth model to calibrate - in the app you can also choose linear/nonlinear models. 
 
 
-##How to use the app
+## How to use the app
 
 First, you will need to download a copy of R appropriate for your computer (Mac, Windows, or Linux): 
 
@@ -36,7 +36,7 @@ The first time it runs, it may take some time to download the supporting softwar
 >shiny::runApp("your/computer/directory/CloudCal"
 
 
-##References
+## References
 Lucas-Tooth, H.J., Price, B.J. 1961. A Mathematical Method for the Investigation of Interelement Effects in X-Ray Fluorescence Analysis Metallurgia 64, 149–152.
 
 
