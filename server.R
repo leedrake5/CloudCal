@@ -1205,43 +1205,43 @@ calCurveFrame <- reactive({
         
         if(input$normcal==1){
             
-            predict.intensity.luk <- if(input$filetype=="Spectra"){
-                lukas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+            predict.intensity.luc <- if(input$filetype=="Spectra"){
+                lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             } else if(input$filetype=="Net"){
-                lukas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
-            predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
-            colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
+            predict.frame.luc <- data.frame(predict.intensity.luc, predict.frame$Concentration)
+            colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
             
             
-            lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+            lucas.lm <- lm(Concentration~., data=predict.frame.luc[ vals$keeprows, , drop = FALSE])
             
             
             xmin = 0; xmax=10
-            N = length(predict.frame.luk$Concentration)
-            means = colMeans(predict.frame.luk)
+            N = length(predict.frame.luc$Concentration)
+            means = colMeans(predict.frame.luc)
             dummyDF = t(as.data.frame(means))
             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
             xv=seq(xmin,xmax, length.out=N)
             dummyDF$Concentration = xv
-            yv=predict(lukas.lm, newdata=predict.intensity.luk)
+            yv=predict(lucas.lm, newdata=predict.intensity.luc)
             
             
             
-            lukas.x <- yv
+            lucas.x <- yv
             
             
             
-            cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
-            cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
-            cal.est.conc.luk <- cal.est.conc.tab.luk$fit
-            cal.est.conc.luk.up <- cal.est.conc.tab.luk$upr
-            cal.est.conc.luk.low <- cal.est.conc.tab.luk$lwr
+            cal.est.conc.pred.luc <- predict(object=lucas.lm , newdata=predict.intensity.luc, interval='confidence')
+            cal.est.conc.tab.luc <- data.frame(cal.est.conc.pred.luc)
+            cal.est.conc.luc <- cal.est.conc.tab.luc$fit
+            cal.est.conc.luc.up <- cal.est.conc.tab.luc$upr
+            cal.est.conc.luc.low <- cal.est.conc.tab.luc$lwr
             
             
-            val.frame.luk <- data.frame(predict.frame$Concentration, predict.intensity.luk$Intensity, lukas.x, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
-            colnames(val.frame.luk) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc <- data.frame(predict.frame$Concentration, predict.intensity.luc$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+            colnames(val.frame.luc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
         }
         
         
@@ -1251,42 +1251,42 @@ calCurveFrame <- reactive({
         if(input$normcal==3){
             
             
-            predict.intensity.luk.comp <- if(input$filetype=="Spectra"){
-                lukas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+            predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+                lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
             } else if(input$filetype=="Net"){
-                lukas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+                lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
             }
             
-            predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
-            colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
+            predict.frame.luc.comp <- data.frame(predict.intensity.luc.comp, predict.frame$Concentration)
+            colnames(predict.frame.luc.comp) <- c(names(predict.intensity.luc.comp), "Concentration")
             
             
             
             
-            lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+            lucas.lm.comp <- lm(Concentration~., data=predict.frame.luc.comp[ vals$keeprows, , drop = FALSE])
             
             
             xmin = 0; xmax=10
-            N = length(predict.frame.luk.comp$Concentration)
-            means = colMeans(predict.frame.luk.comp)
+            N = length(predict.frame.luc.comp$Concentration)
+            means = colMeans(predict.frame.luc.comp)
             dummyDF = t(as.data.frame(means))
             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
             xv=seq(xmin,xmax, length.out=N)
             dummyDF$Concentration = xv
-            yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+            yv=predict(lucas.lm.comp, newdata=predict.intensity.luc.comp)
             
             
-            lukas.x.comp <- yv
+            lucas.x.comp <- yv
             
-            cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
-            cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
-            cal.est.conc.luk.comp <- cal.est.conc.tab.luk.comp$fit
-            cal.est.conc.luk.up.comp <- cal.est.conc.tab.luk.comp$upr
-            cal.est.conc.luk.low.comp <- cal.est.conc.tab.luk.comp$lwr
+            cal.est.conc.pred.luc.comp <- predict(object=lucas.lm.comp , newdata=predict.intensity.luc.comp, interval='confidence')
+            cal.est.conc.tab.luc.comp <- data.frame(cal.est.conc.pred.luc.comp)
+            cal.est.conc.luc.comp <- cal.est.conc.tab.luc.comp$fit
+            cal.est.conc.luc.up.comp <- cal.est.conc.tab.luc.comp$upr
+            cal.est.conc.luc.low.comp <- cal.est.conc.tab.luc.comp$lwr
             
             
-            val.frame.luk.comp <- data.frame(predict.frame$Concentration, predict.intensity.luk.comp$Intensity, lukas.x.comp, cal.est.conc.luk.comp, cal.est.conc.luk.up.comp, cal.est.conc.luk.low.comp)
-            colnames(val.frame.luk.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc.comp <- data.frame(predict.frame$Concentration, predict.intensity.luc.comp$Intensity, lucas.x.comp, cal.est.conc.luc.comp, cal.est.conc.luc.up.comp, cal.est.conc.luc.low.comp)
+            colnames(val.frame.luc.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
             
         }
         
@@ -1296,39 +1296,39 @@ calCurveFrame <- reactive({
         if(input$normcal==2){
             
             
-            predict.intensity.luk.tc <- if(input$filetype=="Spectra"){
-                lukas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+            predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+                lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             } else if(input$filetype=="Net"){
-                lukas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
-            predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
-            colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
+            predict.frame.luc.tc <- data.frame(predict.intensity.luc.tc, predict.frame$Concentration)
+            colnames(predict.frame.luc.tc) <- c(names(predict.intensity.luc.tc), "Concentration")
             
             
-            lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+            lucas.lm.tc <- lm(Concentration~., data=predict.frame.luc.tc)
             
             xmin = 0; xmax=10
-            N = length(predict.frame.luk.tc$Concentration)
-            means = colMeans(predict.frame.luk.tc)
+            N = length(predict.frame.luc.tc$Concentration)
+            means = colMeans(predict.frame.luc.tc)
             dummyDF = t(as.data.frame(means))
             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
             xv=seq(xmin,xmax, length.out=N)
             dummyDF$Concentration = xv
-            yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+            yv=predict(lucas.lm.tc, newdata=predict.intensity.luc.tc)
             
             
-            lukas.x.tc <- yv
+            lucas.x.tc <- yv
             
-            cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
-            cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
-            cal.est.conc.luk.tc <- cal.est.conc.tab.luk.tc$fit
-            cal.est.conc.luk.up.tc <- cal.est.conc.tab.luk.tc$upr
-            cal.est.conc.luk.low.tc <- cal.est.conc.tab.luk.tc$lwr
+            cal.est.conc.pred.luc.tc <- predict(object=lucas.lm.tc , newdata=predict.intensity.luc.tc, interval='confidence')
+            cal.est.conc.tab.luc.tc <- data.frame(cal.est.conc.pred.luc.tc)
+            cal.est.conc.luc.tc <- cal.est.conc.tab.luc.tc$fit
+            cal.est.conc.luc.up.tc <- cal.est.conc.tab.luc.tc$upr
+            cal.est.conc.luc.low.tc <- cal.est.conc.tab.luc.tc$lwr
             
             
-            val.frame.luk.tc <- data.frame(predict.frame$Concentration, predict.intensity.luk.tc$Intensity, lukas.x.tc, cal.est.conc.luk.tc, cal.est.conc.luk.up.tc, cal.est.conc.luk.low.tc)
-            colnames(val.frame.luk.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc.tc <- data.frame(predict.frame$Concentration, predict.intensity.luc.tc$Intensity, lucas.x.tc, cal.est.conc.luc.tc, cal.est.conc.luc.up.tc, cal.est.conc.luc.low.tc)
+            colnames(val.frame.luc.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
             
         }
         
@@ -1353,11 +1353,11 @@ calCurveFrame <- reactive({
     } else if (input$radiocal==2 && input$normcal==3) {
         predict.frame.comp
     } else if (input$radiocal==3 && input$normcal==1) {
-        predict.frame.luk
+        predict.frame.luc
     } else if (input$radiocal==3 && input$normcal==2){
-        predict.frame.luk.tc
+        predict.frame.luc.tc
     } else if (input$radiocal==3 && input$normcal==3) {
-        predict.frame.luk.comp
+        predict.frame.luc.comp
     } else if (is.na(input$calcurveelement)) {
         return()
     }
@@ -1561,43 +1561,43 @@ calValFrame <- reactive({
         
         if(input$normcal==1){
             
-            predict.intensity.luk <- if(input$filetype=="Spectra"){
-                lukas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+            predict.intensity.luc <- if(input$filetype=="Spectra"){
+                lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             } else if(input$filetype=="Net"){
-                lukas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
-            predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
-            colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
+            predict.frame.luc <- data.frame(predict.intensity.luc, predict.frame$Concentration)
+            colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
             
             
-            lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+            lucas.lm <- lm(Concentration~., data=predict.frame.luc[ vals$keeprows, , drop = FALSE])
             
             
             xmin = 0; xmax=10
-            N = length(predict.frame.luk$Concentration)
-            means = colMeans(predict.frame.luk)
+            N = length(predict.frame.luc$Concentration)
+            means = colMeans(predict.frame.luc)
             dummyDF = t(as.data.frame(means))
             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
             xv=seq(xmin,xmax, length.out=N)
             dummyDF$Concentration = xv
-            yv=predict(lukas.lm, newdata=predict.intensity.luk)
+            yv=predict(lucas.lm, newdata=predict.intensity.luc)
             
             
             
-            lukas.x <- yv
+            lucas.x <- yv
             
             
             
-            cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
-            cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
-            cal.est.conc.luk <- cal.est.conc.tab.luk$fit
-            cal.est.conc.luk.up <- cal.est.conc.tab.luk$upr
-            cal.est.conc.luk.low <- cal.est.conc.tab.luk$lwr
+            cal.est.conc.pred.luc <- predict(object=lucas.lm , newdata=predict.intensity.luc, interval='confidence')
+            cal.est.conc.tab.luc <- data.frame(cal.est.conc.pred.luc)
+            cal.est.conc.luc <- cal.est.conc.tab.luc$fit
+            cal.est.conc.luc.up <- cal.est.conc.tab.luc$upr
+            cal.est.conc.luc.low <- cal.est.conc.tab.luc$lwr
             
             
-            val.frame.luk <- data.frame(predict.frame$Concentration, predict.intensity.luk$Intensity, lukas.x, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
-            colnames(val.frame.luk) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc <- data.frame(predict.frame$Concentration, predict.intensity.luc$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+            colnames(val.frame.luc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
         }
         
         
@@ -1607,42 +1607,42 @@ calValFrame <- reactive({
         if(input$normcal==3){
             
             
-            predict.intensity.luk.comp <- if(input$filetype=="Spectra"){
-                lukas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+            predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+                lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
             } else if(input$filetype=="Net"){
-                lukas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+                lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
             }
             
-            predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
-            colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
+            predict.frame.luc.comp <- data.frame(predict.intensity.luc.comp, predict.frame$Concentration)
+            colnames(predict.frame.luc.comp) <- c(names(predict.intensity.luc.comp), "Concentration")
             
             
             
             
-            lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+            lucas.lm.comp <- lm(Concentration~., data=predict.frame.luc.comp[ vals$keeprows, , drop = FALSE])
             
             
             xmin = 0; xmax=10
-            N = length(predict.frame.luk.comp$Concentration)
-            means = colMeans(predict.frame.luk.comp)
+            N = length(predict.frame.luc.comp$Concentration)
+            means = colMeans(predict.frame.luc.comp)
             dummyDF = t(as.data.frame(means))
             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
             xv=seq(xmin,xmax, length.out=N)
             dummyDF$Concentration = xv
-            yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+            yv=predict(lucas.lm.comp, newdata=predict.intensity.luc.comp)
             
             
-            lukas.x.comp <- yv
+            lucas.x.comp <- yv
             
-            cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
-            cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
-            cal.est.conc.luk.comp <- cal.est.conc.tab.luk.comp$fit
-            cal.est.conc.luk.up.comp <- cal.est.conc.tab.luk.comp$upr
-            cal.est.conc.luk.low.comp <- cal.est.conc.tab.luk.comp$lwr
+            cal.est.conc.pred.luc.comp <- predict(object=lucas.lm.comp , newdata=predict.intensity.luc.comp, interval='confidence')
+            cal.est.conc.tab.luc.comp <- data.frame(cal.est.conc.pred.luc.comp)
+            cal.est.conc.luc.comp <- cal.est.conc.tab.luc.comp$fit
+            cal.est.conc.luc.up.comp <- cal.est.conc.tab.luc.comp$upr
+            cal.est.conc.luc.low.comp <- cal.est.conc.tab.luc.comp$lwr
             
             
-            val.frame.luk.comp <- data.frame(predict.frame$Concentration, predict.intensity.luk.comp$Intensity, lukas.x.comp, cal.est.conc.luk.comp, cal.est.conc.luk.up.comp, cal.est.conc.luk.low.comp)
-            colnames(val.frame.luk.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc.comp <- data.frame(predict.frame$Concentration, predict.intensity.luc.comp$Intensity, lucas.x.comp, cal.est.conc.luc.comp, cal.est.conc.luc.up.comp, cal.est.conc.luc.low.comp)
+            colnames(val.frame.luc.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
             
         }
         
@@ -1652,39 +1652,39 @@ calValFrame <- reactive({
         if(input$normcal==2){
             
             
-            predict.intensity.luk.tc <- if(input$filetype=="Spectra"){
-                lukas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+            predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+                lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             } else if(input$filetype=="Net"){
-                lukas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
-            predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
-            colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
+            predict.frame.luc.tc <- data.frame(predict.intensity.luc.tc, predict.frame$Concentration)
+            colnames(predict.frame.luc.tc) <- c(names(predict.intensity.luc.tc), "Concentration")
             
             
-            lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+            lucas.lm.tc <- lm(Concentration~., data=predict.frame.luc.tc)
             
             xmin = 0; xmax=10
-            N = length(predict.frame.luk.tc$Concentration)
-            means = colMeans(predict.frame.luk.tc)
+            N = length(predict.frame.luc.tc$Concentration)
+            means = colMeans(predict.frame.luc.tc)
             dummyDF = t(as.data.frame(means))
             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
             xv=seq(xmin,xmax, length.out=N)
             dummyDF$Concentration = xv
-            yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+            yv=predict(lucas.lm.tc, newdata=predict.intensity.luc.tc)
             
             
-            lukas.x.tc <- yv
+            lucas.x.tc <- yv
             
-            cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
-            cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
-            cal.est.conc.luk.tc <- cal.est.conc.tab.luk.tc$fit
-            cal.est.conc.luk.up.tc <- cal.est.conc.tab.luk.tc$upr
-            cal.est.conc.luk.low.tc <- cal.est.conc.tab.luk.tc$lwr
+            cal.est.conc.pred.luc.tc <- predict(object=lucas.lm.tc , newdata=predict.intensity.luc.tc, interval='confidence')
+            cal.est.conc.tab.luc.tc <- data.frame(cal.est.conc.pred.luc.tc)
+            cal.est.conc.luc.tc <- cal.est.conc.tab.luc.tc$fit
+            cal.est.conc.luc.up.tc <- cal.est.conc.tab.luc.tc$upr
+            cal.est.conc.luc.low.tc <- cal.est.conc.tab.luc.tc$lwr
             
             
-            val.frame.luk.tc <- data.frame(predict.frame$Concentration, predict.intensity.luk.tc$Intensity, lukas.x.tc, cal.est.conc.luk.tc, cal.est.conc.luk.up.tc, cal.est.conc.luk.low.tc)
-            colnames(val.frame.luk.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc.tc <- data.frame(predict.frame$Concentration, predict.intensity.luc.tc$Intensity, lucas.x.tc, cal.est.conc.luc.tc, cal.est.conc.luc.up.tc, cal.est.conc.luc.low.tc)
+            colnames(val.frame.luc.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
             
         }
         
@@ -1708,11 +1708,11 @@ calValFrame <- reactive({
     } else if (input$radiocal==2 && input$normcal==3) {
         val.frame.poly.comp
     } else if (input$radiocal==3 && input$normcal==1) {
-        val.frame.luk
+        val.frame.luc
     } else if (input$radiocal==3 && input$normcal==2){
-        val.frame.luk.tc
+        val.frame.luc.tc
     } else if (input$radiocal==3 && input$normcal==3) {
-        val.frame.luk.comp
+        val.frame.luc.comp
     } else if (is.na(input$calcurveelement)) {
         return()
     }
@@ -1916,43 +1916,43 @@ calCurvePlot <- reactive({
         
         if(input$normcal==1){
             
-            predict.intensity.luk <- if(input$filetype=="Spectra"){
-                lukas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+            predict.intensity.luc <- if(input$filetype=="Spectra"){
+                lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             } else if(input$filetype=="Net"){
-                lukas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
-            predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
-            colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
+            predict.frame.luc <- data.frame(predict.intensity.luc, predict.frame$Concentration)
+            colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
             
             
-    lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+    lucas.lm <- lm(Concentration~., data=predict.frame.luc[ vals$keeprows, , drop = FALSE])
     
     
     xmin = 0; xmax=10
-    N = length(predict.frame.luk$Concentration)
-    means = colMeans(predict.frame.luk)
+    N = length(predict.frame.luc$Concentration)
+    means = colMeans(predict.frame.luc)
     dummyDF = t(as.data.frame(means))
     for(i in 2:N){dummyDF=rbind(dummyDF,means)}
     xv=seq(xmin,xmax, length.out=N)
     dummyDF$Concentration = xv
-    yv=predict(lukas.lm, newdata=predict.intensity.luk)
+    yv=predict(lucas.lm, newdata=predict.intensity.luc)
 
     
     
-    lukas.x <- yv
+    lucas.x <- yv
 
 
 
-    cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
-    cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
-    cal.est.conc.luk <- cal.est.conc.tab.luk$fit
-    cal.est.conc.luk.up <- cal.est.conc.tab.luk$upr
-    cal.est.conc.luk.low <- cal.est.conc.tab.luk$lwr
+    cal.est.conc.pred.luc <- predict(object=lucas.lm , newdata=predict.intensity.luc, interval='confidence')
+    cal.est.conc.tab.luc <- data.frame(cal.est.conc.pred.luc)
+    cal.est.conc.luc <- cal.est.conc.tab.luc$fit
+    cal.est.conc.luc.up <- cal.est.conc.tab.luc$upr
+    cal.est.conc.luc.low <- cal.est.conc.tab.luc$lwr
     
     
-    val.frame.luk <- data.frame(predict.frame$Concentration, predict.intensity.luk$Intensity, lukas.x, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
-    colnames(val.frame.luk) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+    val.frame.luc <- data.frame(predict.frame$Concentration, predict.intensity.luc$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+    colnames(val.frame.luc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
         }
     
 
@@ -1962,42 +1962,42 @@ calCurvePlot <- reactive({
     if(input$normcal==3){
         
         
-        predict.intensity.luk.comp <- if(input$filetype=="Spectra"){
-            lukas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+        predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+            lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
         } else if(input$filetype=="Net"){
-            lukas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+            lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
         }
         
-        predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
-        colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
+        predict.frame.luc.comp <- data.frame(predict.intensity.luc.comp, predict.frame$Concentration)
+        colnames(predict.frame.luc.comp) <- c(names(predict.intensity.luc.comp), "Concentration")
         
 
 
     
-    lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+    lucas.lm.comp <- lm(Concentration~., data=predict.frame.luc.comp[ vals$keeprows, , drop = FALSE])
     
     
     xmin = 0; xmax=10
-    N = length(predict.frame.luk.comp$Concentration)
-    means = colMeans(predict.frame.luk.comp)
+    N = length(predict.frame.luc.comp$Concentration)
+    means = colMeans(predict.frame.luc.comp)
     dummyDF = t(as.data.frame(means))
     for(i in 2:N){dummyDF=rbind(dummyDF,means)}
     xv=seq(xmin,xmax, length.out=N)
     dummyDF$Concentration = xv
-    yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+    yv=predict(lucas.lm.comp, newdata=predict.intensity.luc.comp)
     
     
-    lukas.x.comp <- yv
+    lucas.x.comp <- yv
     
-    cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
-    cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
-    cal.est.conc.luk.comp <- cal.est.conc.tab.luk.comp$fit
-    cal.est.conc.luk.up.comp <- cal.est.conc.tab.luk.comp$upr
-    cal.est.conc.luk.low.comp <- cal.est.conc.tab.luk.comp$lwr
+    cal.est.conc.pred.luc.comp <- predict(object=lucas.lm.comp , newdata=predict.intensity.luc.comp, interval='confidence')
+    cal.est.conc.tab.luc.comp <- data.frame(cal.est.conc.pred.luc.comp)
+    cal.est.conc.luc.comp <- cal.est.conc.tab.luc.comp$fit
+    cal.est.conc.luc.up.comp <- cal.est.conc.tab.luc.comp$upr
+    cal.est.conc.luc.low.comp <- cal.est.conc.tab.luc.comp$lwr
     
     
-    val.frame.luk.comp <- data.frame(predict.frame$Concentration, predict.intensity.luk.comp$Intensity, lukas.x.comp, cal.est.conc.luk.comp, cal.est.conc.luk.up.comp, cal.est.conc.luk.low.comp)
-    colnames(val.frame.luk.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+    val.frame.luc.comp <- data.frame(predict.frame$Concentration, predict.intensity.luc.comp$Intensity, lucas.x.comp, cal.est.conc.luc.comp, cal.est.conc.luc.up.comp, cal.est.conc.luc.low.comp)
+    colnames(val.frame.luc.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
     
     }
     
@@ -2007,39 +2007,39 @@ calCurvePlot <- reactive({
     if(input$normcal==2){
         
         
-    predict.intensity.luk.tc <- if(input$filetype=="Spectra"){
-        lukas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+    predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+        lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
     } else if(input$filetype=="Net"){
-        lukas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+        lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
     }
     
-    predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
-    colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
+    predict.frame.luc.tc <- data.frame(predict.intensity.luc.tc, predict.frame$Concentration)
+    colnames(predict.frame.luc.tc) <- c(names(predict.intensity.luc.tc), "Concentration")
     
 
-    lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+    lucas.lm.tc <- lm(Concentration~., data=predict.frame.luc.tc)
     
     xmin = 0; xmax=10
-    N = length(predict.frame.luk.tc$Concentration)
-    means = colMeans(predict.frame.luk.tc)
+    N = length(predict.frame.luc.tc$Concentration)
+    means = colMeans(predict.frame.luc.tc)
     dummyDF = t(as.data.frame(means))
     for(i in 2:N){dummyDF=rbind(dummyDF,means)}
     xv=seq(xmin,xmax, length.out=N)
     dummyDF$Concentration = xv
-    yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+    yv=predict(lucas.lm.tc, newdata=predict.intensity.luc.tc)
     
     
-    lukas.x.tc <- yv
+    lucas.x.tc <- yv
     
-    cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
-    cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
-    cal.est.conc.luk.tc <- cal.est.conc.tab.luk.tc$fit
-    cal.est.conc.luk.up.tc <- cal.est.conc.tab.luk.tc$upr
-    cal.est.conc.luk.low.tc <- cal.est.conc.tab.luk.tc$lwr
+    cal.est.conc.pred.luc.tc <- predict(object=lucas.lm.tc , newdata=predict.intensity.luc.tc, interval='confidence')
+    cal.est.conc.tab.luc.tc <- data.frame(cal.est.conc.pred.luc.tc)
+    cal.est.conc.luc.tc <- cal.est.conc.tab.luc.tc$fit
+    cal.est.conc.luc.up.tc <- cal.est.conc.tab.luc.tc$upr
+    cal.est.conc.luc.low.tc <- cal.est.conc.tab.luc.tc$lwr
     
     
-    val.frame.luk.tc <- data.frame(predict.frame$Concentration, predict.intensity.luk.tc$Intensity, lukas.x.tc, cal.est.conc.luk.tc, cal.est.conc.luk.up.tc, cal.est.conc.luk.low.tc)
-    colnames(val.frame.luk.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+    val.frame.luc.tc <- data.frame(predict.frame$Concentration, predict.intensity.luc.tc$Intensity, lucas.x.tc, cal.est.conc.luc.tc, cal.est.conc.luc.up.tc, cal.est.conc.luc.low.tc)
+    colnames(val.frame.luc.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
     
     }
     
@@ -2123,14 +2123,14 @@ calCurvePlot <- reactive({
     
     if (input$radiocal==3){
     
-    ####Lukas-Tooth  Calibration Curve Model Display, Time Normalized
+    ####lucas-Tooth  Calibration Curve Model Display, Time Normalized
     
     if(input$normcal==1){
-    calcurve.linear.plot.luk <- ggplot(data=val.frame.luk[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
+    calcurve.linear.plot.luc <- ggplot(data=val.frame.luc[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
     theme_light() +
-    annotate("text", label=lm_eqn(lm(Concentration~., val.frame.luk[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+    annotate("text", label=lm_eqn(lm(Concentration~., val.frame.luc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
     geom_point() +
-    geom_point(aes(IntensityNorm, Concentration), data = val.frame.luk[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+    geom_point(aes(IntensityNorm, Concentration), data = val.frame.luc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
     geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
     scale_x_continuous(paste(element.name, norma)) +
     scale_y_continuous(paste(element.name, conen))
@@ -2138,15 +2138,15 @@ calCurvePlot <- reactive({
     
     
     
-    ####Lukas-Tooth Calibration Curve Model Display, Total Count Normalized
+    ####lucas-Tooth Calibration Curve Model Display, Total Count Normalized
     if(input$normcal==2){
         
         
-    calcurve.linear.plot.luk.tc <- ggplot(data=val.frame.luk.tc[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
+    calcurve.linear.plot.luc.tc <- ggplot(data=val.frame.luc.tc[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
     theme_light() +
-    annotate("text", label=lm_eqn(lm(Concentration~., predict.frame.luk.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+    annotate("text", label=lm_eqn(lm(Concentration~., predict.frame.luc.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
     geom_point() +
-    geom_point(aes(IntensityNorm, Concentration), data = val.frame.luk.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+    geom_point(aes(IntensityNorm, Concentration), data = val.frame.luc.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
     geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
     scale_x_continuous(paste(element.name, norma.tc)) +
     scale_y_continuous(paste(element.name, conen))
@@ -2154,14 +2154,14 @@ calCurvePlot <- reactive({
     
 
     
-    ####Lukas-Tooth Calibration Curve Model Display, Compton Normalized
+    ####lucas-Tooth Calibration Curve Model Display, Compton Normalized
     
     if(input$normcal==3){
-    calcurve.linear.plot.luk.comp <- ggplot(data=val.frame.luk.comp[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
+    calcurve.linear.plot.luc.comp <- ggplot(data=val.frame.luc.comp[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
     theme_light() +
-    annotate("text", label=lm_eqn(lm(Concentration~., predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+    annotate("text", label=lm_eqn(lm(Concentration~., predict.frame.luc.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
     geom_point() +
-    geom_point(aes(IntensityNorm, Concentration), data = val.frame.luk.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+    geom_point(aes(IntensityNorm, Concentration), data = val.frame.luc.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
     geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
     scale_x_continuous(paste(element.name, norma.comp)) +
     scale_y_continuous(paste(element.name, conen))
@@ -2184,11 +2184,11 @@ calCurvePlot <- reactive({
     } else if (input$radiocal==2 && input$normcal==3) {
         calcurve.poly.plot.comp
     } else if (input$radiocal==3 && input$normcal==1) {
-        calcurve.linear.plot.luk
+        calcurve.linear.plot.luc
     } else if (input$radiocal==3 && input$normcal==2){
-        calcurve.linear.plot.luk.tc
+        calcurve.linear.plot.luc.tc
     } else if (input$radiocal==3 && input$normcal==3) {
-        calcurve.linear.plot.luk.comp
+        calcurve.linear.plot.luc.comp
     } else if (is.na(input$calcurveelement)) {
         return()
     }
@@ -2397,46 +2397,46 @@ valCurvePlot <- reactive({
         
         if(input$normcal==1){
             
-            predict.intensity.luk <- if(input$filetype=="Spectra"){
-                lukas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+            predict.intensity.luc <- if(input$filetype=="Spectra"){
+                lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             } else if(input$filetype=="Net"){
-                lukas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
-            predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
-            colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
+            predict.frame.luc <- data.frame(predict.intensity.luc, predict.frame$Concentration)
+            colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
             
             
-            lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+            lucas.lm <- lm(Concentration~., data=predict.frame.luc[ vals$keeprows, , drop = FALSE])
             
             
             
             
             
             xmin = 0; xmax=10
-            N = length(predict.frame.luk$Concentration)
-            means = colMeans(predict.frame.luk)
+            N = length(predict.frame.luc$Concentration)
+            means = colMeans(predict.frame.luc)
             dummyDF = t(as.data.frame(means))
             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
             xv=seq(xmin,xmax, length.out=N)
             dummyDF$Concentration = xv
-            yv=predict(lukas.lm, newdata=predict.intensity.luk)
+            yv=predict(lucas.lm, newdata=predict.intensity.luc)
             
             
             
-            lukas.x <- yv
+            lucas.x <- yv
             
             
             
-            cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
-            cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
-            cal.est.conc.luk <- cal.est.conc.tab.luk$fit
-            cal.est.conc.luk.up <- cal.est.conc.tab.luk$upr
-            cal.est.conc.luk.low <- cal.est.conc.tab.luk$lwr
+            cal.est.conc.pred.luc <- predict(object=lucas.lm , newdata=predict.intensity.luc, interval='confidence')
+            cal.est.conc.tab.luc <- data.frame(cal.est.conc.pred.luc)
+            cal.est.conc.luc <- cal.est.conc.tab.luc$fit
+            cal.est.conc.luc.up <- cal.est.conc.tab.luc$upr
+            cal.est.conc.luc.low <- cal.est.conc.tab.luc$lwr
             
             
-            val.frame.luk <- data.frame(predict.frame$Concentration, predict.intensity.luk$Intensity, lukas.x, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
-            colnames(val.frame.luk) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc <- data.frame(predict.frame$Concentration, predict.intensity.luc$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+            colnames(val.frame.luc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
         }
         
         
@@ -2446,42 +2446,42 @@ valCurvePlot <- reactive({
         if(input$normcal==3){
             
             
-            predict.intensity.luk.comp <- if(input$filetype=="Spectra"){
-                lukas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+            predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+                lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
             } else if(input$filetype=="Net"){
-                lukas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+                lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
             }
             
-            predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
-            colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
+            predict.frame.luc.comp <- data.frame(predict.intensity.luc.comp, predict.frame$Concentration)
+            colnames(predict.frame.luc.comp) <- c(names(predict.intensity.luc.comp), "Concentration")
             
             
             
             
-            lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+            lucas.lm.comp <- lm(Concentration~., data=predict.frame.luc.comp[ vals$keeprows, , drop = FALSE])
             
             
             xmin = 0; xmax=10
-            N = length(predict.frame.luk.comp$Concentration)
-            means = colMeans(predict.frame.luk.comp)
+            N = length(predict.frame.luc.comp$Concentration)
+            means = colMeans(predict.frame.luc.comp)
             dummyDF = t(as.data.frame(means))
             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
             xv=seq(xmin,xmax, length.out=N)
             dummyDF$Concentration = xv
-            yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+            yv=predict(lucas.lm.comp, newdata=predict.intensity.luc.comp)
             
             
-            lukas.x.comp <- yv
+            lucas.x.comp <- yv
             
-            cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
-            cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
-            cal.est.conc.luk.comp <- cal.est.conc.tab.luk.comp$fit
-            cal.est.conc.luk.up.comp <- cal.est.conc.tab.luk.comp$upr
-            cal.est.conc.luk.low.comp <- cal.est.conc.tab.luk.comp$lwr
+            cal.est.conc.pred.luc.comp <- predict(object=lucas.lm.comp , newdata=predict.intensity.luc.comp, interval='confidence')
+            cal.est.conc.tab.luc.comp <- data.frame(cal.est.conc.pred.luc.comp)
+            cal.est.conc.luc.comp <- cal.est.conc.tab.luc.comp$fit
+            cal.est.conc.luc.up.comp <- cal.est.conc.tab.luc.comp$upr
+            cal.est.conc.luc.low.comp <- cal.est.conc.tab.luc.comp$lwr
             
             
-            val.frame.luk.comp <- data.frame(predict.frame$Concentration, predict.intensity.luk.comp$Intensity, lukas.x.comp, cal.est.conc.luk.comp, cal.est.conc.luk.up.comp, cal.est.conc.luk.low.comp)
-            colnames(val.frame.luk.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc.comp <- data.frame(predict.frame$Concentration, predict.intensity.luc.comp$Intensity, lucas.x.comp, cal.est.conc.luc.comp, cal.est.conc.luc.up.comp, cal.est.conc.luc.low.comp)
+            colnames(val.frame.luc.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
             
         }
         
@@ -2491,39 +2491,39 @@ valCurvePlot <- reactive({
         if(input$normcal==2){
             
             
-            predict.intensity.luk.tc <- if(input$filetype=="Spectra"){
-                lukas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+            predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+                lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             } else if(input$filetype=="Net"){
-                lukas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
-            predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
-            colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
+            predict.frame.luc.tc <- data.frame(predict.intensity.luc.tc, predict.frame$Concentration)
+            colnames(predict.frame.luc.tc) <- c(names(predict.intensity.luc.tc), "Concentration")
             
             
-            lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+            lucas.lm.tc <- lm(Concentration~., data=predict.frame.luc.tc)
             
             xmin = 0; xmax=10
-            N = length(predict.frame.luk.tc$Concentration)
-            means = colMeans(predict.frame.luk.tc)
+            N = length(predict.frame.luc.tc$Concentration)
+            means = colMeans(predict.frame.luc.tc)
             dummyDF = t(as.data.frame(means))
             for(i in 2:N){dummyDF=rbind(dummyDF,means)}
             xv=seq(xmin,xmax, length.out=N)
             dummyDF$Concentration = xv
-            yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+            yv=predict(lucas.lm.tc, newdata=predict.intensity.luc.tc)
             
             
-            lukas.x.tc <- yv
+            lucas.x.tc <- yv
             
-            cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
-            cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
-            cal.est.conc.luk.tc <- cal.est.conc.tab.luk.tc$fit
-            cal.est.conc.luk.up.tc <- cal.est.conc.tab.luk.tc$upr
-            cal.est.conc.luk.low.tc <- cal.est.conc.tab.luk.tc$lwr
+            cal.est.conc.pred.luc.tc <- predict(object=lucas.lm.tc , newdata=predict.intensity.luc.tc, interval='confidence')
+            cal.est.conc.tab.luc.tc <- data.frame(cal.est.conc.pred.luc.tc)
+            cal.est.conc.luc.tc <- cal.est.conc.tab.luc.tc$fit
+            cal.est.conc.luc.up.tc <- cal.est.conc.tab.luc.tc$upr
+            cal.est.conc.luc.low.tc <- cal.est.conc.tab.luc.tc$lwr
             
             
-            val.frame.luk.tc <- data.frame(predict.frame$Concentration, predict.intensity.luk.tc$Intensity, lukas.x.tc, cal.est.conc.luk.tc, cal.est.conc.luk.up.tc, cal.est.conc.luk.low.tc)
-            colnames(val.frame.luk.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc.tc <- data.frame(predict.frame$Concentration, predict.intensity.luc.tc$Intensity, lucas.x.tc, cal.est.conc.luc.tc, cal.est.conc.luc.up.tc, cal.est.conc.luc.low.tc)
+            colnames(val.frame.luc.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
             
         }
         
@@ -2614,33 +2614,33 @@ valCurvePlot <- reactive({
     
     if (input$radiocal==3){
         
-        ####Lukas-Tooth  Calibration Curve Model Display, Time Normalized
+        ####lucas-Tooth  Calibration Curve Model Display, Time Normalized
         
         if(input$normcal==1){
             
-            calval.linear.plot.luk <- ggplot(data=val.frame.luk[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+            calval.linear.plot.luc <- ggplot(data=val.frame.luc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
             theme_bw() +
-            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luk[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
             stat_smooth(method="lm") +
             geom_abline(intercept=0, slope=1, lty=2) +
             geom_point() +
-            geom_point(aes(Prediction, Concentration),  data = val.frame.luk[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            geom_point(aes(Prediction, Concentration),  data = val.frame.luc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
             scale_x_continuous(paste(element.name, predi)) +
             scale_y_continuous(paste(element.name, conen))
         }
         
         
         
-        ####Lukas-Tooth Calibration Curve Model Display, Total Count Normalized
+        ####lucas-Tooth Calibration Curve Model Display, Total Count Normalized
         if(input$normcal==2){
 
-            calval.linear.plot.luk.tc <- ggplot(data=val.frame.luk.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+            calval.linear.plot.luc.tc <- ggplot(data=val.frame.luc.tc[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
             theme_bw() +
-            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luk.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luc.tc[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
             stat_smooth(method="lm") +
             geom_abline(intercept=0, slope=1, lty=2) +
             geom_point() +
-            geom_point(aes(Prediction, Concentration),  data = val.frame.luk.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            geom_point(aes(Prediction, Concentration),  data = val.frame.luc.tc[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
             scale_x_continuous(paste(element.name, predi)) +
             scale_y_continuous(paste(element.name, conen))
 
@@ -2648,17 +2648,17 @@ valCurvePlot <- reactive({
         
         
         
-        ####Lukas-Tooth Calibration Curve Model Display, Compton Normalized
+        ####lucas-Tooth Calibration Curve Model Display, Compton Normalized
         
         if(input$normcal==3){
             
-            calval.linear.plot.luk.comp <- ggplot(data=val.frame.luk.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+            calval.linear.plot.luc.comp <- ggplot(data=val.frame.luc.comp[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
             theme_bw() +
-            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luk.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame.luc.comp[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
             geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm") +
             geom_point() +
-            geom_point(aes(Prediction, Concentration),  data = val.frame.luk.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            geom_point(aes(Prediction, Concentration),  data = val.frame.luc.comp[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
             scale_x_continuous(paste(element.name, predi)) +
             scale_y_continuous(paste(element.name, conen))
             
@@ -2680,11 +2680,11 @@ valCurvePlot <- reactive({
     } else if (input$radiocal==2 && input$normcal==3) {
         calval.poly.plot.comp
     } else if (input$radiocal==3 && input$normcal==1) {
-        calval.linear.plot.luk
+        calval.linear.plot.luc
     } else if (input$radiocal==3 && input$normcal==2){
-        calval.linear.plot.luk.tc
+        calval.linear.plot.luc.tc
     } else if (input$radiocal==3 && input$normcal==3) {
-        calval.linear.plot.luk.comp
+        calval.linear.plot.luc.comp
     } else if (is.na(input$calcurveelement)) {
         return()
     }
@@ -2998,43 +2998,43 @@ observeEvent(input$exclude_reset, {
          
          if(input$normcal==1){
              
-             predict.intensity.luk <- if(input$filetype=="Spectra"){
-                 lukas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+             predict.intensity.luc <- if(input$filetype=="Spectra"){
+                 lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              } else if(input$filetype=="Net"){
-                 lukas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                 lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              }
              
-             predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
-             colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
+             predict.frame.luc <- data.frame(predict.intensity.luc, predict.frame$Concentration)
+             colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
              
              
-             lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+             lucas.lm <- lm(Concentration~., data=predict.frame.luc[ vals$keeprows, , drop = FALSE])
              
              
              xmin = 0; xmax=10
-             N = length(predict.frame.luk$Concentration)
-             means = colMeans(predict.frame.luk)
+             N = length(predict.frame.luc$Concentration)
+             means = colMeans(predict.frame.luc)
              dummyDF = t(as.data.frame(means))
              for(i in 2:N){dummyDF=rbind(dummyDF,means)}
              xv=seq(xmin,xmax, length.out=N)
              dummyDF$Concentration = xv
-             yv=predict(lukas.lm, newdata=predict.intensity.luk)
+             yv=predict(lucas.lm, newdata=predict.intensity.luc)
              
              
              
-             lukas.x <- yv
+             lucas.x <- yv
              
              
              
-             cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
-             cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
-             cal.est.conc.luk <- cal.est.conc.tab.luk$fit
-             cal.est.conc.luk.up <- cal.est.conc.tab.luk$upr
-             cal.est.conc.luk.low <- cal.est.conc.tab.luk$lwr
+             cal.est.conc.pred.luc <- predict(object=lucas.lm , newdata=predict.intensity.luc, interval='confidence')
+             cal.est.conc.tab.luc <- data.frame(cal.est.conc.pred.luc)
+             cal.est.conc.luc <- cal.est.conc.tab.luc$fit
+             cal.est.conc.luc.up <- cal.est.conc.tab.luc$upr
+             cal.est.conc.luc.low <- cal.est.conc.tab.luc$lwr
              
              
-             val.frame.luk <- data.frame(predict.frame$Concentration, predict.intensity.luk$Intensity, lukas.x, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
-             colnames(val.frame.luk) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+             val.frame.luc <- data.frame(predict.frame$Concentration, predict.intensity.luc$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+             colnames(val.frame.luc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
          }
          
          
@@ -3044,42 +3044,42 @@ observeEvent(input$exclude_reset, {
          if(input$normcal==3){
              
              
-             predict.intensity.luk.comp <- if(input$filetype=="Spectra"){
-                 lukas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+             predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+                 lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
              } else if(input$filetype=="Net"){
-                 lukas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+                 lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
              }
              
-             predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
-             colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
+             predict.frame.luc.comp <- data.frame(predict.intensity.luc.comp, predict.frame$Concentration)
+             colnames(predict.frame.luc.comp) <- c(names(predict.intensity.luc.comp), "Concentration")
              
              
              
              
-             lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+             lucas.lm.comp <- lm(Concentration~., data=predict.frame.luc.comp[ vals$keeprows, , drop = FALSE])
              
              
              xmin = 0; xmax=10
-             N = length(predict.frame.luk.comp$Concentration)
-             means = colMeans(predict.frame.luk.comp)
+             N = length(predict.frame.luc.comp$Concentration)
+             means = colMeans(predict.frame.luc.comp)
              dummyDF = t(as.data.frame(means))
              for(i in 2:N){dummyDF=rbind(dummyDF,means)}
              xv=seq(xmin,xmax, length.out=N)
              dummyDF$Concentration = xv
-             yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+             yv=predict(lucas.lm.comp, newdata=predict.intensity.luc.comp)
              
              
-             lukas.x.comp <- yv
+             lucas.x.comp <- yv
              
-             cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
-             cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
-             cal.est.conc.luk.comp <- cal.est.conc.tab.luk.comp$fit
-             cal.est.conc.luk.up.comp <- cal.est.conc.tab.luk.comp$upr
-             cal.est.conc.luk.low.comp <- cal.est.conc.tab.luk.comp$lwr
+             cal.est.conc.pred.luc.comp <- predict(object=lucas.lm.comp , newdata=predict.intensity.luc.comp, interval='confidence')
+             cal.est.conc.tab.luc.comp <- data.frame(cal.est.conc.pred.luc.comp)
+             cal.est.conc.luc.comp <- cal.est.conc.tab.luc.comp$fit
+             cal.est.conc.luc.up.comp <- cal.est.conc.tab.luc.comp$upr
+             cal.est.conc.luc.low.comp <- cal.est.conc.tab.luc.comp$lwr
              
              
-             val.frame.luk.comp <- data.frame(predict.frame$Concentration, predict.intensity.luk.comp$Intensity, lukas.x.comp, cal.est.conc.luk.comp, cal.est.conc.luk.up.comp, cal.est.conc.luk.low.comp)
-             colnames(val.frame.luk.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+             val.frame.luc.comp <- data.frame(predict.frame$Concentration, predict.intensity.luc.comp$Intensity, lucas.x.comp, cal.est.conc.luc.comp, cal.est.conc.luc.up.comp, cal.est.conc.luc.low.comp)
+             colnames(val.frame.luc.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
              
          }
          
@@ -3089,39 +3089,39 @@ observeEvent(input$exclude_reset, {
          if(input$normcal==2){
              
              
-             predict.intensity.luk.tc <- if(input$filetype=="Spectra"){
-                 lukas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+             predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+                 lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              } else if(input$filetype=="Net"){
-                 lukas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                 lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              }
              
-             predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
-             colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
+             predict.frame.luc.tc <- data.frame(predict.intensity.luc.tc, predict.frame$Concentration)
+             colnames(predict.frame.luc.tc) <- c(names(predict.intensity.luc.tc), "Concentration")
              
              
-             lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+             lucas.lm.tc <- lm(Concentration~., data=predict.frame.luc.tc)
              
              xmin = 0; xmax=10
-             N = length(predict.frame.luk.tc$Concentration)
-             means = colMeans(predict.frame.luk.tc)
+             N = length(predict.frame.luc.tc$Concentration)
+             means = colMeans(predict.frame.luc.tc)
              dummyDF = t(as.data.frame(means))
              for(i in 2:N){dummyDF=rbind(dummyDF,means)}
              xv=seq(xmin,xmax, length.out=N)
              dummyDF$Concentration = xv
-             yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+             yv=predict(lucas.lm.tc, newdata=predict.intensity.luc.tc)
              
              
-             lukas.x.tc <- yv
+             lucas.x.tc <- yv
              
-             cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
-             cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
-             cal.est.conc.luk.tc <- cal.est.conc.tab.luk.tc$fit
-             cal.est.conc.luk.up.tc <- cal.est.conc.tab.luk.tc$upr
-             cal.est.conc.luk.low.tc <- cal.est.conc.tab.luk.tc$lwr
+             cal.est.conc.pred.luc.tc <- predict(object=lucas.lm.tc , newdata=predict.intensity.luc.tc, interval='confidence')
+             cal.est.conc.tab.luc.tc <- data.frame(cal.est.conc.pred.luc.tc)
+             cal.est.conc.luc.tc <- cal.est.conc.tab.luc.tc$fit
+             cal.est.conc.luc.up.tc <- cal.est.conc.tab.luc.tc$upr
+             cal.est.conc.luc.low.tc <- cal.est.conc.tab.luc.tc$lwr
              
              
-             val.frame.luk.tc <- data.frame(predict.frame$Concentration, predict.intensity.luk.tc$Intensity, lukas.x.tc, cal.est.conc.luk.tc, cal.est.conc.luk.up.tc, cal.est.conc.luk.low.tc)
-             colnames(val.frame.luk.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+             val.frame.luc.tc <- data.frame(predict.frame$Concentration, predict.intensity.luc.tc$Intensity, lucas.x.tc, cal.est.conc.luc.tc, cal.est.conc.luc.up.tc, cal.est.conc.luc.low.tc)
+             colnames(val.frame.luc.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
              
          }
          
@@ -3145,11 +3145,11 @@ observeEvent(input$exclude_reset, {
      } else if (input$radiocal==2 && input$normcal==3) {
          val.frame.poly.comp
      } else if (input$radiocal==3 && input$normcal==1) {
-         val.frame.luk
+         val.frame.luc
      } else if (input$radiocal==3 && input$normcal==2){
-         val.frame.luk.tc
+         val.frame.luc.tc
      } else if (input$radiocal==3 && input$normcal==3) {
-         val.frame.luk.comp
+         val.frame.luc.comp
      }
      
      standard.table.summary <- data.frame(hold.frame$Spectrum, standard.table$Concentration, standard.table$Prediction, standard.table$Concentration-standard.table$Prediction, ((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration))
@@ -3377,43 +3377,43 @@ observeEvent(input$exclude_reset, {
          
          if(input$normcal==1){
              
-             predict.intensity.luk <- if(input$filetype=="Spectra"){
-                 lukas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+             predict.intensity.luc <- if(input$filetype=="Spectra"){
+                 lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              } else if(input$filetype=="Net"){
-                 lukas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                 lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              }
              
-             predict.frame.luk <- data.frame(predict.intensity.luk, predict.frame$Concentration)
-             colnames(predict.frame.luk) <- c(names(predict.intensity.luk), "Concentration")
+             predict.frame.luc <- data.frame(predict.intensity.luc, predict.frame$Concentration)
+             colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
              
              
-             lukas.lm <- lm(Concentration~., data=predict.frame.luk[ vals$keeprows, , drop = FALSE])
+             lucas.lm <- lm(Concentration~., data=predict.frame.luc[ vals$keeprows, , drop = FALSE])
              
              
              xmin = 0; xmax=10
-             N = length(predict.frame.luk$Concentration)
-             means = colMeans(predict.frame.luk)
+             N = length(predict.frame.luc$Concentration)
+             means = colMeans(predict.frame.luc)
              dummyDF = t(as.data.frame(means))
              for(i in 2:N){dummyDF=rbind(dummyDF,means)}
              xv=seq(xmin,xmax, length.out=N)
              dummyDF$Concentration = xv
-             yv=predict(lukas.lm, newdata=predict.intensity.luk)
+             yv=predict(lucas.lm, newdata=predict.intensity.luc)
              
              
              
-             lukas.x <- yv
+             lucas.x <- yv
              
              
              
-             cal.est.conc.pred.luk <- predict(object=lukas.lm , newdata=predict.intensity.luk, interval='confidence')
-             cal.est.conc.tab.luk <- data.frame(cal.est.conc.pred.luk)
-             cal.est.conc.luk <- cal.est.conc.tab.luk$fit
-             cal.est.conc.luk.up <- cal.est.conc.tab.luk$upr
-             cal.est.conc.luk.low <- cal.est.conc.tab.luk$lwr
+             cal.est.conc.pred.luc <- predict(object=lucas.lm , newdata=predict.intensity.luc, interval='confidence')
+             cal.est.conc.tab.luc <- data.frame(cal.est.conc.pred.luc)
+             cal.est.conc.luc <- cal.est.conc.tab.luc$fit
+             cal.est.conc.luc.up <- cal.est.conc.tab.luc$upr
+             cal.est.conc.luc.low <- cal.est.conc.tab.luc$lwr
              
              
-             val.frame.luk <- data.frame(predict.frame$Concentration, predict.intensity.luk$Intensity, lukas.x, cal.est.conc.luk, cal.est.conc.luk.up, cal.est.conc.luk.low)
-             colnames(val.frame.luk) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+             val.frame.luc <- data.frame(predict.frame$Concentration, predict.intensity.luc$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+             colnames(val.frame.luc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
          }
          
          
@@ -3423,42 +3423,42 @@ observeEvent(input$exclude_reset, {
          if(input$normcal==3){
              
              
-             predict.intensity.luk.comp <- if(input$filetype=="Spectra"){
-                 lukas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+             predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+                 lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
              } else if(input$filetype=="Net"){
-                 lukas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+                 lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
              }
              
-             predict.frame.luk.comp <- data.frame(predict.intensity.luk.comp, predict.frame$Concentration)
-             colnames(predict.frame.luk.comp) <- c(names(predict.intensity.luk.comp), "Concentration")
+             predict.frame.luc.comp <- data.frame(predict.intensity.luc.comp, predict.frame$Concentration)
+             colnames(predict.frame.luc.comp) <- c(names(predict.intensity.luc.comp), "Concentration")
              
              
              
              
-             lukas.lm.comp <- lm(Concentration~., data=predict.frame.luk.comp[ vals$keeprows, , drop = FALSE])
+             lucas.lm.comp <- lm(Concentration~., data=predict.frame.luc.comp[ vals$keeprows, , drop = FALSE])
              
              
              xmin = 0; xmax=10
-             N = length(predict.frame.luk.comp$Concentration)
-             means = colMeans(predict.frame.luk.comp)
+             N = length(predict.frame.luc.comp$Concentration)
+             means = colMeans(predict.frame.luc.comp)
              dummyDF = t(as.data.frame(means))
              for(i in 2:N){dummyDF=rbind(dummyDF,means)}
              xv=seq(xmin,xmax, length.out=N)
              dummyDF$Concentration = xv
-             yv=predict(lukas.lm.comp, newdata=predict.intensity.luk.comp)
+             yv=predict(lucas.lm.comp, newdata=predict.intensity.luc.comp)
              
              
-             lukas.x.comp <- yv
+             lucas.x.comp <- yv
              
-             cal.est.conc.pred.luk.comp <- predict(object=lukas.lm.comp , newdata=predict.intensity.luk.comp, interval='confidence')
-             cal.est.conc.tab.luk.comp <- data.frame(cal.est.conc.pred.luk.comp)
-             cal.est.conc.luk.comp <- cal.est.conc.tab.luk.comp$fit
-             cal.est.conc.luk.up.comp <- cal.est.conc.tab.luk.comp$upr
-             cal.est.conc.luk.low.comp <- cal.est.conc.tab.luk.comp$lwr
+             cal.est.conc.pred.luc.comp <- predict(object=lucas.lm.comp , newdata=predict.intensity.luc.comp, interval='confidence')
+             cal.est.conc.tab.luc.comp <- data.frame(cal.est.conc.pred.luc.comp)
+             cal.est.conc.luc.comp <- cal.est.conc.tab.luc.comp$fit
+             cal.est.conc.luc.up.comp <- cal.est.conc.tab.luc.comp$upr
+             cal.est.conc.luc.low.comp <- cal.est.conc.tab.luc.comp$lwr
              
              
-             val.frame.luk.comp <- data.frame(predict.frame$Concentration, predict.intensity.luk.comp$Intensity, lukas.x.comp, cal.est.conc.luk.comp, cal.est.conc.luk.up.comp, cal.est.conc.luk.low.comp)
-             colnames(val.frame.luk.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+             val.frame.luc.comp <- data.frame(predict.frame$Concentration, predict.intensity.luc.comp$Intensity, lucas.x.comp, cal.est.conc.luc.comp, cal.est.conc.luc.up.comp, cal.est.conc.luc.low.comp)
+             colnames(val.frame.luc.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
              
          }
          
@@ -3468,39 +3468,39 @@ observeEvent(input$exclude_reset, {
          if(input$normcal==2){
              
              
-             predict.intensity.luk.tc <- if(input$filetype=="Spectra"){
-                 lukas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+             predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+                 lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              } else if(input$filetype=="Net"){
-                 lukas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
+                 lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              }
              
-             predict.frame.luk.tc <- data.frame(predict.intensity.luk.tc, predict.frame$Concentration)
-             colnames(predict.frame.luk.tc) <- c(names(predict.intensity.luk.tc), "Concentration")
+             predict.frame.luc.tc <- data.frame(predict.intensity.luc.tc, predict.frame$Concentration)
+             colnames(predict.frame.luc.tc) <- c(names(predict.intensity.luc.tc), "Concentration")
              
              
-             lukas.lm.tc <- lm(Concentration~., data=predict.frame.luk.tc)
+             lucas.lm.tc <- lm(Concentration~., data=predict.frame.luc.tc)
              
              xmin = 0; xmax=10
-             N = length(predict.frame.luk.tc$Concentration)
-             means = colMeans(predict.frame.luk.tc)
+             N = length(predict.frame.luc.tc$Concentration)
+             means = colMeans(predict.frame.luc.tc)
              dummyDF = t(as.data.frame(means))
              for(i in 2:N){dummyDF=rbind(dummyDF,means)}
              xv=seq(xmin,xmax, length.out=N)
              dummyDF$Concentration = xv
-             yv=predict(lukas.lm.tc, newdata=predict.intensity.luk.tc)
+             yv=predict(lucas.lm.tc, newdata=predict.intensity.luc.tc)
              
              
-             lukas.x.tc <- yv
+             lucas.x.tc <- yv
              
-             cal.est.conc.pred.luk.tc <- predict(object=lukas.lm.tc , newdata=predict.intensity.luk.tc, interval='confidence')
-             cal.est.conc.tab.luk.tc <- data.frame(cal.est.conc.pred.luk.tc)
-             cal.est.conc.luk.tc <- cal.est.conc.tab.luk.tc$fit
-             cal.est.conc.luk.up.tc <- cal.est.conc.tab.luk.tc$upr
-             cal.est.conc.luk.low.tc <- cal.est.conc.tab.luk.tc$lwr
+             cal.est.conc.pred.luc.tc <- predict(object=lucas.lm.tc , newdata=predict.intensity.luc.tc, interval='confidence')
+             cal.est.conc.tab.luc.tc <- data.frame(cal.est.conc.pred.luc.tc)
+             cal.est.conc.luc.tc <- cal.est.conc.tab.luc.tc$fit
+             cal.est.conc.luc.up.tc <- cal.est.conc.tab.luc.tc$upr
+             cal.est.conc.luc.low.tc <- cal.est.conc.tab.luc.tc$lwr
              
              
-             val.frame.luk.tc <- data.frame(predict.frame$Concentration, predict.intensity.luk.tc$Intensity, lukas.x.tc, cal.est.conc.luk.tc, cal.est.conc.luk.up.tc, cal.est.conc.luk.low.tc)
-             colnames(val.frame.luk.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+             val.frame.luc.tc <- data.frame(predict.frame$Concentration, predict.intensity.luc.tc$Intensity, lucas.x.tc, cal.est.conc.luc.tc, cal.est.conc.luc.up.tc, cal.est.conc.luc.low.tc)
+             colnames(val.frame.luc.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
              
          }
          
@@ -3522,11 +3522,11 @@ observeEvent(input$exclude_reset, {
      } else if (input$radiocal==2 && input$normcal==3) {
          cal.lm.poly.comp
      } else if (input$radiocal==3 && input$normcal==1) {
-         lukas.lm
+         lucas.lm
      } else if (input$radiocal==3 && input$normcal==2) {
-         lukas.lm.tc
+         lucas.lm.tc
      } else if (input$radiocal==3 && input$normcal==3) {
-         lukas.lm.comp
+         lucas.lm.comp
      }
      
      
@@ -4263,7 +4263,7 @@ content = function(file) {
             } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                  predict(
                     object=the.cal[[x]][[2]],
-                    newdata=lukas.simp.prep(
+                    newdata=lucas.simp.prep(
                         spectra.line.table=as.data.frame(
                             count.table
                             ),
@@ -4275,7 +4275,7 @@ content = function(file) {
             } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
                     object=the.cal[[x]][[2]],
-                    newdata=lukas.tc.prep(
+                    newdata=lucas.tc.prep(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                             count.table
@@ -4288,7 +4288,7 @@ content = function(file) {
             } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
                     object=the.cal[[x]][[2]],
-                    newdata=lukas.comp.prep(
+                    newdata=lucas.comp.prep(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                             count.table
@@ -4336,7 +4336,7 @@ content = function(file) {
             } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
-                    newdata=lukas.simp.prep.net(
+                    newdata=lucas.simp.prep.net(
                         spectra.line.table=as.data.frame(
                             count.table
                             ),
@@ -4348,7 +4348,7 @@ content = function(file) {
             } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
                     object=the.cal[[x]][[2]],
-                    newdata=lukas.tc.prep.net(
+                    newdata=lucas.tc.prep.net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                             count.table
@@ -4361,7 +4361,7 @@ content = function(file) {
             } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
                     object=the.cal[[x]][[2]],
-                    newdata=lukas.comp.prep.net(
+                    newdata=lucas.comp.prep.net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                             count.table
