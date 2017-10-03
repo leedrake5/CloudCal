@@ -35,6 +35,9 @@ The first time it runs, it may take some time to download the supporting softwar
 
 >shiny::runApp("your/computer/directory/CloudCal"
 
+## How to cite this software
+Beats me - this is the first time I've tried to do anything like this. Drop me an email at b.lee.drake@gmail.com if you have questions or need to address this step. 
+
 
 ## References
 Lucas-Tooth, H.J., Price, B.J. 1961. A Mathematical Method for the Investigation of Interelement Effects in X-Ray Fluorescence Analysis Metallurgia 64, 149–152.
