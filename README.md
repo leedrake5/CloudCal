@@ -48,7 +48,7 @@ Quick note - with the new Tracer 5i, Bruker has changed the format of PDZ files.
 
 This filetype is an open-source way of holding all the data in a file. If you want to see what it looks like, enter the following code into R:
 
-str(readRDS("location/of/your/file.quant"))
+>str(readRDS("location/of/your/file.quant"))
 
 The result will be a lot of information, but here is the basic layout:
 
