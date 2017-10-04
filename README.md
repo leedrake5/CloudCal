@@ -44,9 +44,34 @@ For Artax, follow all the same steps you know (if you don't know, visit www.xrf.
 
 Quick note - with the new Tracer 5i, Bruker has changed the format of PDZ files. That means data taken with the 5i is not compatible with the IISD/IVSD/IIV+, and vice-versa. Good news is that the most recent copy of Artax (8+) can handle both, but older copies won't. You'll need to convert from v25 (5i version) to v24 (Classic Tracer) to bring them in to S1PXRF - you can do this with CalToolkit or any other software Bruker provides. 
 
+## What is in the .quant file?
+
+This filetype is an open-source way of holding all the data in a file. If you want to see what it looks like, enter the following code into R:
+
+str(readRDS("location/of/your/file.quant"))
+
+The result will be a lot of information, but here is the basic layout:
+
+	>$FileType (this defines the kind of csv you upload)
+	>$Units (these are the units you entered into the app - one type for everything) 
+	>$Spectra (this includes all the spectra of the csv files used to make the cal)
+	>$Intensities (these are the intensities of the elements you choose in the 'Counts' tab)
+	>$Values (these are the intensity data you put into the app)
+	>$calList (this is the holder for all the element models defined by you) 
+		>$Element this is all the data for one element
+			>$CalTable (this has all the settings for the element)
+				>$CalType (this is whether or not Lucas-Tooth is used)
+				>$NormType (this is they type of normalization you used)
+				>$Min (this is the minimum normalization energy you chose)
+				>$Max (this is the maximum normalization energy you chose)
+			>$Slope (these are the slope variables you choose if you make a Lucas-Tooth cal)
+			>$Intercept (these are the intercept variables you choose if you make a Lucas-Tooth cal)
+			>$StandardsUsed (this is a list of the standards you used for the regressions) 
+			>$Model (this is the parameters of the model you chose) 
+
 ## Will this support other formats/XRF instruments?
 
-No reason not to - I started with the Tracer because it was the easiest to work with. If you have other instruments you'd like to add, let me know and I can see if I can do it. Keep in mind that the software would need a heavy lift from multiple folks to read binary files - these are the proprietary company files that have non-open source file types.
+No reason not to - I started with the Tracer because it was the easiest to work with & the best for custom quantification. If you have other instruments you'd like to add, let me know and I can see if I can do it. Keep in mind that the software would need a heavy lift from multiple folks to read binary files - these are the proprietary company files that have non-open source file types.
 
 ## How to cite this software
 Beats me - this is the first time I've tried to do anything like this. Drop me an email at b.lee.drake@gmail.com if you have questions or need to address this step. 
