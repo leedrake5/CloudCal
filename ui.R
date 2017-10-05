@@ -237,8 +237,6 @@ div(class="outer",
 fluidRow(
 sidebarLayout(
 sidebarPanel(
-conditionalPanel(
-condition='output$concentrationchoice',
 
 
 downloadButton('downloadcloudplot', "Plot"),
@@ -268,56 +266,67 @@ uiOutput('inVar4')
 
 
 
-)),
+),
 
 mainPanel(
 tabsetPanel(
-id = 'dataset',
-tabPanel('Cal Curves',  splitLayout(cellWidths = c("50%", "50%"),
-    plotOutput("calcurveplots", height = 455, click = "plot_cal_click",
-        brush = brushOpts(
-        id = "plot_cal_brush"
-        )),
-    plotOutput("valcurveplots", height = 455, click = "plot_val_click",
-        brush = brushOpts(
-        id = "plot_val_brush"
-        ))
+tabPanel("Cal Curves",
+    splitLayout(cellWidths = c("50%", "50%"),
+        div(
+        style = "position:relative",
+        plotOutput("calcurveplots", height = 455, click = "plot_cal_click",
+            brush = brushOpts(id = "plot_cal_brush"),
+            hover = hoverOpts("plot_hovercal", delay = 100, delayType = "debounce")),
+            uiOutput("hover_infocal")),
+        div(
+        style = "position:relative",
+        plotOutput("valcurveplots", height = 455, click = "plot_val_click",
+            brush = brushOpts(id = "plot_val_brush"),
+            hover = hoverOpts("plot_hoverval", delay = 100, delayType = "debounce")),
+            uiOutput("hover_infoval"))
 ),
-#tabPanel('Cal Curves', plotOutput("calcurveplots", height = 455)),
 actionButton("exclude_toggle", "Toggle points"),
 actionButton("exclude_reset", "Reset")),
 
-tabPanel('Diagnostics',
+tabPanel("Diagnostics",
     splitLayout(cellWidths = c("50%", "50%"),
-        plotOutput("residualsfitted", height=250, click="plot_residualsfitted_click", brush=brushOpts(
-            id="plot_residualsfitted_brush"
-            )),
+        div(
+        style = "position:relative",
+        plotOutput("residualsfitted", height=250, click="plot_residualsfitted_click", brush=brushOpts(id="plot_residualsfitted_brush"),
+            hover = hoverOpts("plot_hoverresidualsfitted", delay = 100, delayType = "debounce")),
+        uiOutput("hover_inforesidualsfitted")),
+        div(
+        style = "position:relative",
         plotOutput("qq", height=250, click="plot_qq_click",
-            brush=brushOpts(
-            id="plot_qq_brush"
-            ))
+            brush=brushOpts(id="plot_qq_brush"),
+            hover = hoverOpts("plot_hoverqq", delay = 100, delayType = "debounce")),
+        uiOutput("hover_infoqq"))
 ),
     splitLayout(cellWidths = c("50%", "50%"),
-        plotOutput("scalelocation", height=250, click="plot_scalelocation_click", brush=brushOpts(
-            id="plot_scalelocation_brush"
-            )),
-        plotOutput("cooksdistance", height=250, click="plot_cooksdistance_click", brush=brushOpts(
-            id="plot_cooksdistance_brush"
-            ))
+        div(
+        style = "position:relative",
+        plotOutput("scalelocation", height=250, click="plot_scalelocation_click", brush=brushOpts(id="plot_scalelocation_brush"),
+            hover = hoverOpts("plot_hoverscalelocation", delay = 100, delayType = "debounce")),
+        uiOutput("hover_infoscalelocation")),
+        plotOutput("cooksdistance", height=250, click="plot_cooksdistance_click", brush=brushOpts(id="plot_cooksdistance_brush"))
 ),
     splitLayout(cellWidths = c("50%", "50%"),
-        plotOutput("residualleverage", height=250, click="plot_residualleverage_click", brush=brushOpts(
-            id="plot_residualleverage_brush"
-            )),
-        plotOutput("cooksleverage", height=250, click="plot_cooksleverage_click", brush=brushOpts(
-            id="plot_cooksleverage_brush"
-            ))
+        div(
+        style = "position:relative",
+        plotOutput("residualleverage", height=250, click="plot_residualleverage_click", brush=brushOpts(id="plot_residualleverage_brush"),
+            hover = hoverOpts("plot_hoverresidualleverage", delay = 100, delayType = "debounce")),
+        uiOutput("hover_inforesidualleverage")),
+        div(
+        style = "position:relative",
+        plotOutput("cooksleverage", height=250, click="plot_cooksleverage_click", brush=brushOpts(id="plot_cooksleverage_brush"),
+            hover = hoverOpts("plot_hovercooksleverage", delay = 100, delayType = "debounce")),
+        uiOutput("hover_infocooksleverage"))
 ),
 actionButton("exclude_toggle_diag", "Toggle points"),
 actionButton("exclude_reset_diag", "Reset")),
 
 
-tabPanel('Standards', dataTableOutput("standardsperformance"))
+tabPanel("Standards", dataTableOutput("standardsperformance"))
 
 ))
 
