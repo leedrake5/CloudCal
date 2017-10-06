@@ -165,8 +165,10 @@ dataCount <- reactive({
     
     if(input$usecalfile==FALSE){
         length(inFile$datapath)
-    }else if(input$usefile==TRUE){
+    }else if(input$usecalfile==TRUE && input$usespectravalues==FALSE){
         length(calFileContents()$Intensities)
+    }else if(input$usecalfile==TRUE && input$usespectravalues==FALSE){
+        length(inFile$datapath)
     }
 })
 
@@ -534,7 +536,7 @@ elementallinestouse <- reactive({
   
   
 
-hotableInput <- reactive({
+hotableInputBlank <- reactive({
     
     elements <- elementallinestouse()
 
@@ -556,19 +558,79 @@ spectra.line.table <- if(input$filetype=="Spectra"){
     hold.frame <- as.data.frame(hold.frame)
     
   
-  hotable.data <- if(input$usecalfile==FALSE){
-      hold.frame
-  }else if(input$usecalfile==TRUE){
-      
-      data.frame(calFileContents()$Values, hold.frame[,! names(hold.frame) %in% names(calFileContents()$Values)])
-
-  }
   
-  hotable.data
+  hold.frame
 
 
 })
 
+hotableInputCal <- reactive({
+    
+    elements <- elementallinestouse()
+    
+    
+    
+    
+    spectra.line.table <- if(input$filetype=="Spectra"){
+        spectraData()
+    }else if(input$filetype=="Net"){
+        dataHold()
+    }
+    empty.line.table <- spectra.line.table[,elements] * 0.0000
+    
+    #empty.line.table$Spectrum <- spectra.line.table$Spectrum
+    
+    hold.frame <- data.frame(spectra.line.table$Spectrum, empty.line.table)
+    colnames(hold.frame) <- c("Spectrum", elements)
+    
+    hold.frame <- as.data.frame(hold.frame)
+
+
+    value.frame <- calFileContents()$Values
+    
+    #anna <- rbind(hold.frame, value.frame)
+    
+    #temp.table <- data.table(anna)[,list(result = sum(result)), elements]
+    
+    #as.data.frame(temp.table)
+    
+    #element.matches <- elements[elements %in% ls(value.frame)]
+    
+    #merge_Sum(.df1=hold.frame, .df2=value.frame, .id_Columns="Spectrum",  .match_Columns=element.matches)
+    
+    
+    #data.frame(calFileContents()$Values, hold.frame[,! names(hold.frame) %in% names(calFileContents()$Values)])
+    
+    hold.frame.reduced <- hold.frame[2:length(hold.frame)]
+    value.frame.reduced <- value.frame[2:length(value.frame)]
+    
+    rownames(hold.frame.reduced) <- hold.frame$Spectrum
+    rownames(value.frame.reduced) <- value.frame$Spectrum
+
+    
+    hotable.new = hold.frame.reduced %>% add_rownames %>%
+    full_join(value.frame.reduced %>% add_rownames) %>%
+    group_by(rowname) %>%
+    summarise_all(funs(sum(., na.rm = TRUE)))
+    
+    colnames(hotable.new)[1] <- "Spectrum"
+    
+    hotable.new
+    
+    
+})
+
+hotableInput <- reactive({
+    
+    
+    hotable.data <- if(input$usecalfile==FALSE){
+        hotableInputBlank()
+    }else if(input$usecalfile==TRUE){
+        hotableInputCal()
+    }
+    
+    
+})
 
 
 values <- reactiveValues()
@@ -700,14 +762,16 @@ inVar3Selected <- reactive({
         input$calcurveelement
     }
     
-    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
-        input$calcurveelement
-    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
+    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
+        optionhold
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE  && is.null(calFileContents()$calList[[optionhold]])==FALSE){
         calFileContents()$calList[[optionhold]][[1]]$Intercept
-    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$Intercept
-    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$Intercept
+    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$Intercept
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$Intercept
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
+        optionhold
     }
     
     
@@ -730,14 +794,16 @@ inVar4Selected <- reactive({
     }
     
     
-    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
-        input$calcurveelement
-    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
+    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
+        optionhold
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
         calFileContents()$calList[[optionhold]][[1]]$Slope
-    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$Slope
-    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$Slope
+    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$Slope
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$Slope
+    }  else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
+        optionhold
     }
 })
 
@@ -787,15 +853,15 @@ calTypeSelection <- reactive({
         input$calcurveelement
     }
     
-    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
         calConditons[[1]][[1]]
-    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$CalType
-    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$CalTable$CalType
-    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$CalTable$CalType
-    } else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$CalType
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$CalType
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
         calConditons[[1]][[1]]
     }
     
@@ -811,15 +877,15 @@ calNormSelection <- reactive({
         input$calcurveelement
     }
     
-    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
         calConditons[[1]][[2]]
-    }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
+    }else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$NormType
-    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$CalTable$NormType
-    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$CalTable$NormType
-    } else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$NormType
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$NormType
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
         calConditons[[1]][[2]]
     }
     
@@ -835,15 +901,15 @@ normMinSelection <- reactive({
         input$calcurveelement
     }
     
-    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
         calConditons[[1]][[3]]
-    }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
+    }else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE && is.null(calList[[optionhold]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$Min
-    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$CalTable$Min
-    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$CalTable$Min
-    } else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$Min
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$Min
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
         calConditons[[1]][[3]]
     }
     
@@ -859,15 +925,15 @@ normMaxSelection <- reactive({
         input$calcurveelement
     }
     
-    if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
         calConditons[[1]][[4]]
-    }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
+    }else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$Max
-    } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$CalTable$Max
-    } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-        calList[[input$calcurveelement]][[1]]$CalTable$Max
-    } else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$Max
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$Max
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
         calConditons[[1]][[4]]
     }
 })
@@ -911,31 +977,36 @@ output$comptonMaxInput <- renderUI({
 
 
 
+elementHold <- reactive({
+    
+    if(is.null(input$calcurveelement)==TRUE){
+        ls(dataHold())[1]
+    } else{
+        input$calcurveelement
+    }
+    
+})
+
 
 
   
   calFileStandards <- reactive({
 
           
-      elementHold <- if(is.null(input$calcurveelement)==TRUE){
-          ls(dataHold())[1]
-      } else{
-          input$calcurveelement
-      }
-      
-      standards <- if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE){
-          calFileContents()$calList[[elementHold]][[1]][[4]]
-      } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+  
+     if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==FALSE){
+          calFileContents()$calList[[elementHold()]][[1]][[4]]
+      } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==TRUE){
           rep(TRUE, dataCount())
-      } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
-          calList[[elementHold]][[1]][[4]]
-      } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
-          calList[[elementHold]][[1]][[4]]
-      } else if(input$usecalfile==TRUE && is.null(vals$keeoprows)==TRUE){
-          vals$keeprows = rep(TRUE, dataCount())
+      } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==FALSE){
+          calList[[input$calcurveelement]][[1]][[4]]
+      } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==FALSE){
+          calList[[elementHold()]][[1]][[4]]
+      } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
+          rep(TRUE, dataCount())
       }
       
-      standards
+      
       
       
   })
@@ -945,12 +1016,20 @@ output$comptonMaxInput <- renderUI({
   
   vals <- reactiveValues()
   
-  vals$keeprows <- vals$keeprows[ vals$keeprows != TRUE]
-  vals$keeprows <- vals$keeprows[ vals$keeprows != FALSE]
-  vals$keeprows = calFileStandards()
 
-
+vals$keeprows <- if(is.null(calFileStandards())==FALSE){
+    calFileStandards()
+}else{
+    rep(TRUE, dataCount())
+}
   
+vals$keeprows <- rep(TRUE, dataCount())
+
+output$temp <- renderTable({
+    
+    as.data.frame(vals$keeprows)
+    
+})
 
 
   

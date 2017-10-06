@@ -286,7 +286,8 @@ tabPanel("Cal Curves",
             uiOutput("hover_infoval"))
 ),
 actionButton("exclude_toggle", "Toggle points"),
-actionButton("exclude_reset", "Reset")),
+actionButton("exclude_reset", "Reset")
+),
 
 tabPanel("Diagnostics",
     splitLayout(cellWidths = c("50%", "50%"),

@@ -267,6 +267,25 @@ strip_glm <- function(cm) {
     cm
 }
 
+merge_Sum <- function(.df1, .df2, .id_Columns, .match_Columns){
+    merged_Columns <- unique(c(names(.df1),names(.df2)))
+    merged_df1 <- data.frame(matrix(nrow=nrow(.df1), ncol=length(merged_Columns)))
+    names(merged_df1) <- merged_Columns
+    for (column in merged_Columns){
+        if(column %in% .id_Columns | !column %in% names(.df2)){
+            merged_df1[, column] <- .df1[, column]
+        } else if (!column %in% names(.df1)){
+            merged_df1[, column] <- .df2[match(.df1[, .match_Columns],.df2[, .match_Columns]), column]
+        } else {
+            df1_Values=.df1[, column]
+            df2_Values=.df2[match(.df1[, .match_Columns],.df2[, .match_Columns]), column]
+            df2_Values[is.na(df2_Values)] <- 0
+            merged_df1[, column] <- df1_Values + df2_Values
+        }
+    }
+    return(merged_df1)
+}
+
 
 black.diamond <- read.csv("data/blackdiamond.csv", header=FALSE, sep=",")
 black.diamond.melt <- read.csv(file="data/blackdiamondmelt.csv")
