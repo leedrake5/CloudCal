@@ -2806,7 +2806,14 @@ output$hover_infocal <- renderUI({
         calValFrame()
     }
     
-    point.table$Spectrum <- tableInput()$Spectrum
+    concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+    hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
+    colnames(hold.table) <- c("Spectrum", "Selection")
+    hold.table$Selection[hold.table$Selection==""] <- 999
+    hold.table$Selection[hold.table$Selection==999] <- NA
+    hold.table <- hold.table[complete.cases(hold.table), ]
+    
+    point.table$Spectrum <- hold.table["Spectrum"]
     
     hover <- input$plot_hovercal
     point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
@@ -2901,7 +2908,14 @@ observeEvent(input$calcurveelement, {
 output$hover_infoval <- renderUI({
     
     point.table <- calValFrame()
-    point.table$Spectrum <- tableInput()$Spectrum
+    concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+    hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
+    colnames(hold.table) <- c("Spectrum", "Selection")
+    hold.table$Selection[hold.table$Selection==""] <- 999
+    hold.table$Selection[hold.table$Selection==999] <- NA
+    hold.table <- hold.table[complete.cases(hold.table), ]
+    
+    point.table$Spectrum <- hold.table["Spectrum"]
 
     
     hover <- input$plot_hoverval
