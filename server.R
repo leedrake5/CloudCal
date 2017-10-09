@@ -4574,6 +4574,7 @@ content = function(file) {
             
             if(input$valfiletype=="Net"){val.line.table <- val.data}
             
+            
             val.line.table
         })
 
@@ -4592,7 +4593,8 @@ content = function(file) {
             
         count.table <- data.frame(fullInputValCounts())
         the.cal <- calValHold()
-        elements <- calValElements()
+        elements.cal <- calValElements()
+        elements <- elements.cal[!is.na(match(elements.cal, ls(count.table)))]
         variables <- calVariableElements()
         valdata <- myValData()
 
