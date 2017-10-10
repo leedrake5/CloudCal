@@ -14,7 +14,7 @@ library(formattable)
 
 
 
-options(shiny.maxRequestSize=90*1024^2)
+options(shiny.maxRequestSize=9000000*1024^2)
 
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
