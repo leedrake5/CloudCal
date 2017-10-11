@@ -4390,8 +4390,8 @@ content = function(file) {
 
 
 output$downloadReport <- downloadHandler(
-filename = paste(input$calname, "pdf", sep="."),
-content = function(file){
+ function() { paste(paste(c(input$calname), collapse=''), '.pdf',  sep='') },
+ content = function(file){
     ml = marrangeGrob(grobs=CalibrationPlots$calCurves, nrow=1, ncol=1)
     ggsave(file, ml, device="pdf", dpi=300, width=12, height=7)
 
