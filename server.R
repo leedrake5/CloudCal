@@ -1080,7 +1080,7 @@ output$temp <- renderTable({
       colnames(predict.frame) <- c("Concentration", "Intensity")
       
       
-      predict.frame
+      predict.frame[ vals$keeprows, , drop = FALSE]
     
 
   })
@@ -3720,8 +3720,7 @@ observeEvent(input$exclude_reset, {
  
  modelFrame <- reactive({
      
-     table <- tableInput()
-     table <- table[ vals$keeprows, , drop = FALSE]
+     table <- predictFrame()
      
      
      model <- elementModel()
