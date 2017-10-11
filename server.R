@@ -11,6 +11,8 @@ library(Cairo)
 library(broom)
 library(shinyjs)
 library(formattable)
+library(markdown)
+library(rmarkdown)
 
 
 
@@ -3898,6 +3900,16 @@ observeEvent(input$exclude_reset, {
      
  })
  
+ 
+diagPlotDownload <- reactive({
+     
+     grid.arrange(diagResidualsFitted(), diagQQ(),
+     diagScaleLocation(), diagCooksDistance(),
+     diagResidualLeverage(), diagCooksLeverage(),
+     ncol=2, nrow=3)
+     
+ })
+ 
  #########Diagnostic Plot Controls#######
  ####Residuals Fitted
  # Float over info
@@ -4305,6 +4317,28 @@ observeEvent(input$createcalelement, {
 
 })
 
+calPlotList <- reactiveValues()
+calPlotList <- emptyList()
+observeEvent(input$createcalelement, {
+    
+    
+    calPlotList[[input$calcurveelement]] <- isolate(calPlotDownload())
+    
+    calPlotList <<- calPlotList
+    
+})
+
+diagPlotList <- reactiveValues()
+diagPlotList <- emptyList()
+#observeEvent(input$createcalelement, {
+    
+    
+    #diagPlotList[[input$calcurveelement]] <- isolate(diagPlotDownload())
+    
+    #diagPlotList <<- diagPlotList
+    
+    #})
+
 Calibration <- reactiveValues()
 observeEvent(input$createcal, {
     
@@ -4327,6 +4361,21 @@ observeEvent(input$createcal, {
     
 })
 
+CalibrationPlots <- reactiveValues()
+observeEvent(input$createcal, {
+    
+    CalibrationPlots$calCurves <<- calPlotList
+    
+    
+})
+
+#observeEvent(input$createcal, {
+    
+    #CalibrationPlots$diagPlots <<- diagPlotList
+    
+    
+    #})
+
 
 
 output$downloadModel <- downloadHandler(
@@ -4338,6 +4387,17 @@ content = function(file) {
     saveRDS(Calibration, file = file, compress="xz")
 }
 )
+
+
+output$downloadReport <- downloadHandler(
+filename = paste(input$calname, "pdf", sep="."),
+content = function(file){
+    ml = marrangeGrob(grobs=CalibrationPlots$calCurves, nrow=1, ncol=1)
+    ggsave(file, ml, device="pdf", dpi=300, width=12, height=7)
+
+dev.off()
+})
+
 
 
 

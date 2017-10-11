@@ -287,6 +287,22 @@ merge_Sum <- function(.df1, .df2, .id_Columns, .match_Columns){
 }
 
 
+GG_save_pdf = function(list, filename) {
+    #start pdf
+    pdf(filename)
+    
+    #loop
+    for (p in list) {
+        print(p)
+    }
+    
+    #end pdf
+    dev.off()
+    
+    invisible(NULL)
+}
+
+
 black.diamond <- read.csv("data/blackdiamond.csv", header=FALSE, sep=",")
 black.diamond.melt <- read.csv(file="data/blackdiamondmelt.csv")
 
