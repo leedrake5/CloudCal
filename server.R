@@ -613,7 +613,7 @@ hotableInputCal <- reactive({
     hotable.new = hold.frame.reduced %>% add_rownames %>%
     full_join(value.frame.reduced %>% add_rownames) %>%
     group_by(rowname) %>%
-    summarise_all(funs(sum(., na.rm = TRUE)))
+    summarise_all(funs(sum(., na.rm = FALSE)))
     
     colnames(hotable.new)[1] <- "Spectrum"
     
@@ -669,7 +669,7 @@ output$hot <- renderRHandsontable({
     
     
     if (!is.null(DF))
-    rhandsontable(DF) %>% hot_col(2:length(DF),type="numeric")
+    rhandsontable(DF) %>% hot_col(2:length(DF))
     
     
 })
