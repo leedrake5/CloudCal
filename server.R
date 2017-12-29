@@ -23,6 +23,26 @@ assign("last.warning", NULL, envir = baseenv())
 
 shinyServer(function(input, output, session) {
     
+    output$gainshiftui <- renderUI({
+        
+        if(input$advanced==TRUE){
+           numericInput('gainshift', "Gain Shift (keV)", min=-1, max=1, value=0)
+        } else {
+            p()
+        }
+        
+    })
+    
+    gainshiftHold <- reactive({
+        
+        if(input$advanced==TRUE){
+            input$gainshift
+        } else if(input$advanced==FALSE){
+            0
+        }
+        
+    })
+    
     
     fullSpectra <- reactive({
         
@@ -69,6 +89,8 @@ shinyServer(function(input, output, session) {
             Sys.sleep(0.1)
         })
         
+        data$Energy <- data$Energy + gainshiftHold()
+
         data
     })
     
@@ -115,7 +137,31 @@ shinyServer(function(input, output, session) {
         united.frame
         
     })
- 
+    
+    readElio <- reactive({
+        
+        withProgress(message = 'Processing Data', value = 0, {
+            
+            inFile <- input$file1
+            if (is.null(inFile)) return(NULL)
+            
+            n <- length(inFile$datapath)
+            names <- inFile$name
+        
+        myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPT(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+
+
+        incProgress(1/n)
+        Sys.sleep(0.1)
+        })
+        
+        myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
+
+        myfiles.frame
+
+        
+    })
+   
     
     
     observeEvent(input$actionprocess, {
@@ -127,6 +173,8 @@ shinyServer(function(input, output, session) {
                 fullSpectra()
             } else if(input$filetype=="Net"){
                 netCounts()
+            } else if(input$filetype=="Elio"){
+                readElio()
             }
             
                 data
@@ -151,11 +199,12 @@ calFileContents <- reactive({
 dataHold <- reactive({
     data <- if(input$usecalfile==FALSE){
         myData()
-    }else if(input$usecalfile==TRUE && input$usespectravalues==FALSE){
+    } else if(input$usecalfile==TRUE && input$usespectravalues==FALSE){
         calFileContents()$Spectra
-    }else if (input$usecalfile==TRUE && input$usespectravalues==TRUE){
+    } else if (input$usecalfile==TRUE && input$usespectravalues==TRUE){
         myData()
     }
+    
     
     data
     
@@ -169,7 +218,7 @@ dataCount <- reactive({
         length(inFile$datapath)
     }else if(input$usecalfile==TRUE && input$usespectravalues==FALSE){
         length(calFileContents()$Intensities)
-    }else if(input$usecalfile==TRUE && input$usespectravalues==FALSE){
+    }else if(input$usecalfile==TRUE && input$usespectravalues==TRUE){
         length(inFile$datapath)
     }
 })
@@ -368,9 +417,11 @@ standardElements <- reactive({
     
     if(input$usecalfile==FALSE && input$filetype=="Spectra"){
         standard
-    }else if(input$usecalfile==FALSE && input$filetype=="Net"){
+    } else if(input$usecalfile==FALSE && input$filetype=="Elio"){
+        standard
+    } else if(input$usecalfile==FALSE && input$filetype=="Net"){
         colnames(spectra.line.table[2:4])
-    }else if(input$usecalfile==TRUE){
+    } else if(input$usecalfile==TRUE){
         ls(calFileContents()$Intensities)
     }
     
@@ -384,6 +435,8 @@ standardLines <- reactive({
     
     
     choices <- if(input$filetype=="Spectra"){
+        spectralLines
+    } else if(input$filetype=="Elio"){
         spectralLines
     } else if(input$filetype=="Net"){
         colnames(spectra.line.table[2:n])
@@ -493,6 +546,7 @@ elementallinestouse <- reactive({
  
  
  
+ 
 
  
  
@@ -504,7 +558,9 @@ elementallinestouse <- reactive({
 
      select.line.table <- if(input$filetype=="Spectra"){
          spectraData()
-     }else if(input$filetype=="Net"){
+     }else if(input$filetype=="Elio"){
+         spectraData()
+     } else if(input$filetype=="Net"){
          netData()
      }
      
@@ -547,9 +603,12 @@ hotableInputBlank <- reactive({
 
 spectra.line.table <- if(input$filetype=="Spectra"){
     spectraData()
-}else if(input$filetype=="Net"){
+} else spectra.line.table <- if(input$filetype=="Elio"){
+    spectraData()
+} else if(input$filetype=="Net"){
     dataHold()
 }
+
         empty.line.table <- spectra.line.table[,elements] * 0.0000
 
     #empty.line.table$Spectrum <- spectra.line.table$Spectrum
@@ -575,9 +634,12 @@ hotableInputCal <- reactive({
     
     spectra.line.table <- if(input$filetype=="Spectra"){
         spectraData()
-    }else if(input$filetype=="Net"){
+    } else if(input$filetype=="Elio"){
+        spectraData()
+    } else if(input$filetype=="Net"){
         dataHold()
     }
+    
     empty.line.table <- spectra.line.table[,elements] * 0.0000
     
     #empty.line.table$Spectrum <- spectra.line.table$Spectrum
@@ -998,11 +1060,11 @@ elementHold <- reactive({
   
      if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==FALSE){
           calFileContents()$calList[[elementHold()]][[1]][[4]]
-      } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==TRUE){
+      } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
           rep(TRUE, dataCount())
-      } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==FALSE){
+      } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
           calList[[input$calcurveelement]][[1]][[4]]
-      } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==FALSE){
+      } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
           calList[[elementHold()]][[1]][[4]]
       } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
           rep(TRUE, dataCount())
@@ -1033,6 +1095,17 @@ output$temp <- renderTable({
     
 })
 
+
+dataType <- reactive({
+    if(input$filetype=="Spectra"){
+        "Spectra"
+    }else if(input$filetype=="Elio"){
+        "Spectra"
+    }else if (input$filetype=="Elio"){
+        "Net"
+    }
+    
+})
 
   
   
@@ -1105,6 +1178,8 @@ calCurveFrame <- reactive({
     
     spectra.line.table <- if(input$filetype=="Spectra"){
         spectraData()
+    } else if(input$filetype=="Elio"){
+        spectraData()
     }else if(input$filetype=="Net"){
         dataHold()
     }
@@ -1172,9 +1247,9 @@ calCurveFrame <- reactive({
     if(input$normcal==2){
         
         
-        predict.intensity.tc <- if(input$filetype=="Spectra"){
+        predict.intensity.tc <- if(dataType()=="Spectra"){
             simple.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-        } else if(input$filetype=="Net"){
+        } else if(dataType()=="Net"){
             simple.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
         }
         
@@ -1186,9 +1261,9 @@ calCurveFrame <- reactive({
     
     if(input$normcal==3){
         
-        predict.intensity.comp <- if(input$filetype=="Spectra"){
+        predict.intensity.comp <- if(dataType()=="Spectra"){
             simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
-        } else if(input$filetype=="Net"){
+        } else if(dataType()=="Net"){
             simple.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
         }
         
@@ -1286,9 +1361,9 @@ calCurveFrame <- reactive({
         
         if(input$normcal==1){
             
-            predict.intensity.luc <- if(input$filetype=="Spectra"){
+            predict.intensity.luc <- if(dataType()=="Spectra"){
                 lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-            } else if(input$filetype=="Net"){
+            } else if(dataType()=="Net"){
                 lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
@@ -1332,9 +1407,9 @@ calCurveFrame <- reactive({
         if(input$normcal==3){
             
             
-            predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+            predict.intensity.luc.comp <- if(dataType()=="Spectra"){
                 lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
-            } else if(input$filetype=="Net"){
+            } else if(dataType()=="Net"){
                 lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
             }
             
@@ -1377,9 +1452,9 @@ calCurveFrame <- reactive({
         if(input$normcal==2){
             
             
-            predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+            predict.intensity.luc.tc <- if(dataType()=="Spectra"){
                 lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-            } else if(input$filetype=="Net"){
+            } else if(dataType()=="Net"){
                 lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
@@ -1459,9 +1534,9 @@ calValFrame <- reactive({
     concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
     concentration.table[concentration.table==""] <- 999
     
-    spectra.line.table <- if(input$filetype=="Spectra"){
+    spectra.line.table <- if(dataType()=="Spectra"){
         spectraData()
-    }else if(input$filetype=="Net"){
+    } else if(dataType()=="Net"){
         dataHold()
     }
     
@@ -1518,9 +1593,9 @@ calValFrame <- reactive({
     predict.frame <- data.frame(concentration, intensity)
     colnames(predict.frame) <- c("Concentration", "Intensity")
     
-    predict.intensity <- if(input$filetype=="Spectra"){
+    predict.intensity <- if(dataType()=="Spectra"){
         general.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-    } else if(input$filetype=="Net"){
+    } else if(dataType()=="Net"){
         general.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
     }
     
@@ -1528,9 +1603,9 @@ calValFrame <- reactive({
     if(input$normcal==2){
         
         
-        predict.intensity.tc <- if(input$filetype=="Spectra"){
+        predict.intensity.tc <- if(dataType()=="Spectra"){
             simple.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-        } else if(input$filetype=="Net"){
+        } else if(dataType()=="Net"){
             simple.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
         }
         
@@ -1542,9 +1617,9 @@ calValFrame <- reactive({
     
     if(input$normcal==3){
         
-        predict.intensity.comp <- if(input$filetype=="Spectra"){
+        predict.intensity.comp <- if(dataType()=="Spectra"){
             simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
-        } else if(input$filetype=="Net"){
+        } else if(dataType()=="Net"){
             simple.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
         }
         
@@ -1642,9 +1717,9 @@ calValFrame <- reactive({
         
         if(input$normcal==1){
             
-            predict.intensity.luc <- if(input$filetype=="Spectra"){
+            predict.intensity.luc <- if(dataType()=="Spectra"){
                 lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-            } else if(input$filetype=="Net"){
+            } else if(dataType()=="Net"){
                 lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
@@ -1688,9 +1763,9 @@ calValFrame <- reactive({
         if(input$normcal==3){
             
             
-            predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+            predict.intensity.luc.comp <- if(dataType()=="Spectra"){
                 lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
-            } else if(input$filetype=="Net"){
+            } else if(dataType()=="Net"){
                 lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
             }
             
@@ -1733,9 +1808,9 @@ calValFrame <- reactive({
         if(input$normcal==2){
             
             
-            predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+            predict.intensity.luc.tc <- if(dataType()=="Spectra"){
                 lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-            } else if(input$filetype=="Net"){
+            } else if(dataType()=="Net"){
                 lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
@@ -1815,9 +1890,9 @@ calCurvePlot <- reactive({
     concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
     concentration.table[concentration.table==""] <- 999
     
-    spectra.line.table <- if(input$filetype=="Spectra"){
+    spectra.line.table <- if(dataType()=="Spectra"){
         spectraData()
-    }else if(input$filetype=="Net"){
+    } else if(dataType()=="Net"){
         dataHold()
     }
     
@@ -1874,9 +1949,9 @@ calCurvePlot <- reactive({
     predict.frame <- data.frame(concentration, intensity)
     colnames(predict.frame) <- c("Concentration", "Intensity")
     
-    predict.intensity <- if(input$filetype=="Spectra"){
+    predict.intensity <- if(dataType()=="Spectra"){
         general.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-    } else if(input$filetype=="Net"){
+    } else if(dataType()=="Net"){
         general.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
     }    
     
@@ -1884,9 +1959,9 @@ calCurvePlot <- reactive({
     if(input$normcal==2){
 
     
-    predict.intensity.tc <- if(input$filetype=="Spectra"){
+    predict.intensity.tc <- if(dataType()=="Spectra"){
         simple.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-    } else if(input$filetype=="Net"){
+    } else if(dataType()=="Net"){
         simple.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
     }
     
@@ -1898,9 +1973,9 @@ calCurvePlot <- reactive({
     
     if(input$normcal==3){
         
-        predict.intensity.comp <- if(input$filetype=="Spectra"){
+        predict.intensity.comp <- if(dataType()=="Spectra"){
             simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
-        } else if(input$filetype=="Net"){
+        } else if(dataType()=="Net"){
             simple.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
         }
         
@@ -1997,9 +2072,9 @@ calCurvePlot <- reactive({
         
         if(input$normcal==1){
             
-            predict.intensity.luc <- if(input$filetype=="Spectra"){
+            predict.intensity.luc <- if(dataType()=="Spectra"){
                 lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-            } else if(input$filetype=="Net"){
+            } else if(dataType()=="Net"){
                 lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
@@ -2043,9 +2118,9 @@ calCurvePlot <- reactive({
     if(input$normcal==3){
         
         
-        predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+        predict.intensity.luc.comp <- if(dataType()=="Spectra"){
             lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
-        } else if(input$filetype=="Net"){
+        } else if(dataType()=="Net"){
             lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
         }
         
@@ -2088,9 +2163,9 @@ calCurvePlot <- reactive({
     if(input$normcal==2){
         
         
-    predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+    predict.intensity.luc.tc <- if(dataType()=="Spectra"){
         lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-    } else if(input$filetype=="Net"){
+    } else if(dataType()=="Net"){
         lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
     }
     
@@ -2295,9 +2370,9 @@ valCurvePlot <- reactive({
     concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
     concentration.table[concentration.table==""] <- 999
     
-    spectra.line.table <- if(input$filetype=="Spectra"){
+    spectra.line.table <- if(dataType()=="Spectra"){
         spectraData()
-    }else if(input$filetype=="Net"){
+    } else if(dataType()=="Net"){
         dataHold()
     }
     
@@ -2354,9 +2429,9 @@ valCurvePlot <- reactive({
     predict.frame <- data.frame(concentration, intensity)
     colnames(predict.frame) <- c("Concentration", "Intensity")
     
-    predict.intensity <- if(input$filetype=="Spectra"){
+    predict.intensity <- if(dataType()=="Spectra"){
         general.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-    } else if(input$filetype=="Net"){
+    } else if(dataType()=="Net"){
         general.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
     }
     
@@ -2364,9 +2439,9 @@ valCurvePlot <- reactive({
     if(input$normcal==2){
         
         
-        predict.intensity.tc <- if(input$filetype=="Spectra"){
+        predict.intensity.tc <- if(dataType()=="Spectra"){
             simple.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-        } else if(input$filetype=="Net"){
+        } else if(dataType()=="Net"){
             simple.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
         }
         
@@ -2378,9 +2453,9 @@ valCurvePlot <- reactive({
     
     if(input$normcal==3){
         
-        predict.intensity.comp <- if(input$filetype=="Spectra"){
+        predict.intensity.comp <- if(dataType()=="Spectra"){
             simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
-        } else if(input$filetype=="Net"){
+        } else if(dataType()=="Net"){
             simple.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
         }
         
@@ -2478,9 +2553,9 @@ valCurvePlot <- reactive({
         
         if(input$normcal==1){
             
-            predict.intensity.luc <- if(input$filetype=="Spectra"){
+            predict.intensity.luc <- if(dataType()=="Spectra"){
                 lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-            } else if(input$filetype=="Net"){
+            } else if(dataType()=="Net"){
                 lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
@@ -2527,9 +2602,9 @@ valCurvePlot <- reactive({
         if(input$normcal==3){
             
             
-            predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+            predict.intensity.luc.comp <- if(dataType()=="Spectra"){
                 lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
-            } else if(input$filetype=="Net"){
+            } else if(dataType()=="Net"){
                 lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
             }
             
@@ -2572,9 +2647,9 @@ valCurvePlot <- reactive({
         if(input$normcal==2){
             
             
-            predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+            predict.intensity.luc.tc <- if(dataType()=="Spectra"){
                 lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-            } else if(input$filetype=="Net"){
+            } else if(dataType()=="Net"){
                 lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
             }
             
@@ -3054,9 +3129,9 @@ observeEvent(input$exclude_reset, {
      predict.frame <- data.frame(concentration, intensity)
      colnames(predict.frame) <- c("Concentration", "Intensity")
      
-     predict.intensity <- if(input$filetype=="Spectra"){
+     predict.intensity <- if(dataType()=="Spectra"){
          general.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-     } else if(input$filetype=="Net"){
+     } else if(dataType()=="Net"){
          general.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
      }
      
@@ -3064,9 +3139,9 @@ observeEvent(input$exclude_reset, {
      if(input$normcal==2){
          
          
-         predict.intensity.tc <- if(input$filetype=="Spectra"){
+         predict.intensity.tc <- if(dataType()=="Spectra"){
              simple.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-         } else if(input$filetype=="Net"){
+         } else if(dataType()=="Net"){
              simple.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
          }
          
@@ -3078,9 +3153,9 @@ observeEvent(input$exclude_reset, {
      
      if(input$normcal==3){
          
-         predict.intensity.comp <- if(input$filetype=="Spectra"){
+         predict.intensity.comp <- if(dataType()=="Spectra"){
              simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
-         } else if(input$filetype=="Net"){
+         } else if(dataType()=="Net"){
              simple.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
          }
          
@@ -3178,9 +3253,9 @@ observeEvent(input$exclude_reset, {
          
          if(input$normcal==1){
              
-             predict.intensity.luc <- if(input$filetype=="Spectra"){
+             predict.intensity.luc <- if(dataType()=="Spectra"){
                  lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-             } else if(input$filetype=="Net"){
+             } else if(dataType()=="Net"){
                  lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              }
              
@@ -3224,9 +3299,9 @@ observeEvent(input$exclude_reset, {
          if(input$normcal==3){
              
              
-             predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+             predict.intensity.luc.comp <- if(dataType()=="Spectra"){
                  lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
-             } else if(input$filetype=="Net"){
+             } else if(dataType()=="Net"){
                  lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
              }
              
@@ -3269,9 +3344,9 @@ observeEvent(input$exclude_reset, {
          if(input$normcal==2){
              
              
-             predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+             predict.intensity.luc.tc <- if(dataType()=="Spectra"){
                  lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-             } else if(input$filetype=="Net"){
+             } else if(dataType()=="Net"){
                  lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              }
              
@@ -3374,9 +3449,9 @@ observeEvent(input$exclude_reset, {
      concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
      concentration.table[concentration.table==""] <- 999
      
-     spectra.line.table <- if(input$filetype=="Spectra"){
+     spectra.line.table <- if(dataType()=="Spectra"){
          spectraData()
-     }else if(input$filetype=="Net"){
+     }else if(dataType()=="Net"){
          dataHold()
      }
      
@@ -3433,9 +3508,9 @@ observeEvent(input$exclude_reset, {
      predict.frame <- data.frame(concentration, intensity)
      colnames(predict.frame) <- c("Concentration", "Intensity")
      
-     predict.intensity <- if(input$filetype=="Spectra"){
+     predict.intensity <- if(dataType()=="Spectra"){
          general.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-     } else if(input$filetype=="Net"){
+     } else if(dataType()=="Net"){
          general.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
      }
      
@@ -3443,9 +3518,9 @@ observeEvent(input$exclude_reset, {
      if(input$normcal==2){
          
          
-         predict.intensity.tc <- if(input$filetype=="Spectra"){
+         predict.intensity.tc <- if(dataType()=="Spectra"){
              simple.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-         } else if(input$filetype=="Net"){
+         } else if(dataType()=="Net"){
              simple.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
          }
          
@@ -3457,9 +3532,9 @@ observeEvent(input$exclude_reset, {
      
      if(input$normcal==3){
          
-         predict.intensity.comp <- if(input$filetype=="Spectra"){
+         predict.intensity.comp <- if(dataType()=="Spectra"){
              simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
-         } else if(input$filetype=="Net"){
+         } else if(dataType()=="Net"){
              simple.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
          }
          
@@ -3557,9 +3632,9 @@ observeEvent(input$exclude_reset, {
          
          if(input$normcal==1){
              
-             predict.intensity.luc <- if(input$filetype=="Spectra"){
+             predict.intensity.luc <- if(dataType()=="Spectra"){
                  lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-             } else if(input$filetype=="Net"){
+             } else if(dataType()=="Net"){
                  lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              }
              
@@ -3603,9 +3678,9 @@ observeEvent(input$exclude_reset, {
          if(input$normcal==3){
              
              
-             predict.intensity.luc.comp <- if(input$filetype=="Spectra"){
+             predict.intensity.luc.comp <- if(dataType()=="Spectra"){
                  lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
-             } else if(input$filetype=="Net"){
+             } else if(dataType()=="Net"){
                  lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
              }
              
@@ -3648,9 +3723,9 @@ observeEvent(input$exclude_reset, {
          if(input$normcal==2){
              
              
-             predict.intensity.luc.tc <- if(input$filetype=="Spectra"){
+             predict.intensity.luc.tc <- if(dataType()=="Spectra"){
                  lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-             } else if(input$filetype=="Net"){
+             } else if(dataType()=="Net"){
                  lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
              }
              
@@ -4345,7 +4420,9 @@ observeEvent(input$createcal, {
     
     spectra.line.table <- if(input$filetype=="Spectra"){
         spectraData()
-    }else if(input$filetype=="Net"){
+    } else if(input$filetype=="Elio"){
+        spectraData()
+    } else if(input$filetype=="Net"){
         dataHold()
     }
              cal.intensities <- spectra.line.table[elementallinestouse()]
@@ -4498,6 +4575,29 @@ dev.off()
             
         })
         
+        readValElio <- reactive({
+            
+            withProgress(message = 'Processing Data', value = 0, {
+                
+                inFile <- input$loadvaldata
+                if (is.null(inFile)) return(NULL)
+                
+                n <- length(inFile$datapath)
+                names <- inFile$name
+                
+                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPT(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+                
+                
+                incProgress(1/n)
+                Sys.sleep(0.1)
+            })
+            
+            
+            myfiles.frame
+            
+            
+        })
+        
         
         myValData <- reactive({
             
@@ -4505,6 +4605,8 @@ dev.off()
                 fullValSpectra()
             } else if(input$valfiletype=="Net"){
                 netValCounts()
+            } else if(input$valfiletype=="Elio") {
+                readValElio()
             }
             
             data
@@ -4570,6 +4672,18 @@ dev.off()
             variableelements
         })
         
+        valDataType <- reactive({
+            
+            if(input$valfiletype=="Spectra"){
+                "Spectra"
+            } else if(input$valfiletype=="Net"){
+                "Net"
+            } else if(input$valfiletype=="Elio") {
+                "Spectra"
+            }
+            
+        })
+        
         
   
   
@@ -4580,27 +4694,27 @@ dev.off()
             variableelements <- calVariableElements()
             val.data <- myValData()
             
-            if(input$valfiletype=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))}
-            if(input$valfiletype=="Spectra"){element.count.list <- lapply(spectra.line.list, '[', 2)}
+            if(valDataType()=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))}
+            if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, '[', 2)}
             
             
             
-            if(input$valfiletype=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
+            if(valDataType()=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
             
-            if(input$valfiletype=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))}
+            if(valDataType()=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(valelements))}
             
-            if(input$valfiletype=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
+            if(valDataType()=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
             
-            if(input$valfiletype=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", valelements)}
+            if(valDataType()=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", valelements)}
             
-            if(input$valfiletype=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
+            if(valDataType()=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
             
-            if(input$valfiletype=="Spectra"){spectra.line.frame}
+            if(valDataType()=="Spectra"){spectra.line.frame}
             
-            if(input$valfiletype=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])}
+            if(valDataType()=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])}
             
             
-            if(input$valfiletype=="Net"){val.line.table <- val.data[c("Spectrum", valelements), drop=FALSE]}
+            if(valDataType()=="Net"){val.line.table <- val.data[c("Spectrum", valelements), drop=FALSE]}
                 
                 
                 val.line.table
@@ -4615,23 +4729,23 @@ dev.off()
             variableelements <- calVariableElements()
             val.data <- myValData()
             
-            if(input$valfiletype=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data))}
-            if(input$valfiletype=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
+            if(valDataType()=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data))}
+            if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
             
             
-            if(input$valfiletype=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
+            if(valDataType()=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
             
-            if(input$valfiletype=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(variableelements))}
+            if(valDataType()=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(variableelements))}
             
-            if(input$valfiletype=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
+            if(valDataType()=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
             
-            if(input$valfiletype=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", variableelements)}
+            if(valDataType()=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", variableelements)}
             
-            if(input$valfiletype=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
+            if(valDataType()=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
             
-            if(input$valfiletype=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
+            if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
-            if(input$valfiletype=="Net"){val.line.table <- val.data}
+            if(valDataType()=="Net"){val.line.table <- val.data}
             
             
             val.line.table
@@ -4662,7 +4776,7 @@ dev.off()
             
             
         predicted.list <- pblapply(elements, function (x)
-            if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=general.prep(
@@ -4671,7 +4785,7 @@ dev.off()
                             ),
                         element.line=x)
                 )
-            } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+            } else if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple.tc.prep(
@@ -4682,7 +4796,7 @@ dev.off()
                         element.line=x
                     )
                 )
-            } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+            } else if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
                 predict(
                     object=the.cal[[x]][[2]],
                         newdata=simple.comp.prep(
@@ -4695,7 +4809,7 @@ dev.off()
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                             )
                 )
-            } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                  predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.simp.prep(
@@ -4707,7 +4821,7 @@ dev.off()
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         )
                  )
-            } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.tc.prep(
@@ -4720,7 +4834,7 @@ dev.off()
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     )
                 )
-            } else if(input$valfiletype=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.comp.prep(
@@ -4735,7 +4849,7 @@ dev.off()
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                         )
                 )
-            }else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            }else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=general.prep.net(
@@ -4744,7 +4858,7 @@ dev.off()
                             ),
                         element.line=x)
                 )
-            } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+            } else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple.tc.prep.net(
@@ -4755,7 +4869,7 @@ dev.off()
                             element.line=x
                             )
                 )
-            } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+            } else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple.comp.prep.net(
@@ -4768,7 +4882,7 @@ dev.off()
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                 )
                 )
-            } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.simp.prep.net(
@@ -4780,7 +4894,7 @@ dev.off()
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         )
                 )
-            } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.tc.prep.net(
@@ -4793,7 +4907,7 @@ dev.off()
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         )
                 )
-            } else if(input$valfiletype=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.comp.prep.net(

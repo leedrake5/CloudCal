@@ -70,6 +70,35 @@ read_csv_net <- function(filepath) {
     
 }
 
+readSPT <- function(filepath, filename){
+    filename <- gsub(".spt", "", filename)
+    filename.vector <- rep(filename, 4096)
+    
+    meta <- paste0(readLines(filepath, n=16),collapse=" ")
+    meta.split <- strsplit(meta, " ")
+    chan.1 <- as.numeric(meta.split[[1]][32])
+    energy.1 <- as.numeric(sub(",", ".", meta.split[[1]][33], fixed = TRUE))
+    chan.2 <- as.numeric(meta.split[[1]][34])
+    energy.2 <- as.numeric(sub(",", ".", meta.split[[1]][35], fixed = TRUE))
+    
+    channels <- c(chan.1, chan.2)
+    energies <- c(energy.1, energy.2)
+    
+    energy.cal <- lm(energies~ channels)
+    
+    time <- as.numeric(meta.split[[1]][17])/1000
+    
+    raw <- read.table(filepath, skip=16)
+    cps <- raw[,1]/time
+    newdata <- as.data.frame(seq(1, 4096, 1))
+    colnames(newdata) <- "channels"
+    energy <- as.vector(predict.lm(energy.cal, newdata=newdata))
+    energy2 <- newdata[,1]*summary(energy.cal)$coef[2]
+    spectra.frame <- data.frame(energy, cps, filename.vector)
+    colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
+    return(spectra.frame)
+}
+
 file.0 <- function(file) {
     if (length(file) > 0)
     {

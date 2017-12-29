@@ -26,6 +26,9 @@ sidebarPanel(
 
 
 textInput("calname", label = "Calibration Name", value="myCalibration"),
+
+checkboxInput('advanced', "Advanced", value=FALSE),
+uiOutput('gainshiftui'),
              
              tags$hr(),
 
@@ -39,9 +42,9 @@ tags$hr(),
 fileInput('file1', 'Choose Spectra', multiple=TRUE,
 accept=c('text/csv',
 'text/comma-separated-values,text/plain',
-'.csv')),
+'.csv', '.spt')),
 
-radioButtons("filetype", label=NULL, c("Spectra", "Net"), selected="Spectra"),
+radioButtons("filetype", label=NULL, c("Spectra", "Net", "Elio"), selected="Spectra"),
 
 
 tags$hr(),
@@ -351,8 +354,8 @@ tags$hr(),
 fileInput('loadvaldata', 'Choose Spectra', multiple=TRUE,
 accept=c('text/csv',
 'text/comma-separated-values,text/plain',
-'.csv')),
-radioButtons("valfiletype", label=NULL, c("Spectra", "Net"), selected="Spectra"),
+'.csv', '.spt')),
+radioButtons("valfiletype", label=NULL, c("Spectra", "Net", "Elio"), selected="Spectra"),
 
 
 tags$hr(),
