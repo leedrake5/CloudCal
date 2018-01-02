@@ -1121,9 +1121,9 @@ dataType <- reactive({
       
 
 
-      spectra.line.table <- if(input$filetype=="Spectra"){
+      spectra.line.table <- if(dataType()=="Spectra"){
           spectraData()
-      }else if(input$filetype=="Net"){
+      }else if(dataType()=="Net"){
           dataHold()
       }
       
@@ -1176,11 +1176,9 @@ calCurveFrame <- reactive({
     concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
     concentration.table[concentration.table==""] <- 999
     
-    spectra.line.table <- if(input$filetype=="Spectra"){
+    spectra.line.table <- if(dataType()=="Spectra"){
         spectraData()
-    } else if(input$filetype=="Elio"){
-        spectraData()
-    }else if(input$filetype=="Net"){
+    } else if(dataType()=="Net"){
         dataHold()
     }
     
@@ -3070,9 +3068,9 @@ observeEvent(input$exclude_reset, {
      concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
      concentration.table[concentration.table==""] <- 999
      
-     spectra.line.table <- if(input$filetype=="Spectra"){
+     spectra.line.table <- if(dataType()=="Spectra"){
          spectraData()
-     }else if(input$filetype=="Net"){
+     }else if(dataType()=="Net"){
          dataHold()
      }
      
@@ -4418,11 +4416,9 @@ Calibration <- reactiveValues()
 observeEvent(input$createcal, {
     
     
-    spectra.line.table <- if(input$filetype=="Spectra"){
+    spectra.line.table <- if(dataType()=="Spectra"){
         spectraData()
-    } else if(input$filetype=="Elio"){
-        spectraData()
-    } else if(input$filetype=="Net"){
+    } else if(dataType()=="Net"){
         dataHold()
     }
              cal.intensities <- spectra.line.table[elementallinestouse()]
