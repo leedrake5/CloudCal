@@ -148,7 +148,7 @@ shinyServer(function(input, output, session) {
             n <- length(inFile$datapath)
             names <- inFile$name
         
-        myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPT(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+        myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPTData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
 
 
         incProgress(1/n)
@@ -159,6 +159,31 @@ shinyServer(function(input, output, session) {
 
         myfiles.frame
 
+        
+    })
+    
+    
+    readMCA <- reactive({
+        
+        withProgress(message = 'Processing Data', value = 0, {
+            
+            inFile <- input$file1
+            if (is.null(inFile)) return(NULL)
+            
+            n <- length(inFile$datapath)
+            names <- inFile$name
+            
+            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readMCAData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+            
+            
+            incProgress(1/n)
+            Sys.sleep(0.1)
+        })
+        
+        myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
+        
+        myfiles.frame
+        
         
     })
    
@@ -175,6 +200,8 @@ shinyServer(function(input, output, session) {
                 netCounts()
             } else if(input$filetype=="Elio"){
                 readElio()
+            }  else if(input$filetype=="MCA"){
+                readMCA()
             }
             
                 data
@@ -419,6 +446,8 @@ standardElements <- reactive({
         standard
     } else if(input$usecalfile==FALSE && input$filetype=="Elio"){
         standard
+    }  else if(input$usecalfile==FALSE && input$filetype=="MCA"){
+        standard
     } else if(input$usecalfile==FALSE && input$filetype=="Net"){
         colnames(spectra.line.table[2:4])
     } else if(input$usecalfile==TRUE){
@@ -437,6 +466,8 @@ standardLines <- reactive({
     choices <- if(input$filetype=="Spectra"){
         spectralLines
     } else if(input$filetype=="Elio"){
+        spectralLines
+    }  else if(input$filetype=="MCA"){
         spectralLines
     } else if(input$filetype=="Net"){
         colnames(spectra.line.table[2:n])
@@ -558,7 +589,9 @@ elementallinestouse <- reactive({
 
      select.line.table <- if(input$filetype=="Spectra"){
          spectraData()
-     }else if(input$filetype=="Elio"){
+     } else if(input$filetype=="Elio"){
+         spectraData()
+     }  else if(input$filetype=="MCA"){
          spectraData()
      } else if(input$filetype=="Net"){
          netData()
@@ -605,6 +638,8 @@ spectra.line.table <- if(input$filetype=="Spectra"){
     spectraData()
 } else spectra.line.table <- if(input$filetype=="Elio"){
     spectraData()
+}  else spectra.line.table <- if(input$filetype=="MCA"){
+    spectraData()
 } else if(input$filetype=="Net"){
     dataHold()
 }
@@ -635,6 +670,8 @@ hotableInputCal <- reactive({
     spectra.line.table <- if(input$filetype=="Spectra"){
         spectraData()
     } else if(input$filetype=="Elio"){
+        spectraData()
+    }  else if(input$filetype=="MCA"){
         spectraData()
     } else if(input$filetype=="Net"){
         dataHold()
@@ -1099,9 +1136,11 @@ output$temp <- renderTable({
 dataType <- reactive({
     if(input$filetype=="Spectra"){
         "Spectra"
-    }else if(input$filetype=="Elio"){
+    } else if(input$filetype=="Elio"){
         "Spectra"
-    }else if (input$filetype=="Elio"){
+    }  else if(input$filetype=="MCA"){
+        "Spectra"
+    } else if (input$filetype=="Elio"){
         "Net"
     }
     
@@ -4581,7 +4620,30 @@ dev.off()
                 n <- length(inFile$datapath)
                 names <- inFile$name
                 
-                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPT(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPTData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+                
+                
+                incProgress(1/n)
+                Sys.sleep(0.1)
+            })
+            
+            
+            myfiles.frame
+            
+            
+        })
+        
+        readValMCA <- reactive({
+            
+            withProgress(message = 'Processing Data', value = 0, {
+                
+                inFile <- input$loadvaldata
+                if (is.null(inFile)) return(NULL)
+                
+                n <- length(inFile$datapath)
+                names <- inFile$name
+                
+                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readMCAData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
                 
                 
                 incProgress(1/n)
@@ -4603,6 +4665,8 @@ dev.off()
                 netValCounts()
             } else if(input$valfiletype=="Elio") {
                 readValElio()
+            }  else if(input$valfiletype=="MCA") {
+                readValMCA()
             }
             
             data
@@ -4675,6 +4739,8 @@ dev.off()
             } else if(input$valfiletype=="Net"){
                 "Net"
             } else if(input$valfiletype=="Elio") {
+                "Spectra"
+            } else if(input$valfiletype=="MCA") {
                 "Spectra"
             }
             

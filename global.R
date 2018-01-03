@@ -70,7 +70,7 @@ read_csv_net <- function(filepath) {
     
 }
 
-readSPT <- function(filepath, filename){
+readSPTData <- function(filepath, filename){
     filename <- gsub(".spt", "", filename)
     filename.vector <- rep(filename, 4096)
     
@@ -90,6 +90,43 @@ readSPT <- function(filepath, filename){
     
     raw <- read.table(filepath, skip=16)
     cps <- raw[,1]/time
+    newdata <- as.data.frame(seq(1, 4096, 1))
+    colnames(newdata) <- "channels"
+    energy <- as.vector(predict.lm(energy.cal, newdata=newdata))
+    energy2 <- newdata[,1]*summary(energy.cal)$coef[2]
+    spectra.frame <- data.frame(energy, cps, filename.vector)
+    colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
+    return(spectra.frame)
+}
+
+
+readMCAData <- function(filepath, filename){
+    filename <- gsub(".mca", "", filename)
+    filename.vector <- rep(filename, 4096)
+    
+    full <- read.csv(filepath, row.names=NULL)
+    
+    chan.1.a.pre <- as.numeric(unlist(strsplit(gsub("# Calibration1: ", "", full[13,1]), " ")))
+    chan.1.b.pre <- as.numeric(full[13,2])
+    chan.2.a.pre <- as.numeric(unlist(strsplit(gsub("# Calibration2: ", "", full[14,1]), " ")))
+    chan.2.b.pre <- as.numeric(full[14,2])
+
+    
+    chan.1 <- chan.1.a.pre[1]
+    energy.1 <- chan.1.a.pre[2] + chan.1.b.pre/(10^nchar(chan.1.b.pre))
+    chan.2 <- chan.2.a.pre[1]
+    energy.2 <- chan.2.a.pre[2] + chan.2.b.pre/(10^nchar(chan.2.b.pre))
+    
+    channels <- c(chan.1, chan.2)
+    energies <- c(energy.1, energy.2)
+    
+    energy.cal <- lm(energies~channels)
+    
+    time.1 <- as.numeric(gsub("# Live time: ", "", full[10,1], " "))
+    time.2 <- as.numeric(full[10,2])
+    time <- time.1 + time.2/(10^nchar(time.2))
+    
+    cps <- as.numeric(full[17:4112, 1])/time
     newdata <- as.data.frame(seq(1, 4096, 1))
     colnames(newdata) <- "channels"
     energy <- as.vector(predict.lm(energy.cal, newdata=newdata))

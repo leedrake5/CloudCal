@@ -42,9 +42,9 @@ tags$hr(),
 fileInput('file1', 'Choose Spectra', multiple=TRUE,
 accept=c('text/csv',
 'text/comma-separated-values,text/plain',
-'.csv', '.spt')),
+'.csv', '.spt', '.mca')),
 
-radioButtons("filetype", label=NULL, c("Spectra", "Net", "Elio"), selected="Spectra"),
+radioButtons("filetype", label=NULL, c("Spectra", "Net", "Elio", "MCA"), selected="Spectra"),
 
 
 tags$hr(),
@@ -354,8 +354,8 @@ tags$hr(),
 fileInput('loadvaldata', 'Choose Spectra', multiple=TRUE,
 accept=c('text/csv',
 'text/comma-separated-values,text/plain',
-'.csv', '.spt')),
-radioButtons("valfiletype", label=NULL, c("Spectra", "Net", "Elio"), selected="Spectra"),
+'.csv', '.spt', '.mca')),
+radioButtons("valfiletype", label=NULL, c("Spectra", "Net", "Elio", "MCA"), selected="Spectra"),
 
 
 tags$hr(),
