@@ -40,11 +40,11 @@ downloadButton('downloadPlot', "Plot"),
 tags$hr(),
 
 fileInput('file1', 'Choose Spectra', multiple=TRUE,
-accept=c('text/csv',
-'text/comma-separated-values,text/plain',
-'.csv', '.spt', '.mca')),
+accept=c("text/csv",
+"text/comma-separated-values,text/plain",
+".csv", ".spt", ".mca")),
 
-radioButtons("filetype", label=NULL, c("Spectra", "Net", "Elio", "MCA"), selected="Spectra"),
+selectInput("filetype", label="Filetype", c("Spectra", "Net", "Elio", "MCA"), selected="Spectra"),
 
 
 tags$hr(),
@@ -352,10 +352,10 @@ actionButton('processvalspectra', "Quantify"),
 tags$hr(),
 
 fileInput('loadvaldata', 'Choose Spectra', multiple=TRUE,
-accept=c('text/csv',
-'text/comma-separated-values,text/plain',
-'.csv', '.spt', '.mca')),
-radioButtons("valfiletype", label=NULL, c("Spectra", "Net", "Elio", "MCA"), selected="Spectra"),
+accept=c("text/csv",
+"text/comma-separated-values,text/plain",
+".csv", ".spt", ".mca")),
+selectInput("valfiletype", label="Filetype", c("Spectra", "Net", "Elio", "MCA"), selected="Spectra"),
 
 
 tags$hr(),
