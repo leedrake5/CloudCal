@@ -1140,7 +1140,7 @@ dataType <- reactive({
         "Spectra"
     }  else if(input$filetype=="MCA"){
         "Spectra"
-    } else if (input$filetype=="Elio"){
+    } else if (input$filetype=="Net"){
         "Net"
     }
     
