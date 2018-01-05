@@ -1813,7 +1813,7 @@ simple.tc.prep.net <- function(data,spectra.line.table, element.line) {
     
     intensity <- spectra.line.table[,element.line]
     
-    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])
+    total.counts.net <- rowSums(spectra.line.table[,-1])
     total.counts <- data.frame(data$Spectrum, total.counts.net)
     colnames(total.counts) <- c("Spectrum", "CPS")
     
@@ -1910,7 +1910,7 @@ lucas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.elem
     intensity <- spectra.line.table[,element.line]
     
     
-    total.counts.net <- rowSums(spectra.line.table[length(spectra.line.table)])
+    total.counts.net <- rowSums(spectra.line.table[,-1])
     total.counts <- data.frame(data$Spectrum, total.counts.net)
     colnames(total.counts) <- c("Spectrum", "CPS")
     
