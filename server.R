@@ -13,6 +13,7 @@ library(shinyjs)
 library(formattable)
 library(markdown)
 library(rmarkdown)
+library(XML)
 
 
 
@@ -186,6 +187,31 @@ shinyServer(function(input, output, session) {
         
         
     })
+    
+    
+    readSPX <- reactive({
+        
+        withProgress(message = 'Processing Data', value = 0, {
+            
+            inFile <- input$file1
+            if (is.null(inFile)) return(NULL)
+            
+            n <- length(inFile$datapath)
+            names <- inFile$name
+            
+            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPXData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+            
+            
+            incProgress(1/n)
+            Sys.sleep(0.1)
+        })
+        
+        myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
+        
+        myfiles.frame
+        
+        
+    })
    
     
     
@@ -202,6 +228,8 @@ shinyServer(function(input, output, session) {
                 readElio()
             }  else if(input$filetype=="MCA"){
                 readMCA()
+            }  else if(input$filetype=="SPX"){
+                readSPX()
             }
             
                 data
@@ -448,6 +476,8 @@ standardElements <- reactive({
         standard
     }  else if(input$usecalfile==FALSE && input$filetype=="MCA"){
         standard
+    }  else if(input$usecalfile==FALSE && input$filetype=="SPX"){
+        standard
     } else if(input$usecalfile==FALSE && input$filetype=="Net"){
         colnames(spectra.line.table[2:4])
     } else if(input$usecalfile==TRUE){
@@ -468,6 +498,8 @@ standardLines <- reactive({
     } else if(input$filetype=="Elio"){
         spectralLines
     }  else if(input$filetype=="MCA"){
+        spectralLines
+    }  else if(input$filetype=="SPX"){
         spectralLines
     } else if(input$filetype=="Net"){
         colnames(spectra.line.table[2:n])
@@ -593,6 +625,8 @@ elementallinestouse <- reactive({
          spectraData()
      }  else if(input$filetype=="MCA"){
          spectraData()
+     }  else if(input$filetype=="SPX"){
+         spectraData()
      } else if(input$filetype=="Net"){
          netData()
      }
@@ -636,9 +670,11 @@ hotableInputBlank <- reactive({
 
 spectra.line.table <- if(input$filetype=="Spectra"){
     spectraData()
-} else spectra.line.table <- if(input$filetype=="Elio"){
+} else if(input$filetype=="Elio"){
     spectraData()
-}  else spectra.line.table <- if(input$filetype=="MCA"){
+}  else if(input$filetype=="MCA"){
+    spectraData()
+}  else if(input$filetype=="SPX"){
     spectraData()
 } else if(input$filetype=="Net"){
     dataHold()
@@ -672,6 +708,8 @@ hotableInputCal <- reactive({
     } else if(input$filetype=="Elio"){
         spectraData()
     }  else if(input$filetype=="MCA"){
+        spectraData()
+    }  else if(input$filetype=="SPX"){
         spectraData()
     } else if(input$filetype=="Net"){
         dataHold()
@@ -1139,6 +1177,8 @@ dataType <- reactive({
     } else if(input$filetype=="Elio"){
         "Spectra"
     }  else if(input$filetype=="MCA"){
+        "Spectra"
+    }  else if(input$filetype=="SPX"){
         "Spectra"
     } else if (input$filetype=="Net"){
         "Net"
@@ -4462,7 +4502,14 @@ observeEvent(input$createcal, {
     }
              cal.intensities <- spectra.line.table[elementallinestouse()]
              cal.values <- values[["DF"]]
-             cal.data <- dataHold()
+             cal.data <- if(dataType()=="Spectra"){
+                 dataHold()
+             } else if(dataType()=="Net"){
+                 myData()
+             }
+             
+             
+             dataHold()
 
              calibrationList <- NULL
              calibrationList <- list(input$filetype, input$calunits, cal.data, cal.intensities, cal.values, calList)
@@ -4656,6 +4703,29 @@ dev.off()
             
         })
         
+        readValSPX <- reactive({
+            
+            withProgress(message = 'Processing Data', value = 0, {
+                
+                inFile <- input$loadvaldata
+                if (is.null(inFile)) return(NULL)
+                
+                n <- length(inFile$datapath)
+                names <- inFile$name
+                
+                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPXData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+                
+                
+                incProgress(1/n)
+                Sys.sleep(0.1)
+            })
+            
+            
+            myfiles.frame
+            
+            
+        })
+        
         
         myValData <- reactive({
             
@@ -4667,6 +4737,8 @@ dev.off()
                 readValElio()
             }  else if(input$valfiletype=="MCA") {
                 readValMCA()
+            }  else if(input$valfiletype=="SPX") {
+                readValSPX()
             }
             
             data
@@ -4739,6 +4811,8 @@ dev.off()
             } else if(input$valfiletype=="Net"){
                 "Net"
             } else if(input$valfiletype=="Elio") {
+                "Spectra"
+            } else if(input$valfiletype=="SPX") {
                 "Spectra"
             } else if(input$valfiletype=="MCA") {
                 "Spectra"

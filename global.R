@@ -10,6 +10,7 @@ library(pbapply)
 library(reshape2)
 library(dplyr)
 library(DT)
+library(XML)
 
 
 
@@ -135,6 +136,31 @@ readMCAData <- function(filepath, filename){
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
     return(spectra.frame)
 }
+
+
+readSPXData <- function(filepath, filename){
+    
+    filename <- gsub(".spx", "", filename)
+    filename.vector <- rep(filename, 4096)
+    
+    xmlfile <- xmlTreeParse(filepath)
+    xmllist <- xmlToList(xmlfile)
+    channels.pre <- xmllist[["ClassInstance"]][["Channels"]][[1]]
+    counts <- as.numeric(strsplit(channels.pre, ",", )[[1]])
+    newdata <- as.data.frame(seq(1, 4096, 1))
+    intercept <- as.numeric(xmllist[["ClassInstance"]][["ClassInstance"]][["CalibAbs"]])
+    slope <- as.numeric(xmllist[["ClassInstance"]][["ClassInstance"]][["CalibLin"]])
+    time <- as.numeric(xmllist[[2]][["TRTHeaderedClass"]][[3]][["LifeTime"]])/1000
+    
+    cps <- counts/time
+    energy <- newdata[,1]*slope+intercept
+    
+    spectra.frame <- data.frame(energy, cps, filename.vector)
+    colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
+    return(spectra.frame)
+    
+}
+
 
 file.0 <- function(file) {
     if (length(file) > 0)
