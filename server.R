@@ -2971,7 +2971,7 @@ output$hover_infocal <- renderUI({
     
     hover <- input$plot_hovercal
     point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
-    #if (nrow(point) == 0) return(NULL)
+    if (nrow(point) == 0) return(NULL)
     
     
     
@@ -3074,7 +3074,7 @@ output$hover_infoval <- renderUI({
     
     hover <- input$plot_hoverval
     point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
-    #if (nrow(point) == 0) return(NULL)
+    if (nrow(point) == 0) return(NULL)
     
     
     
@@ -4072,7 +4072,7 @@ diagPlotDownload <- reactive({
      
      hover <- input$plot_hoverresidualsfitted
      point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
-     #if (nrow(point) == 0) return(NULL)
+     if (nrow(point) == 0) return(NULL)
      
      
      
@@ -4133,7 +4133,7 @@ diagPlotDownload <- reactive({
      
      hover <- input$plot_hoverqq
      point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
-     #if (nrow(point) == 0) return(NULL)
+     if (nrow(point) == 0) return(NULL)
      
      
      
@@ -4194,7 +4194,7 @@ diagPlotDownload <- reactive({
      
      hover <- input$plot_hoverscalelocation
      point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
-     #if (nrow(point) == 0) return(NULL)
+     if (nrow(point) == 0) return(NULL)
      
      
      
@@ -4255,7 +4255,7 @@ diagPlotDownload <- reactive({
      
      hover <- input$plot_hoverresidualleverage
      point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
-     #if (nrow(point) == 0) return(NULL)
+     if (nrow(point) == 0) return(NULL)
      
      
      
@@ -4316,7 +4316,7 @@ diagPlotDownload <- reactive({
      
      hover <- input$plot_hovercooksleverage
      point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
-     #if (nrow(point) == 0) return(NULL)
+     if (nrow(point) == 0) return(NULL)
      
      
      
