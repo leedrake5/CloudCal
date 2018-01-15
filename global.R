@@ -1195,9 +1195,18 @@ elementGrabKbeta <- function(element, data) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
+    hold.cps <- if(elementLine[8][1,]!=0){
+        subset(data$CPS, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))
+    } else if(elementLine[8][1,]==0){
+        subset(data$CPS, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[7][1,]+0.02))
+    }
     
-    hold.cps <- subset(data$CPS, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))
-    hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))
+    
+    hold.file <- if(elementLine[8][1,]!=0){
+        subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))
+    } else if(elementLine[8][1,]==0){
+            subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[7][1,]+0.02))
+    }
     hold.frame <- data.frame(is.0(hold.cps, hold.file))
     colnames(hold.frame) <- c("Counts", "Spectrum")
     hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")
