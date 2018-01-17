@@ -251,7 +251,7 @@ downloadButton('downloadReport', "Report"),
 
 tags$hr(),
 
-uiOutput('testing'),
+#uiOutput('testing'),
 
 uiOutput('inVar2'),
 
