@@ -806,7 +806,7 @@ output$hot <- renderRHandsontable({
     
     
     if (!is.null(DF))
-    rhandsontable(DF) %>% hot_col(2:length(DF))
+    rhandsontable(DF) %>% hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
     
     
 })
@@ -3608,11 +3608,14 @@ valCurvePlotRandom <- reactive({
         
         val.frame <- data.frame(predict.frame.invert$Concentration, cal.est.conc)
         colnames(val.frame) <- c("Concentration", "Prediction")
+        val.frame <- val.frame[val.frame$Concentration > min(predict.frame$Concentration, na.rm = TRUE) & val.frame$Concentration < max(predict.frame$Concentration, na.rm = TRUE), ]
+
         
         
         val.frame.poly <- data.frame(predict.frame.invert$Concentration, cal.est.poly.conc)
         colnames(val.frame.poly) <- c("Concentration", "Prediction")
-        
+        val.frame.poly <- val.frame.poly[val.frame.poly$Concentration > min(predict.frame$Concentration, na.rm = TRUE) & val.frame.poly$Concentration < max(predict.frame$Concentration, na.rm = TRUE), ]
+
     }
     
     
@@ -3634,12 +3637,14 @@ valCurvePlotRandom <- reactive({
         
         val.frame.comp <- data.frame(predict.frame.invert$Concentration, cal.est.conc.comp)
         colnames(val.frame.comp) <- c("Concentration", "Prediction")
-        
+        val.frame.comp <- val.frame.comp[val.frame.comp$Concentration > min(predict.frame.comp$Concentration, na.rm = TRUE) & val.frame.comp$Concentration < max(predict.frame.comp$Concentration, na.rm = TRUE), ]
+
         
         
         val.frame.poly.comp <- data.frame(predict.frame.invert$Concentration, cal.est.poly.conc.comp)
         colnames(val.frame.poly.comp) <- c("Concentration", "Prediction")
-        
+        val.frame.poly.comp <- val.frame.poly.comp[val.frame.poly.comp$Concentration > min(predict.frame.comp$Concentration, na.rm = TRUE) & val.frame.poly.comp$Concentration < max(predict.frame.comp$Concentration, na.rm = TRUE), ]
+
     }
     
     
@@ -3659,12 +3664,14 @@ valCurvePlotRandom <- reactive({
         
         val.frame.tc <- data.frame(predict.frame.invert$Concentration, cal.est.conc.tc)
         colnames(val.frame.tc) <- c("Concentration", "Prediction")
-        
+        val.frame.tc <- val.frame.tc[val.frame.tc$Concentration > min(predict.frame.tc$Concentration, na.rm = TRUE) & val.frame.tc$Concentration < max(predict.frame.tc$Concentration, na.rm = TRUE), ]
+
         
         
         val.frame.poly.tc <- data.frame(predict.frame.invert$Concentration, cal.est.poly.conc.tc)
         colnames(val.frame.poly.tc) <- c("Concentration", "Prediction")
-        
+        val.frame.poly.tc <- val.frame.poly.tc[val.frame.poly.tc$Concentration > min(predict.frame.tc$Concentration, na.rm = TRUE) & val.frame.poly.tc$Concentration < max(predict.frame.tc$Concentration, na.rm = TRUE), ]
+
         
     }
     
@@ -3727,6 +3734,8 @@ valCurvePlotRandom <- reactive({
             
             val.frame.luc <- data.frame(predict.frame.invert$Concentration, predict.intensity.luc$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
             colnames(val.frame.luc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc <- val.frame.luc[val.frame.luc$Concentration > min(predict.frame.luc$Concentration, na.rm = TRUE) & val.frame.luc$Concentration < max(predict.frame.luc$Concentration, na.rm = TRUE), ]
+
         }
         
         
@@ -3778,7 +3787,8 @@ valCurvePlotRandom <- reactive({
             
             val.frame.luc.comp <- data.frame(predict.frame.invert$Concentration, predict.intensity.luc.comp$Intensity, lucas.x.comp, cal.est.conc.luc.comp, cal.est.conc.luc.up.comp, cal.est.conc.luc.low.comp)
             colnames(val.frame.luc.comp) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
-            
+            val.frame.luc.comp <- val.frame.luc.comp[val.frame.luc.comp$Concentration > min(predict.frame.luc.comp$Concentration, na.rm = TRUE) & val.frame.luc.comp$Concentration < max(predict.frame.luc.comp$Concentration, na.rm = TRUE), ]
+
         }
         
         
@@ -3826,6 +3836,8 @@ valCurvePlotRandom <- reactive({
             
             val.frame.luc.tc <- data.frame(predict.frame.invert$Concentration, predict.intensity.luc.tc$Intensity, lucas.x.tc, cal.est.conc.luc.tc, cal.est.conc.luc.up.tc, cal.est.conc.luc.low.tc)
             colnames(val.frame.luc.tc) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            val.frame.luc.tc <- val.frame.luc.tc[val.frame.luc.tc$Concentration > min(predict.frame.luc.tc$Concentration, na.rm = TRUE) & val.frame.luc.tc$Concentration < max(predict.frame.luc.tc$Concentration, na.rm = TRUE), ]
+
             
         }
         
@@ -4232,6 +4244,8 @@ output$hover_infoval_random <- renderUI({
     
     concentration.table <- concentration.table[ vals$keeprows, , drop = FALSE]
     concentration.table <- concentration.table[!(randomized),]
+    concentration.table.rev <- concentration.table[(randomized),]
+
     hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
     colnames(hold.table) <- c("Spectrum", "Selection")
     hold.table$Selection[hold.table$Selection==""] <- 999
@@ -4239,6 +4253,10 @@ output$hover_infoval_random <- renderUI({
     hold.table <- hold.table[complete.cases(hold.table), ]
     
     point.table$Spectrum <- hold.table["Spectrum"]
+    
+    
+    point.table <- point.table[point.table$Concentration > min(concentration.table.rev[,input$calcurveelement], na.rm = TRUE) & point.table$Concentration < max(concentration.table.rev[,input$calcurveelement], na.rm = TRUE), ]
+
     
     
     hover <- input$plot_hoverval_random
