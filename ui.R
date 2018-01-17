@@ -251,7 +251,7 @@ downloadButton('downloadReport', "Report"),
 
 tags$hr(),
 
-
+uiOutput('testing'),
 
 uiOutput('inVar2'),
 
@@ -290,6 +290,25 @@ tabPanel("Cal Curves",
 ),
 actionButton("exclude_toggle", "Toggle points"),
 actionButton("exclude_reset", "Reset")
+),
+
+tabPanel("Robustness Tests",
+    splitLayout(cellWidths = c("50%", "50%"),
+        div(
+        style = "position:relative",
+        plotOutput("calcurveplotsrandom", height = 455, click = "plot_cal_click_random",
+            brush = brushOpts(id = "plot_cal_brush_random"),
+            hover = hoverOpts("plot_hovercal_random", delay = 100, delayType = "debounce")),
+            uiOutput("hover_infocal_random")),
+        div(
+        style = "position:relative",
+        plotOutput("valcurveplotsrandom", height = 455, click = "plot_val_click_random",
+            brush = brushOpts(id = "plot_val_brush_random"),
+            hover = hoverOpts("plot_hoverval_random", delay = 100, delayType = "debounce")),
+            uiOutput("hover_infoval_random"))
+),
+sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.20)
+
 ),
 
 tabPanel("Diagnostics",
