@@ -292,7 +292,7 @@ actionButton("exclude_toggle", "Toggle points"),
 actionButton("exclude_reset", "Reset")
 ),
 
-tabPanel("Robustness Tests",
+tabPanel("Cross Validation",
     splitLayout(cellWidths = c("50%", "50%"),
         div(
         style = "position:relative",
