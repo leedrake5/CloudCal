@@ -1083,7 +1083,7 @@ normMaxSelection <- reactive({
 
 output$calTypeInput <- renderUI({
     
-    radioButtons("radiocal", label = "Calibration Curve",
+    selectInput("radiocal", label = "Calibration Curve",
     choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3),
     selected = calTypeSelection())
     
@@ -1093,7 +1093,7 @@ output$calTypeInput <- renderUI({
 
 output$normTypeInput <- renderUI({
     
-    radioButtons("normcal", label = "Normalization",
+    selectInput("normcal", label = "Normalization",
     choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3),
     selected = calNormSelection())
     
@@ -1404,20 +1404,20 @@ dataType <- reactive({
   
   elementModel <- reactive({
       
-      predict.frame <- predictFrame()
+      predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
       
       
       if (input$radiocal==1){
-          cal.lm <- lm(Concentration~Intensity, data=predict.frame[ vals$keeprows, , drop = FALSE])
+          cal.lm <- lm(Concentration~Intensity, data=predict.frame)
       }
       
       
       if (input$radiocal==2){
-          cal.lm <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame[ vals$keeprows, , drop = FALSE])
+          cal.lm <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame)
       }
       
       if (input$radiocal==3){
-          cal.lm <- lm(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE])
+          cal.lm <- lm(Concentration~., data=predict.frame)
       }
       
       cal.lm
