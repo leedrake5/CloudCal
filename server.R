@@ -260,7 +260,8 @@ dataHold <- reactive({
         myData()
     }
     
-    
+    data <- data[order(as.character(data$Spectrum)),]
+
     data
     
 })
@@ -589,6 +590,9 @@ elementallinestouse <- reactive({
      
      spectra.line.frame <- as.data.frame(spectra.line.frame)
      
+     spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]
+
+     
      spectra.line.frame
      
  })
@@ -603,6 +607,8 @@ elementallinestouse <- reactive({
      net.data.partial <- net.data[,elements]
      net.data <- data.frame(net.data$Spectrum ,net.data.partial)
      colnames(net.data) <- c("Spectrum", elements)
+     net.data <- net.data[order(as.character(net.data$Spectrum)),]
+
      net.data
      
  })
@@ -821,6 +827,8 @@ eventReactive(input$linecommit,{
 output$hot <- renderRHandsontable({
     
     DF <- values[["DF"]]
+    
+    DF <- DF[order(as.character(DF$Spectrum)),]
     
     
     
@@ -1178,7 +1186,7 @@ elementHold <- reactive({
 vals$keeprows <- if(input$usecalfile==TRUE){
     calFileStandards()
 }else{
-    dropStandard()
+    rep(TRUE, dataCount())
 }
 
 
@@ -1220,11 +1228,16 @@ dataType <- reactive({
   
   spectraLineTable <- reactive({
       
-      if(dataType()=="Spectra"){
+      spectra.line.table <- if(dataType()=="Spectra"){
           spectraData()[values[["DF"]]$Include,]
       }else if(dataType()=="Net"){
           dataHold()[values[["DF"]]$Include,]
       }
+      
+      
+      spectra.line.table <- spectra.line.table[order(as.character(spectra.line.table$Spectrum)),]
+      spectra.line.table
+
       
       
   })
@@ -1245,6 +1258,9 @@ dataType <- reactive({
       hold.frame <- data.frame(spectra.names, concentration, intensity)
       colnames(hold.frame) <- c("Spectrum", "Concentration", "Intensity")
       hold.frame <- na.omit(hold.frame)
+      
+      hold.frame <- hold.frame[order(as.character(hold.frame$Spectrum)),]
+
       
       hold.frame
       
