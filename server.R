@@ -741,7 +741,11 @@ hotableInputCal <- reactive({
     #data.frame(calFileContents()$Values, hold.frame[,! names(hold.frame) %in% names(calFileContents()$Values)])
     
     hold.frame.reduced <- hold.frame[2:length(hold.frame)]
-    value.frame.reduced <- value.frame[2:length(value.frame)]
+    value.frame.reduced <- if(colnames(calFileContents()$Values)[1]=="Spectrum"){
+        value.frame[2:length(value.frame)]
+    }else if(colnames(calFileContents()$Values)[1]=="Include"){
+        value.frame[3:length(value.frame)]
+    }
     
     rownames(hold.frame.reduced) <- hold.frame$Spectrum
     rownames(value.frame.reduced) <- value.frame$Spectrum
@@ -769,7 +773,22 @@ hotableInput <- reactive({
     }
     
     
+
+hotable.new <- if(input$usecalfile==FALSE){
+    data.frame(Include=rep(TRUE, length(hotable.data$Spectrum)), hotable.data)
+}else if(input$usecalfile==TRUE && colnames(calFileContents()$Values)[1]=="Spectrum"){
+    data.frame(Include=rep(TRUE, length(hotable.data$Spectrum)), hotable.data)
+}else if(input$usecalfile==TRUE && colnames(calFileContents()$Values)[1]=="Include"){
+    data.frame(Include=calFileContents()$Values[,1], hotable.data)
+}
+    
+    
+    hotable.new
+
 })
+
+
+
 
 
 values <- reactiveValues()
@@ -1156,13 +1175,16 @@ elementHold <- reactive({
   vals <- reactiveValues()
   
 
-vals$keeprows <- if(is.null(calFileStandards())==FALSE){
+vals$keeprows <- if(input$usecalfile==TRUE){
     calFileStandards()
 }else{
-    rep(TRUE, dataCount())
+    dropStandard()
 }
+
+
   
-vals$keeprows <- rep(TRUE, dataCount())
+  #if(input$hotableprocess2){vals$keeprows <- vals$keeprows[dropStandard()]}
+
 
 output$temp <- renderTable({
     
@@ -1191,17 +1213,17 @@ dataType <- reactive({
   concentrationTable <- reactive({
       
       concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
-      concentration.table[concentration.table==""] <- 999
-      concentration.table
+      concentration.table[concentration.table==""] <- NA
+      concentration.table[values[["DF"]]$Include,]
       
   })
   
   spectraLineTable <- reactive({
       
       if(dataType()=="Spectra"){
-          spectraData()
+          spectraData()[values[["DF"]]$Include,]
       }else if(dataType()=="Net"){
-          dataHold()
+          dataHold()[values[["DF"]]$Include,]
       }
       
       
@@ -1222,7 +1244,6 @@ dataType <- reactive({
       
       hold.frame <- data.frame(spectra.names, concentration, intensity)
       colnames(hold.frame) <- c("Spectrum", "Concentration", "Intensity")
-      hold.frame[hold.frame==999] <- NA
       hold.frame <- na.omit(hold.frame)
       
       hold.frame
@@ -1241,15 +1262,9 @@ dataType <- reactive({
   
   predictFramePre <- reactive({
       
-      spectra.line.table <- spectraLineTable()
       
       concentration <- holdFrame()$Concentration
       intensity <- holdFrame()$Intensity
-      
-      
-      spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
-      
-      
       
       predict.frame <- data.frame(concentration, intensity)
       colnames(predict.frame) <- c("Concentration", "Intensity")
@@ -1264,9 +1279,12 @@ dataType <- reactive({
   
   predictIntensity <- reactive({
       
-      predict.frame <- predictFramePre()
       spectra.line.table <- spectraLineTable()
       data <- dataNorm()
+      
+      
+      spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
+
       
       if (input$radiocal!=3){
           
@@ -1335,46 +1353,12 @@ dataType <- reactive({
   predictFrame <- reactive({
       
       predict.frame <- predictFramePre()
-      spectra.line.table <- spectraLineTable()
-      data <- dataNorm()
       predict.intensity <- predictIntensity()
       
-      if (input$radiocal!=3){
-          
-          if(input$normcal==1){
-              predict.frame
-          }
-          
-          if(input$normcal==2){
-              predict.frame <- data.frame(predict.intensity, predict.frame$Concentration)
-              colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
-          }
-          
-          if(input$normcal==3){
-              predict.frame <- data.frame(predict.intensity, predict.frame$Concentration)
-              colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
-          }
-          
-      }
+
       
-      
-      if (input$radiocal==3){
-          
-          if(input$normcal==1){
-              predict.frame <- data.frame(predict.intensity, predict.frame$Concentration)
-              colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
-          }
-          
-          if(input$normcal==2){
-              predict.frame <- data.frame(predict.intensity, predict.frame$Concentration)
-              colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
-          }
-          
-          if(input$normcal==3){
-              predict.frame <- data.frame(predict.intensity, predict.frame$Concentration)
-              colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
-          }
-      }
+      predict.frame <- data.frame(predict.intensity, predict.frame$Concentration)
+      colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
       
       
       
@@ -1386,14 +1370,16 @@ dataType <- reactive({
   
   predictFrameName <- reactive({
       
-      predict.frame <- predictFrame()
-      spectra.line.table <- spectraLineTable()
+      predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
+      spectra.line.table <- spectraLineTable()[ vals$keeprows, , drop = FALSE]
       
       predict.frame.name <- data.frame(spectra.line.table$Spectrum, predict.frame)
       colnames(predict.frame.name) <- c("Spectrum", names(predict.frame))
       predict.frame.name
 
   })
+  
+  
   
   calCurveFrame <- reactive({
       
@@ -1404,20 +1390,20 @@ dataType <- reactive({
   
   elementModel <- reactive({
       
-      predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
+      predict.frame <- predictFrame()
       
       
       if (input$radiocal==1){
-          cal.lm <- lm(Concentration~Intensity, data=predict.frame)
+          cal.lm <- lm(Concentration~Intensity, data=predict.frame[ vals$keeprows, , drop = FALSE])
       }
       
       
       if (input$radiocal==2){
-          cal.lm <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame)
+          cal.lm <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame[ vals$keeprows, , drop = FALSE])
       }
       
       if (input$radiocal==3){
-          cal.lm <- lm(Concentration~., data=predict.frame)
+          cal.lm <- lm(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE])
       }
       
       cal.lm
@@ -1629,7 +1615,7 @@ dataType <- reactive({
   
   randomizeData <- reactive({
       
-      cal.frame <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+      cal.frame <- concentrationTable()
       cal.frame <- cal.frame[ vals$keeprows, , drop = FALSE]
       total.number <- length(cal.frame[,1])
       sample.number <- total.number-round(input$percentrandom*total.number, 0)
@@ -1676,8 +1662,11 @@ dataType <- reactive({
   
   valFrameRandomized <- reactive({
       
-      predict.intensity <- predictIntensity()[!(randomizeData()), ]
-      predict.frame <- predictFrame()[!(randomizeData()), ]
+      predict.intensity <- predictIntensity()[ vals$keeprows, , drop = FALSE]
+      predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
+      
+      predict.intensity <- predict.intensity[!(randomizeData()), , drop = FALSE]
+      predict.frame <- predict.frame[!(randomizeData()), , drop = FALSE]
       element.model <- elementModelRandom()
       
       
@@ -1791,7 +1780,6 @@ dataType <- reactive({
       concentration.name <- c(element.name, conen)
       prediction.name <- c(element.name, predi)
       
-      val.frame <- valFrameRandomizedRev()
       
       if(input$radiocal==1){
           calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration)) +
@@ -1817,6 +1805,8 @@ dataType <- reactive({
       }
       
       if(input$radiocal==3){
+          val.frame <- valFrameRandomizedRev()
+
           calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration)) +
           theme_light() +
           annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
@@ -1857,7 +1847,7 @@ dataType <- reactive({
       prediction.name <- c(element.name, predi)
       
       val.frame <- valFrameRandomized()
-      
+
       valcurve.plot <- ggplot(data=val.frame, aes(Prediction, Concentration)) +
       theme_bw() +
       annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
@@ -1888,11 +1878,10 @@ dataType <- reactive({
           calValFrame()
       }
       
-      concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+      concentration.table <- concentrationTable()
       hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
       colnames(hold.table) <- c("Spectrum", "Selection")
-      hold.table$Selection[hold.table$Selection==""] <- 999
-      hold.table$Selection[hold.table$Selection==999] <- NA
+      hold.table$Selection[hold.table$Selection==""] <- NA
       hold.table <- hold.table[complete.cases(hold.table), ]
       
       point.table$Spectrum <- hold.table["Spectrum"]
@@ -1936,7 +1925,7 @@ dataType <- reactive({
       point.table <- if(input$radiocal!=3){
           calCurveFrame()
       } else if(input$radiocal==3) {
-          calValFrame()
+          valFrame()
       }
       
       randomized <- randomizeData()
@@ -1944,17 +1933,16 @@ dataType <- reactive({
       
       point.table <- point.table[ vals$keeprows, , drop = FALSE]
       point.table <- point.table[randomized,]
+
       
-      concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+      concentration.table <- concentrationTable()
       
       concentration.table <- concentration.table[ vals$keeprows, , drop = FALSE]
       concentration.table <- concentration.table[randomized,]
       
       hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
       colnames(hold.table) <- c("Spectrum", "Selection")
-      hold.table$Selection[hold.table$Selection==""] <- 999
-      hold.table$Selection[hold.table$Selection==999] <- NA
-      hold.table <- hold.table[complete.cases(hold.table), ]
+
       
       point.table$Spectrum <- hold.table["Spectrum"]
       
@@ -2054,11 +2042,10 @@ dataType <- reactive({
   output$hover_infoval <- renderUI({
       
       point.table <- calValFrame()
-      concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+      concentration.table <- concentrationTable()
       hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
       colnames(hold.table) <- c("Spectrum", "Selection")
-      hold.table$Selection[hold.table$Selection==""] <- 999
-      hold.table$Selection[hold.table$Selection==999] <- NA
+      hold.table$Selection[hold.table$Selection==""] <- NA
       hold.table <- hold.table[complete.cases(hold.table), ]
       
       point.table$Spectrum <- hold.table["Spectrum"]
@@ -2107,7 +2094,7 @@ dataType <- reactive({
       point.table <- point.table[ vals$keeprows, , drop = FALSE]
       point.table <- point.table[!(randomized),]
       
-      concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+      concentration.table <- concentrationTable()
       
       concentration.table <- concentration.table[ vals$keeprows, , drop = FALSE]
       concentration.table <- concentration.table[!(randomized),]
@@ -2115,9 +2102,7 @@ dataType <- reactive({
       
       hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
       colnames(hold.table) <- c("Spectrum", "Selection")
-      hold.table$Selection[hold.table$Selection==""] <- 999
-      hold.table$Selection[hold.table$Selection==999] <- NA
-      hold.table <- hold.table[complete.cases(hold.table), ]
+
       
       point.table$Spectrum <- hold.table["Spectrum"]
       
@@ -2189,8 +2174,7 @@ dataType <- reactive({
   
   modelFrame <- reactive({
       
-      table <- predictFrameName()[ vals$keeprows, , drop = FALSE]
-      
+
       
       model <- elementModel()
       
@@ -2202,7 +2186,7 @@ dataType <- reactive({
       
       model.frame$seq.cooksd <- seq_along(model.frame$.cooksd)
       
-      model.frame$Spectrum <- table$Spectrum
+      #model.frame$Spectrum <- predictFrameName()$Spectrum
       
       
       
@@ -2354,7 +2338,7 @@ dataType <- reactive({
       geom_abline(slope=seq(0,3,0.5), color="gray", linetype="dashed") +
       theme_light() +
       geom_point(na.rm=TRUE) +
-      geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.hat, .cooksd), shape = 21, fill = "red", color = "black", alpha = 0.25)
+      geom_point(data=model[ vals$keeprows, , drop = FALSE], aes(.hat, .cooksd), shape = 21, fill = "red", color = "black", alpha = 0.25)
       
       p6
       
