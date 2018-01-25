@@ -15,6 +15,7 @@ library(markdown)
 library(rmarkdown)
 library(XML)
 library(corrplot)
+library(scales)
 
 
 options(shiny.maxRequestSize=9000000*1024^2)
@@ -1497,6 +1498,9 @@ dataType <- reactive({
       
   })
   
+  rangescalcurve <- reactiveValues(x = NULL, y = NULL)
+
+  
   
   calCurvePlot <- reactive({
       
@@ -1512,6 +1516,8 @@ dataType <- reactive({
       norma.tc <- " Valid Counts Normalized"
       conen <- " (%)"
       predi <- " Estimate (%)"
+      log <- "Log "
+
       
       intensity.name <- c(element.name, intens)
       concentration.name <- c(element.name, conen)
@@ -1526,11 +1532,12 @@ dataType <- reactive({
           geom_point(data = predict.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
           stat_smooth(method="lm", fullrange = TRUE) +
           scale_x_continuous(paste(element.name, intens)) +
-          scale_y_continuous(paste(element.name, conen))
+          scale_y_continuous(paste(element.name, conen)) +
+          coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = FALSE)
+
       }
       
       if(input$radiocal==2){
-          
           calcurve.plot <- ggplot(data=predict.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
           theme_light() +
           annotate("text", label=lm_eqn_poly(lm(Concentration~Intensity + I(Intensity^2), predict.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
@@ -1538,7 +1545,9 @@ dataType <- reactive({
           geom_point(data = predict.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
           stat_smooth(method="lm", formula=y~poly(x,2)) +
           scale_x_continuous(paste(element.name, intens)) +
-          scale_y_continuous(paste(element.name, conen))
+          scale_y_continuous(paste(element.name, conen)) +
+          coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = FALSE)
+
       }
       
       if(input$radiocal==3){
@@ -1549,18 +1558,37 @@ dataType <- reactive({
           geom_point(aes(IntensityNorm, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
           geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
           scale_x_continuous(paste(element.name, norma)) +
-          scale_y_continuous(paste(element.name, conen))
+          scale_y_continuous(paste(element.name, conen)) +
+          coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = FALSE)
+
       }
+      
+      
       
       calcurve.plot
       
       
   })
   
+  observeEvent(input$plot_cal_dblclick, {
+      brush <- input$plot_cal_brush
+      if (!is.null(brush)) {
+          rangescalcurve$x <- c(brush$xmin, brush$xmax)
+          rangescalcurve$y <- c(brush$ymin, brush$ymax)
+          
+      } else {
+          rangescalcurve$x <- NULL
+          rangescalcurve$y <- NULL
+      }
+  })
+  
   output$calcurveplots <- renderPlot({
       calCurvePlot()
   })
   
+  
+  rangesvalcurve <- reactiveValues(x = NULL, y = NULL)
+
   
   valCurvePlot <- reactive({
       
@@ -1577,24 +1605,43 @@ dataType <- reactive({
       norma.tc <- " Valid Counts Normalized"
       conen <- " (%)"
       predi <- " Estimate (%)"
+      log <- "Log "
       
       intensity.name <- c(element.name, intens)
       concentration.name <- c(element.name, conen)
       prediction.name <- c(element.name, predi)
       val.frame <- valFrame()
       
-      valcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
-      theme_bw() +
-      annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-      geom_abline(intercept=0, slope=1, lty=2) +
-      stat_smooth(method="lm") +
-      geom_point() +
-      geom_point(aes(Prediction, Concentration),  data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-      scale_x_continuous(paste(element.name, predi)) +
-      scale_y_continuous(paste(element.name, conen))
+      
+          valcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+          theme_bw() +
+          annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+          geom_abline(intercept=0, slope=1, lty=2) +
+          stat_smooth(method="lm") +
+          geom_point() +
+          geom_point(aes(Prediction, Concentration),  data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+          scale_x_continuous(paste(element.name, predi)) +
+          scale_y_continuous(paste(element.name, conen)) +
+          coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = FALSE)
+
+      
+      
+
       
       valcurve.plot
       
+  })
+  
+  observeEvent(input$plot_val_dblclick, {
+      brush <- input$plot_val_brush
+      if (!is.null(brush)) {
+          rangesvalcurve$x <- c(brush$xmin, brush$xmax)
+          rangesvalcurve$y <- c(brush$ymin, brush$ymax)
+          
+      } else {
+          rangesvalcurve$x <- NULL
+          rangesvalcurve$y <- NULL
+      }
   })
   
   
@@ -1794,6 +1841,9 @@ dataType <- reactive({
       
   })
   
+  rangescalcurverandom <- reactiveValues(x = NULL, y = NULL)
+
+  
   calCurvePlotRandom <- reactive({
       
       predict.frame <- calCurveFrameRandomized()
@@ -1821,7 +1871,9 @@ dataType <- reactive({
           geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
           stat_smooth(method="lm", fullrange = TRUE) +
           scale_x_continuous(paste(element.name, intens)) +
-          scale_y_continuous(paste(element.name, conen))
+          scale_y_continuous(paste(element.name, conen)) +
+          coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = FALSE)
+
       }
       
       if(input$radiocal==2){
@@ -1833,7 +1885,8 @@ dataType <- reactive({
           geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
           stat_smooth(method="lm", formula=y~poly(x,2)) +
           scale_x_continuous(paste(element.name, intens)) +
-          scale_y_continuous(paste(element.name, conen))
+          scale_y_continuous(paste(element.name, conen)) +
+          coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = FALSE)
       }
       
       if(input$radiocal==3){
@@ -1846,12 +1899,25 @@ dataType <- reactive({
           geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
           geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
           scale_x_continuous(paste(element.name, norma)) +
-          scale_y_continuous(paste(element.name, conen))
+          scale_y_continuous(paste(element.name, conen)) +
+          coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = FALSE)
       }
       
       calcurve.plot
       
       
+  })
+  
+  observeEvent(input$plot_cal_dblclick_random, {
+      brush <- input$plot_cal_brush_random
+      if (!is.null(brush)) {
+          rangescalcurverandom$x <- c(brush$xmin, brush$xmax)
+          rangescalcurverandom$y <- c(brush$ymin, brush$ymax)
+          
+      } else {
+          rangescalcurverandom$x <- NULL
+          rangescalcurverandom$y <- NULL
+      }
   })
   
   
@@ -1861,7 +1927,8 @@ dataType <- reactive({
   })
   
   
-  
+  rangesvalcurverandom <- reactiveValues(x = NULL, y = NULL)
+
   valCurvePlotRandom <- reactive({
       
       
@@ -1888,10 +1955,23 @@ dataType <- reactive({
       geom_point() +
       geom_point(aes(Prediction, Concentration),  data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
       scale_x_continuous(paste(element.name, predi)) +
-      scale_y_continuous(paste(element.name, conen))
+      scale_y_continuous(paste(element.name, conen)) +
+      coord_cartesian(xlim = rangesvalcurverandom$x, ylim = rangesvalcurverandom$y, expand = FALSE)
       
       valcurve.plot
       
+  })
+  
+  observeEvent(input$plot_val_dblclick_random, {
+      brush <- input$plot_val_brush_random
+      if (!is.null(brush)) {
+          rangesvalcurverandom$x <- c(brush$xmin, brush$xmax)
+          rangesvalcurverandom$y <- c(brush$ymin, brush$ymax)
+          
+      } else {
+          rangesvalcurverandom$x <- NULL
+          rangesvalcurverandom$y <- NULL
+      }
   })
   
   output$valcurveplotsrandom <- renderPlot({
