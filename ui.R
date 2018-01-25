@@ -197,7 +197,10 @@ uiOutput('checkboxElements')
 mainPanel(
 tabsetPanel(
 id = 'dataset',
-tabPanel('Spectral Lines', dataTableOutput('mytable1')))
+tabPanel('Spectral Lines', dataTableOutput('mytable1')),
+tabPanel('Covariance', plotOutput('covarianceplot'))
+
+)
 
 )
 )
@@ -227,7 +230,9 @@ textInput("calunits", label = "Units", value="Weight %")
 mainPanel(
 tabsetPanel(
 id = 'dataset',
-tabPanel('Enter Concentrations', rHandsontableOutput('hot'))
+tabPanel('Enter Concentrations', rHandsontableOutput('hot')),
+tabPanel('Covariance', plotOutput('covarianceplotvalues'))
+
 ))
 ))
 )),

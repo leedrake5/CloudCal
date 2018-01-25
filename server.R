@@ -14,7 +14,7 @@ library(formattable)
 library(markdown)
 library(rmarkdown)
 library(XML)
-
+library(corrplot)
 
 
 options(shiny.maxRequestSize=9000000*1024^2)
@@ -651,6 +651,14 @@ elementallinestouse <- reactive({
 
   })
   
+  output$covarianceplot <- renderPlot({
+      
+      data.table <- tableInput()
+      correlations <- cor(data.table[,-1])
+      corrplot(correlations, method="circle")
+      
+  })
+  
 
   
   
@@ -845,6 +853,14 @@ observeEvent(input$resethotable, {
    
    values[["DF"]] <- hotableInput()
 
+    
+})
+
+output$covarianceplotvalues <- renderPlot({
+    
+    data.table <- values[["DF"]]
+    correlations <- cor(data.table[,3:length(data.table)], use="pairwise.complete.obs")
+    corrplot(correlations, method="circle")
     
 })
 
