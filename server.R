@@ -905,7 +905,7 @@ outVaralt <- reactive({
     input$hotableprocess2
     
     
-    myelements <- c(elementallinestouse(), "None")
+    myelements <- c(elementallinestouse())
 
     
     if(is.null(myelements)){
@@ -920,13 +920,13 @@ outVaralt2 <- reactive({
     input$hotableprocess2
     
     
-    myelements <- c(elementallinestouse(), "None")
+    myelements <- c(elementallinestouse())
     
     
     if(is.null(myelements)){
         paste("Ca.K.alpha")
     }else{
-        myelements[! myelements %in% c(input$calcurveelement, "None")]
+        myelements[! myelements %in% c(input$calcurveelement)]
     }
     
 })
@@ -955,7 +955,7 @@ inVar3Selected <- reactive({
         calList[[optionhold]][[1]]$Intercept
     } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
         optionhold
-    }
+    } 
     
     
 })
@@ -1182,8 +1182,12 @@ elementHold <- reactive({
       } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
           rep(TRUE, dataCount())
       } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
-          calList[[input$calcurveelement]][[1]][[4]]
+          calList[[elementHold()]][[1]][[4]]
+      } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==FALSE){
+          calList[[elementHold()]][[1]][[4]]
       } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
+          calList[[elementHold()]][[1]][[4]]
+      } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==FALSE){
           calList[[elementHold()]][[1]][[4]]
       } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
           rep(TRUE, dataCount())
