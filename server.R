@@ -1798,8 +1798,11 @@ dataType <- reactive({
   
   valFrameRandomizedRev <- reactive({
       
-      predict.intensity <- predictIntensity()[(randomizeData()), ]
-      predict.frame <- predictFrame()[(randomizeData()), ]
+      predict.intensity <- predictIntensity()[ vals$keeprows, , drop = FALSE]
+      predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
+      
+      predict.intensity <- predict.intensity[(randomizeData()), ]
+      predict.frame <- predict.frame[(randomizeData()), ]
       element.model <- elementModelRandom()
       
       
