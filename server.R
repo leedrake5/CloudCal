@@ -2979,7 +2979,1737 @@ dev.off()
 
 
 
-    })  
+    })
+    
+    
+    ####Multiplots Here
+    
+    
+    observeEvent(input$actionprocess_multi, {
+
+        
+        quantLoad <- reactive({
+            
+            inFile <- input$calfileinput_multi
+            if (is.null(inFile)) return(NULL)
+            
+            cal.list <- lapply(inFile$datapath, readRDS)
+            names(cal.list) <- gsub(".quant", "", inFile$name)
+
+            
+            cal.list
+            
+        })
+        
+        
+        nQuant <- reactive({
+            
+            inFile <- input$calfileinput_multi
+            if (is.null(inFile)) return(NULL)
+            
+            length(inFile$name)
+            
+        })
+        
+        quantNames <- reactive({
+            
+            inFile <- input$calfileinput_multi
+            if (is.null(inFile)) return(NULL)
+            
+            gsub(".quant", "", inFile$name)
+
+            
+            
+        })
+        
+        
+        output$defaultcalui <- renderUI({
+            
+            inFile <- input$calfileinput_multi
+            if (is.null(inFile)) return(NULL)
+            
+            names <- gsub(".quant", "", inFile$name)
+            
+            selectInput('defaultcal', "Default Cal", choices=names, selected=names[1], multiple=FALSE)
+            
+        })
+        
+        
+        quantType <- reactive({
+            
+            filetype.vector <- sapply(quantLoad(), "[[", "FileType")
+            unique(filetype.vector)
+            
+        })
+        
+        
+        
+        dataTypeMulti <- reactive({
+            if(quantType()=="Spectra"){
+                "Spectra"
+            } else if(quantType()=="Elio"){
+                "Spectra"
+            }  else if(quantType()=="MCA"){
+                "Spectra"
+            }  else if(quantType()=="SPX"){
+                "Spectra"
+            } else if (quantType()=="Net"){
+                "Net"
+            }
+            
+        })
+        
+        
+        
+        
+        quantIntensities <- reactive({
+            
+            cal.list <- quantLoad()
+            
+            cal.names <- names(cal.list)
+            
+            n <- length(cal.names)
+            
+            intensities.list <- lapply(cal.list, "[[", "Intensities")
+            names(intensities.list) <- cal.names
+            
+            intensities.list <- lapply(intensities.list, as.data.frame)
+            names(intensities.list) <- cal.names
+            
+            intensities.list
+            
+            #line <- seq(1, length(intensities.list), 1)
+            
+            #intensities.list <- lapply(line, function(x) data.frame(intensities.list[[x]], Instrument=cal.names[x]))
+            #names(intensities.list) <- cal.names
+            #do.call("rbind", intensities.list)
+            
+        })
+        
+        quantValues <- reactive({
+            
+            cal.list <- quantLoad()
+            
+            cal.names <- names(cal.list)
+            
+            n <- length(cal.names)
+            
+            values.list <- lapply(cal.list, "[[", "Values")
+            names(values.list) <- cal.names
+            
+            values.list <- lapply(values.list, as.data.frame)
+            names(values.list) <- cal.names
+            
+            values.list
+            
+            #line <- seq(1, length(values.list), 1)
+            
+            #values.list <- lapply(line, function(x) data.frame(values.list[[x]], Instrument=cal.names[x]))
+            #names(values.list) <- cal.names
+            #do.call("rbind", values.list)
+            
+            
+        })
+        
+        
+        quantData <- reactive({
+            
+            cal.list <- quantLoad()
+            
+            cal.names <- names(cal.list)
+            
+            n <- length(cal.names)
+            
+            data.list <- lapply(cal.list, "[[", "Spectra")
+            names(data.list) <- cal.names
+            
+            data.list <- lapply(data.list, as.data.frame)
+            names(data.list) <- cal.names
+            
+            data.list
+            
+            #line <- seq(1, length(data.list), 1)
+            
+            #data.list <- lapply(line, function(x) data.frame(data.list[[x]], Instrument=cal.names[x]))
+            #names(data.list) <- cal.names
+            #do.call("rbind", data.list)
+            
+            data.list
+            
+            
+        })
+        
+        
+        quantCals <- reactive({
+            
+            cal.list <- quantLoad()
+            
+            cal.names <- names(cal.list)
+            
+            n <- length(cal.names)
+            
+            quant.list <- lapply(cal.list, "[[", "calList")
+            names(quant.list) <- cal.names
+            
+            quant.list
+            
+            
+        })
+        
+        
+        elementallinestouseMulti <- reactive({
+            
+            
+            names(quantCals()[[input$defaultcal]])
+            
+            
+        })
+        
+        
+        outVarMulti <- reactive({
+            
+            myelements <- elementallinestouseMulti()
+            
+            result <- if(is.null(myelements)){
+                "Ca.K.alpha"
+            }else{
+                myelements
+            }
+            
+            result
+            
+            
+        })
+        
+        outVaraltMulti <- reactive({
+            
+            
+            myelements <- c(elementallinestouseMulti())
+            
+            
+            if(is.null(myelements)){
+                paste("Ca.K.alpha")
+            }else{
+                myelements
+            }
+            
+        })
+        
+        outVaralt2Multi <- reactive({
+            
+            
+            myelements <- c(elementallinestouseMulti())
+            
+            
+            if(is.null(myelements)){
+                paste("Ca.K.alpha")
+            }else{
+                myelements[! myelements %in% c(input$calcurveelement_multi)]
+            }
+            
+        })
+        
+        output$inVar2_multi <- renderUI({
+            selectInput(inputId = "calcurveelement_multi", label = h4("Element"), choices =  outVarMulti())
+        })
+        
+        inVar3SelectedMulti <- reactive({
+            
+            hold <- quantValues()
+            
+            optionhold <- if(is.null(input$calcurveelement_multi)){
+                ls(hold[[input$defaultcal]])[2]
+            }else{
+                input$calcurveelement_multi
+            }
+            
+            quantCals()[[input$defaultcal]][[optionhold]][[1]]$Intercept
+            
+            
+            
+        })
+        
+        
+        output$inVar3_multi <- renderUI({
+            
+            selectInput(inputId = "intercept_vars_multi", label = h4("Intercept"), choices =  outVaralt2Multi(), selected=inVar3SelectedMulti(), multiple=TRUE)
+        })
+        
+        inVar4SelectedMulti <- reactive({
+            
+            hold <- quantValues()
+            
+            optionhold <- if(is.null(input$calcurveelement_multi)){
+                ls(hold[[input$defaultcal]])[2]
+            }else{
+                input$calcurveelement_multi
+            }
+            
+            
+            quantCals()[[input$defaultcal]][[optionhold]][[1]]$Slope
+            
+        })
+        
+        output$inVar4_multi <- renderUI({
+            selectInput(inputId = "slope_vars_multi", label = h4("Slope"), choices =  outVaraltMulti(), selected=inVar4SelectedMulti(), multiple=TRUE)
+        })
+        
+        
+        
+        calTypeSelectionMulti <- reactive({
+            
+            hold <- quantValues()
+            
+            optionhold <- if(is.null(input$calcurveelement_multi)){
+                ls(hold[[input$defaultcal]])[2]
+            }else{
+                input$calcurveelement_multi
+            }
+            
+            quantCals()[[input$defaultcal]][[optionhold]][[1]]$CalTable$CalType
+            
+            
+        })
+        
+        calNormSelectionMulti <- reactive({
+            
+            hold <- quantValues()
+            
+            optionhold <- if(is.null(input$calcurveelement_multi)){
+                ls(hold[[input$defaultcal]])[2]
+            }else{
+                input$calcurveelement_multi
+            }
+            
+            
+            quantCals()[[input$defaultcal]][[optionhold]][[1]]$CalTable$NormType
+            
+            
+        })
+        
+        normMinSelectionMulti <- reactive({
+            
+            hold <- quantValues()
+            
+            optionhold <- if(is.null(input$calcurveelement_multi)){
+                ls(hold[[input$defaultcal]])[2]
+            }else{
+                input$calcurveelement_multi
+            }
+            
+            
+            quantCals()[[input$defaultcal]][[optionhold]][[1]]$CalTable$Min
+            
+            
+        })
+        
+        normMaxSelectionMulti <- reactive({
+            
+            hold <- quantValues()
+            
+            optionhold <- if(is.null(input$calcurveelement_multi)){
+                ls(hold[[input$defaultcal]])[2]
+            }else{
+                input$calcurveelement_multi
+            }
+            
+            quantCals()[[input$defaultcal]][[optionhold]][[1]]$CalTable$Max
+            
+        })
+        
+        
+        
+        
+        
+        output$calTypeInput_multi <- renderUI({
+            
+            selectInput("radiocal_multi", label = "Calibration Curve",
+            choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3),
+            selected = calTypeSelectionMulti())
+            
+            
+        })
+        
+        
+        output$normTypeInput_multi <- renderUI({
+            
+            selectInput("normcal_multi", label = "Normalization",
+            choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3),
+            selected = calNormSelectionMulti())
+            
+            
+        })
+        
+        
+        output$comptonMinInput_multi <- renderUI({
+            
+            numericInput('comptonmin_multi', label=h6("Min"), step=0.001, value=normMinSelectionMulti(), min=0, max=50, width='30%')
+            
+        })
+        
+        output$comptonMaxInput_multi <- renderUI({
+            
+            numericInput('comptonmax_multi', label=h6("Max"), step=0.001, value=normMaxSelectionMulti(), min=0, max=50, width='30%')
+            
+        })
+        
+        
+
+observeEvent(input$actionprocess2_multi, {
+
+        
+ 
+        
+        
+        
+        
+        elementHoldMulti <- reactive({
+            
+            if(is.null(input$calcurveelement_multi)==TRUE){
+                 elementallinestouseMulti()[1]
+            } else{
+                input$calcurveelement_multi
+            }
+            
+        })
+        
+        
+        calFileStandardsMulti <- reactive({
+            
+           cal.list <- quantCals()
+           
+           cal.names <- names(cal.list)
+           
+           n <- length(cal.names)
+           
+           element.cal.meta <- lapply(cal.list, "[[", elementHoldMulti())
+           element.cal.meta2 <- lapply(element.cal.meta, "[[", 1)
+           element.cal.meta3 <- lapply(element.cal.meta2, "[[", "StandardsUsed")
+           element.cal.meta4 <- lapply(element.cal.meta3, as.vector)
+
+           
+           names(element.cal.meta4) <- cal.names
+           element.cal.meta4
+           
+        })
+        
+        
+        
+        
+        vals_multi <- reactiveValues()
+        
+        
+        vals_multi$keeprows <- calFileStandardsMulti()
+        
+        
+        keepRows <- reactive({
+            
+            
+            concentration.table <- quantValues()
+            cal.names <- names(quantValues())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            holding.frame <- lapply(cal.names, function(x) data.frame(Concentration=concentration.table[[x]][,elementHoldMulti()], KeepRows=calFileStandardsMulti()[[x]]))
+            names(holding.frame) <- cal.names
+            
+            hold.list <- lapply(cal.names, function(x) as.data.frame(holding.frame[[x]][complete.cases(holding.frame[[x]]),]))
+            names(hold.list) <- cal.names
+            
+            element.cal.meta <- lapply(hold.list, "[[", "KeepRows")
+            element.cal.meta2 <- lapply(element.cal.meta, as.vector)
+            element.cal.meta3 <- unlist(element.cal.meta2, use.names=FALSE)
+
+            as.vector(element.cal.meta3)
+
+
+            
+        })
+        
+        
+        vals_multi$keeptemp <- keepRows()
+        
+
+
+        
+        
+        concentrationTableMulti <- reactive({
+            
+            concentration.table <- quantValues()
+            cal.names <- names(quantValues())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+
+            
+            concentration.list <- lapply(index, function(x) as.data.frame(concentration.table[[x]][order(as.character(concentration.table[[x]][,"Spectrum"])),]))
+            names(concentration.list) <- cal.names
+            
+            #concentration.list <- lapply(concentration.list, as.data.frame)
+            #names(concentration.list) <- cal.names
+            
+            concentration.list
+            
+        })
+
+
+
+
+        
+        spectraLineTableMulti <- reactive({
+            
+            spectra.line.table <- quantIntensities()
+            cal.names <- names(spectra.line.table)
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            spectra.line.list <- lapply(index, function(x) data.frame(Spectrum=quantValues()[[x]][,"Spectrum"], spectra.line.table[[x]]))
+            
+                names(spectra.line.list) <- cal.names
+            
+            #spectra.line.table$Spectrum <- quantValues()$Spectrum
+            
+            spectra.line.list <- lapply(cal.names, function(x) as.data.frame(spectra.line.list[[x]][order(as.character(spectra.line.list[[x]][,"Spectrum"])),]))
+            names(spectra.line.list) <- cal.names
+            
+            spectra.line.list
+
+            
+        })
+        
+        
+        holdFrameMulti <- reactive({
+            
+            spectra.line.table <- spectraLineTableMulti()
+            
+            cal.names <- names(spectra.line.table)
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            concentration <- lapply(index, function(x) as.vector(as.numeric(unlist(concentrationTableMulti()[[x]][input$calcurveelement_multi]))))
+            
+            
+            
+            intensity <- lapply(index, function(x) as.vector(as.numeric(unlist(spectraLineTableMulti()[[x]][input$calcurveelement_multi]))))
+            
+            spectra.names <- lapply(index, function(x) as.vector(spectra.line.table[[x]][,"Spectrum"]))
+            #instrument.names <- spectra.line.table$Instrument
+            
+            hold.list <- lapply(index, function(x) data.frame(Spectrum=spectra.names[[x]], Concentration=concentration[[x]], Intensity=intensity[[x]]))
+            names(hold.list) <- cal.names
+            
+            hold.list <- lapply(index, function(x) na.omit(hold.list[[x]]))
+            names(hold.list) <- cal.names
+            
+            hold.list <- lapply(index, function(x) hold.list[[x]][order(as.character(hold.list[[x]][,"Spectrum"])),])
+            names(hold.list) <- cal.names
+            
+
+            #hold.frame <- data.frame(spectra.names, concentration, intensity, instrument.names)
+            #colnames(hold.frame) <- c("Spectrum", "Concentration", "Intensity", "Instrument")
+            #hold.frame <- na.omit(hold.frame)
+            
+            #hold.frame <- hold.frame[order(as.character(hold.frame$Instrument), as.character(hold.frame$Spectrum)),]
+            
+            
+            #hold.frame
+            hold.list
+            
+        })
+        
+
+
+        
+        
+        dataNormMulti <- reactive({
+            
+            data <- quantData()
+            cal.names <- names(data)
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            data <- lapply(index, function(x) as.data.frame(data[[x]][data[[x]][,"Spectrum"] %in% holdFrameMulti()[[x]][,"Spectrum"], ]))
+            names(data) <- cal.names
+            
+            data
+
+        #data[paste0(data$Spectrum, data$Instrument) %in% paste0(holdFrameMulti()$Spectrum, holdFrameMulti()$Instrument), ]
+            
+            
+        })
+
+
+
+        predictFramePreMulti <- reactive({
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            concentration <- lapply(holdFrameMulti(), function(x) as.vector(x[,"Concentration"]))
+            intensity <- lapply(holdFrameMulti(), function(x) as.vector(x[,"Intensity"]))
+            
+            predict.frame <- lapply(index, function(x) data.frame(Concentration=concentration[[x]], Intensity==intensity[[x]]))
+            
+            #data.frame(concentration, intensity)
+            #colnames(predict.frame) <- c("Concentration", "Intensity")
+            
+            
+            predict.frame
+            
+            
+        })
+
+        predictIntensityMulti <- reactive({
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            spectra.line.table <- spectraLineTableMulti()
+            data <- dataNormMulti()
+            
+            
+            #spectra.line.table <- spectra.line.table[paste0(spectra.line.table$Spectrum, spectra.line.table$Instrument) %in% paste0(holdFrameMulti()$Spectrum, holdFrameMulti()$Instrument), ]
+            
+            spectra.line.table <- lapply(index, function(x) spectra.line.table[[x]][spectra.line.table[[x]][,"Spectrum"] %in% holdFrameMulti()[[x]][,"Spectrum"], ])
+            
+            
+            
+            if (input$radiocal_multi!=3){
+                
+                if(input$normcal_multi==1){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(index, function(x) general.prep(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(index, function(x) general.prep.net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                    }
+                }
+                
+                if(input$normcal_multi==2){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(index, function(x) simple.tc.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(index, function(x) simple.tc.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                    }
+                }
+                
+                if(input$normcal_multi==3){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(index, function(x) simple.comp.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(index, function(x) simple.comp.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                    }
+                }
+                
+            }
+            
+            
+            if (input$radiocal_multi==3){
+                
+                if(input$normcal_multi==1){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(index, function(x) lucas.simp.prep(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(index, function(x) lucas.simp.prep.net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                    }
+                }
+                
+                if(input$normcal_multi==2){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(index, function(x) lucas.tc.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(index, function(x) lucas.tc.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                    }
+                }
+                
+                if(input$normcal_multi==3){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(index, function(x) lucas.comp.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(index, function(x) lucas.comp.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                    }
+                }
+                
+            }
+            
+            predict.intensity <- lapply(predict.intensity, as.data.frame)
+            
+            names(predict.intensity) <- cal.names
+            predict.intensity
+            
+            
+        })
+        
+
+        
+        predictFrameMulti <- reactive({
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            predict.frame <- predictFramePreMulti()
+            predict.intensity <- predictIntensityMulti()
+            
+            
+            
+            predict.frame <- lapply(index, function(x) data.frame(predict.intensity[[x]], Concentration=predict.frame[[x]][,"Concentration"]))
+            predict.frame <- lapply(predict.frame, as.data.frame)
+
+            names(predict.frame) <- cal.names
+            
+            predict.frame
+            
+            #data.frame(predict.intensity, predict.frame$Concentration)
+            #colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
+            
+            #predict.frame$Instrument <- holdFrameMulti()$Instrument
+            
+            #predict.frame
+            
+            
+        })
+        
+        
+    
+        
+        
+        
+        calCurveFrameMulti <- reactive({
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            cal.frame <- predictFrameMulti()
+            
+            cal.frame <- lapply(index, function(x) data.frame(cal.frame[[x]], Instrument=cal.names[x]))
+            names(cal.frame) <- cal.names
+            
+            do.call("rbind", cal.frame)
+            
+            
+        })
+        
+        
+        
+        elementModelMulti <- reactive({
+            
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            predict.list <- predictFrameMulti()
+            
+            
+            
+            if (input$radiocal_multi==1){
+                cal.lm <- lapply(index, function(x) lm(Concentration~Intensity, data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            }
+            
+            
+            if (input$radiocal_multi==2){
+                cal.lm <- lapply(cal.names, function(x) lm(Concentration~Intensity + I(Intensity^2), data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            }
+            
+            if (input$radiocal_multi==3){
+                cal.lm <- lapply(index, function(x) lm(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            }
+            
+            names(cal.lm) <- cal.names
+
+            
+            cal.lm
+            
+        })
+        
+        
+        
+        
+        valFrameMulti <- reactive({
+            
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            predict.intensity <- predictIntensityMulti()
+            predict.frame <- predictFrameMulti()
+            element.model <- elementModelMulti()
+            
+            
+            if (input$radiocal_multi!=3){
+                cal.est.conc.pred <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
+                cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                
+                
+                val.frame <- lapply(index, function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
+                names(val.frame) <- cal.names
+                
+                #data.frame(predict.frame$Concentration, cal.est.conc)
+                #colnames(val.frame) <- c("Concentration", "Prediction")
+            }
+            
+            if (input$radiocal_multi==3){
+        
+                yv=lapply(index, function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
+                
+                
+                lucas.x <- yv
+                
+                cal.est.conc.pred.luc <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.tab <- lapply(cal.est.conc.pred.luc, data.frame)
+                cal.est.conc.luc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                cal.est.conc.luc.up <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"upr"]))
+                cal.est.conc.luc.low <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"lwr"]))
+                
+                val.frame <- lapply(index, function(x)
+                data.frame(
+                Concentration=predict.frame[[x]][,"Concentration"],
+                Intensity=predict.intensity[[x]],
+                IntensityNorm=lucas.x[[x]],
+                Prediction=cal.est.conc.luc[[x]],
+                Upper=cal.est.conc.luc.up[[x]],
+                Lower=cal.est.conc.luc.low[[x]]
+                ))
+                names(val.frame) <- cal.names
+                
+                
+                #val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+                #colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            }
+            
+            
+            
+            val.frame <- lapply(index, function(x) data.frame(val.frame[[x]], Instrument=cal.names[x]))
+            names(val.frame) <- cal.names
+            do.call("rbind", val.frame)
+            
+            #val.frame$Instrument <- holdFrameMulti()$Instrument
+            
+            
+        })
+        
+
+        
+        
+        calValFrameMulti <- reactive({
+            
+            valFrameMulti()
+            
+        })
+        
+        
+        rangescalcurve_multi <- reactiveValues(x = NULL, y = NULL)
+        
+        
+        
+        calCurvePlotMulti <- reactive({
+            
+            predict.frame <- calCurveFrameMulti()
+            element.model <- elementModelMulti()[[input$defaultcal]]
+            val.frame <- valFrameMulti()
+            
+            element.name <- gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            intens <- " Counts per Second"
+            norma <- " Normalized"
+            norma.comp <- " Compton Normalized"
+            norma.tc <- " Valid Counts Normalized"
+            conen <- " (%)"
+            predi <- " Estimate (%)"
+            log <- "Log "
+            
+            
+            intensity.name <- c(element.name, intens)
+            concentration.name <- c(element.name, conen)
+            prediction.name <- c(element.name, predi)
+            
+            
+            if(input$radiocal_multi==1){
+                calcurve.plot <- ggplot(data=predict.frame[ vals_multi$keeprows, , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~Intensity, predict.frame[ unlist(unlist(vals_multi$keeprows), use.names=FALSE), , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_point() +
+                geom_point(data = predict.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
+                scale_x_continuous(paste(element.name, intens)) +
+                scale_y_continuous(paste(element.name, conen)) +
+                coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = FALSE)
+                
+            }
+            
+            if(input$radiocal_multi==2){
+                calcurve.plot <- ggplot(data=predict.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
+                theme_light() +
+                annotate("text", label=lm_eqn_poly(lm(Concentration~Intensity + I(Intensity^2), predict.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_point() +
+                geom_point(data = predict.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                stat_smooth(method="lm", formula=y~poly(x,2), aes(fill=Instrument), alpha=0.1) +
+                scale_x_continuous(paste(element.name, intens)) +
+                scale_y_continuous(paste(element.name, conen)) +
+                coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = FALSE)
+                
+            }
+            
+            if(input$radiocal_multi==3){
+                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_point() +
+                geom_point(aes(IntensityNorm, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
+                scale_x_continuous(paste(element.name, norma)) +
+                scale_y_continuous(paste(element.name, conen)) +
+                coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = FALSE)
+                
+            }
+            
+            
+            
+            calcurve.plot
+            
+            
+        })
+        
+        
+        
+        observeEvent(input$plot_cal_dblclick_multi, {
+            brush <- input$plot_cal_brush_multi
+            if (!is.null(brush)) {
+                rangescalcurve_multi$x <- c(brush$xmin, brush$xmax)
+                rangescalcurve_multi$y <- c(brush$ymin, brush$ymax)
+                
+            } else {
+                rangescalcurve_multi$x <- NULL
+                rangescalcurve_multi$y <- NULL
+            }
+        })
+        
+        output$calcurveplots_multi <- renderPlot({
+            calCurvePlotMulti()
+        })
+        
+        
+        rangesvalcurve_multi <- reactiveValues(x = NULL, y = NULL)
+        
+        
+        valCurvePlotMulti <- reactive({
+            
+            predict.intensity <- predictIntensityMulti()
+            predict.frame <- predictFrameMulti()
+            element.model <- elementModelMulti()[[input$defaultcal]]
+            
+            
+            
+            element.name <- gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            intens <- " Counts per Second"
+            norma <- " Normalized"
+            norma.comp <- " Compton Normalized"
+            norma.tc <- " Valid Counts Normalized"
+            conen <- " (%)"
+            predi <- " Estimate (%)"
+            log <- "Log "
+            
+            intensity.name <- c(element.name, intens)
+            concentration.name <- c(element.name, conen)
+            prediction.name <- c(element.name, predi)
+            val.frame <- valFrameMulti()
+            
+            
+            valcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Prediction, Concentration, colour=Instrument, shape=Instrument)) +
+            theme_bw() +
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
+            stat_smooth(method="lm", aes(fill=Instrument), alpha=0.1) +
+            geom_point() +
+            geom_point(aes(Prediction, Concentration),  data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            scale_x_continuous(paste(element.name, predi)) +
+            scale_y_continuous(paste(element.name, conen)) +
+            coord_cartesian(xlim = rangesvalcurve_multi$x, ylim = rangesvalcurve_multi$y, expand = FALSE)
+            
+            
+            
+            
+            
+            valcurve.plot
+            
+        })
+        
+        
+        observeEvent(input$plot_val_dblclick_multi, {
+            brush <- input$plot_val_brush_multi
+            if (!is.null(brush)) {
+                rangesvalcurve_multi$x <- c(brush$xmin, brush$xmax)
+                rangesvalcurve_multi$y <- c(brush$ymin, brush$ymax)
+                
+            } else {
+                rangesvalcurve_multi$x <- NULL
+                rangesvalcurve_multi$y <- NULL
+            }
+        })
+        
+        
+        output$valcurveplots_multi <- renderPlot({
+            valCurvePlotMulti()
+        })
+        
+        
+        calPlotDownloadMulti <- reactive({
+            
+            grid.arrange(calCurvePlotMulti(), valCurvePlot(), ncol=2)
+            
+        })
+        
+        
+        output$downloadcloudplot_multi <- downloadHandler(
+        filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement_multi), collapse=''), '.tiff',  sep='') },
+        content = function(file) {
+            ggsave(file,calPlotDownloadMulti(), device="tiff", compression="lzw", type="cairo", dpi=300, width=12, height=7)
+        }
+        )
+        
+        
+        calValTableMulti <- reactive({
+            
+            standard.table <- valFrameMulti()
+            
+            concentration.table <- do.call("rbind", holdFrameMulti())
+            
+            hold.table <- as.vector(concentration.table[,"Spectrum"])
+            
+            
+            standard.table$Spectrum <- hold.table
+
+            
+            standard.table.summary <- data.frame(standard.table$Instrument, standard.table$Spectrum, standard.table$Concentration, standard.table$Prediction, standard.table$Concentration-standard.table$Prediction, ((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration))
+            colnames(standard.table.summary) <- c("Instrument", "Standard", "Concentration", "Prediction", "Difference", "Relative")
+            
+            standard.table.summary[,3:length(standard.table.summary)] <-round(standard.table.summary[,3:length(standard.table.summary)],4)
+            standard.table.summary[,5] <- as.character(percent(standard.table.summary[,5]))
+            
+            this.table <- DT::datatable(standard.table.summary)
+            this.table
+            
+        })
+        
+        
+        output$standardsperformance_multi <- DT::renderDataTable({
+            
+            
+            standard.table <- calValTableMulti()
+            standard.table
+            
+        }, options =list(aoColumnDefs = list(list(sClass="alignRight",aTargets=c(list(2), list(3),list(4),list(5))))  ))
+        
+        
+        randomizeDataMulti <- reactive({
+            
+            cal.frame <- spectraLineTableMulti()[[input$defaultcal]]
+            cal.frame <- cal.frame[ vals_multi$keeprows[[input$defaultcal]], , drop = FALSE]
+            total.number <- length(cal.frame[,1])
+            sample.number <- total.number-round(input$percentrandom_multi*total.number, 0)
+            
+            hold <- cal.frame[sample(nrow(cal.frame), sample.number),]
+            cal.frame$Spectrum %in% hold$Spectrum
+            
+        })
+        
+        output$tabletest <- renderDataTable({
+            as.data.frame(randomizeDataMulti())
+            
+        })
+        
+        
+        
+        predictFrameRandomMulti <- reactive({
+            
+            predict.frame <- predictFrameMulti()
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            
+            predict.frame <- lapply(index, function(x) as.data.frame(predict.frame[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            names(predict.frame) <- cal.names
+            
+            predict.frame <- lapply(index, function(x) as.data.frame(predict.frame[[x]][randomizeDataMulti(),]))
+            names(predict.frame) <- cal.names
+            
+            
+            predict.frame
+            
+        })
+
+        
+        calCurveFrameRandomizedMulti <- reactive({
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            predict.frame <- predictFrameRandomMulti()
+            
+            predict.frame <- lapply(index, function(x) data.frame(predict.frame[[x]], Instrument=cal.names[x]))
+            names(predict.frame) <- cal.names
+            
+            
+            do.call("rbind", predict.frame)
+
+            
+        })
+        
+        output$tabletest <- renderDataTable({
+            as.data.frame(calCurveFrameRandomizedMulti())
+            
+        })
+        
+        
+        elementModelRandomMulti <- reactive({
+            
+            predict.frame <- predictFrameRandomMulti()
+            
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            predict.list <- predict.frame
+            
+            
+            
+            if (input$radiocal_multi==1){
+                cal.lm <- lapply(index, function(x) lm(Concentration~Intensity, data=predict.list[[x]]))
+            }
+            
+            
+            if (input$radiocal_multi==2){
+                cal.lm <- lapply(cal.names, function(x) lm(Concentration~Intensity + I(Intensity^2), data=predict.list[[x]]))
+            }
+            
+            if (input$radiocal_multi==3){
+                cal.lm <- lapply(index, function(x) lm(Concentration~., data=predict.list[[x]]))
+            }
+            
+            names(cal.lm) <- cal.names
+            
+            
+            cal.lm
+            
+        })
+        
+        
+        
+        
+        valFrameRandomizedMulti <- reactive({
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+
+            
+            predict.intensity <- lapply(index, function(x) data.frame(predictIntensityMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            
+            predict.frame <- lapply(index, function(x) data.frame(predictFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            
+            
+            predict.intensity <- lapply(index, function(x) data.frame( predict.intensity[[x]][!(randomizeDataMulti()), , drop = FALSE]))
+            
+            predict.frame <- lapply(index, function(x) data.frame( predict.frame[[x]][!(randomizeDataMulti()), , drop = FALSE]))
+            
+            element.model <- elementModelRandomMulti()
+            
+            
+            
+            if (input$radiocal_multi!=3){
+                cal.est.conc.pred <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                
+                cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
+                cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+
+                val.frame <- lapply(index, function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
+                names(val.frame) <- cal.names
+            }
+            
+            if (input$radiocal_multi==3){
+                
+                yv=lapply(index, function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
+
+                
+                
+                lucas.x <- yv
+                
+                cal.est.conc.pred.luc <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.tab <- lapply(cal.est.conc.pred.luc, data.frame)
+                cal.est.conc.luc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                cal.est.conc.luc.up <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"upr"]))
+                cal.est.conc.luc.low <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"lwr"]))
+                
+                val.frame <- lapply(index, function(x)
+                data.frame(
+                Concentration=predict.frame[[x]][,"Concentration"],
+                Intensity=predict.intensity[[x]],
+                IntensityNorm=lucas.x[[x]],
+                Prediction=cal.est.conc.luc[[x]],
+                Upper=cal.est.conc.luc.up[[x]],
+                Lower=cal.est.conc.luc.low[[x]]
+                ))
+                
+                names(val.frame) <- cal.names
+            }
+            
+            
+            
+            
+            val.frame <- lapply(index, function(x) data.frame(val.frame[[x]], Instrument=cal.names[x]))
+            names(val.frame) <- cal.names
+            do.call("rbind", val.frame)
+
+        })
+        
+        
+        
+        valFrameRandomizedRevMulti <- reactive({
+            
+            cal.names <- names(holdFrameMulti())
+            
+            index <- seq(from=1, to=length(cal.names), by=1)
+            
+            
+            predict.intensity <- lapply(index, function(x) data.frame(predictIntensityMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            
+            predict.frame <- lapply(index, function(x) data.frame(predictFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            
+            
+            predict.intensity <- lapply(index, function(x) data.frame( predict.intensity[[x]][(randomizeDataMulti()), , drop = FALSE]))
+            
+            predict.frame <- lapply(index, function(x) data.frame( predict.frame[[x]][(randomizeDataMulti()), , drop = FALSE]))
+            
+            element.model <- elementModelRandomMulti()
+            
+            
+            
+            if (input$radiocal_multi!=3){
+                cal.est.conc.pred <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                
+                cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
+                cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                
+                val.frame <- lapply(index, function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
+                names(val.frame) <- cal.names
+            }
+            
+            if (input$radiocal_multi==3){
+                
+                yv=lapply(index, function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
+                
+                
+                
+                lucas.x <- yv
+                
+                cal.est.conc.pred.luc <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.tab <- lapply(cal.est.conc.pred.luc, data.frame)
+                cal.est.conc.luc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                cal.est.conc.luc.up <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"upr"]))
+                cal.est.conc.luc.low <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"lwr"]))
+                
+                val.frame <- lapply(index, function(x)
+                data.frame(
+                Concentration=predict.frame[[x]][,"Concentration"],
+                Intensity=predict.intensity[[x]],
+                IntensityNorm=lucas.x[[x]],
+                Prediction=cal.est.conc.luc[[x]],
+                Upper=cal.est.conc.luc.up[[x]],
+                Lower=cal.est.conc.luc.low[[x]]
+                ))
+                
+                names(val.frame) <- cal.names
+            }
+            
+            
+            
+            
+            val.frame <- lapply(index, function(x) data.frame(val.frame[[x]], Instrument=cal.names[x]))
+            names(val.frame) <- cal.names
+            do.call("rbind", val.frame)
+            
+        })
+        
+        
+        rangescalcurverandom_multi <- reactiveValues(x = NULL, y = NULL)
+        
+        
+        calCurvePlotRandomMulti <- reactive({
+            
+            predict.frame <- calCurveFrameRandomizedMulti()
+            element.model <- elementModelRandomMulti()[[input$defaultcal]]
+            
+            
+            
+            element.name <- gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            intens <- " Counts per Second"
+            norma <- " Normalized"
+            norma.comp <- " Compton Normalized"
+            norma.tc <- " Valid Counts Normalized"
+            conen <- " (%)"
+            predi <- " Estimate (%)"
+            
+            intensity.name <- c(element.name, intens)
+            concentration.name <- c(element.name, conen)
+            prediction.name <- c(element.name, predi)
+            
+            
+            if(input$radiocal_multi==1){
+                calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_point() +
+                geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
+                scale_x_continuous(paste(element.name, intens)) +
+                scale_y_continuous(paste(element.name, conen)) +
+                coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = FALSE)
+                
+            }
+            
+            if(input$radiocal_multi==2){
+                
+                calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
+                theme_light() +
+                annotate("text", label=lm_eqn_poly(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_point() +
+                geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                stat_smooth(method="lm", formula=y~poly(x,2), aes(fill=Instrument), alpha=0.1) +
+                scale_x_continuous(paste(element.name, intens)) +
+                scale_y_continuous(paste(element.name, conen)) +
+                coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = FALSE)
+            }
+            
+            if(input$radiocal_multi==3){
+                val.frame <- valFrameRandomizedRevMulti()
+
+                calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_point() +
+                geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
+                scale_x_continuous(paste(element.name, norma)) +
+                scale_y_continuous(paste(element.name, conen)) +
+                coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = FALSE)
+            }
+            
+            calcurve.plot
+            
+            
+        })
+        
+        
+        observeEvent(input$plot_cal_dblclick_random_multi, {
+            brush <- input$plot_cal_brush_random_multi
+            if (!is.null(brush)) {
+                rangescalcurverandom_multi$x <- c(brush$xmin, brush$xmax)
+                rangescalcurverandom_multi$y <- c(brush$ymin, brush$ymax)
+                
+            } else {
+                rangescalcurverandom_multi$x <- NULL
+                rangescalcurverandom_multi$y <- NULL
+            }
+        })
+        
+        
+        output$calcurveplotsrandom_multi <- renderPlot({
+            calCurvePlotRandomMulti()
+        })
+        
+        
+        rangesvalcurverandom_multi <- reactiveValues(x = NULL, y = NULL)
+        
+        
+        valCurvePlotRandomMulti <- reactive({
+            
+            
+            
+            element.name <- gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            intens <- " Counts per Second"
+            norma <- " Normalized"
+            norma.comp <- " Compton Normalized"
+            norma.tc <- " Valid Counts Normalized"
+            conen <- " (%)"
+            predi <- " Estimate (%)"
+            
+            intensity.name <- c(element.name, intens)
+            concentration.name <- c(element.name, conen)
+            prediction.name <- c(element.name, predi)
+            
+            val.frame <- valFrameRandomizedMulti()
+            
+            valcurve.plot <- ggplot(data=val.frame, aes(Prediction, Concentration, colour=Instrument, shape=Instrument)) +
+            theme_bw() +
+            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+            geom_abline(intercept=0, slope=1, lty=2) +
+            stat_smooth(method="lm", aes(fill=Instrument), alpha=0.1) +
+            geom_point() +
+            geom_point(aes(Prediction, Concentration, colour=Instrument, shape=Instrument),  data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            scale_x_continuous(paste(element.name, predi)) +
+            scale_y_continuous(paste(element.name, conen)) +
+            coord_cartesian(xlim = rangesvalcurverandom_multi$x, ylim = rangesvalcurverandom_multi$y, expand = FALSE)
+            
+            valcurve.plot
+            
+        })
+        
+        observeEvent(input$plot_val_dblclick_random_multi, {
+            brush <- input$plot_val_brush_random_multi
+            if (!is.null(brush)) {
+                rangesvalcurverandom_multi$x <- c(brush$xmin, brush$xmax)
+                rangesvalcurverandom_multi$y <- c(brush$ymin, brush$ymax)
+                
+            } else {
+                rangesvalcurverandom_multi$x <- NULL
+                rangesvalcurverandom_multi$y <- NULL
+            }
+        })
+        
+        output$valcurveplotsrandom_multi <- renderPlot({
+            valCurvePlotRandomMulti()
+        })
+        
+        
+        
+        ####CalCurves
+        
+        # Float over info
+        output$hover_infocal_multi <- renderUI({
+            
+            point.table <- if(input$radiocal_multi!=3){
+                calCurveFrameMulti()
+            } else if(input$radiocal_multi==3) {
+                valFrameMulti()
+            }
+            
+            concentration.table <- do.call("rbind", holdFrameMulti())
+            
+            hold.table <- as.vector(concentration.table[,"Spectrum"])
+            
+            
+            point.table$Spectrum <- hold.table
+           
+            
+            #point.table$Spectrum <- hold.table["Spectrum"]
+            
+            hover <- input$plot_hovercal_multi
+            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            if (nrow(point) == 0) return(NULL)
+            
+            
+            
+            
+            # calculate point position INSIDE the image as percent of total dimensions
+            # from left (horizontal) and from top (vertical)
+            left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
+            top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
+            
+            # calculate distance from left and bottom side of the picture in pixels
+            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
+            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            
+            
+            # create style property fot tooltip
+            # background color is set so tooltip is a bit transparent
+            # z-index is set so we are sure are tooltip will be on top
+            style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
+            "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+            
+            # actual tooltip created as wellPanel
+            wellPanel(
+            style = style,
+            p(HTML(paste0(point$Instrument))),
+            p(HTML(paste0(point$Spectrum)))
+
+            )
+        })
+        
+        
+        
+        # Float over info
+        output$hover_infocal_random_multi <- renderUI({
+            
+            point.table <- if(input$radiocal_multi!=3){
+                calCurveFrameRandomizedMulti()
+            } else if(input$radiocal_multi==3) {
+                valFrameRandomizedMulti()
+            }
+            
+            concentration.table <- do.call("rbind", concentrationTableMulti())
+
+            concentration.table <- concentration.table[ unlist(vals_multi$keeprows), , drop = FALSE]
+            concentration.table <- concentration.table[(randomizeDataMulti()),]
+            
+            hold.table <- as.vector(concentration.table[,"Spectrum"])
+            
+            
+            point.table$Spectrum <- hold.table
+
+            
+            
+            
+            #point.table$Spectrum <- hold.table["Spectrum"]
+            
+            hover <- input$plot_hovercal_random_multi
+            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            if (nrow(point) == 0) return(NULL)
+            
+            
+            
+            
+            # calculate point position INSIDE the image as percent of total dimensions
+            # from left (horizontal) and from top (vertical)
+            left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
+            top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
+            
+            # calculate distance from left and bottom side of the picture in pixels
+            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
+            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            
+            
+            # create style property fot tooltip
+            # background color is set so tooltip is a bit transparent
+            # z-index is set so we are sure are tooltip will be on top
+            style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
+            "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+            
+            # actual tooltip created as wellPanel
+            wellPanel(
+            style = style,
+            p(HTML(paste0(point$Instrument))),
+            p(HTML(paste0(point$Spectrum)))
+            
+            )
+        })
+        
+        
+        
+        # Toggle points that are clicked
+        observeEvent(input$plot_cal_click_multi, {
+            
+            predict.frame <- if(input$radiocal_multi!=3){
+                calCurveFrameMulti()
+            } else if(input$radiocal_multi==3) {
+                calValFrameMulti()
+            }
+            
+            res <- nearPoints(predict.frame, input$plot_cal_click_multi, allRows = TRUE)
+            
+            vals_multi$keeprows <- xor(unlist(vals_multi$keeprows), res$selected_)
+        })
+        
+        
+        
+        # Toggle points that are brushed, when button is clicked
+        observeEvent(input$exclude_toggle_multi, {
+            
+            predict.frame <- if(input$radiocal_multi!=3){
+                calCurveFrameMulti()
+            } else if(input$radiocal_multi==3) {
+                calValFrameMulti()
+            }
+            res <- brushedPoints(predict.frame, input$plot_cal_brush_multi, allRows = TRUE)
+            
+            vals_multi$keeprows <- xor(unlist(vals_multi$keeprows, res$selected_))
+        })
+        
+        
+        
+        # Reset all points
+        observeEvent(input$exclude_reset_multi, {
+            
+            predict.frame <- if(input$radiocal_multi!=3){
+                calCurveFrameMulti()
+            } else if(input$radiocal_multi==3) {
+                calValFrameMulti()
+            }
+            vals_multi$keeprows <- calFileStandardsMulti()
+        })
+        
+        
+        
+        # Reset all points on element change
+        observeEvent(input$calcurveelement_multi, {
+            
+            
+            
+            vals_multi$keeprows <- calFileStandardsMulti()
+            
+        })
+        
+        
+        
+        ####ValCurves Multiplot
+        
+        
+        
+        
+        # Float over info
+        output$hover_infoval_multi <- renderUI({
+            
+            point.table <- valFrameMulti()
+            
+            
+            concentration.table <- do.call("rbind", holdFrameMulti())
+            
+            hold.table <- as.vector(concentration.table[,"Spectrum"])
+            
+            
+            point.table$Spectrum <- hold.table
+
+            
+            
+            hover <- input$plot_hoverval_multi
+            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            if (nrow(point) == 0) return(NULL)
+            
+            
+            
+            
+            # calculate point position INSIDE the image as percent of total dimensions
+            # from left (horizontal) and from top (vertical)
+            left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
+            top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
+            
+            # calculate distance from left and bottom side of the picture in pixels
+            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
+            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            
+            
+            # create style property fot tooltip
+            # background color is set so tooltip is a bit transparent
+            # z-index is set so we are sure are tooltip will be on top
+            style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
+            "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+            
+            # actual tooltip created as wellPanel
+            wellPanel(
+            style = style,
+            p(HTML(paste0(point$Instrument))),
+            p(HTML(paste0(point$Spectrum)))
+            
+            )
+        })
+        
+        
+        
+        
+        output$hover_infoval_random_multi <- renderUI({
+            
+            point.table <- valFrameRandomizedMulti()
+            
+            
+            concentration.table <- do.call("rbind", concentrationTableMulti())
+            
+            concentration.table <- concentration.table[ unlist(vals_multi$keeprows), , drop = FALSE]
+            concentration.table <- concentration.table[!(randomizeDataMulti()),]
+            concentration.table.rev <- concentration.table[(randomizeDataMulti()),]
+
+            hold.table <- as.vector(concentration.table[,"Spectrum"])
+            
+            
+            point.table$Spectrum <- hold.table
+
+            
+            point.table <- point.table[point.table$Concentration > min(concentration.table.rev[,input$calcurveelement_multi], na.rm = TRUE) & point.table$Concentration < max(concentration.table.rev[,input$calcurveelement_multi], na.rm = TRUE), ]
+            
+            
+            
+            hover <- input$plot_hoverval_random
+            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            if (nrow(point) == 0) return(NULL)
+            
+            
+            
+            
+            # calculate point position INSIDE the image as percent of total dimensions
+            # from left (horizontal) and from top (vertical)
+            left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
+            top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
+            
+            # calculate distance from left and bottom side of the picture in pixels
+            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
+            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            
+            
+            # create style property fot tooltip
+            # background color is set so tooltip is a bit transparent
+            # z-index is set so we are sure are tooltip will be on top
+            style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
+            "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+            
+            # actual tooltip created as wellPanel
+            wellPanel(
+            style = style,
+            p(HTML(paste0(point$Instrument))),
+            p(HTML(paste0(point$Spectrum)))
+            
+            )
+        })
+        
+        
+        
+        # Toggle points that are clicked
+        observeEvent(input$plot_val_click_multi, {
+            
+            predict.frame <- calValFrameMulti()
+            
+            res <- nearPoints(predict.frame, input$plot_val_click_multi, allRows = TRUE)
+            
+            vals_multi$keeprows <- list(xor(unlist(vals_multi$keeprows), res$selected_))
+        })
+        
+        
+        
+        # Toggle points that are brushed, when button is clicked
+        observeEvent(input$exclude_toggle_multi, {
+            predict.frame <- calValFrameMulti()
+            
+            res <- brushedPoints(predict.frame, input$plot_val_brush_multi, allRows = TRUE)
+            
+            vals_multi$keeprows <- list(xor(unlist(vals_multi$keeprows), res$selected_))
+        })
+        
+        
+        
+        # Reset all points
+        observeEvent(input$exclude_reset_multi, {
+            predict.frame <- calValFrameMulti()
+            
+            vals_multi$keeprows <- calFileStandardsMulti()
+        })
+
+
+
+
+        
+
+
+        
+
+
+
+
+
+
+
+
+
+        
+
+})
+        
+        
+    })
+
     
     
     observeEvent(input$processvalspectra, {

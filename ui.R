@@ -364,6 +364,105 @@ tabPanel("Standards", dataTableOutput("standardsperformance"))
 
 )),
 
+
+tabPanel("Multiple Instruments",
+div(class="outer",
+
+fluidRow(
+sidebarLayout(
+sidebarPanel(
+
+actionButton('actionprocess_multi', "Load Cals"),
+actionButton('actionprocess2_multi', "Process Cals"),
+downloadButton('downloadcloudplot_multi', "Plot"),
+
+tags$hr(),
+
+actionButton('createcalelement_multi', "Update"),
+actionButton('createcal_multi', "Save"),
+downloadButton('downloadModel_multi', "Model"),
+downloadButton('downloadReport_multi', "Report"),
+
+
+tags$hr(),
+
+fileInput('calfileinput_multi', 'Load Cal File', accept=".quant", multiple=TRUE),
+
+tags$hr(),
+
+
+uiOutput('defaultcalui'),
+
+uiOutput('inVar2_multi'),
+
+uiOutput('calTypeInput_multi'),
+
+uiOutput('normTypeInput_multi'),
+
+uiOutput('comptonMinInput_multi'),
+
+uiOutput('comptonMaxInput_multi'),
+
+uiOutput('inVar3_multi'),
+uiOutput('inVar4_multi')
+
+),
+
+mainPanel(
+tabsetPanel(
+tabPanel("Cal Curves",
+splitLayout(cellWidths = c("50%", "50%"),
+div(
+style = "position:relative",
+plotOutput("calcurveplots_multi", height = 455, click = "plot_cal_click_multi",
+dblclick = "plot_cal_dblclick_multi",
+brush = brushOpts(id = "plot_cal_brush_multi", resetOnNew = TRUE),
+hover = hoverOpts("plot_hovercal_multi", delay = 100, delayType = "debounce")),
+uiOutput("hover_infocal_multi")),
+div(
+style = "position:relative",
+plotOutput("valcurveplots_multi", height = 455, click = "plot_val_click_multi",
+dblclick = "plot_val_dblclick_multi",
+brush = brushOpts(id = "plot_val_brush_multi", resetOnNew = TRUE),
+hover = hoverOpts("plot_hoverval_multi", delay = 100, delayType = "debounce")),
+uiOutput("hover_infoval_multi"))
+),
+actionButton("exclude_toggle_multi", "Toggle points"),
+actionButton("exclude_reset_multi", "Reset")
+),
+
+tabPanel("Cross Validation",
+splitLayout(cellWidths = c("50%", "50%"),
+div(
+style = "position:relative",
+plotOutput("calcurveplotsrandom_multi", height = 455,  click = "plot_cal_click_random_multi",
+dblclick = "plot_cal_dblclick_random_multi",
+brush = brushOpts(id = "plot_cal_brush_random_multi", resetOnNew = TRUE),
+hover = hoverOpts("plot_hovercal_random_multi", delay = 100, delayType = "debounce")),
+uiOutput("hover_infocal_random_multi")),
+div(
+style = "position:relative",
+plotOutput("valcurveplotsrandom_multi", height = 455, click = "plot_val_click_random_multi",
+dblclick = "plot_val_dblclick_random_multi",
+brush = brushOpts(id = "plot_val_brush_random_multi", resetOnNew = TRUE),
+hover = hoverOpts("plot_hoverval_random_multi", delay = 100, delayType = "debounce")),
+uiOutput("hover_infoval_random_multi"))
+),
+sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.20)
+
+),
+
+
+
+tabPanel("Standards", dataTableOutput("standardsperformance_multi"))
+
+))
+
+
+))
+
+)),
+
 tabPanel("Apply Calibration",
 div(class="outer",
 
