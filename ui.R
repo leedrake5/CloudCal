@@ -410,6 +410,7 @@ uiOutput('inVar4_multi')
 
 mainPanel(
 tabsetPanel(
+tabPanel("Testing", dataTableOutput('tabletest')),
 tabPanel("Cal Curves",
 splitLayout(cellWidths = c("50%", "50%"),
 div(

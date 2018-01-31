@@ -2986,16 +2986,27 @@ dev.off()
     
     
     observeEvent(input$actionprocess_multi, {
-
         
+        
+        quantNames <- reactive({
+            
+            inFile <- input$calfileinput_multi
+            if (is.null(inFile)) return(NULL)
+            
+            as.vector(gsub(".quant", "", inFile$name))
+            
+            
+            
+        })
+
+
         quantLoad <- reactive({
             
             inFile <- input$calfileinput_multi
             if (is.null(inFile)) return(NULL)
             
             cal.list <- lapply(inFile$datapath, readRDS)
-            names(cal.list) <- gsub(".quant", "", inFile$name)
-
+            names(cal.list) <- quantNames()
             
             cal.list
             
@@ -3011,16 +3022,7 @@ dev.off()
             
         })
         
-        quantNames <- reactive({
-            
-            inFile <- input$calfileinput_multi
-            if (is.null(inFile)) return(NULL)
-            
-            gsub(".quant", "", inFile$name)
 
-            
-            
-        })
         
         
         output$defaultcalui <- renderUI({
@@ -3030,7 +3032,7 @@ dev.off()
             
             names <- gsub(".quant", "", inFile$name)
             
-            selectInput('defaultcal', "Default Cal", choices=names, selected=names[1], multiple=FALSE)
+            selectInput('defaultcal', "Default Cal", choices=quantNames(), selected=quantNames()[1], multiple=FALSE)
             
         })
         
@@ -3066,22 +3068,22 @@ dev.off()
             
             cal.list <- quantLoad()
             
-            cal.names <- names(cal.list)
+            cal.names <- quantNames()
             
             n <- length(cal.names)
             
             intensities.list <- lapply(cal.list, "[[", "Intensities")
-            names(intensities.list) <- cal.names
+            names(intensities.list) <- quantNames()
             
             intensities.list <- lapply(intensities.list, as.data.frame)
-            names(intensities.list) <- cal.names
+            names(intensities.list) <- quantNames()
             
             intensities.list
             
             #line <- seq(1, length(intensities.list), 1)
             
             #intensities.list <- lapply(line, function(x) data.frame(intensities.list[[x]], Instrument=cal.names[x]))
-            #names(intensities.list) <- cal.names
+            #names(intensities.list) <- quantNames()
             #do.call("rbind", intensities.list)
             
         })
@@ -3090,22 +3092,22 @@ dev.off()
             
             cal.list <- quantLoad()
             
-            cal.names <- names(cal.list)
+            cal.names <- quantNames()
             
             n <- length(cal.names)
             
             values.list <- lapply(cal.list, "[[", "Values")
-            names(values.list) <- cal.names
+            names(values.list) <- quantNames()
             
             values.list <- lapply(values.list, as.data.frame)
-            names(values.list) <- cal.names
+            names(values.list) <- quantNames()
             
             values.list
             
             #line <- seq(1, length(values.list), 1)
             
             #values.list <- lapply(line, function(x) data.frame(values.list[[x]], Instrument=cal.names[x]))
-            #names(values.list) <- cal.names
+            #names(values.list) <- quantNames()
             #do.call("rbind", values.list)
             
             
@@ -3116,22 +3118,22 @@ dev.off()
             
             cal.list <- quantLoad()
             
-            cal.names <- names(cal.list)
+            cal.names <- quantNames()
             
             n <- length(cal.names)
             
             data.list <- lapply(cal.list, "[[", "Spectra")
-            names(data.list) <- cal.names
+            names(data.list) <- quantNames()
             
             data.list <- lapply(data.list, as.data.frame)
-            names(data.list) <- cal.names
+            names(data.list) <- quantNames()
             
             data.list
             
             #line <- seq(1, length(data.list), 1)
             
             #data.list <- lapply(line, function(x) data.frame(data.list[[x]], Instrument=cal.names[x]))
-            #names(data.list) <- cal.names
+            #names(data.list) <- quantNames()
             #do.call("rbind", data.list)
             
             data.list
@@ -3144,12 +3146,12 @@ dev.off()
             
             cal.list <- quantLoad()
             
-            cal.names <- names(cal.list)
+            cal.names <- quantNames()
             
             n <- length(cal.names)
             
             quant.list <- lapply(cal.list, "[[", "calList")
-            names(quant.list) <- cal.names
+            names(quant.list) <- quantNames()
             
             quant.list
             
@@ -3378,7 +3380,7 @@ observeEvent(input$actionprocess2_multi, {
             
            cal.list <- quantCals()
            
-           cal.names <- names(cal.list)
+           cal.names <- quantNames()
            
            n <- length(cal.names)
            
@@ -3388,7 +3390,7 @@ observeEvent(input$actionprocess2_multi, {
            element.cal.meta4 <- lapply(element.cal.meta3, as.vector)
 
            
-           names(element.cal.meta4) <- cal.names
+           names(element.cal.meta4) <- quantNames()
            element.cal.meta4
            
         })
@@ -3410,11 +3412,11 @@ observeEvent(input$actionprocess2_multi, {
             
             index <- seq(from=1, to=length(cal.names), by=1)
             
-            holding.frame <- lapply(cal.names, function(x) data.frame(Concentration=concentration.table[[x]][,elementHoldMulti()], KeepRows=calFileStandardsMulti()[[x]]))
-            names(holding.frame) <- cal.names
+            holding.frame <- lapply(quantNames(), function(x) data.frame(Concentration=concentration.table[[x]][,elementHoldMulti()], KeepRows=calFileStandardsMulti()[[x]]))
+            names(holding.frame) <- quantNames()
             
-            hold.list <- lapply(cal.names, function(x) as.data.frame(holding.frame[[x]][complete.cases(holding.frame[[x]]),]))
-            names(hold.list) <- cal.names
+            hold.list <- lapply(quantNames(), function(x) as.data.frame(holding.frame[[x]][complete.cases(holding.frame[[x]]),]))
+            names(hold.list) <- quantNames()
             
             element.cal.meta <- lapply(hold.list, "[[", "KeepRows")
             element.cal.meta2 <- lapply(element.cal.meta, as.vector)
@@ -3441,11 +3443,11 @@ observeEvent(input$actionprocess2_multi, {
             index <- seq(from=1, to=length(cal.names), by=1)
 
             
-            concentration.list <- lapply(index, function(x) as.data.frame(concentration.table[[x]][order(as.character(concentration.table[[x]][,"Spectrum"])),]))
-            names(concentration.list) <- cal.names
+            concentration.list <- lapply(quantNames(),function(x) as.data.frame(concentration.table[[x]][order(as.character(concentration.table[[x]][,"Spectrum"])),]))
+            names(concentration.list) <- quantNames()
             
             #concentration.list <- lapply(concentration.list, as.data.frame)
-            #names(concentration.list) <- cal.names
+            #names(concentration.list) <- quantNames()
             
             concentration.list
             
@@ -3462,19 +3464,21 @@ observeEvent(input$actionprocess2_multi, {
             
             index <- seq(from=1, to=length(cal.names), by=1)
             
-            spectra.line.list <- lapply(index, function(x) data.frame(Spectrum=quantValues()[[x]][,"Spectrum"], spectra.line.table[[x]]))
+            spectra.line.list <- lapply(quantNames(),function(x) data.frame(Spectrum=quantValues()[[x]][,"Spectrum"], spectra.line.table[[x]]))
             
-                names(spectra.line.list) <- cal.names
+                names(spectra.line.list) <- quantNames()
             
             #spectra.line.table$Spectrum <- quantValues()$Spectrum
             
-            spectra.line.list <- lapply(cal.names, function(x) as.data.frame(spectra.line.list[[x]][order(as.character(spectra.line.list[[x]][,"Spectrum"])),]))
-            names(spectra.line.list) <- cal.names
+            spectra.line.list <- lapply(quantNames(), function(x) as.data.frame(spectra.line.list[[x]][order(as.character(spectra.line.list[[x]][,"Spectrum"])),]))
+            names(spectra.line.list) <- quantNames()
             
             spectra.line.list
 
             
         })
+        
+
         
         
         holdFrameMulti <- reactive({
@@ -3485,23 +3489,26 @@ observeEvent(input$actionprocess2_multi, {
             
             index <- seq(from=1, to=length(cal.names), by=1)
             
-            concentration <- lapply(index, function(x) as.vector(as.numeric(unlist(concentrationTableMulti()[[x]][input$calcurveelement_multi]))))
+            concentration <- lapply(quantNames(),function(x) as.vector(as.numeric(unlist(concentrationTableMulti()[[x]][input$calcurveelement_multi]))))
+            names(concentration) <- quantNames()
+
             
             
+            intensity <- lapply(quantNames(),function(x) as.vector(as.numeric(unlist(spectraLineTableMulti()[[x]][input$calcurveelement_multi]))))
+            names(intensity) <- quantNames()
+
             
-            intensity <- lapply(index, function(x) as.vector(as.numeric(unlist(spectraLineTableMulti()[[x]][input$calcurveelement_multi]))))
+            spectra.names <- lapply(quantNames(),function(x) as.vector(spectra.line.table[[x]][,"Spectrum"]))
+            names(spectra.names) <- quantNames()
             
-            spectra.names <- lapply(index, function(x) as.vector(spectra.line.table[[x]][,"Spectrum"]))
-            #instrument.names <- spectra.line.table$Instrument
+            hold.list <- lapply(quantNames(),function(x) data.frame(Spectrum=spectra.names[[x]], Concentration=concentration[[x]], Intensity=intensity[[x]]))
+            names(hold.list) <- quantNames()
             
-            hold.list <- lapply(index, function(x) data.frame(Spectrum=spectra.names[[x]], Concentration=concentration[[x]], Intensity=intensity[[x]]))
-            names(hold.list) <- cal.names
+            hold.list <- lapply(quantNames(),function(x) na.omit(hold.list[[x]]))
+            names(hold.list) <- quantNames()
             
-            hold.list <- lapply(index, function(x) na.omit(hold.list[[x]]))
-            names(hold.list) <- cal.names
-            
-            hold.list <- lapply(index, function(x) hold.list[[x]][order(as.character(hold.list[[x]][,"Spectrum"])),])
-            names(hold.list) <- cal.names
+            hold.list <- lapply(quantNames(),function(x) hold.list[[x]][order(as.character(hold.list[[x]][,"Spectrum"])),])
+            names(hold.list) <- quantNames()
             
 
             #hold.frame <- data.frame(spectra.names, concentration, intensity, instrument.names)
@@ -3527,8 +3534,8 @@ observeEvent(input$actionprocess2_multi, {
             
             index <- seq(from=1, to=length(cal.names), by=1)
             
-            data <- lapply(index, function(x) as.data.frame(data[[x]][data[[x]][,"Spectrum"] %in% holdFrameMulti()[[x]][,"Spectrum"], ]))
-            names(data) <- cal.names
+            data <- lapply(quantNames(),function(x) as.data.frame(data[[x]][data[[x]][,"Spectrum"] %in% holdFrameMulti()[[x]][,"Spectrum"], ]))
+            names(data) <- quantNames()
             
             data
 
@@ -3541,15 +3548,17 @@ observeEvent(input$actionprocess2_multi, {
 
         predictFramePreMulti <- reactive({
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
             
             concentration <- lapply(holdFrameMulti(), function(x) as.vector(x[,"Concentration"]))
+            names(concentration) <- quantNames()
+            
             intensity <- lapply(holdFrameMulti(), function(x) as.vector(x[,"Intensity"]))
-            
-            predict.frame <- lapply(index, function(x) data.frame(Concentration=concentration[[x]], Intensity==intensity[[x]]))
-            
+            names(intensity) <- quantNames()
+
+            predict.frame <- lapply(quantNames(),function(x) data.frame(Concentration=concentration[[x]], Intensity==intensity[[x]]))
+            names(predict.frame) <- quantNames()
+
             #data.frame(concentration, intensity)
             #colnames(predict.frame) <- c("Concentration", "Intensity")
             
@@ -3558,12 +3567,12 @@ observeEvent(input$actionprocess2_multi, {
             
             
         })
+        
+
 
         predictIntensityMulti <- reactive({
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
             
             spectra.line.table <- spectraLineTableMulti()
             data <- dataNormMulti()
@@ -3571,33 +3580,34 @@ observeEvent(input$actionprocess2_multi, {
             
             #spectra.line.table <- spectra.line.table[paste0(spectra.line.table$Spectrum, spectra.line.table$Instrument) %in% paste0(holdFrameMulti()$Spectrum, holdFrameMulti()$Instrument), ]
             
-            spectra.line.table <- lapply(index, function(x) spectra.line.table[[x]][spectra.line.table[[x]][,"Spectrum"] %in% holdFrameMulti()[[x]][,"Spectrum"], ])
-            
+            spectra.line.table <- lapply(quantNames(),function(x) spectra.line.table[[x]][spectra.line.table[[x]][,"Spectrum"] %in% holdFrameMulti()[[x]][,"Spectrum"], ])
+            names(spectra.line.table) <- quantNames()
+
             
             
             if (input$radiocal_multi!=3){
                 
                 if(input$normcal_multi==1){
                     predict.intensity <- if(dataTypeMulti()=="Spectra"){
-                        lapply(index, function(x) general.prep(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                        lapply(quantNames(),function(x) general.prep(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
                     } else if(dataTypeMulti()=="Net"){
-                        lapply(index, function(x) general.prep.net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                        lapply(quantNames(),function(x) general.prep.net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
                     }
                 }
                 
                 if(input$normcal_multi==2){
                     predict.intensity <- if(dataTypeMulti()=="Spectra"){
-                        lapply(index, function(x) simple.tc.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                        lapply(quantNames(),function(x) simple.tc.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
                     } else if(dataTypeMulti()=="Net"){
-                        lapply(index, function(x) simple.tc.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                        lapply(quantNames(),function(x) simple.tc.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
                     }
                 }
                 
                 if(input$normcal_multi==3){
                     predict.intensity <- if(dataTypeMulti()=="Spectra"){
-                        lapply(index, function(x) simple.comp.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                        lapply(quantNames(),function(x) simple.comp.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
                     } else if(dataTypeMulti()=="Net"){
-                        lapply(index, function(x) simple.comp.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                        lapply(quantNames(),function(x) simple.comp.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
                     }
                 }
                 
@@ -3608,25 +3618,25 @@ observeEvent(input$actionprocess2_multi, {
                 
                 if(input$normcal_multi==1){
                     predict.intensity <- if(dataTypeMulti()=="Spectra"){
-                        lapply(index, function(x) lucas.simp.prep(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                        lapply(quantNames(),function(x) lucas.simp.prep(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
                     } else if(dataTypeMulti()=="Net"){
-                        lapply(index, function(x) lucas.simp.prep.net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                        lapply(quantNames(),function(x) lucas.simp.prep.net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
                     }
                 }
                 
                 if(input$normcal_multi==2){
                     predict.intensity <- if(dataTypeMulti()=="Spectra"){
-                        lapply(index, function(x) lucas.tc.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                        lapply(quantNames(),function(x) lucas.tc.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
                     } else if(dataTypeMulti()=="Net"){
-                        lapply(index, function(x) lucas.tc.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                        lapply(quantNames(),function(x) lucas.tc.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
                     }
                 }
                 
                 if(input$normcal_multi==3){
                     predict.intensity <- if(dataTypeMulti()=="Spectra"){
-                        lapply(index, function(x) lucas.comp.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                        lapply(quantNames(),function(x) lucas.comp.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
                     } else if(dataTypeMulti()=="Net"){
-                        lapply(index, function(x) lucas.comp.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                        lapply(quantNames(),function(x) lucas.comp.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
                     }
                 }
                 
@@ -3634,7 +3644,7 @@ observeEvent(input$actionprocess2_multi, {
             
             predict.intensity <- lapply(predict.intensity, as.data.frame)
             
-            names(predict.intensity) <- cal.names
+            names(predict.intensity) <- quantNames()
             predict.intensity
             
             
@@ -3644,19 +3654,17 @@ observeEvent(input$actionprocess2_multi, {
         
         predictFrameMulti <- reactive({
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
             
             predict.frame <- predictFramePreMulti()
             predict.intensity <- predictIntensityMulti()
             
             
             
-            predict.frame <- lapply(index, function(x) data.frame(predict.intensity[[x]], Concentration=predict.frame[[x]][,"Concentration"]))
+            predict.frame <- lapply(quantNames(),function(x) data.frame(predict.intensity[[x]], Concentration=predict.frame[[x]][,"Concentration"]))
             predict.frame <- lapply(predict.frame, as.data.frame)
 
-            names(predict.frame) <- cal.names
+            names(predict.frame) <- quantNames()
             
             predict.frame
             
@@ -3677,14 +3685,12 @@ observeEvent(input$actionprocess2_multi, {
         
         calCurveFrameMulti <- reactive({
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
             
             cal.frame <- predictFrameMulti()
             
-            cal.frame <- lapply(index, function(x) data.frame(cal.frame[[x]], Instrument=cal.names[x]))
-            names(cal.frame) <- cal.names
+            cal.frame <- lapply(quantNames(),function(x) data.frame(cal.frame[[x]], Instrument=x))
+            names(cal.frame) <- quantNames()
             
             do.call("rbind", cal.frame)
             
@@ -3696,28 +3702,26 @@ observeEvent(input$actionprocess2_multi, {
         elementModelMulti <- reactive({
             
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
             
             predict.list <- predictFrameMulti()
             
             
             
             if (input$radiocal_multi==1){
-                cal.lm <- lapply(index, function(x) lm(Concentration~Intensity, data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+                cal.lm <- lapply(quantNames(),function(x) lm(Concentration~Intensity, data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
             }
             
             
             if (input$radiocal_multi==2){
-                cal.lm <- lapply(cal.names, function(x) lm(Concentration~Intensity + I(Intensity^2), data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+                cal.lm <- lapply(quantNames(), function(x) lm(Concentration~Intensity + I(Intensity^2), data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
             }
             
             if (input$radiocal_multi==3){
-                cal.lm <- lapply(index, function(x) lm(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+                cal.lm <- lapply(quantNames(),function(x) lm(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
             }
             
-            names(cal.lm) <- cal.names
+            names(cal.lm) <- quantNames()
 
             
             cal.lm
@@ -3730,9 +3734,7 @@ observeEvent(input$actionprocess2_multi, {
         valFrameMulti <- reactive({
             
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
             
             predict.intensity <- predictIntensityMulti()
             predict.frame <- predictFrameMulti()
@@ -3740,13 +3742,16 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if (input$radiocal_multi!=3){
-                cal.est.conc.pred <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred) <- quantNames()
                 cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
+                names(cal.est.conc.tab) <- quantNames()
                 cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc) <- quantNames()
                 
                 
-                val.frame <- lapply(index, function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
-                names(val.frame) <- cal.names
+                val.frame <- lapply(quantNames(),function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
+                names(val.frame) <- quantNames()
                 
                 #data.frame(predict.frame$Concentration, cal.est.conc)
                 #colnames(val.frame) <- c("Concentration", "Prediction")
@@ -3754,18 +3759,25 @@ observeEvent(input$actionprocess2_multi, {
             
             if (input$radiocal_multi==3){
         
-                yv=lapply(index, function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                
+                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
+                names(yv) <- quantNames()
+
                 
                 lucas.x <- yv
                 
-                cal.est.conc.pred.luc <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred.luc) <- quantNames()
                 cal.est.conc.tab <- lapply(cal.est.conc.pred.luc, data.frame)
+                names(cal.est.conc.tab) <- quantNames()
                 cal.est.conc.luc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc.luc) <- quantNames()
                 cal.est.conc.luc.up <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"upr"]))
+                names(cal.est.conc.luc.up) <- quantNames()
                 cal.est.conc.luc.low <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"lwr"]))
+                names(cal.est.conc.luc.low) <- quantNames()
+
                 
-                val.frame <- lapply(index, function(x)
+                val.frame <- lapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
@@ -3774,7 +3786,7 @@ observeEvent(input$actionprocess2_multi, {
                 Upper=cal.est.conc.luc.up[[x]],
                 Lower=cal.est.conc.luc.low[[x]]
                 ))
-                names(val.frame) <- cal.names
+                names(val.frame) <- quantNames()
                 
                 
                 #val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
@@ -3783,8 +3795,8 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            val.frame <- lapply(index, function(x) data.frame(val.frame[[x]], Instrument=cal.names[x]))
-            names(val.frame) <- cal.names
+            val.frame <- lapply(quantNames(),function(x) data.frame(val.frame[[x]], Instrument=x))
+            names(val.frame) <- quantNames()
             do.call("rbind", val.frame)
             
             #val.frame$Instrument <- holdFrameMulti()$Instrument
@@ -3804,7 +3816,10 @@ observeEvent(input$actionprocess2_multi, {
         
         rangescalcurve_multi <- reactiveValues(x = NULL, y = NULL)
         
-        
+        output$tabletest <- renderDataTable({
+            as.data.frame(calCurveFrameMulti())
+            
+        })
         
         calCurvePlotMulti <- reactive({
             
@@ -4016,10 +4031,7 @@ observeEvent(input$actionprocess2_multi, {
             
         })
         
-        output$tabletest <- renderDataTable({
-            as.data.frame(randomizeDataMulti())
-            
-        })
+
         
         
         
@@ -4027,16 +4039,14 @@ observeEvent(input$actionprocess2_multi, {
             
             predict.frame <- predictFrameMulti()
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
             
             
-            predict.frame <- lapply(index, function(x) as.data.frame(predict.frame[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
-            names(predict.frame) <- cal.names
+            predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            names(predict.frame) <- quantNames()
             
-            predict.frame <- lapply(index, function(x) as.data.frame(predict.frame[[x]][randomizeDataMulti(),]))
-            names(predict.frame) <- cal.names
+            predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][randomizeDataMulti(),]))
+            names(predict.frame) <- quantNames()
             
             
             predict.frame
@@ -4046,14 +4056,12 @@ observeEvent(input$actionprocess2_multi, {
         
         calCurveFrameRandomizedMulti <- reactive({
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
             
             predict.frame <- predictFrameRandomMulti()
             
-            predict.frame <- lapply(index, function(x) data.frame(predict.frame[[x]], Instrument=cal.names[x]))
-            names(predict.frame) <- cal.names
+            predict.frame <- lapply(quantNames(),function(x) data.frame(predict.frame[[x]], Instrument=x))
+            names(predict.frame) <- quantNames()
             
             
             do.call("rbind", predict.frame)
@@ -4061,10 +4069,7 @@ observeEvent(input$actionprocess2_multi, {
             
         })
         
-        output$tabletest <- renderDataTable({
-            as.data.frame(calCurveFrameRandomizedMulti())
-            
-        })
+
         
         
         elementModelRandomMulti <- reactive({
@@ -4072,28 +4077,26 @@ observeEvent(input$actionprocess2_multi, {
             predict.frame <- predictFrameRandomMulti()
             
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
             
             predict.list <- predict.frame
             
             
             
             if (input$radiocal_multi==1){
-                cal.lm <- lapply(index, function(x) lm(Concentration~Intensity, data=predict.list[[x]]))
+                cal.lm <- lapply(quantNames(),function(x) lm(Concentration~Intensity, data=predict.list[[x]]))
             }
             
             
             if (input$radiocal_multi==2){
-                cal.lm <- lapply(cal.names, function(x) lm(Concentration~Intensity + I(Intensity^2), data=predict.list[[x]]))
+                cal.lm <- lapply(quantNames(), function(x) lm(Concentration~Intensity + I(Intensity^2), data=predict.list[[x]]))
             }
             
             if (input$radiocal_multi==3){
-                cal.lm <- lapply(index, function(x) lm(Concentration~., data=predict.list[[x]]))
+                cal.lm <- lapply(quantNames(),function(x) lm(Concentration~., data=predict.list[[x]]))
             }
             
-            names(cal.lm) <- cal.names
+            names(cal.lm) <- quantNames()
             
             
             cal.lm
@@ -4105,49 +4108,70 @@ observeEvent(input$actionprocess2_multi, {
         
         valFrameRandomizedMulti <- reactive({
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
 
             
-            predict.intensity <- lapply(index, function(x) data.frame(predictIntensityMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            predict.intensity <- lapply(quantNames(),function(x) data.frame(predictIntensityMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            names(predict.intensity) <- quantNames()
+
             
-            predict.frame <- lapply(index, function(x) data.frame(predictFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            predict.frame <- lapply(quantNames(),function(x) data.frame(predictFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            names(predict.frame) <- quantNames()
+
             
+            predict.intensity <- lapply(quantNames(),function(x) data.frame( predict.intensity[[x]][!(randomizeDataMulti()), , drop = FALSE]))
+            names(predict.intensity) <- quantNames()
+
             
-            predict.intensity <- lapply(index, function(x) data.frame( predict.intensity[[x]][!(randomizeDataMulti()), , drop = FALSE]))
-            
-            predict.frame <- lapply(index, function(x) data.frame( predict.frame[[x]][!(randomizeDataMulti()), , drop = FALSE]))
-            
+            predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][!(randomizeDataMulti()), , drop = FALSE]))
+            names(predict.frame) <- quantNames()
+
             element.model <- elementModelRandomMulti()
             
             
             
             if (input$radiocal_multi!=3){
-                cal.est.conc.pred <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred) <- quantNames()
+
                 
                 cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
-                cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc.tab) <- quantNames()
 
-                val.frame <- lapply(index, function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
-                names(val.frame) <- cal.names
+                cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc) <- quantNames()
+
+
+                val.frame <- lapply(quantNames(),function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
+                names(val.frame) <- quantNames()
             }
             
             if (input$radiocal_multi==3){
                 
-                yv=lapply(index, function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
+                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
+                names(yv) <- quantNames()
 
                 
                 
                 lucas.x <- yv
                 
-                cal.est.conc.pred.luc <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred.luc) <- quantNames()
+
                 cal.est.conc.tab <- lapply(cal.est.conc.pred.luc, data.frame)
+                names(cal.est.conc.tab) <- quantNames()
+
                 cal.est.conc.luc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc.luc) <- quantNames()
+
                 cal.est.conc.luc.up <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"upr"]))
+                names(cal.est.conc.luc.up) <- quantNames()
+
                 cal.est.conc.luc.low <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"lwr"]))
+                names(cal.est.conc.luc.low) <- quantNames()
+
                 
-                val.frame <- lapply(index, function(x)
+                val.frame <- lapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
@@ -4157,14 +4181,14 @@ observeEvent(input$actionprocess2_multi, {
                 Lower=cal.est.conc.luc.low[[x]]
                 ))
                 
-                names(val.frame) <- cal.names
+                names(val.frame) <- quantNames()
             }
             
             
             
             
-            val.frame <- lapply(index, function(x) data.frame(val.frame[[x]], Instrument=cal.names[x]))
-            names(val.frame) <- cal.names
+            val.frame <- lapply(quantNames(),function(x) data.frame(val.frame[[x]], Instrument=x))
+            names(val.frame) <- quantNames()
             do.call("rbind", val.frame)
 
         })
@@ -4173,49 +4197,68 @@ observeEvent(input$actionprocess2_multi, {
         
         valFrameRandomizedRevMulti <- reactive({
             
-            cal.names <- names(holdFrameMulti())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
+
             
             
-            predict.intensity <- lapply(index, function(x) data.frame(predictIntensityMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            predict.intensity <- lapply(quantNames(),function(x) data.frame(predictIntensityMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            names(predict.intensity) <- quantNames()
+
             
-            predict.frame <- lapply(index, function(x) data.frame(predictFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            predict.frame <- lapply(quantNames(),function(x) data.frame(predictFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            names(predict.frame) <- quantNames()
+
             
-            
-            predict.intensity <- lapply(index, function(x) data.frame( predict.intensity[[x]][(randomizeDataMulti()), , drop = FALSE]))
-            
-            predict.frame <- lapply(index, function(x) data.frame( predict.frame[[x]][(randomizeDataMulti()), , drop = FALSE]))
-            
+            predict.intensity <- lapply(quantNames(),function(x) data.frame( predict.intensity[[x]][(randomizeDataMulti()), , drop = FALSE]))
+            names(predict.intensity) <- quantNames()
+
+            predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][(randomizeDataMulti()), , drop = FALSE]))
+            names(predict.frame) <- quantNames()
+
             element.model <- elementModelRandomMulti()
             
             
             
             if (input$radiocal_multi!=3){
-                cal.est.conc.pred <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
-                
+                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred) <- quantNames()
+
                 cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
+                names(cal.est.conc.tab) <- quantNames()
+
                 cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc) <- quantNames()
+
                 
-                val.frame <- lapply(index, function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
-                names(val.frame) <- cal.names
+                val.frame <- lapply(quantNames(),function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
+                names(val.frame) <- quantNames()
             }
             
             if (input$radiocal_multi==3){
                 
-                yv=lapply(index, function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                
+                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
+                names(yv) <- quantNames()
+
                 
                 
                 lucas.x <- yv
                 
-                cal.est.conc.pred.luc <- lapply(index, function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred.luc) <- quantNames()
+
                 cal.est.conc.tab <- lapply(cal.est.conc.pred.luc, data.frame)
+                names(cal.est.conc.tab) <- quantNames()
+
                 cal.est.conc.luc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc.luc) <- quantNames()
+
                 cal.est.conc.luc.up <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"upr"]))
+                names(cal.est.conc.luc.up) <- quantNames()
+
                 cal.est.conc.luc.low <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"lwr"]))
+                names(cal.est.conc.luc.low) <- quantNames()
+
                 
-                val.frame <- lapply(index, function(x)
+                val.frame <- lapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
@@ -4225,14 +4268,14 @@ observeEvent(input$actionprocess2_multi, {
                 Lower=cal.est.conc.luc.low[[x]]
                 ))
                 
-                names(val.frame) <- cal.names
+                names(val.frame) <- quantNames()
             }
             
             
             
             
-            val.frame <- lapply(index, function(x) data.frame(val.frame[[x]], Instrument=cal.names[x]))
-            names(val.frame) <- cal.names
+            val.frame <- lapply(quantNames(),function(x) data.frame(val.frame[[x]], Instrument=x))
+            names(val.frame) <- quantNames()
             do.call("rbind", val.frame)
             
         })
@@ -4266,7 +4309,6 @@ observeEvent(input$actionprocess2_multi, {
                 theme_light() +
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
@@ -4280,7 +4322,6 @@ observeEvent(input$actionprocess2_multi, {
                 theme_light() +
                 annotate("text", label=lm_eqn_poly(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 stat_smooth(method="lm", formula=y~poly(x,2), aes(fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
@@ -4294,7 +4335,6 @@ observeEvent(input$actionprocess2_multi, {
                 theme_light() +
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
@@ -4352,7 +4392,6 @@ observeEvent(input$actionprocess2_multi, {
             geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm", aes(fill=Instrument), alpha=0.1) +
             geom_point() +
-            geom_point(aes(Prediction, Concentration, colour=Instrument, shape=Instrument),  data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
             scale_x_continuous(paste(element.name, predi)) +
             scale_y_continuous(paste(element.name, conen)) +
             coord_cartesian(xlim = rangesvalcurverandom_multi$x, ylim = rangesvalcurverandom_multi$y, expand = FALSE)
@@ -4688,13 +4727,55 @@ observeEvent(input$actionprocess2_multi, {
         })
 
 
+emptyList <- reactive({
+    a.list <- list()
+    a.list
+})
+
+observeEvent(input$actionprocess2_multi, {
+    isolate(calListMulti <- emptyList())
+    calListMulti <<- calListMulti
+})
+
+
+
+
+observeEvent(input$createcalelement_multi, {
+    
+    cal.condition <- input$radiocal_multi
+    norm.condition <- input$normcal_multi
+    
+    norm.min <- print(input$comptonmin_multi)
+    norm.max <- print(input$comptonmax_multi)
+    
+    cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max)
+    colnames(cal.table) <- c("CalType", "NormType", "Min", "Max")
+    
+    slope.corrections <- input$slope_vars_multi
+    intercept.corrections <- input$intercept_vars_multi
+    
+    standards.used <- vals$keeprows_multi
+    
+    cal.mode.list <- list(cal.table, slope.corrections, intercept.corrections, standards.used)
+    names(cal.mode.list) <- c("CalTable", "Slope", "Intercept", "StandardsUsed")
+    
+    calConditonsMulti <<- cal.mode.list
+    
+})
 
 
         
 
 
         
-
+        observeEvent(input$createcalelement_multi, {
+            
+            
+            quantLoad()[[x]][[input$calcurveelement_multi]] <- list(isolate(calConditonsMulti), isolate(strip_glm(elementModelMulti()[[x]])))
+            
+            calListMulti <<- calListMulti
+            
+        })
 
 
 
