@@ -4557,7 +4557,9 @@ observeEvent(input$actionprocess2_multi, {
             
             res <- nearPoints(predict.frame, input$plot_cal_click_multi, allRows = TRUE)
             
-            vals_multi$keeprows <- xor(unlist(vals_multi$keeprows), res$selected_)
+            temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
+            
+            vals_multi$keeprows <- relist(flesh=temprows, skeleton=vals_multi$keeprows)
         })
         
         
@@ -4572,8 +4574,9 @@ observeEvent(input$actionprocess2_multi, {
             }
             res <- brushedPoints(predict.frame, input$plot_cal_brush_multi, allRows = TRUE)
             
-            vals_multi$keeprows <- xor(unlist(vals_multi$keeprows, res$selected_))
-        })
+            temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
+            
+            vals_multi$keeprows <- relist(flesh=temprows, skeleton=vals_multi$keeprows)        })
         
         
         
@@ -4718,8 +4721,9 @@ observeEvent(input$actionprocess2_multi, {
             
             res <- nearPoints(predict.frame, input$plot_val_click_multi, allRows = TRUE)
             
-            vals_multi$keeprows <- list(xor(unlist(vals_multi$keeprows), res$selected_))
-        })
+            temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
+            
+            vals_multi$keeprows <- relist(flesh=temprows, skeleton=vals_multi$keeprows)        })
         
         
         
@@ -4729,8 +4733,9 @@ observeEvent(input$actionprocess2_multi, {
             
             res <- brushedPoints(predict.frame, input$plot_val_brush_multi, allRows = TRUE)
             
-            vals_multi$keeprows <- list(xor(unlist(vals_multi$keeprows), res$selected_))
-        })
+            temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
+            
+            vals_multi$keeprows <- relist(flesh=temprows, skeleton=vals_multi$keeprows)        })
         
         
         
