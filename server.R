@@ -3419,35 +3419,6 @@ observeEvent(input$actionprocess2_multi, {
         vals_multi$keeprows <- calFileStandardsMulti()
         
         
-        keepRows <- reactive({
-            
-            
-            concentration.table <- quantValues()
-            cal.names <- names(quantValues())
-            
-            index <- seq(from=1, to=length(cal.names), by=1)
-            
-            holding.frame <- lapply(quantNames(), function(x) data.frame(Concentration=concentration.table[[x]][,elementHoldMulti()], KeepRows=calFileStandardsMulti()[[x]]))
-            names(holding.frame) <- quantNames()
-            
-            hold.list <- lapply(quantNames(), function(x) as.data.frame(holding.frame[[x]][complete.cases(holding.frame[[x]]),]))
-            names(hold.list) <- quantNames()
-            
-            element.cal.meta <- lapply(hold.list, "[[", "KeepRows")
-            element.cal.meta2 <- lapply(element.cal.meta, as.vector)
-            element.cal.meta3 <- unlist(element.cal.meta2, use.names=FALSE)
-
-            as.vector(element.cal.meta3)
-
-
-            
-        })
-        
-        
-        vals_multi$keeptemp <- keepRows()
-        
-
-
         
         
         concentrationTableMulti <- reactive({
