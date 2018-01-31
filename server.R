@@ -3047,7 +3047,7 @@ dev.off()
             
             names <- gsub(".quant", "", inFile$name)
             
-            selectInput('defaultcal', "Default Cal", choices=quantNames(), selected=quantNames()[1], multiple=FALSE)
+            selectInput('defaultcal', "Active Cal", choices=quantNames(), selected=quantNames()[1], multiple=FALSE)
             
         })
         
@@ -3988,7 +3988,7 @@ observeEvent(input$actionprocess2_multi, {
         
         calPlotDownloadMulti <- reactive({
             
-            grid.arrange(calCurvePlotMulti(), valCurvePlot(), ncol=2)
+            grid.arrange(calCurvePlotMulti(), valCurvePlotMulti(), ncol=2)
             
         })
         
@@ -4801,6 +4801,60 @@ observeEvent(input$createcalelement_multi, {
     
 })
 
+
+
+emptyList <- reactive({
+    a.list <- list()
+    a.list
+})
+
+calPlotListMulti <- reactiveValues()
+calPlotListMulti <- emptyList()
+observeEvent(input$createcalelement_multi, {
+    
+    
+    calPlotListMulti[[input$calcurveelement_multi]] <- isolate(calPlotDownloadMulti())
+    
+    calPlotListMulti <<- calPlotListMulti
+    
+})
+
+CalibrationPlotsMulti <- reactiveValues()
+observeEvent(input$createcal_multi, {
+    
+    CalibrationPlotsMulti$calCurves <<- calPlotListMulti
+    
+    
+})
+
+#observeEvent(input$createcal, {
+
+#CalibrationPlots$diagPlots <<- diagPlotList
+
+
+#})
+
+
+
+output$downloadModel_multi <- downloadHandler(
+filename <- function(){
+    paste(input$defaultcal, "quant", sep=".")
+},
+
+content = function(file) {
+    saveRDS(calListMulti[[input$defaultcal]], file = file, compress="xz")
+}
+)
+
+
+output$downloadReport_multi <- downloadHandler(
+function() { paste("summarycurves", '.pdf',  sep='') },
+content = function(file){
+    ml = marrangeGrob(grobs=CalibrationPlotsMulti$calCurves, nrow=1, ncol=1)
+    ggsave(file, ml, device="pdf", dpi=300, width=16, height=7)
+    
+    dev.off()
+})
 
 
 
