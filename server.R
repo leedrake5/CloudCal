@@ -3012,6 +3012,21 @@ dev.off()
             
         })
         
+        calListMulti <- reactiveValues()
+        
+        
+        observeEvent(input$actionprocess_multi, {
+            isolate(calListMulti <<- quantLoad())
+            
+        })
+
+
+    
+
+        
+        
+        
+        
         
         nQuant <- reactive({
             
@@ -3039,7 +3054,7 @@ dev.off()
         
         quantType <- reactive({
             
-            filetype.vector <- sapply(quantLoad(), "[[", "FileType")
+            filetype.vector <- sapply(calListMulti, "[[", "FileType")
             unique(filetype.vector)
             
         })
@@ -3066,7 +3081,7 @@ dev.off()
         
         quantIntensities <- reactive({
             
-            cal.list <- quantLoad()
+            cal.list <- calListMulti
             
             cal.names <- quantNames()
             
@@ -3090,7 +3105,7 @@ dev.off()
         
         quantValues <- reactive({
             
-            cal.list <- quantLoad()
+            cal.list <- calListMulti
             
             cal.names <- quantNames()
             
@@ -3116,7 +3131,7 @@ dev.off()
         
         quantData <- reactive({
             
-            cal.list <- quantLoad()
+            cal.list <- calListMulti
             
             cal.names <- quantNames()
             
@@ -3144,7 +3159,7 @@ dev.off()
         
         quantCals <- reactive({
             
-            cal.list <- quantLoad()
+            cal.list <- calListMulti
             
             cal.names <- quantNames()
             
@@ -3225,7 +3240,7 @@ dev.off()
                 input$calcurveelement_multi
             }
             
-            quantCals()[[input$defaultcal]][[optionhold]][[1]]$Intercept
+            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$Intercept
             
             
             
@@ -3248,7 +3263,7 @@ dev.off()
             }
             
             
-            quantCals()[[input$defaultcal]][[optionhold]][[1]]$Slope
+            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$Slope
             
         })
         
@@ -3268,7 +3283,7 @@ dev.off()
                 input$calcurveelement_multi
             }
             
-            quantCals()[[input$defaultcal]][[optionhold]][[1]]$CalTable$CalType
+            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$CalTable$CalType
             
             
         })
@@ -3284,7 +3299,7 @@ dev.off()
             }
             
             
-            quantCals()[[input$defaultcal]][[optionhold]][[1]]$CalTable$NormType
+            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$CalTable$NormType
             
             
         })
@@ -3300,7 +3315,7 @@ dev.off()
             }
             
             
-            quantCals()[[input$defaultcal]][[optionhold]][[1]]$CalTable$Min
+            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$CalTable$Min
             
             
         })
@@ -3315,7 +3330,7 @@ dev.off()
                 input$calcurveelement_multi
             }
             
-            quantCals()[[input$defaultcal]][[optionhold]][[1]]$CalTable$Max
+            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$CalTable$Max
             
         })
         
@@ -3843,7 +3858,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if(input$radiocal_multi==1){
-                calcurve.plot <- ggplot(data=predict.frame[ vals_multi$keeprows, , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=predict.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~Intensity, predict.frame[ unlist(unlist(vals_multi$keeprows), use.names=FALSE), , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
@@ -4727,17 +4742,10 @@ observeEvent(input$actionprocess2_multi, {
         })
 
 
-emptyList <- reactive({
-    a.list <- list()
-    a.list
-})
-
-observeEvent(input$actionprocess2_multi, {
-    isolate(calListMulti <- emptyList())
-    calListMulti <<- calListMulti
-})
 
 
+
+calConditonsMulti <- reactiveValues()
 
 
 observeEvent(input$createcalelement_multi, {
@@ -4754,7 +4762,7 @@ observeEvent(input$createcalelement_multi, {
     slope.corrections <- input$slope_vars_multi
     intercept.corrections <- input$intercept_vars_multi
     
-    standards.used <- vals$keeprows_multi
+    standards.used <- 1
     
     cal.mode.list <- list(cal.table, slope.corrections, intercept.corrections, standards.used)
     names(cal.mode.list) <- c("CalTable", "Slope", "Intercept", "StandardsUsed")
@@ -4764,19 +4772,29 @@ observeEvent(input$createcalelement_multi, {
 })
 
 
+
+
         
 
 
         
         observeEvent(input$createcalelement_multi, {
             
+           lapply(quantNames(), function(x)
+            calListMulti[[x]][["calList"]][[input$calcurveelement_multi]] <<- list(isolate(calConditonsMulti), isolate(strip_glm(elementModelMulti()[[x]]))))
             
-            quantLoad()[[x]][[input$calcurveelement_multi]] <- list(isolate(calConditonsMulti), isolate(strip_glm(elementModelMulti()[[x]])))
             
-            calListMulti <<- calListMulti
             
         })
 
+observeEvent(input$createcalelement_multi, {
+    
+    lapply(quantNames(), function(x)
+           calListMulti[[x]][["calList"]][[input$calcurveelement_multi]][[1]][[4]] <<- isolate(as.vector(vals_multi$keeprows[[x]])))
+      
+    
+    
+})
 
 
 
