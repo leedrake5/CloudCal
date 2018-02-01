@@ -41,7 +41,7 @@ tags$hr(),
 
 uiOutput('filegrab'),
 
-selectInput("filetype", label="Filetype", c("Spectra", "Net", "Elio", "MCA", "SPX", "PDZ25"), selected="Spectra"),
+selectInput("filetype", label="Filetype", c("Spectra", "Net", "Elio", "MCA", "SPX", "PDZ 25"), selected="Spectra"),
 
 
 tags$hr(),
@@ -475,11 +475,9 @@ actionButton('processvalspectra', "Quantify"),
 
 tags$hr(),
 
-fileInput('loadvaldata', 'Choose Spectra', multiple=TRUE,
-accept=c("text/csv",
-"text/comma-separated-values,text/plain",
-".csv", ".spt", ".mca", ".spx")),
-selectInput("valfiletype", label="Filetype", c("Spectra", "Net", "Elio", "MCA", "SPX"), selected="Spectra"),
+uiOutput('filevalgrab'),
+
+selectInput("valfiletype", label="Filetype", c("Spectra", "Net", "Elio", "MCA", "SPX", "PDZ 25"), selected="Spectra"),
 
 
 tags$hr(),

@@ -42,7 +42,7 @@ shinyServer(function(input, output, session) {
         } else if(input$filetype=="SPX") {
             fileInput('file1', 'Choose Artax File', multiple=TRUE,
             accept=c(".spx"))
-        } else if(input$filetype=="PDZ25") {
+        } else if(input$filetype=="PDZ 25") {
             fileInput('file1', 'Choose PDZ File', multiple=TRUE,
             accept=c(".pdz"))
         }
@@ -281,7 +281,7 @@ shinyServer(function(input, output, session) {
                 readMCA()
             }  else if(input$filetype=="SPX"){
                 readSPX()
-            }  else if(input$filetype=="PDZ25"){
+            }  else if(input$filetype=="PDZ 25"){
                 readPDZ25()
             }
             
@@ -555,7 +555,7 @@ standardElements <- reactive({
         standard
     }  else if(input$usecalfile==FALSE && input$filetype=="SPX"){
         standard
-    }  else if(input$usecalfile==FALSE && input$filetype=="PDZ25"){
+    }  else if(input$usecalfile==FALSE && input$filetype=="PDZ 25"){
         standard
     } else if(input$usecalfile==FALSE && input$filetype=="Net"){
         colnames(spectra.line.table[2:4])
@@ -580,7 +580,7 @@ standardLines <- reactive({
         spectralLines
     }  else if(input$filetype=="SPX"){
         spectralLines
-    }  else if(input$filetype=="PDZ25"){
+    }  else if(input$filetype=="PDZ 25"){
         spectralLines
     } else if(input$filetype=="Net"){
         colnames(spectra.line.table[2:n])
@@ -723,7 +723,7 @@ elementallinestouse <- reactive({
          spectraData()
      }  else if(input$filetype=="SPX"){
          spectraData()
-     }  else if(input$filetype=="PDZ25"){
+     }  else if(input$filetype=="PDZ 25"){
          spectraData()
      } else if(input$filetype=="Net"){
          netData()
@@ -782,7 +782,7 @@ spectra.line.table <- if(input$filetype=="Spectra"){
     spectraData()
 }  else if(input$filetype=="SPX"){
     spectraData()
-}  else if(input$filetype=="PDZ25"){
+}  else if(input$filetype=="PDZ 25"){
     spectraData()
 } else if(input$filetype=="Net"){
     dataHold()
@@ -819,7 +819,7 @@ hotableInputCal <- reactive({
         spectraData()
     }  else if(input$filetype=="SPX"){
         spectraData()
-    }  else if(input$filetype=="PDZ25"){
+    }  else if(input$filetype=="PDZ 25"){
         spectraData()
     } else if(input$filetype=="Net"){
         dataHold()
@@ -1332,7 +1332,7 @@ dataType <- reactive({
         "Spectra"
     }  else if(input$filetype=="SPX"){
         "Spectra"
-    }  else if(input$filetype=="PDZ25"){
+    }  else if(input$filetype=="PDZ 25"){
         "Spectra"
     } else if (input$filetype=="Net"){
         "Net"
@@ -4941,6 +4941,33 @@ content = function(file){
         
         
     })
+    
+    
+    output$filevalgrab <- renderUI({
+        
+        if(input$valfiletype=="Spectra") {
+            fileInput('loadvaldata', 'Choose CSV', multiple=TRUE,
+            accept=c(".csv"))
+        } else if(input$valfiletype=="Net") {
+            fileInput('loadvaldata', 'Choose Net Counts', multiple=TRUE,
+            accept=c(".csv"))
+        } else if(input$valfiletype=="Elio") {
+            fileInput('loadvaldata', 'Choose Elio Spectra', multiple=TRUE,
+            accept=c(".spt"))
+        } else if(input$valfiletype=="MCA") {
+            fileInput('loadvaldata', 'Choose MCA File', multiple=TRUE,
+            accept=c(".mca"))
+        } else if(input$valfiletype=="SPX") {
+            fileInput('loadvaldata', 'Choose Artax File', multiple=TRUE,
+            accept=c(".spx"))
+        } else if(input$valfiletype=="PDZ 25") {
+            fileInput('loadvaldata', 'Choose PDZ File', multiple=TRUE,
+            accept=c(".pdz"))
+        }
+        
+    })
+    
+    
 
     
     
@@ -5101,11 +5128,38 @@ content = function(file){
                 Sys.sleep(0.1)
             })
             
-            
             myfiles.frame
             
             
         })
+            
+            
+            readvalPDZ25 <- reactive({
+                
+                withProgress(message = 'Processing Data', value = 0, {
+                    
+                    inFile <- input$loadvaldata
+                    if (is.null(inFile)) return(NULL)
+                    
+                    n <- length(inFile$datapath)
+                    names <- inFile$name
+                    
+                    myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZ25DataExpiremental(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+                    
+                    
+                    incProgress(1/n)
+                    Sys.sleep(0.1)
+                })
+                
+                myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
+                
+                myfiles.frame
+                
+                
+            })
+            
+            
+
         
         
         myValData <- reactive({
@@ -5120,6 +5174,8 @@ content = function(file){
                 readValMCA()
             }  else if(input$valfiletype=="SPX") {
                 readValSPX()
+            }  else if(input$valfiletype=="PDZ 25") {
+                readvalPDZ25()
             }
             
             data
@@ -5176,12 +5232,32 @@ content = function(file){
         calValElements <- reactive({
             calList <- calValHold()
             valelements <- ls(calList)
+            
+            valelements.simp <- gsub(".K.alpha", "", valelements)
+            valelements.simp <- gsub(".K.beta", "", valelements.simp)
+            valelements.simp <- gsub(".L.alpha", "", valelements.simp)
+            valelements.simp <- gsub(".L.beta", "", valelements.simp)
+            valelements.simp <- gsub(".M.line", "", valelements.simp)
+
+            
+            valelements <- as.vector(as.character(na.omit(valelements[match(as.character(fluorescence.lines$Symbol), valelements.simp)])))
+
+            
             valelements
         })
         
         calVariableElements <- reactive({
             variables <- calVariables()
             variableelements <- ls(variables)
+            
+            #variableelements.simp <- gsub(".K.alpha", "", variableelements)
+            #variableelements.simp <- gsub(".K.beta", "", variableelements)
+            #variableelements.simp <- gsub(".L.alpha", "", variableelements)
+            #variableelements.simp <- gsub(".L.beta", "", variableelements)
+            #variableelements.simp <- gsub(".M.line", "", variableelements)
+            
+            #variableelements <- as.vector(as.character(na.omit(variableelements[match(as.character(fluorescence.lines$Symbol), variableelements.simp)])))
+
             variableelements
         })
         
@@ -5196,6 +5272,8 @@ content = function(file){
             } else if(input$valfiletype=="SPX") {
                 "Spectra"
             } else if(input$valfiletype=="MCA") {
+                "Spectra"
+            } else if(input$valfiletype=="PDZ 25") {
                 "Spectra"
             }
             
@@ -5287,12 +5365,13 @@ content = function(file){
         elements <- elements.cal[!is.na(match(elements.cal, ls(count.table)))]
         variables <- calVariableElements()
         valdata <- myValData()
+        
+        #elements <- fluorescence.lines$Symbol[sort(order(fluorescence.lines$Symbol)[elements])]
 
 
             
             
-            
-        predicted.list <- pblapply(elements, function (x)
+        predicted.list <- lapply(elements, function (x)
             if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
@@ -5452,8 +5531,12 @@ content = function(file){
         predicted.frame <- data.frame(count.table$Spectrum, predicted.vector)
         
         colnames(predicted.frame) <- c("Spectrum", elements)
+        #elements <- elements[order(match(fluorescence.lines$Symbol, elements))]
+
+        
 
         predicted.data.table <- data.table(predicted.frame)
+
         #predicted.values <- t(predicted.values)
         predicted.data.table
             
