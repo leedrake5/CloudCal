@@ -42,7 +42,7 @@ shinyServer(function(input, output, session) {
         } else if(input$filetype=="SPX") {
             fileInput('file1', 'Choose Artax File', multiple=TRUE,
             accept=c(".spx"))
-        } else if(input$filetype=="PDZ 25") {
+        } else if(input$filetype=="PDZ") {
             fileInput('file1', 'Choose PDZ File', multiple=TRUE,
             accept=c(".pdz"))
         }
@@ -240,7 +240,7 @@ shinyServer(function(input, output, session) {
     })
     
     
-    readPDZ25 <- reactive({
+    readPDZ <- reactive({
         
         withProgress(message = 'Processing Data', value = 0, {
             
@@ -250,7 +250,7 @@ shinyServer(function(input, output, session) {
             n <- length(inFile$datapath)
             names <- inFile$name
             
-            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZ25DataExpiremental(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
             
             
             incProgress(1/n)
@@ -281,8 +281,8 @@ shinyServer(function(input, output, session) {
                 readMCA()
             }  else if(input$filetype=="SPX"){
                 readSPX()
-            }  else if(input$filetype=="PDZ 25"){
-                readPDZ25()
+            }  else if(input$filetype=="PDZ"){
+                readPDZ()
             }
             
                 data
@@ -555,7 +555,7 @@ standardElements <- reactive({
         standard
     }  else if(input$usecalfile==FALSE && input$filetype=="SPX"){
         standard
-    }  else if(input$usecalfile==FALSE && input$filetype=="PDZ 25"){
+    }  else if(input$usecalfile==FALSE && input$filetype=="PDZ"){
         standard
     } else if(input$usecalfile==FALSE && input$filetype=="Net"){
         colnames(spectra.line.table[2:4])
@@ -580,7 +580,7 @@ standardLines <- reactive({
         spectralLines
     }  else if(input$filetype=="SPX"){
         spectralLines
-    }  else if(input$filetype=="PDZ 25"){
+    }  else if(input$filetype=="PDZ"){
         spectralLines
     } else if(input$filetype=="Net"){
         colnames(spectra.line.table[2:n])
@@ -723,7 +723,7 @@ elementallinestouse <- reactive({
          spectraData()
      }  else if(input$filetype=="SPX"){
          spectraData()
-     }  else if(input$filetype=="PDZ 25"){
+     }  else if(input$filetype=="PDZ"){
          spectraData()
      } else if(input$filetype=="Net"){
          netData()
@@ -782,7 +782,7 @@ spectra.line.table <- if(input$filetype=="Spectra"){
     spectraData()
 }  else if(input$filetype=="SPX"){
     spectraData()
-}  else if(input$filetype=="PDZ 25"){
+}  else if(input$filetype=="PDZ"){
     spectraData()
 } else if(input$filetype=="Net"){
     dataHold()
@@ -819,7 +819,7 @@ hotableInputCal <- reactive({
         spectraData()
     }  else if(input$filetype=="SPX"){
         spectraData()
-    }  else if(input$filetype=="PDZ 25"){
+    }  else if(input$filetype=="PDZ"){
         spectraData()
     } else if(input$filetype=="Net"){
         dataHold()
@@ -1332,7 +1332,7 @@ dataType <- reactive({
         "Spectra"
     }  else if(input$filetype=="SPX"){
         "Spectra"
-    }  else if(input$filetype=="PDZ 25"){
+    }  else if(input$filetype=="PDZ"){
         "Spectra"
     } else if (input$filetype=="Net"){
         "Net"
@@ -4960,7 +4960,7 @@ content = function(file){
         } else if(input$valfiletype=="SPX") {
             fileInput('loadvaldata', 'Choose Artax File', multiple=TRUE,
             accept=c(".spx"))
-        } else if(input$valfiletype=="PDZ 25") {
+        } else if(input$valfiletype=="PDZ") {
             fileInput('loadvaldata', 'Choose PDZ File', multiple=TRUE,
             accept=c(".pdz"))
         }
@@ -5134,7 +5134,7 @@ content = function(file){
         })
             
             
-            readvalPDZ25 <- reactive({
+            readvalPDZ <- reactive({
                 
                 withProgress(message = 'Processing Data', value = 0, {
                     
@@ -5144,7 +5144,7 @@ content = function(file){
                     n <- length(inFile$datapath)
                     names <- inFile$name
                     
-                    myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZ25DataExpiremental(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+                    myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
                     
                     
                     incProgress(1/n)
@@ -5174,8 +5174,8 @@ content = function(file){
                 readValMCA()
             }  else if(input$valfiletype=="SPX") {
                 readValSPX()
-            }  else if(input$valfiletype=="PDZ 25") {
-                readvalPDZ25()
+            }  else if(input$valfiletype=="PDZ") {
+                readvalPDZ()
             }
             
             data
@@ -5273,7 +5273,7 @@ content = function(file){
                 "Spectra"
             } else if(input$valfiletype=="MCA") {
                 "Spectra"
-            } else if(input$valfiletype=="PDZ 25") {
+            } else if(input$valfiletype=="PDZ") {
                 "Spectra"
             }
             
