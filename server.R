@@ -25,6 +25,31 @@ assign("last.warning", NULL, envir = baseenv())
 
 shinyServer(function(input, output, session) {
     
+    output$filegrab <- renderUI({
+        
+        if(input$filetype=="Spectra") {
+            fileInput('file1', 'Choose CSV', multiple=TRUE,
+            accept=c(".csv"))
+        } else if(input$filetype=="Net") {
+            fileInput('file1', 'Choose Net Counts', multiple=TRUE,
+            accept=c(".csv"))
+        } else if(input$filetype=="Elio") {
+            fileInput('file1', 'Choose Elio Spectra', multiple=TRUE,
+            accept=c(".spt"))
+        } else if(input$filetype=="MCA") {
+            fileInput('file1', 'Choose MCA File', multiple=TRUE,
+            accept=c(".mca"))
+        } else if(input$filetype=="SPX") {
+            fileInput('file1', 'Choose Artax File', multiple=TRUE,
+            accept=c(".spx"))
+        } else if(input$filetype=="PDZ25") {
+            fileInput('file1', 'Choose PDZ File', multiple=TRUE,
+            accept=c(".pdz"))
+        }
+        
+    })
+    
+    
     output$gainshiftui <- renderUI({
         
         if(input$advanced==TRUE){
@@ -213,6 +238,31 @@ shinyServer(function(input, output, session) {
         
         
     })
+    
+    
+    readPDZ25 <- reactive({
+        
+        withProgress(message = 'Processing Data', value = 0, {
+            
+            inFile <- input$file1
+            if (is.null(inFile)) return(NULL)
+            
+            n <- length(inFile$datapath)
+            names <- inFile$name
+            
+            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZ25DataExpiremental(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+            
+            
+            incProgress(1/n)
+            Sys.sleep(0.1)
+        })
+        
+        myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
+        
+        myfiles.frame
+        
+        
+    })
    
     
     
@@ -231,6 +281,8 @@ shinyServer(function(input, output, session) {
                 readMCA()
             }  else if(input$filetype=="SPX"){
                 readSPX()
+            }  else if(input$filetype=="PDZ25"){
+                readPDZ25()
             }
             
                 data
@@ -247,7 +299,23 @@ calFileContents <- reactive({
 
 
     Calibration <- readRDS(existingCalFile$datapath)
-            
+    
+    
+    
+    Calibration[["Values"]]$Spectrum <- gsub(".spx", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".pdz", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".CSV", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".csv", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".spt", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".mca", "", Calibration[["Values"]]$Spectrum)
+    
+    Calibration[["Spectra"]]$Spectrum <- gsub(".spx", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".pdz", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".CSV", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".csv", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".spt", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".mca", "", Calibration[["Spectra"]]$Spectrum)
+
     Calibration
             
         })
@@ -262,6 +330,13 @@ dataHold <- reactive({
     }
     
     data <- data[order(as.character(data$Spectrum)),]
+    
+    data$Spectrum <- gsub(".pdz", "", data$Spectrum)
+    data$Spectrum <- gsub(".csv", "", data$Spectrum)
+    data$Spectrum <- gsub(".CSV", "", data$Spectrum)
+    data$Spectrum <- gsub(".spt", "", data$Spectrum)
+    data$Spectrum <- gsub(".mca", "", data$Spectrum)
+    data$Spectrum <- gsub(".spx", "", data$Spectrum)
 
     data
     
@@ -480,6 +555,8 @@ standardElements <- reactive({
         standard
     }  else if(input$usecalfile==FALSE && input$filetype=="SPX"){
         standard
+    }  else if(input$usecalfile==FALSE && input$filetype=="PDZ25"){
+        standard
     } else if(input$usecalfile==FALSE && input$filetype=="Net"){
         colnames(spectra.line.table[2:4])
     } else if(input$usecalfile==TRUE){
@@ -502,6 +579,8 @@ standardLines <- reactive({
     }  else if(input$filetype=="MCA"){
         spectralLines
     }  else if(input$filetype=="SPX"){
+        spectralLines
+    }  else if(input$filetype=="PDZ25"){
         spectralLines
     } else if(input$filetype=="Net"){
         colnames(spectra.line.table[2:n])
@@ -593,7 +672,14 @@ elementallinestouse <- reactive({
      
      spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]
 
-     
+     spectra.line.frame$Spectrum <- gsub(".pdz", "", spectra.line.frame$Spectrum)
+     spectra.line.frame$Spectrum <- gsub(".csv", "", spectra.line.frame$Spectrum)
+     spectra.line.frame$Spectrum <- gsub(".CSV", "", spectra.line.frame$Spectrum)
+     spectra.line.frame$Spectrum <- gsub(".spt", "", spectra.line.frame$Spectrum)
+     spectra.line.frame$Spectrum <- gsub(".mca", "", spectra.line.frame$Spectrum)
+     spectra.line.frame$Spectrum <- gsub(".spx", "", spectra.line.frame$Spectrum)
+
+
      spectra.line.frame
      
  })
@@ -609,6 +695,9 @@ elementallinestouse <- reactive({
      net.data <- data.frame(net.data$Spectrum ,net.data.partial)
      colnames(net.data) <- c("Spectrum", elements)
      net.data <- net.data[order(as.character(net.data$Spectrum)),]
+     
+     net.data$Spectrum <- gsub(".csv", "", net.data$Spectrum)
+     net.data$Spectrum <- gsub(".CSV", "", net.data$Spectrum)
 
      net.data
      
@@ -633,6 +722,8 @@ elementallinestouse <- reactive({
      }  else if(input$filetype=="MCA"){
          spectraData()
      }  else if(input$filetype=="SPX"){
+         spectraData()
+     }  else if(input$filetype=="PDZ25"){
          spectraData()
      } else if(input$filetype=="Net"){
          netData()
@@ -691,6 +782,8 @@ spectra.line.table <- if(input$filetype=="Spectra"){
     spectraData()
 }  else if(input$filetype=="SPX"){
     spectraData()
+}  else if(input$filetype=="PDZ25"){
+    spectraData()
 } else if(input$filetype=="Net"){
     dataHold()
 }
@@ -725,6 +818,8 @@ hotableInputCal <- reactive({
     }  else if(input$filetype=="MCA"){
         spectraData()
     }  else if(input$filetype=="SPX"){
+        spectraData()
+    }  else if(input$filetype=="PDZ25"){
         spectraData()
     } else if(input$filetype=="Net"){
         dataHold()
@@ -773,6 +868,13 @@ hotableInputCal <- reactive({
     
     colnames(hotable.new)[1] <- "Spectrum"
     
+    hotable.new$Spectrum <- gsub(".pdz", "", hotable.new$Spectrum)
+    hotable.new$Spectrum <- gsub(".csv", "", hotable.new$Spectrum)
+    hotable.new$Spectrum <- gsub(".CSV", "", hotable.new$Spectrum)
+    hotable.new$Spectrum <- gsub(".spt", "", hotable.new$Spectrum)
+    hotable.new$Spectrum <- gsub(".mca", "", hotable.new$Spectrum)
+    hotable.new$Spectrum <- gsub(".spx", "", hotable.new$Spectrum)
+    
     hotable.new
     
     
@@ -797,8 +899,7 @@ hotable.new <- if(input$usecalfile==FALSE){
     data.frame(Include=calFileContents()$Values[,1], hotable.data)
 }
     
-    
-    hotable.new
+
 
 })
 
@@ -1230,6 +1331,8 @@ dataType <- reactive({
     }  else if(input$filetype=="MCA"){
         "Spectra"
     }  else if(input$filetype=="SPX"){
+        "Spectra"
+    }  else if(input$filetype=="PDZ25"){
         "Spectra"
     } else if (input$filetype=="Net"){
         "Net"

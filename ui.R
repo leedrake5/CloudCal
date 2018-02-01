@@ -39,12 +39,9 @@ downloadButton('downloadPlot', "Plot"),
 
 tags$hr(),
 
-fileInput('file1', 'Choose Spectra', multiple=TRUE,
-accept=c("text/csv",
-"text/comma-separated-values,text/plain",
-".csv", ".spt", ".mca", ".spx")),
+uiOutput('filegrab'),
 
-selectInput("filetype", label="Filetype", c("Spectra", "Net", "Elio", "MCA", "SPX"), selected="Spectra"),
+selectInput("filetype", label="Filetype", c("Spectra", "Net", "Elio", "MCA", "SPX", "PDZ25"), selected="Spectra"),
 
 
 tags$hr(),

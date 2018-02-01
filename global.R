@@ -162,6 +162,28 @@ readSPXData <- function(filepath, filename){
 }
 
 
+readPDZ25DataExpiremental <- function(filepath, filename){
+    
+    filename <- gsub(".pdz", "", filename)
+    filename.vector <- rep(filename, 2049)
+    
+    nbrOfRecords <- 10000
+    integers <- readBin(con=filepath, what="integer", size=4, n=nbrOfRecords, endian="little")
+    floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
+    integer.sub <- integers[124:2172]
+    sequence <- seq(1, length(integer.sub), 1)
+
+    time.est <- integers[144]/10
+
+        channels <- sequence
+        energy <- sequence*.02
+        counts <- integer.sub/(integers[144]/10)
+        
+        data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
+
+}
+
+
 file.0 <- function(file) {
     if (length(file) > 0)
     {
