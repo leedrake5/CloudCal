@@ -3284,6 +3284,15 @@ dev.off()
         })
         
         
+        variablelinestouseMulti <- reactive({
+            
+            
+            names(quantValues()[[input$defaultcal]])
+            
+            
+        })
+        
+        
         outVarMulti <- reactive({
             
             myelements <- elementallinestouseMulti()
@@ -3302,7 +3311,7 @@ dev.off()
         outVaraltMulti <- reactive({
             
             
-            myelements <- c(elementallinestouseMulti())
+            myelements <- c(variablelinestouseMulti())
             
             
             if(is.null(myelements)){
@@ -3316,7 +3325,7 @@ dev.off()
         outVaralt2Multi <- reactive({
             
             
-            myelements <- c(elementallinestouseMulti())
+            myelements <- c(variablelinestouseMulti())
             
             
             if(is.null(myelements)){
