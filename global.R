@@ -199,7 +199,7 @@ readPDZ24DataExpiremental <- function(filepath, filename){
     
     channels <- sequence
     energy <- sequence*.02
-    counts <- integer.sub/(integer.sub[21])
+    counts <- integer.sub/(integer.sub[21]/10)
     
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
@@ -1668,15 +1668,8 @@ general.prep <- function(spectra.line.table, element.line) {
     intensity <- spectra.line.table[,element.line]
     
     
-    predict.frame <- data.frame(intensity)
-    colnames(predict.frame) <- c("Intensity")
-    
-    
-    
-    predict.intensity <- data.frame(predict.frame$Intensity)
-    colnames(predict.intensity) <- c("Intensity")
-    
-    predict.intensity
+    data.frame(Intensity=spectra.line.table[,element.line])
+
 }
 
 simple.tc.prep <- function(data,spectra.line.table, element.line) {

@@ -1104,7 +1104,7 @@ calList <- NULL
 
 observeEvent(input$hotableprocess2, {
     
-    cal.condition <- 1
+    cal.condition <- 3
     norm.condition <- 1
     
     norm.min <- 18.5
@@ -1371,11 +1371,11 @@ dataType <- reactive({
       
       spectra.line.table <- spectraLineTable()
       
-      concentration <- as.vector(as.numeric(unlist(concentrationTable()[input$calcurveelement])))
+      concentration <- as.vector(as.numeric(unlist(concentrationTable()[,input$calcurveelement])))
       
       
       
-      intensity <- as.vector(as.numeric(unlist(spectraLineTable()[input$calcurveelement])))
+      intensity <- as.vector(as.numeric(unlist(spectraLineTable()[,input$calcurveelement])))
       
       spectra.names <- spectra.line.table$Spectrum
       
@@ -1429,9 +1429,9 @@ dataType <- reactive({
       if (input$radiocal!=3){
           
           if(input$normcal==1){
-              predict.intensity <- if(input$filetype=="Spectra"){
+              predict.intensity <- if(dataType()=="Spectra"){
                   general.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-              } else if(input$filetype=="Net"){
+              } else if(dataType()=="Net"){
                   general.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
               }
           }
@@ -1611,7 +1611,6 @@ dataType <- reactive({
   
   calCurvePlot <- reactive({
       
-      predict.intensity <- predictIntensity()
       predict.frame <- predictFrame()
       element.model <- elementModel()
       val.frame <- valFrame()
@@ -1699,7 +1698,6 @@ dataType <- reactive({
   
   valCurvePlot <- reactive({
       
-      predict.intensity <- predictIntensity()
       predict.frame <- predictFrame()
       element.model <- elementModel()
       
