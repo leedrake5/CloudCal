@@ -436,19 +436,21 @@ style = "position:relative",
 plotOutput("calcurveplotsrandom_multi", height = 455,  click = "plot_cal_click_random_multi",
 dblclick = "plot_cal_dblclick_random_multi",
 brush = brushOpts(id = "plot_cal_brush_random_multi", resetOnNew = TRUE),
-hover = hoverOpts("plot_hovercal_random_multi", delay = 100, delayType = "debounce"))
-#uiOutput("hover_infocal_random_multi")
+hover = hoverOpts("plot_hovercal_random_multi", delay = 100, delayType = "debounce")),
+uiOutput("hover_infocal_random_multi")
 ),
 div(
 style = "position:relative",
 plotOutput("valcurveplotsrandom_multi", height = 455, click = "plot_val_click_random_multi",
 dblclick = "plot_val_dblclick_random_multi",
 brush = brushOpts(id = "plot_val_brush_random_multi", resetOnNew = TRUE),
-hover = hoverOpts("plot_hoverval_random_multi", delay = 100, delayType = "debounce"))
-#uiOutput("hover_infoval_random_multi")
+hover = hoverOpts("plot_hoverval_random_multi", delay = 100, delayType = "debounce")),
+uiOutput("hover_infoval_random_multi")
 )
 ),
-sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.20)
+sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.20),
+checkboxInput('switchmulti', "Use Cross-Validation for Report", value=FALSE),
+checkboxInput('switchrand', "Randomize by Spectrum", value=FALSE)
 
 ),
 

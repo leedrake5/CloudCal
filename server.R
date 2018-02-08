@@ -4067,19 +4067,7 @@ observeEvent(input$actionprocess2_multi, {
         })
         
         
-        calPlotDownloadMulti <- reactive({
-            
-            grid.arrange(calCurvePlotMulti(), valCurvePlotMulti(), ncol=2)
-            
-        })
-        
-        
-        output$downloadcloudplot_multi <- downloadHandler(
-        filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement_multi), collapse=''), '.tiff',  sep='') },
-        content = function(file) {
-            ggsave(file,calPlotDownloadMulti(), device="tiff", compression="lzw", type="cairo", dpi=300, width=12, height=7)
-        }
-        )
+
         
         
         calValTableMulti <- reactive({
@@ -4109,7 +4097,12 @@ observeEvent(input$actionprocess2_multi, {
         output$standardsperformance_multi <- DT::renderDataTable({
             
             
-            standard.table <- calValTableMulti()
+            standard.table <- if(input$switchmulti==FALSE){
+                calValTableMulti()
+            } else if(input$switchmulti==TRUE){
+                calValTableRandomMulti()
+            }
+            
             standard.table
             
         }, options =list(aoColumnDefs = list(list(sClass="alignRight",aTargets=c(list(2), list(3),list(4),list(5))))  ))
@@ -4127,6 +4120,23 @@ observeEvent(input$actionprocess2_multi, {
             
         })
         
+        
+        
+        standardNamesRandomized <- reactive({
+            
+            cal.frame <- spectraLineTableMulti()[[input$defaultcal]]
+            cal.frame <- cal.frame[ vals_multi$keeprows[[input$defaultcal]], , drop = FALSE]
+            total.number <- length(cal.frame[,1])
+            sample.number <- total.number-round(input$percentrandom_multi*total.number, 0)
+            
+            hold <- cal.frame[randomizeDataMulti(),]
+            cal.frame$Spectrum[cal.frame$Spectrum %in% hold$Spectrum]
+            
+        })
+        
+        
+        
+        
 
         
         
@@ -4138,7 +4148,7 @@ observeEvent(input$actionprocess2_multi, {
 
             
             
-            predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][ vals_multi$keeprows[[x]], ]))
             names(predict.frame) <- quantNames()
             
             predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][randomizeDataMulti(),]))
@@ -4204,6 +4214,8 @@ observeEvent(input$actionprocess2_multi, {
         
         valFrameRandomizedMulti <- reactive({
             
+            concentration.table.rev <- predictFrameRandomMulti()
+            
 
 
             
@@ -4221,6 +4233,7 @@ observeEvent(input$actionprocess2_multi, {
             
             predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][!(randomizeDataMulti()), , drop = FALSE]))
             names(predict.frame) <- quantNames()
+            
 
             element.model <- elementModelRandomMulti()
             
@@ -4285,6 +4298,12 @@ observeEvent(input$actionprocess2_multi, {
             
             val.frame <- lapply(quantNames(),function(x) data.frame(val.frame[[x]], Instrument=x))
             names(val.frame) <- quantNames()
+            
+            val.frame <- lapply(quantNames(), function(x) as.data.frame(
+            val.frame[[x]][val.frame[[x]][, "Concentration"] > min(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE) & val.frame[[x]][, "Concentration"] < max(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE), ]))
+            names(val.frame) <- quantNames()
+
+            
             do.call("rbind", val.frame)
 
         })
@@ -4443,6 +4462,48 @@ observeEvent(input$actionprocess2_multi, {
         })
         
         
+        
+        calValTableRandomMulti <- reactive({
+            
+            standard.table <- valFrameRandomizedMulti()
+            
+            cal.frame <- spectraLineTableMulti()[[input$defaultcal]]
+            cal.frame <- cal.frame[ vals_multi$keeprows[[input$defaultcal]], , drop = FALSE]
+            total.number <- length(cal.frame[,1])
+            sample.number <- total.number-round(input$percentrandom_multi*total.number, 0)
+            
+            
+            concentration.table.rev <- predictFrameRandomMulti()
+            
+            
+            predict.frame <- lapply(quantNames(),function(x) data.frame(holdFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            names(predict.frame) <- quantNames()
+            
+            
+            predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][!(randomizeDataMulti()), , drop = FALSE]))
+            names(predict.frame) <- quantNames()
+            
+            predict.frame <- lapply(quantNames(), function(x) as.data.frame(
+            predict.frame[[x]][predict.frame[[x]][, "Concentration"] > min(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE) & predict.frame[[x]][, "Concentration"] < max(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE), ]))
+            names(predict.frame) <- quantNames()
+            
+            hold.table <- do.call("rbind", predict.frame)
+            
+            
+            standard.table$Spectrum <- hold.table[,"Spectrum"]
+            
+            standard.table.summary <- data.frame(standard.table$Instrument, standard.table$Spectrum, standard.table$Concentration, standard.table$Prediction, standard.table$Concentration-standard.table$Prediction, ((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration))
+            colnames(standard.table.summary) <- c("Instrument", "Standard", "Concentration", "Prediction", "Difference", "Relative")
+            
+            standard.table.summary[,3:length(standard.table.summary)] <-round(standard.table.summary[,3:length(standard.table.summary)],4)
+            standard.table.summary[,5] <- as.character(percent(standard.table.summary[,5]))
+            
+            this.table <- DT::datatable(standard.table.summary)
+            this.table
+            
+        })
+        
+        
         observeEvent(input$plot_cal_dblclick_random_multi, {
             brush <- input$plot_cal_brush_random_multi
             if (!is.null(brush)) {
@@ -4575,13 +4636,24 @@ observeEvent(input$actionprocess2_multi, {
             point.table <- if(input$radiocal_multi!=3){
                 calCurveFrameRandomizedMulti()
             } else if(input$radiocal_multi==3) {
-                valFrameRandomizedMulti()
+                valFrameRandomizedRevMulti()
             }
             
-            concentration.table <- do.call("rbind", concentrationTableMulti())
+            
+            
+            predict.frame <- lapply(quantNames(),function(x) data.frame(spectraLineTableMulti()[[x]][ vals_multi$keeprows[[x]], ]))
+            names(predict.frame) <- quantNames()
+            
+            
+            predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][(randomizeDataMulti()), ]))
+            names(predict.frame) <- quantNames()
+            
+           
+            
+            concentration.table <- do.call("rbind", predict.frame)
 
-            concentration.table <- concentration.table[ unlist(vals_multi$keeprows), , drop = FALSE]
-            concentration.table <- concentration.table[(randomizeDataMulti()),]
+            #concentration.table <- concentration.table[ unlist(vals_multi$keeprows), , drop = FALSE]
+            #concentration.table <- concentration.table[(randomizeDataMulti()),]
             
             hold.table <- as.vector(concentration.table[,"Spectrum"])
             
@@ -4694,7 +4766,8 @@ observeEvent(input$actionprocess2_multi, {
         output$hover_infoval_multi <- renderUI({
             
             point.table <- valFrameMulti()
-            
+            concentration.table.rev <- predictFrameRandomMulti()
+
             
             concentration.table <- do.call("rbind", holdFrameMulti())
             
@@ -4744,24 +4817,27 @@ observeEvent(input$actionprocess2_multi, {
             
             point.table <- valFrameRandomizedMulti()
             
-            
-            concentration.table <- do.call("rbind", concentrationTableMulti())
-            
-            concentration.table <- concentration.table[ unlist(vals_multi$keeprows), , drop = FALSE]
-            concentration.table <- concentration.table[!(randomizeDataMulti()),]
-            concentration.table.rev <- concentration.table[(randomizeDataMulti()),]
-
-            hold.table <- as.vector(concentration.table[,"Spectrum"])
-            
-            
-            point.table$Spectrum <- hold.table
+            concentration.table.rev <- predictFrameRandomMulti()
 
             
-            point.table <- point.table[point.table$Concentration > min(concentration.table.rev[,input$calcurveelement_multi], na.rm = TRUE) & point.table$Concentration < max(concentration.table.rev[,input$calcurveelement_multi], na.rm = TRUE), ]
+            predict.frame <- lapply(quantNames(),function(x) data.frame(holdFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            names(predict.frame) <- quantNames()
             
             
+            predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][!(randomizeDataMulti()), , drop = FALSE]))
+            names(predict.frame) <- quantNames()
             
-            hover <- input$plot_hoverval_random
+            predict.frame <- lapply(quantNames(), function(x) as.data.frame(
+            predict.frame[[x]][predict.frame[[x]][, "Concentration"] > min(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE) & predict.frame[[x]][, "Concentration"] < max(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE), ]))
+            names(predict.frame) <- quantNames()
+            
+            hold.table <- do.call("rbind", predict.frame)
+            
+            
+            point.table$Spectrum <- hold.table[,"Spectrum"]
+            
+            
+            hover <- input$plot_hoverval_random_multi
             point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
             
@@ -4826,6 +4902,27 @@ observeEvent(input$actionprocess2_multi, {
             
             vals_multi$keeprows <- calFileStandardsMulti()
         })
+        
+        
+        calPlotDownloadMulti <- reactive({
+            
+            if(input$switchmulti==FALSE){
+                grid.arrange(calCurvePlotMulti(), valCurvePlotMulti(), ncol=2)
+            }else if(input$switchmulti==TRUE){
+                grid.arrange(calCurvePlotRandomMulti(), valCurvePlotRandomMulti(), ncol=2)
+                
+            }
+            
+            
+        })
+        
+        
+        output$downloadcloudplot_multi <- downloadHandler(
+        filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement_multi), collapse=''), '.tiff',  sep='') },
+        content = function(file) {
+            ggsave(file,calPlotDownloadMulti(), device="tiff", compression="lzw", type="cairo", dpi=300, width=18, height=7)
+        }
+        )
 
 
 
@@ -4893,8 +4990,8 @@ calPlotListMulti <- reactiveValues()
 calPlotListMulti <- emptyList()
 observeEvent(input$createcalelement_multi, {
     
-    
-    calPlotListMulti[[input$calcurveelement_multi]] <- isolate(calPlotDownloadMulti())
+        calPlotListMulti[[input$calcurveelement_multi]] <- isolate(calPlotDownloadMulti())
+
     
     calPlotListMulti <<- calPlotListMulti
     
