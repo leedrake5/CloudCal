@@ -5344,7 +5344,9 @@ content = function(file){
             valelements.simp <- gsub(".M.line", "", valelements.simp)
 
             
-            valelements <- as.vector(as.character(na.omit(valelements[match(as.character(fluorescence.lines$Symbol), valelements.simp)])))
+            valelements <- as.vector(as.character(valelements[match(as.character(fluorescence.lines$Symbol), valelements.simp)]))
+            
+            valelements <- c(valelements, ls(calList)[!(ls(calList) %in% valelements)])
 
             
             valelements

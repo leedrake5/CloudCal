@@ -34,6 +34,32 @@ Hodder.v <- function(y)
     return(y)
 }
 
+cal.lmsummary <-function(lm.object){
+    res<-c(paste(as.character(summary(lm.object)$call),collapse=" "),
+    length(lm.object$model),
+    summary(lm.object)$r.squared,
+    summary(lm.object)$adj.r.squared,
+    summary(lm.object)$fstatistic,
+    pf(summary(lm.object)$fstatistic[1],summary(lm.object)$fstatistic[2],summary(lm.object)$fstatistic[3],lower.tail=FALSE))
+    names(res)<-c("Call","n", "R2","Adj. R2",
+    "F-statistic","numdf","dendf","p-value")
+    return(res)}
+
+
+val.lmsummary <-function(lm.object){
+    res<-c(paste(as.character(summary(lm.object)$call),collapse=" "),
+    lm.object$coefficients[1],
+    lm.object$coefficients[2],
+    length(lm.object$model),
+    summary(lm.object)$coefficients[2,2],
+    summary(lm.object)$r.squared,
+    summary(lm.object)$adj.r.squared,
+    summary(lm.object)$fstatistic,
+    pf(summary(lm.object)$fstatistic[1],summary(lm.object)$fstatistic[2],summary(lm.object)$fstatistic[3],lower.tail=FALSE))
+    names(res)<-c("Call","Intercept","Slope","n","Slope SE","R2","Adj. R2",
+    "F-statistic","numdf","dendf","p-value")
+    return(res)}
+
 
 
 read_csv_filename_x <- function(filename){
