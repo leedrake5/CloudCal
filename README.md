@@ -1,6 +1,9 @@
 # CloudCal
 
-This app will allow you to build & apply calibrations for the Tracer & Artax series of XRF devices. It works with .csv files produced from S1PXRF and .csv files of net counts produced from Artax (7.4 or later). 
+This app will allow you to build & apply calibrations for the Tracer & Artax series of XRF devices. It (currently) works with .csv files produced from S1PXRF, PDZ versions 24 and 25, .spx files, Elio spectra (.spt), .mca files, and .csv files of net counts produced from Artax (7.4 or later).
+
+![alt text](https://raw.githubusercontent.com/leedrake5/CloudCal/master/Images/plantexample.png)
+
 
 ## How it works
 It is based on the Lucas-Tooth and Price (1961) algorithm<sup>1</sup>, though I have added modifications to make it more robust (it's really hard to get a validation plot slope that isn't 1). The algorithm goes like this:
