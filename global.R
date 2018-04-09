@@ -2137,19 +2137,19 @@ combos <- function(a.vector){
 create.frame <- function(element, slopes, values, intensities){
     
     data.frame(Value=values[,element],
-    Intensity=intensities[,element],
+    Intensity=intensities[,"Intensity"],
     intensities[,slopes])
     
 }
 
 
 
-optimal_r_chain <- function(element, intensities, values, possible.slopes){
+optimal_r_chain <- function(element, intensities, values, possible.slopes, keep){
     
     
-    chain.lm <- pbapply::pblapply(possible.slopes, function(x) lm(Value~Intensity+., data=create.frame(element=test.element, slopes=x, values=values, intensities=intensities)))
-    rs <- lapply(chain.lm, function(x) summary(x)$r.squared)
-    best <- chain.lm[[which.max(unlist(rs))]]
+    chain.lm <- pbapply::pblapply(possible.slopes, function(x) lm(Value~Intensity+., data=create.frame(element=element, slopes=x, values=values, intensities=intensities)[keep,]))
+    aic <- lapply(chain.lm, function(x) extractAIC(x, k=log(length(possible.slopes)))[2])
+    best <- chain.lm[[which.min(unlist(aic))]]
     coef <- data.frame(best$coefficients)
     best.var <- rownames(coef)[3:length(rownames(coef))]
     

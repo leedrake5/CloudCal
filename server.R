@@ -1095,15 +1095,10 @@ inVar4Selectedpre <- reactive({
 
 
 
-output$nvariablesui <- renderUI({
-    
-    if(input$trainslopes==TRUE){
-        numericInput("nvariables", label = "# Elements", min=2, max=length(outVaralt()), value=3)
-    } else if(input$trainslopes==FALSE){
-        p()
-    }
-    
-})
+
+
+
+
 
 fishVector <- reactive({
     
@@ -1121,34 +1116,75 @@ fishVector <- reactive({
     
     
     
-    combos_mod(ls(spectraLineTable()[ ,!colnames(spectraLineTable())==input$calcurveelement]))
+    combos_mod(elementallinestouse()[!elementallinestouse() %in% input$calcurveelement])
 
 })
 
 
 bestSlopeVars <- reactive({
     
-    choices <- outVaralt()
+    element <- input$calcurveelement
+    
+    choices <- elementallinestouse()
+    spectra.line.table <- spectraLineTable()
+    data <- dataNorm()
+    concentration.table <- concentrationTable()
     
     
-    optimal_r_chain(element=input$calcurveelement, intensities=spectraLineTable(), values= as.data.frame(values[["DF"]]), possible.slopes=fishVector())
+    spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
+    
+        spectra.line.table <- spectraLineTable()[, c(element, choices)]
+    
+    predict.intensity <- if(input$normcal==1){
+       if(dataType()=="Spectra"){
+            lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=choices, intercept.element.lines=input$intercept_vars)
+        } else if(dataType()=="Net"){
+            lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=choices, intercept.element.lines=input$intercept_vars)
+        }
+    } else if(input$normcal==2){
+        predict.intensity <- if(dataType()=="Spectra"){
+            lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=choices, intercept.element.lines=input$intercept_vars)
+        } else if(dataType()=="Net"){
+            lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=choices, intercept.element.lines=input$intercept_vars)
+        }
+    } else if(input$normcal==3){
+        predict.intensity <- if(dataType()=="Spectra"){
+            lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=choices, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+        } else if(dataType()=="Net"){
+            lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=choices, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+        }
+    }
+
+    
+    
+    c(input$calcurveelement, optimal_r_chain(element=element, intensities=predict.intensity, values= concentration.table, possible.slopes=fishVector(), keep=vals$keeprows))
+    
+})
+
+slopehold <- reactiveValues()
+slopehold$slopes <- NULL
+
+observeEvent(input$calcurveelement, {
+    
+    isolate(slopehold$slopes <- inVar4Selectedpre())
+
+})
+observeEvent(input$trainslopes, {
+    
+    isolate(slopehold$slopes <- bestSlopeVars())
     
 })
 
 
 inVar4Selected <- reactive({
     
-    if(input$trainslopes==FALSE){
-        inVar4Selectedpre()
-    } else if(input$trainslopes==TRUE){
-        bestSlopeVars()
-    }
+    slopehold$slopes
     
     
 })
 
-
 output$inVar4 <- renderUI({
+    
     selectInput(inputId = "slope_vars", label = h4("Slope"), choices =  outVaralt(), selected=inVar4Selected(), multiple=TRUE)
 })
 

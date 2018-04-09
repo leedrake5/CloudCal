@@ -255,8 +255,6 @@ tags$hr(),
 
 #uiOutput('testing'),
 
-checkboxInput('trainslopes', "Train", value=FALSE),
-uiOutput('nvariablesui'),
 
 uiOutput('inVar2'),
 
@@ -269,7 +267,9 @@ uiOutput('comptonMinInput'),
 uiOutput('comptonMaxInput'),
 
 uiOutput('inVar3'),
-uiOutput('inVar4')
+uiOutput('inVar4'),
+actionButton('trainslopes', "Train"),
+sliderInput("nvariables", label = "# Elements", min=1, max=7, value=2)
 
 ),
 
