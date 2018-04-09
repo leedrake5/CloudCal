@@ -1067,7 +1067,7 @@ output$inVar3 <- renderUI({
     selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt2(), selected=inVar3Selected(), multiple=TRUE)
 })
 
-inVar4Selected <- reactive({
+inVar4Selectedpre <- reactive({
     
     hold <- values[["DF"]]
     
@@ -1090,6 +1090,63 @@ inVar4Selected <- reactive({
         optionhold
     }
 })
+
+
+
+
+
+output$nvariablesui <- renderUI({
+    
+    if(input$trainslopes==TRUE){
+        numericInput("nvariables", label = "# Elements", min=2, max=length(outVaralt()), value=3)
+    } else if(input$trainslopes==FALSE){
+        p()
+    }
+    
+})
+
+fishVector <- reactive({
+    
+    combos_mod <- function(a.vector){
+        
+        so <- seq(from=2, to=input$nvariables, by=1)
+        
+        long <- pblapply(so, function(x) gRbase::combnPrim(x=a.vector, m=x), cl=6L)
+        and <- pblapply(long, function(x) plyr::alply(x, 2), cl=6L)
+        thanks.for.all.the.fish <- do.call(list, unlist(and, recursive=FALSE))
+        
+        thanks.for.all.the.fish
+        
+    }
+    
+    
+    
+    combos_mod(ls(spectraLineTable()[ ,!colnames(spectraLineTable())==input$calcurveelement]))
+
+})
+
+
+bestSlopeVars <- reactive({
+    
+    choices <- outVaralt()
+    
+    
+    optimal_r_chain(element=input$calcurveelement, intensities=spectraLineTable(), values= as.data.frame(values[["DF"]]), possible.slopes=fishVector())
+    
+})
+
+
+inVar4Selected <- reactive({
+    
+    if(input$trainslopes==FALSE){
+        inVar4Selectedpre()
+    } else if(input$trainslopes==TRUE){
+        bestSlopeVars()
+    }
+    
+    
+})
+
 
 output$inVar4 <- renderUI({
     selectInput(inputId = "slope_vars", label = h4("Slope"), choices =  outVaralt(), selected=inVar4Selected(), multiple=TRUE)

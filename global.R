@@ -13,6 +13,7 @@ library(reshape2)
 library(dplyr)
 library(DT)
 library(XML)
+library(gRbase)
 
 
 
@@ -2121,6 +2122,39 @@ blank.data.frame <- data.frame(rep(0, length(standard)), rep(0, length(standard)
 colnames(blank.data.frame) <- standard
 
 
+combos <- function(a.vector){
+    
+    so <- seq(from=2, to=length(a.vector), by=1)
+    
+    long <- pblapply(so, function(x) combnPrim(x=a.vector, m=x), cl=6L)
+    and <- pblapply(long, function(x) plyr::alply(x, 2), cl=6L)
+    thanks.for.all.the.fish <- do.call(list, unlist(and, recursive=FALSE))
+    
+    thanks.for.all.the.fish
+    
+}
 
+create.frame <- function(element, slopes, values, intensities){
+    
+    data.frame(Value=values[,element],
+    Intensity=intensities[,element],
+    intensities[,slopes])
+    
+}
+
+
+
+optimal_r_chain <- function(element, intensities, values, possible.slopes){
+    
+    
+    chain.lm <- pbapply::pblapply(possible.slopes, function(x) lm(Value~Intensity+., data=create.frame(element=test.element, slopes=x, values=values, intensities=intensities)))
+    rs <- lapply(chain.lm, function(x) summary(x)$r.squared)
+    best <- chain.lm[[which.max(unlist(rs))]]
+    coef <- data.frame(best$coefficients)
+    best.var <- rownames(coef)[3:length(rownames(coef))]
+    
+    best.var
+    
+}
 
 

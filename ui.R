@@ -255,6 +255,9 @@ tags$hr(),
 
 #uiOutput('testing'),
 
+checkboxInput('trainslopes', "Train", value=FALSE),
+uiOutput('nvariablesui'),
+
 uiOutput('inVar2'),
 
 uiOutput('calTypeInput'),
