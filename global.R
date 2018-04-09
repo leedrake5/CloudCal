@@ -1,5 +1,5 @@
 list.of.bioconductor <- c("graph", "RBGL", "Rgraphviz")
-new.bioconductor <- list.of.packages[!(list.of.bioconductor %in% installed.packages()[,"Package"])]
+new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.packages()[,"Package"])]
 if(length(new.bioconductor)) source("https://bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) install.packages(new.bioconductor)
 
