@@ -4,7 +4,7 @@ if(length(new.bioconductor)) source("https://bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2", "shiny", "rhandsontable", "random", "data.table", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown", "gRbase", "httpuv", "stringi", "dplyr")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2", "shiny", "rhandsontable", "random", "data.table", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown", "gRbase", "httpuv", "stringi", "dplyr", "reticulate")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
@@ -19,6 +19,7 @@ library(dplyr)
 library(DT)
 library(XML)
 library(gRbase)
+library(reticulate)
 
 
 
@@ -40,6 +41,15 @@ Hodder.v <- function(y)
     y <- c(0, y[1:(n-1)])
     
     return(y)
+}
+
+
+unfold_one <- function(datum){
+    if(datum<0){
+        datum+211
+    }else{
+        datum
+    }
 }
 
 cal.lmsummary <-function(lm.object){
@@ -201,17 +211,18 @@ readPDZ25DataExpiremental <- function(filepath, filename){
     filename <- gsub(".pdz", "", filename)
     filename.vector <- rep(filename, 2048)
     
-    nbrOfRecords <- 10000
-    integers <- readBin(con=filepath, what="integer", size=4, n=nbrOfRecords, endian="little")
+    nbrOfRecords <- 3000
+    integers <- readBin(con=filepath, what= "int", n=3000, endian="little")
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
-    integer.sub <- abs(integers[124:2171])
+    integer.sub <- integers[124:2171]
+
     sequence <- seq(1, length(integer.sub), 1)
 
     time.est <- integers[144]/10
 
         channels <- sequence
         energy <- sequence*.02
-        counts <- integer.sub/(integers[144]/10)
+        counts <- as.vector(sapply(integer.sub/(integers[144]/10), unfold_one))
         
         data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
 
@@ -223,21 +234,23 @@ readPDZ24DataExpiremental <- function(filepath, filename){
     filename <- gsub(".pdz", "", filename)
     filename.vector <- rep(filename, 2048)
     
-    nbrOfRecords <- 10000
-    integers <- readBin(con=filepath, what="integer", size=4, n=nbrOfRecords, endian="little")
+    nbrOfRecords <- 3000
+    integers <- readBin(con=filepath, what= "int", n=3000, endian="little")
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
-    integer.sub <- abs(integers[90:2137])
+    integer.sub <- integers[90:2137]
     sequence <- seq(1, length(integer.sub), 1)
     
     time.est <- integer.sub[21]
     
     channels <- sequence
     energy <- sequence*.02
-    counts <- integer.sub/(integer.sub[21]/10)
+    counts <- as.vector(sapply(integer.sub/(integer.sub[21]/10), unfold_one))
     
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
 }
+
+
 
 readPDZData <- function(filepath, filename) {
     nbrOfRecords <- 10000

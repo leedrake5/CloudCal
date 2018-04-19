@@ -27,7 +27,7 @@ First, you will need to download a copy of R appropriate for your computer (Mac,
 
 Next, you will need to install a package called 'shiny' to run it locally. You can do so by pasting this line into the R consul when you launch it:
 
->install.packages("shiny")
+>install.packages(c("Rccp", "shiny"))
 
 
 It will ask you to choose a download mirror (you can choose anyone, the result is the same). Then, to run the software:

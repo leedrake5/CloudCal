@@ -490,14 +490,14 @@ dataCount <- reactive({
              scale_colour_discrete("Spectrum") +
              coord_cartesian(xlim = ranges$x, ylim = ranges$y)
              
-       
+             spectral.plot
 
          })
 
 
         output$distPlot <- renderPlot({
 
-print(plotInput())
+            plotInput()
 
 
         })
@@ -508,8 +508,8 @@ print(plotInput())
             data <- dataHold()
             brush <- input$plot1_brush
             if (!is.null(brush)) {
-                ranges$x <- c(brush$xmin*mean(data$Energy), brush$xmax*max(data$Energy))
-                ranges$y <- c(brush$ymin*mean(data$CPS), brush$ymax*max(data$CPS))
+                ranges$x <- c(brush$xmin, brush$xmax)
+                ranges$y <- c(brush$ymin, brush$ymax)
                 
             } else {
                 ranges$x <- NULL
