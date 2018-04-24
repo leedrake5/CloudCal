@@ -1,6 +1,7 @@
+options(download.file.method="libcurl", url.method="libcurl")
 list.of.bioconductor <- c("graph", "RBGL", "Rgraphviz")
 new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.packages()[,"Package"])]
-if(length(new.bioconductor)) source("https://bioconductor.org/biocLite.R")
+if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
