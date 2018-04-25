@@ -24,7 +24,6 @@ library(reticulate)
 
 
 
-
 options(digits=4)
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
@@ -96,6 +95,15 @@ read_csv_filename_y <- function(filename){
     return.cps <- return.counts/return.live.time
     return(return.cps)
 }
+
+csvFrame <- function(filepath, filename){
+    
+    data.frame(Energy=read_csv_filename_x(filepath), CPS=read_csv_filename_y(filepath), Spectrum=rep(filename, length(read_csv_filename_x(filepath))))
+    
+}
+
+
+
 
 
 read_csv_net <- function(filepath) {

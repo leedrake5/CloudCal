@@ -70,7 +70,7 @@ shinyServer(function(input, output, session) {
     })
     
     
-    fullSpectra <- reactive({
+    fullSpectraDataTable <- reactive({
         
         
         withProgress(message = 'Processing Data', value = 0, {
@@ -117,6 +117,37 @@ shinyServer(function(input, output, session) {
         
         data$Energy <- data$Energy + gainshiftHold()
 
+        data
+    })
+    
+    
+    
+    fullSpectra <- reactive({
+        
+        
+        withProgress(message = 'Processing Data', value = 0, {
+            
+            inFile <- input$file1
+            if (is.null(inFile)) return(NULL)
+            temp = inFile$name
+            temp <- gsub(".csv", "", temp)
+            id.seq <- seq(1, 2048,1)
+            
+            n <- length(temp)*id.seq
+            
+            n.seq <- seq(1, length(inFile$name), 1)
+            
+        
+            data <- pblapply(n.seq, function(x) csvFrame(filepath=inFile$datapath[x], filename=inFile$name[x]))
+            data <- do.call("rbind", data)
+
+            
+            incProgress(1/n)
+            Sys.sleep(0.1)
+        })
+        
+        data$Energy <- data$Energy + gainshiftHold()
+        
         data
     })
     
@@ -5182,37 +5213,18 @@ content = function(file){
                 
                 n <- length(temp)*id.seq
                 
-                myfiles.x = pblapply(inFile$datapath, read_csv_filename_x)
+                n.seq <- seq(1, length(inFile$name), 1)
                 
                 
-                
-                myfiles.y = pblapply(inFile$datapath, read_csv_filename_y)
-                
-                
-                
-                
-                xrf.x <- data.frame(id.seq, myfiles.x)
-                colnames(xrf.x) <- c("ID", temp)
-                xrf.y <- data.frame(id.seq, myfiles.y)
-                colnames(xrf.y) <- c("ID", temp)
-                
-                
-                xrf.x <- data.table(xrf.x)
-                xrf.y <- data.table(xrf.y)
-                
-                
-                energy.m <- xrf.x[, list(variable = names(.SD), value = unlist(.SD, use.names = F)), by = ID]
-                cps.m <- xrf.y[, list(variable = names(.SD), value = unlist(.SD, use.names = F)), by = ID]
-                
-                
-                spectra.frame <- data.frame(energy.m$value, cps.m$value, cps.m$variable)
-                colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
-                data <- spectra.frame
+                data <- pblapply(n.seq, function(x) csvFrame(filepath=inFile$datapath[x], filename=inFile$name[x]))
+                data <- do.call("rbind", data)
                 
                 
                 incProgress(1/n)
                 Sys.sleep(0.1)
             })
+            
+            data$Energy <- data$Energy + gainshiftHold()
             
             data
         })
@@ -5504,7 +5516,7 @@ content = function(file){
             
             if(valDataType()=="Spectra"){spectra.line.frame}
             
-            if(valDataType()=="Spectra"){val.line.table <- data.table(spectra.line.frame[, c("Spectrum", valelements), drop = FALSE])}
+            if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[, c("Spectrum", valelements), drop = FALSE]}
             
             
             if(valDataType()=="Net"){val.line.table <- val.data[c("Spectrum", valelements), drop=FALSE]}
@@ -5733,7 +5745,7 @@ content = function(file){
 
         
 
-        predicted.data.table <- data.table(predicted.frame)
+        predicted.data.table <- predicted.frame
 
         #predicted.values <- t(predicted.values)
         predicted.data.table
