@@ -23,7 +23,6 @@ library(gRbase)
 library(reticulate)
 library(Rcpp)
 
-Rcpp::sourceCpp("pdz.cpp")
 
 cppFunction(
 
@@ -324,6 +323,7 @@ readPDZ24DataExpiremental <- function(filepath, filename){
 }
 
 
+Rcpp::sourceCpp("pdz.cpp")
 
 readPDZ25Data <- function(filepath, filename){
     
@@ -335,8 +335,8 @@ readPDZ25Data <- function(filepath, filename){
     
     sequence <- seq(1, length(integers), 1)
     
-    time.est <- integers[144]/10
-    
+    time.est <- integers[21]
+
     channels <- sequence
     energy <- sequence*.02
     counts <- integers/(integers[144]/10)
