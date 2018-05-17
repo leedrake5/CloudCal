@@ -1,13 +1,13 @@
 options(download.file.method="libcurl", url.method="libcurl")
 list.of.bioconductor <- c("graph", "RBGL", "Rgraphviz")
 new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.packages()[,"Package"])]
-if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
-if(length(new.bioconductor)) biocLite(new.bioconductor)
+#if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
+#if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2", "shiny", "rhandsontable", "random", "data.table", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown", "gRbase", "httpuv", "stringi", "dplyr", "reticulate")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2", "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown", "gRbase", "httpuv", "stringi", "dplyr", "reticulate")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
+#if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
 #sudo su - -c "R -e \"install.packages(c('shiny', 'pbapply', 'reshape2', 'TTR', 'dplyr', 'ggtern', 'ggplot2', 'shiny', 'rhandsontable', 'random', 'data.table', 'DT', 'shinythemes', 'Cairo', 'broom', 'shinyjs', 'gridExtra', 'dtplyr', 'formattable', 'XML', 'corrplot', 'scales', 'rmarkdown', 'markdown'), repos='http://cran.rstudio.com/')\""
 
@@ -21,14 +21,30 @@ library(DT)
 library(XML)
 library(gRbase)
 library(reticulate)
+library(Rcpp)
 
+Rcpp::sourceCpp("pdz.cpp")
+
+cppFunction(
+
+    'int main() {
+        unsigned char bytes[4];
+        int sum = 0;
+        FILE *fp=fopen("file.txt","rb");
+        while ( fread(bytes, 4, 1,fp) != 0) {
+            sum += bytes[0] | (bytes[1]<<8) | (bytes[2]<<16) | (bytes[3]<<24);
+        }
+        return 0;
+    }'
+
+)
 
 
 options(digits=4)
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
 
-Hodder.v <- function(y)
+Hodder.v.old <- function(y)
 {
     
     n<-length(y)
@@ -44,13 +60,61 @@ Hodder.v <- function(y)
 }
 
 
-unfold_one <- function(datum){
-    if(datum<0){
-        datum+211
-    }else{
-        datum
+Hodder.v <- function(y)
+{
+    
+    n<-length(y)
+    
+    for(i in 1:(n-1)) {
+        y[i] <- (y[i+1] - y[i])/211
+        y[1:(n-1)]
+        
     }
+    y <- c(0, y[1:(n-1)])
+    
+    return(y)
 }
+
+
+int_to_unit <- function (x, adjustment=2^32) {
+    x <- as.numeric(x)
+    signs <- sign(x)
+    x[signs < 0] <- x[signs < 0] + adjustment
+    x
+}
+
+
+
+recognize_fold <- function(spectrum){
+    index <- which(Hodder.v(spectrum$CPS)<(-0.5))
+    index[index %in% seq(41, 2040, 1)]
+    
+}
+
+
+unfold_simple <- function(spectrum){
+    
+    index.seq <- recognize_fold(spectrum)
+    
+    spectrum$CPSNew <- ifelse(as.numeric(rownames(spectrum)) %in% index.seq, spectrum$CPS+211, spectrum$CPS)
+    
+    data.frame(Spectrum=spectrum$Spectrum, Energy=spectrum$Energy, CPS=spectrum$CPSNew)
+    
+    
+}
+
+unfold <- function(spectrum){
+    
+    first_unfold <- unfold_simple(spectrum)
+    second_unfold <- unfold_simple(first_unfold)
+    third_unfold <- unfold_simple(second_unfold)
+    fourth_unfold <- unfold_simple(third_unfold)
+    fourth_unfold
+    
+}
+
+
+
 
 cal.lmsummary <-function(lm.object){
     res<-c(paste(as.character(summary(lm.object)$call),collapse=" "),
@@ -221,7 +285,7 @@ readPDZ25DataExpiremental <- function(filepath, filename){
     filename.vector <- rep(filename, 2048)
     
     nbrOfRecords <- 3000
-    integers <- readBin(con=filepath, what= "int", n=3000, endian="little")
+    integers <- int_to_unit(readBin(con=filepath, what= "int", n=3000, endian="little"))
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
     integer.sub <- integers[124:2171]
 
@@ -231,9 +295,9 @@ readPDZ25DataExpiremental <- function(filepath, filename){
 
         channels <- sequence
         energy <- sequence*.02
-        counts <- as.vector(sapply(integer.sub/(integers[144]/10), unfold_one))
+        counts <- integer.sub/(integers[144]/10)
         
-        data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
+        unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector))
 
 }
 
@@ -244,7 +308,7 @@ readPDZ24DataExpiremental <- function(filepath, filename){
     filename.vector <- rep(filename, 2048)
     
     nbrOfRecords <- 3000
-    integers <- readBin(con=filepath, what= "int", n=3000, endian="little")
+    integers <- int_to_unit(readBin(con=filepath, what= "int", n=3000, endian="little"))
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
     integer.sub <- integers[90:2137]
     sequence <- seq(1, length(integer.sub), 1)
@@ -253,7 +317,49 @@ readPDZ24DataExpiremental <- function(filepath, filename){
     
     channels <- sequence
     energy <- sequence*.02
-    counts <- as.vector(sapply(integer.sub/(integer.sub[21]/10), unfold_one))
+    counts <- integer.sub/(integer.sub[21]/10)
+    
+    unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector))
+    
+}
+
+
+
+readPDZ25Data <- function(filepath, filename){
+    
+    filename <- gsub(".pdz", "", filename)
+    filename.vector <- rep(filename, 2020)
+    
+    nbrOfRecords <- 2020
+    integers <- readPDZ25(filepath, start=481, size=nbrOfRecords)
+    
+    sequence <- seq(1, length(integers), 1)
+    
+    time.est <- integers[144]/10
+    
+    channels <- sequence
+    energy <- sequence*.02
+    counts <- integers/(integers[144]/10)
+    
+    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
+    
+}
+
+
+readPDZ24Data<- function(filepath, filename){
+    
+    filename <- gsub(".pdz", "", filename)
+    filename.vector <- rep(filename, 2020)
+    
+    nbrOfRecords <- 2020
+    integers <- readPDZ24(filepath, start=357, size=nbrOfRecords)
+    sequence <- seq(1, length(integers), 1)
+    
+    time.est <- integers[21]
+    
+    channels <- sequence
+    energy <- sequence*.02
+    counts <- integers/(integers[21]/10)
     
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
@@ -268,9 +374,9 @@ readPDZData <- function(filepath, filename) {
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
     
     if(floats[[9]]=="5"){
-        readPDZ25DataExpiremental(filepath, filename)
+        readPDZ25Data(filepath, filename)
     }else {
-        readPDZ24DataExpiremental(filepath, filename)
+        readPDZ24Data(filepath, filename)
     }
 
     
