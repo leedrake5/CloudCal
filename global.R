@@ -24,20 +24,6 @@ library(reticulate)
 library(Rcpp)
 
 
-cppFunction(
-
-    'int main() {
-        unsigned char bytes[4];
-        int sum = 0;
-        FILE *fp=fopen("file.txt","rb");
-        while ( fread(bytes, 4, 1,fp) != 0) {
-            sum += bytes[0] | (bytes[1]<<8) | (bytes[2]<<16) | (bytes[3]<<24);
-        }
-        return 0;
-    }'
-
-)
-
 
 options(digits=4)
 options(warn=-1)
