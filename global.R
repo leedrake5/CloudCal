@@ -5,10 +5,13 @@ if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2", "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown", "gRbase", "httpuv", "stringi", "dplyr")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2", "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown", "gRbase", "httpuv", "stringi", "dplyr", "reticulate", "devtools", "installr")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
+
+if("rPDZ" %in% installed.packages()[,"Package"]==FALSE) install.packages("http://mdandm.com/public_html/xrf-guru/packages/rPDZ_1.0.tgz", repos=NULL, )
+library(rPDZ)
 
 
 #sudo su - -c "R -e \"install.packages(c('shiny', 'pbapply', 'reshape2', 'TTR', 'dplyr', 'ggtern', 'ggplot2', 'shiny', 'rhandsontable', 'random', 'data.table', 'DT', 'shinythemes', 'Cairo', 'broom', 'shinyjs', 'gridExtra', 'dtplyr', 'formattable', 'XML', 'corrplot', 'scales', 'rmarkdown', 'markdown'), repos='http://cran.rstudio.com/')\""
@@ -24,27 +27,6 @@ library(XML)
 library(gRbase)
 library(reticulate)
 library(Rcpp)
-
-
-Rcpp::cppFunction('
-#include <fstream>
-NumericVector readPDZ(std::string fileName, int start, int size) {
-    uint32_t a[size];
-    std::ifstream file (fileName, std::ios::in | std::ios::binary);
-    if (file.is_open()) {
-        file.seekg(start);
-        file.read ((char*)&a, sizeof(a));
-        file.close();
-    }
-    NumericVector res(size);
-    for (unsigned long long int i = 0; i < size; ++i)
-    res(i) = (a[i]) ;
-    return res;
-}
-'
-)
-
-
 
 
 
@@ -340,7 +322,7 @@ readPDZ25Data <- function(filepath, filename){
     filename.vector <- rep(filename, 2020)
     
     nbrOfRecords <- 2020
-    integers <- readPDZ(filepath, start=481, size=nbrOfRecords)
+    integers <- readPDZ25(filepath, start=481, size=nbrOfRecords)
     
     sequence <- seq(1, length(integers), 1)
     
@@ -361,7 +343,7 @@ readPDZ24Data<- function(filepath, filename){
     filename.vector <- rep(filename, 2020)
     
     nbrOfRecords <- 2020
-    integers <- readPDZ(filepath, start=357, size=nbrOfRecords)
+    integers <- readPDZ24(filepath, start=357, size=nbrOfRecords)
     sequence <- seq(1, length(integers), 1)
     
     time.est <- integers[21]
