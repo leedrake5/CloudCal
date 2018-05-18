@@ -1,3 +1,20 @@
+get_os <- function(){
+    sysinf <- Sys.info()
+    if (!is.null(sysinf)){
+        os <- sysinf['sysname']
+        if (os == 'Darwin')
+        os <- "osx"
+    } else { ## mystery machine
+        os <- .Platform$OS.type
+        if (grepl("^darwin", R.version$os))
+        os <- "osx"
+        if (grepl("linux-gnu", R.version$os))
+        os <- "linux"
+    }
+    tolower(os)
+}
+
+
 options(download.file.method="libcurl", url.method="libcurl")
 list.of.bioconductor <- c("graph", "RBGL", "Rgraphviz")
 new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.packages()[,"Package"])]
@@ -10,7 +27,11 @@ new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
 
-if("rPDZ" %in% installed.packages()[,"Package"]==FALSE) install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tgz")
+if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && .Platform$OS.type=="windows"){
+    install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tgz", repos=NULL, type="win.binary")
+} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && .Platform$OS.type!="windows"){
+    install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tgz", repos=NULL)
+}
 library(rPDZ)
 
 
