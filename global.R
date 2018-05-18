@@ -9,10 +9,9 @@ list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2"
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
-if(devtools::find_rtools(T)==FALSE) installr::install.Rtools()
 
-if("rpdz.cpp" %in% installed.packages()[,"Package"]==FALSE) devtools::install_github("leedrake5/rPDZ", subdir="rpdz.cpp")
-library(rpdz.cpp)
+if("rPDZ" %in% installed.packages()[,"Package"]==FALSE) install.packages("https://github.com/leedrake5/rPDZ/blob/master/rPDZ.zip", repos=NULL, type="win.binary")
+library(rPDZ)
 
 
 #sudo su - -c "R -e \"install.packages(c('shiny', 'pbapply', 'reshape2', 'TTR', 'dplyr', 'ggtern', 'ggplot2', 'shiny', 'rhandsontable', 'random', 'data.table', 'DT', 'shinythemes', 'Cairo', 'broom', 'shinyjs', 'gridExtra', 'dtplyr', 'formattable', 'XML', 'corrplot', 'scales', 'rmarkdown', 'markdown'), repos='http://cran.rstudio.com/')\""
