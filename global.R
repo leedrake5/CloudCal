@@ -1,10 +1,3 @@
-check.packages <- function(pkg){
-    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
-    if (length(new.pkg))
-    install.packages(new.pkg, dependencies = TRUE)
-    sapply(pkg, require, character.only = TRUE)
-}
-
 options(download.file.method="libcurl", url.method="libcurl")
 list.of.bioconductor <- c("graph", "RBGL", "Rgraphviz")
 new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.packages()[,"Package"])]
@@ -16,7 +9,8 @@ list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2"
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
-if(check.packages("rpdz.cpp")==FALSE) devtools::install_github("leedrake5/rPDZ")
+if("rpdz.cpp" %in% installed.packages()[,"Package"]==FALSE) devtools::install_github("leedrake5/rPDZ", subdir="rpdz.cpp")
+
 
 #sudo su - -c "R -e \"install.packages(c('shiny', 'pbapply', 'reshape2', 'TTR', 'dplyr', 'ggtern', 'ggplot2', 'shiny', 'rhandsontable', 'random', 'data.table', 'DT', 'shinythemes', 'Cairo', 'broom', 'shinyjs', 'gridExtra', 'dtplyr', 'formattable', 'XML', 'corrplot', 'scales', 'rmarkdown', 'markdown'), repos='http://cran.rstudio.com/')\""
 
