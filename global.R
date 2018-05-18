@@ -9,7 +9,7 @@ list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2"
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
-if("rpdz.cpp" %in% installed.packages()[,"Package"]==FALSE) devtools::install_github("leedrake5/rPDZ", subdir="rpdz.cpp")
+if("rpdz.cpp" %in% installed.packages()[,"Package"]==FALSE) install.packages("https://github.com/leedrake5/rPDZ/raw/master/rpdz.cpp_1.0.tar.gz")
 library(rpdz.cpp)
 
 
