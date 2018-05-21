@@ -29,8 +29,10 @@ if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstud
 
 if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
     install.packages("http://www.xrf.guru/packages/rPDZ_1.0.zip", repos=NULL, type="win.binary")
-} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()!="windows"){
+} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
     install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tgz", repos=NULL)
+} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
+    install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tar.gz", repos=NULL)
 }
 
 library(rPDZ)
