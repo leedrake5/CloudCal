@@ -27,11 +27,12 @@ new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
 
-if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && .Platform$OS.type=="windows"){
+if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
     install.packages("http://www.xrf.guru/packages/rPDZ_1.0.zip", repos=NULL, type="win.binary")
-} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && .Platform$OS.type!="windows"){
+} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()!="windows"){
     install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tgz", repos=NULL)
 }
+
 library(rPDZ)
 
 
