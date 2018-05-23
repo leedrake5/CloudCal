@@ -79,7 +79,7 @@ No reason not to - I started with the Tracer because it was the easiest to work 
 ## How to cite this software
 You can cite this Github page: 
 
-Drake, B.L. 2018. CloudCal. GitHub. 
+Drake, B.L. 2018. CloudCal. GitHub. https://github.com/leedrake5/CloudCal
 
 ## References
 Lucas-Tooth, H.J., Price, B.J. 1961. A Mathematical Method for the Investigation of Interelement Effects in X-Ray Fluorescence Analysis Metallurgia 64, 149–152.
