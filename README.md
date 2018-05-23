@@ -77,8 +77,9 @@ The result will be a lot of information, but here is the basic layout:
 No reason not to - I started with the Tracer because it was the easiest to work with & the best for custom quantification. The app has since been expanded to include Artax, the Picofox, and the Elio. If you have other instruments you'd like to add, let me know and I can see if I can do it. It will be some time before I can look into it though. Keep in mind that the software would need a heavy lift from multiple folks to read binary files - these are the proprietary company files that have non-open source file types.
 
 ## How to cite this software
-Beats me - this is the first time I've tried to do anything like this. Drop me an email at b.lee.drake@gmail.com if you have questions or need to address this step. 
+You can cite this Github page: 
 
+Drake, B.L. 2018. CloudCal. GitHub. 
 
 ## References
 Lucas-Tooth, H.J., Price, B.J. 1961. A Mathematical Method for the Investigation of Interelement Effects in X-Ray Fluorescence Analysis Metallurgia 64, 149–152.
