@@ -6,6 +6,7 @@ library(dtplyr)
 library(rhandsontable)
 library(Cairo)
 
+#Jonathan Crouch
 
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
@@ -40,7 +41,7 @@ tags$hr(),
 
 uiOutput('filegrab'),
 
-selectInput("filetype", label="Filetype", c("CSV"="Spectra", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="Spectra"),
+selectInput("filetype", label="Filetype", c("CSV", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="Spectra"),
 
 
 tags$hr(),

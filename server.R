@@ -26,7 +26,7 @@ shinyServer(function(input, output, session) {
     
     output$filegrab <- renderUI({
         
-        if(input$filetype=="Spectra") {
+        if(input$filetype=="CSV") {
             fileInput('file1', 'Choose CSV', multiple=TRUE,
             accept=c(".csv"))
         } else if(input$filetype=="Net") {
@@ -301,7 +301,7 @@ shinyServer(function(input, output, session) {
 
         myData <- reactive({
             
-            data <- if(input$filetype=="Spectra"){
+            data <- if(input$filetype=="CSV"){
                 fullSpectra()
             } else if(input$filetype=="Net"){
                 netCounts()
@@ -577,7 +577,7 @@ standardElements <- reactive({
     spectra.line.table <- dataHold()
     
     
-    if(input$usecalfile==FALSE && input$filetype=="Spectra"){
+    if(input$usecalfile==FALSE && input$filetype=="CSV"){
         standard
     } else if(input$usecalfile==FALSE && input$filetype=="Elio"){
         standard
@@ -602,7 +602,7 @@ standardLines <- reactive({
     n <- length(names(spectra.line.table))
     
     
-    choices <- if(input$filetype=="Spectra"){
+    choices <- if(input$filetype=="CSV"){
         spectralLines
     } else if(input$filetype=="Elio"){
         spectralLines
@@ -736,7 +736,23 @@ elementallinestouse <- reactive({
  
  
  
-
+ calDataType <- reactive({
+     
+     select.line.table <- if(input$filetype=="CSV"){
+         spectraData()
+     } else if(input$filetype=="Elio"){
+         spectraData()
+     }  else if(input$filetype=="MCA"){
+         spectraData()
+     }  else if(input$filetype=="SPX"){
+         spectraData()
+     }  else if(input$filetype=="PDZ"){
+         spectraData()
+     } else if(input$filetype=="Net"){
+         netData()
+     }
+     
+ })
  
  
  
@@ -745,7 +761,7 @@ elementallinestouse <- reactive({
      elements <- elementallinestouse()
 
 
-     select.line.table <- if(input$filetype=="Spectra"){
+     select.line.table <- if(input$filetype=="CSV"){
          spectraData()
      } else if(input$filetype=="Elio"){
          spectraData()
@@ -804,7 +820,7 @@ hotableInputBlank <- reactive({
 
 
 
-spectra.line.table <- if(input$filetype=="Spectra"){
+spectra.line.table <- if(input$filetype=="CSV"){
     spectraData()
 } else if(input$filetype=="Elio"){
     spectraData()
@@ -841,7 +857,7 @@ hotableInputCal <- reactive({
     
     
     
-    spectra.line.table <- if(input$filetype=="Spectra"){
+    spectra.line.table <- if(input$filetype=="CSV"){
         spectraData()
     } else if(input$filetype=="Elio"){
         spectraData()
@@ -1127,6 +1143,13 @@ inVar4Selectedpre <- reactive({
 
 
 
+inVar4Selected <- reactive({
+    
+    slopehold$slopes
+    
+    
+})
+
 
 
 
@@ -1274,7 +1297,7 @@ calTypeSelection <- reactive({
     
 })
 
-calNormSelection <- reactive({
+calNormSelectionpre <- reactive({
     
     hold <- values[["DF"]]
     
@@ -1298,7 +1321,8 @@ calNormSelection <- reactive({
     
 })
 
-normMinSelection <- reactive({
+
+normMinPre <- reactive({
     
     hold <- values[["DF"]]
     
@@ -1322,7 +1346,7 @@ normMinSelection <- reactive({
     
 })
 
-normMaxSelection <- reactive({
+normMaxPre <- reactive({
     
     hold <- values[["DF"]]
     
@@ -1343,6 +1367,105 @@ normMaxSelection <- reactive({
     } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
         calConditons[[1]][[4]]
     }
+})
+
+
+
+planktonVector <- reactive({
+    
+    #0.7, 0.9
+    #2.5, 2.8
+    #11.0, 11.2
+    #18.4, 19.4
+    #19.5, 22
+    #21, 22
+    #30, 35
+    #35, 40
+    
+    mins <- c(0.7, 2.5, 11.0, 18.4, 19.5, 21, 30, 35)
+    maxs <- c(0.9, 2.8, 11.2, 19.4, 22, 22, 35, 40)
+    
+    norm.list <- list(mins, maxs)
+    names(norm.list) <- c("Min", "Max")
+    norm.list
+    
+    
+})
+
+bestNormVars <- reactive({
+    
+    norm.list <- planktonVector()
+    
+    element <- input$calcurveelement
+    
+    choices <- elementallinestouse()
+    spectra.line.table <- spectraLineTable()
+    data <- dataNorm()
+    
+    index <- seq(1, length(norm.list[[1]]), 1)
+
+    
+    spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
+    
+        concentration.table <- concentrationTable()[concentrationTable()$Spectrum %in% holdFrame()$Spectrum, ]
+    
+    
+    time.bic <- if(dataType()=="Spectra"){
+        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep(spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+    } else if(dataType()=="Net"){
+        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep.net(spectra.line.table, input$calcurveelement), k=log(length(1))))[2]
+    }
+    
+    tc.bic <- if(dataType()=="Spectra"){
+        extractAIC(lm(concentration.table[, input$calcurveelement]~simple.tc.prep(data, spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+    } else if(dataType()=="Net"){
+        extractAIC(lm(concentration.table[, input$calcurveelement]~simple.tc.prep.net(data, spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+    }
+    
+    comp.bic <- if(dataType()=="Spectra"){
+        optimal_norm_chain(data=data, element=element, spectra.line.table=spectra.line.table, values=concentration.table, possible.mins=norm.list[["Min"]], possible.maxs=norm.list[["Max"]])
+    } else if(dataType()=="Net"){
+        time.bic
+    }
+    
+    norm.chain <- c(time.bic, tc.bic, comp.bic)
+    type.chain <- c(1, 2, 3)
+    
+    best <- index[[which.min(unlist(norm.chain))]]
+    best.comp <- c(planktonVector()[["Min"]][best], planktonVector()[["Max"]][best])
+    best.type <- type.chain[which.min(unlist(norm.chain))]
+    result.list <- list(best.type, best.comp)
+    names(result.list) <- c("Type", "Compton")
+    result.list
+})
+
+
+normhold <- reactiveValues()
+
+observeEvent(input$hotableprocess2, {
+normhold$norms <- c(normMinPre(), normMaxPre())
+normhold$normtype <- calNormSelectionpre()
+})
+
+
+observeEvent(input$trainslopes, {
+    
+    isolate(normhold$norms[1] <- bestNormVars()[["Compton"]][1])
+    isolate(normhold$norms[2] <- bestNormVars()[["Compton"]][2])
+    isolate(normhold$normtype <- bestNormVars()[["Type"]])
+
+})
+
+calNormSelection <- reactive({
+    normhold$normtype
+})
+
+normMinSelection <- reactive({
+    normhold$norms[1]
+})
+
+normMaxSelection <- reactive({
+    normhold$norms[2]
 })
 
 
@@ -1447,7 +1570,7 @@ output$temp <- renderTable({
 
 
 dataType <- reactive({
-    if(input$filetype=="Spectra"){
+    if(input$filetype=="CSV"){
         "Spectra"
     } else if(input$filetype=="Elio"){
         "Spectra"

@@ -22,7 +22,7 @@ if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2", "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown", "gRbase", "httpuv", "stringi", "dplyr", "reticulate", "devtools", "installr")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2", "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown", "gRbase", "httpuv", "stringi", "dplyr", "reticulate", "devtools")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
@@ -2302,6 +2302,20 @@ optimal_r_chain <- function(element, intensities, values, possible.slopes, keep)
     best.var <- rownames(coef)[3:length(rownames(coef))]
     
     best.var
+    
+}
+
+
+optimal_norm_chain <- function(data, element, spectra.line.table, values, possible.mins, possible.maxs){
+    
+    index <- seq(1, length(possible.mins), 1)
+    
+    chain.lm <- pbapply::pblapply(index, function(x) lm(values[,element]~simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=possible.mins[x], norm.max=possible.maxs[x])$Intensity))
+    aic <- lapply(chain.lm, function(x) extractAIC(x, k=log(length(1)))[2])
+    best <- index[[which.min(unlist(aic))]]
+
+    
+    best
     
 }
 
