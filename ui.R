@@ -253,6 +253,10 @@ downloadButton('downloadReport', "Report"),
 
 tags$hr(),
 
+actionButton('trainslopes', "Train"),
+
+tags$hr(),
+
 #uiOutput('testing'),
 
 
@@ -268,7 +272,6 @@ uiOutput('comptonMaxInput'),
 
 uiOutput('inVar3'),
 uiOutput('inVar4'),
-actionButton('trainslopes', "Train"),
 sliderInput("nvariables", label = "# Elements", min=1, max=7, value=2)
 
 ),
