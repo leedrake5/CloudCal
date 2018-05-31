@@ -534,7 +534,7 @@ dataCount <- reactive({
         
         # When a double-click happens, check if there's a brush on the plot.
         # If so, zoom to the brush bounds; if not, reset the zoom.
-        observeEvent(input$plot1_dblclick, {
+        observeEvent(input$cropspectra, {
             data <- dataHold()
             brush <- input$plot1_brush
             if (!is.null(brush)) {
@@ -1557,6 +1557,45 @@ vals$keeprows <- if(input$usecalfile==TRUE){
     rep(TRUE, dataCount())
 }
 
+keepRowsFrame <- reactive({
+    
+    spectra.stuff <- values[["DF"]]
+    rows <- vals$keeprows
+    
+    the.frame <- data.frame(Spectrum=spectra.stuff$Spectrum, Standards=rows)
+    the.frame
+
+})
+
+
+output$whichrowstokeep <- renderRHandsontable({
+    
+    DF <- keepRowsFrame()
+    
+    DF <- DF[order(as.character(DF$Spectrum)),]
+    
+    
+    
+    if (!is.null(DF))
+    rhandsontable(DF) %>% hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
+    
+    
+})
+
+
+
+observe({
+    if (!is.null(input$hot)) {
+        DF <- hot_to_r(input$hot)
+    } else {
+        if (input$linecommit)
+        DF <- hotableInput()
+        else
+        DF <- values[["DF"]]
+    }
+    values[["DF"]] <- DF
+})
+
 
   
   #if(input$hotableprocess2){vals$keeprows <- vals$keeprows[dropStandard()]}
@@ -1885,7 +1924,7 @@ dataType <- reactive({
           stat_smooth(method="lm", fullrange = TRUE) +
           scale_x_continuous(paste(element.name, intens)) +
           scale_y_continuous(paste(element.name, conen)) +
-          coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = FALSE)
+          coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
 
       }
       
@@ -1898,7 +1937,7 @@ dataType <- reactive({
           stat_smooth(method="lm", formula=y~poly(x,2)) +
           scale_x_continuous(paste(element.name, intens)) +
           scale_y_continuous(paste(element.name, conen)) +
-          coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = FALSE)
+          coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
 
       }
       
@@ -1911,7 +1950,7 @@ dataType <- reactive({
           geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
           scale_x_continuous(paste(element.name, norma)) +
           scale_y_continuous(paste(element.name, conen)) +
-          coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = FALSE)
+          coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
 
       }
       
@@ -1922,12 +1961,12 @@ dataType <- reactive({
       
   })
   
-  observeEvent(input$plot_cal_dblclick, {
+  observeEvent(input$cropcal, {
       brush <- input$plot_cal_brush
       if (!is.null(brush)) {
           rangescalcurve$x <- c(brush$xmin, brush$xmax)
           rangescalcurve$y <- c(brush$ymin, brush$ymax)
-          
+
       } else {
           rangescalcurve$x <- NULL
           rangescalcurve$y <- NULL
@@ -1973,7 +2012,7 @@ dataType <- reactive({
           geom_point(aes(Prediction, Concentration),  data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
           scale_x_continuous(paste(element.name, predi)) +
           scale_y_continuous(paste(element.name, conen)) +
-          coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = FALSE)
+          coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = TRUE)
 
       
       
@@ -1983,7 +2022,7 @@ dataType <- reactive({
       
   })
   
-  observeEvent(input$plot_val_dblclick, {
+  observeEvent(input$cropval, {
       brush <- input$plot_val_brush
       if (!is.null(brush)) {
           rangesvalcurve$x <- c(brush$xmin, brush$xmax)
@@ -2226,7 +2265,7 @@ dataType <- reactive({
           stat_smooth(method="lm", fullrange = TRUE) +
           scale_x_continuous(paste(element.name, intens)) +
           scale_y_continuous(paste(element.name, conen)) +
-          coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = FALSE)
+          coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
 
       }
       
@@ -2240,7 +2279,7 @@ dataType <- reactive({
           stat_smooth(method="lm", formula=y~poly(x,2)) +
           scale_x_continuous(paste(element.name, intens)) +
           scale_y_continuous(paste(element.name, conen)) +
-          coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = FALSE)
+          coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
       }
       
       if(input$radiocal==3){
@@ -2254,7 +2293,7 @@ dataType <- reactive({
           geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
           scale_x_continuous(paste(element.name, norma)) +
           scale_y_continuous(paste(element.name, conen)) +
-          coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = FALSE)
+          coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
       }
       
       calcurve.plot
@@ -2262,7 +2301,7 @@ dataType <- reactive({
       
   })
   
-  observeEvent(input$plot_cal_dblclick_random, {
+  observeEvent(input$cropcalrandom, {
       brush <- input$plot_cal_brush_random
       if (!is.null(brush)) {
           rangescalcurverandom$x <- c(brush$xmin, brush$xmax)
@@ -2310,13 +2349,13 @@ dataType <- reactive({
       geom_point(aes(Prediction, Concentration),  data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
       scale_x_continuous(paste(element.name, predi)) +
       scale_y_continuous(paste(element.name, conen)) +
-      coord_cartesian(xlim = rangesvalcurverandom$x, ylim = rangesvalcurverandom$y, expand = FALSE)
+      coord_cartesian(xlim = rangesvalcurverandom$x, ylim = rangesvalcurverandom$y, expand = TRUE)
       
       valcurve.plot
       
   })
   
-  observeEvent(input$plot_val_dblclick_random, {
+  observeEvent(input$cropvalrandom, {
       brush <- input$plot_val_brush_random
       if (!is.null(brush)) {
           rangesvalcurverandom$x <- c(brush$xmin, brush$xmax)
@@ -4193,7 +4232,7 @@ observeEvent(input$actionprocess2_multi, {
                 stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
-                coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = FALSE)
+                coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
                 
             }
             
@@ -4206,7 +4245,7 @@ observeEvent(input$actionprocess2_multi, {
                 stat_smooth(method="lm", formula=y~poly(x,2), aes(fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
-                coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = FALSE)
+                coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
                 
             }
             
@@ -4219,7 +4258,7 @@ observeEvent(input$actionprocess2_multi, {
                 geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
-                coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = FALSE)
+                coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
                 
             }
             
@@ -4232,7 +4271,7 @@ observeEvent(input$actionprocess2_multi, {
         
         
         
-        observeEvent(input$plot_cal_dblclick_multi, {
+        observeEvent(input$cropcalmulti, {
             brush <- input$plot_cal_brush_multi
             if (!is.null(brush)) {
                 rangescalcurve_multi$x <- c(brush$xmin, brush$xmax)
@@ -4284,7 +4323,7 @@ observeEvent(input$actionprocess2_multi, {
             geom_point(aes(Prediction, Concentration),  data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
             scale_x_continuous(paste(element.name, predi)) +
             scale_y_continuous(paste(element.name, conen)) +
-            coord_cartesian(xlim = rangesvalcurve_multi$x, ylim = rangesvalcurve_multi$y, expand = FALSE)
+            coord_cartesian(xlim = rangesvalcurve_multi$x, ylim = rangesvalcurve_multi$y, expand = TRUE)
             
             
             
@@ -4295,7 +4334,7 @@ observeEvent(input$actionprocess2_multi, {
         })
         
         
-        observeEvent(input$plot_val_dblclick_multi, {
+        observeEvent(input$cropvalmulti, {
             brush <- input$plot_val_brush_multi
             if (!is.null(brush)) {
                 rangesvalcurve_multi$x <- c(brush$xmin, brush$xmax)
@@ -4673,7 +4712,7 @@ observeEvent(input$actionprocess2_multi, {
                 stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
-                coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = FALSE)
+                coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
                 
             }
             
@@ -4686,7 +4725,7 @@ observeEvent(input$actionprocess2_multi, {
                 stat_smooth(method="lm", formula=y~poly(x,2), aes(fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
-                coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = FALSE)
+                coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
             }
             
             if(input$radiocal_multi==3){
@@ -4699,7 +4738,7 @@ observeEvent(input$actionprocess2_multi, {
                 geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
-                coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = FALSE)
+                coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
             }
             
             calcurve.plot
@@ -4750,7 +4789,7 @@ observeEvent(input$actionprocess2_multi, {
         })
         
         
-        observeEvent(input$plot_cal_dblclick_random_multi, {
+        observeEvent(input$cropcalmultirandom, {
             brush <- input$plot_cal_brush_random_multi
             if (!is.null(brush)) {
                 rangescalcurverandom_multi$x <- c(brush$xmin, brush$xmax)
@@ -4797,13 +4836,13 @@ observeEvent(input$actionprocess2_multi, {
             geom_point() +
             scale_x_continuous(paste(element.name, predi)) +
             scale_y_continuous(paste(element.name, conen)) +
-            coord_cartesian(xlim = rangesvalcurverandom_multi$x, ylim = rangesvalcurverandom_multi$y, expand = FALSE)
+            coord_cartesian(xlim = rangesvalcurverandom_multi$x, ylim = rangesvalcurverandom_multi$y, expand = TRUE)
             
             valcurve.plot
             
         })
         
-        observeEvent(input$plot_val_dblclick_random_multi, {
+        observeEvent(input$cropvalmultirandom, {
             brush <- input$plot_val_brush_random_multi
             if (!is.null(brush)) {
                 rangesvalcurverandom_multi$x <- c(brush$xmin, brush$xmax)
@@ -4946,7 +4985,7 @@ observeEvent(input$actionprocess2_multi, {
         
         
         # Toggle points that are clicked
-        observeEvent(input$plot_cal_click_multi, {
+        observeEvent(input$plot_cal_click_random_multi, {
             
             predict.frame <- if(input$radiocal_multi!=3){
                 calCurveFrameMulti()

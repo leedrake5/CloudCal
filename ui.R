@@ -146,14 +146,14 @@ checkboxInput('usecalfile', "Use Cal File")
 
 
 mainPanel(
-fluidRow(
-column(width = 11, class = "well",
 plotOutput("distPlot", height = 685,
 dblclick = "plot1_dblclick",
 brush = brushOpts(
 id = "plot1_brush",
 resetOnNew = TRUE
-))))),
+)),
+actionButton("cropspectra", "Zoom")
+),
 ))
 ),
 
@@ -280,27 +280,35 @@ mainPanel(
 tabsetPanel(
 tabPanel("Cal Curves",
     splitLayout(cellWidths = c("50%", "50%"),
+        column(width=12,
         div(
         style = "position:relative",
         plotOutput("calcurveplots", height = 455, click = "plot_cal_click",
-            dblclick = "plot_cal_dblclick",
+            dblclick = dblclickOpts(id="plot_cal_dblclick"),
             brush = brushOpts(id = "plot_cal_brush", resetOnNew = TRUE),
             hover = hoverOpts("plot_hovercal", delay = 100, delayType = "debounce")),
             uiOutput("hover_infocal")),
+        actionButton("cropcal", "Zoom")),
+        column(width=12,
         div(
         style = "position:relative",
         plotOutput("valcurveplots", height = 455, click = "plot_val_click",
             dblclick = "plot_val_dblclick",
             brush = brushOpts(id = "plot_val_brush", resetOnNew = TRUE),
             hover = hoverOpts("plot_hoverval", delay = 100, delayType = "debounce")),
-            uiOutput("hover_infoval"))
-),
-actionButton("exclude_toggle", "Toggle points"),
-actionButton("exclude_reset", "Reset")
+            uiOutput("hover_infoval")),
+        actionButton("cropval", "Zoom")
+        )
+        ),
+        tags$hr(),
+        actionButton("exclude_toggle", "Toggle points"),
+        actionButton("exclude_reset", "Reset")
+
 ),
 
 tabPanel("Cross Validation",
     splitLayout(cellWidths = c("50%", "50%"),
+        column(width=12,
         div(
         style = "position:relative",
         plotOutput("calcurveplotsrandom", height = 455,  click = "plot_cal_click_random",
@@ -308,15 +316,20 @@ tabPanel("Cross Validation",
             brush = brushOpts(id = "plot_cal_brush_random", resetOnNew = TRUE),
             hover = hoverOpts("plot_hovercal_random", delay = 100, delayType = "debounce")),
             uiOutput("hover_infocal_random")),
+        actionButton("cropcalrandom", "Zoom")
+        ),
+        column(width=12,
         div(
         style = "position:relative",
         plotOutput("valcurveplotsrandom", height = 455, click = "plot_val_click_random",
             dblclick = "plot_val_dblclick_random",
             brush = brushOpts(id = "plot_val_brush_random", resetOnNew = TRUE),
             hover = hoverOpts("plot_hoverval_random", delay = 100, delayType = "debounce")),
-            uiOutput("hover_infoval_random"))
-),
-sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.20)
+            uiOutput("hover_infoval_random")),
+        actionButton("cropvalrandom", "Zoom")
+)),
+        tags$hr(),
+        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.20)
 
 ),
 
@@ -358,7 +371,10 @@ actionButton("exclude_toggle_diag", "Toggle points"),
 actionButton("exclude_reset_diag", "Reset")),
 
 
-tabPanel("Standards", dataTableOutput("standardsperformance"))
+tabPanel("Standards",
+tabsetPanel(
+tabPanel("Validation", dataTableOutput("standardsperformance")),
+tabPanel("Used", rHandsontableOutput("whichrowstokeep"))))
 
 ))
 
@@ -415,48 +431,56 @@ mainPanel(
 tabsetPanel(
 #tabPanel("Testing", dataTableOutput('tabletest')),
 tabPanel("Cal Curves",
-splitLayout(cellWidths = c("50%", "50%"),
-div(
-style = "position:relative",
-plotOutput("calcurveplots_multi", height = 455, click = "plot_cal_click_multi",
-dblclick = "plot_cal_dblclick_multi",
-brush = brushOpts(id = "plot_cal_brush_multi", resetOnNew = TRUE),
-hover = hoverOpts("plot_hovercal_multi", delay = 100, delayType = "debounce")),
-uiOutput("hover_infocal_multi")),
-div(
-style = "position:relative",
-plotOutput("valcurveplots_multi", height = 455, click = "plot_val_click_multi",
-dblclick = "plot_val_dblclick_multi",
-brush = brushOpts(id = "plot_val_brush_multi", resetOnNew = TRUE),
-hover = hoverOpts("plot_hoverval_multi", delay = 100, delayType = "debounce")),
-uiOutput("hover_infoval_multi"))
-),
-actionButton("exclude_toggle_multi", "Toggle points"),
-actionButton("exclude_reset_multi", "Reset")
-),
-
+    splitLayout(cellWidths = c("50%", "50%"),
+        column(width=12,
+        div(
+        style = "position:relative",
+        plotOutput("calcurveplots_multi", height = 455, click = "plot_cal_click_multi",
+            dblclick = "plot_cal_dblclick_multi",
+            brush = brushOpts(id = "plot_cal_brush_multi", resetOnNew = TRUE),
+            hover = hoverOpts("plot_hovercal_multi", delay = 100, delayType = "debounce")),
+        uiOutput("hover_infocal_multi")),
+        actionButton("cropcalmulti", "Zoom")
+    ),
+        column(width=12,
+        div(
+        style = "position:relative",
+        plotOutput("valcurveplots_multi", height = 455, click = "plot_val_click_multi",
+            dblclick = "plot_val_dblclick_multi",
+            brush = brushOpts(id = "plot_val_brush_multi", resetOnNew = TRUE),
+            hover = hoverOpts("plot_hoverval_multi", delay = 100, delayType = "debounce")),
+        uiOutput("hover_infoval_multi")),
+        actionButton("cropvalmulti", "Zoom")
+    ),
+    tags$hr(),
+        actionButton("exclude_toggle_multi", "Toggle points"),
+        actionButton("exclude_reset_multi", "Reset"))
+    ),
 tabPanel("Cross Validation",
-splitLayout(cellWidths = c("50%", "50%"),
-div(
-style = "position:relative",
-plotOutput("calcurveplotsrandom_multi", height = 455,  click = "plot_cal_click_random_multi",
-dblclick = "plot_cal_dblclick_random_multi",
-brush = brushOpts(id = "plot_cal_brush_random_multi", resetOnNew = TRUE),
-hover = hoverOpts("plot_hovercal_random_multi", delay = 100, delayType = "debounce")),
-uiOutput("hover_infocal_random_multi")
-),
-div(
-style = "position:relative",
-plotOutput("valcurveplotsrandom_multi", height = 455, click = "plot_val_click_random_multi",
-dblclick = "plot_val_dblclick_random_multi",
-brush = brushOpts(id = "plot_val_brush_random_multi", resetOnNew = TRUE),
-hover = hoverOpts("plot_hoverval_random_multi", delay = 100, delayType = "debounce")),
-uiOutput("hover_infoval_random_multi")
-)
-),
-sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.20),
-checkboxInput('switchmulti', "Use Cross-Validation for Report", value=FALSE),
-checkboxInput('switchrand', "Randomize by Spectrum", value=FALSE)
+    splitLayout(cellWidths = c("50%", "50%"),
+        column(width=12,
+        div(
+        style = "position:relative",
+        plotOutput("calcurveplotsrandom_multi", height = 455,  click = "plot_cal_click_random_multi",
+            dblclick = "plot_cal_dblclick_random_multi",
+            brush = brushOpts(id = "plot_cal_brush_random_multi", resetOnNew = TRUE),
+            hover = hoverOpts("plot_hovercal_random_multi", delay = 100, delayType = "debounce")),
+        uiOutput("hover_infocal_random_multi")),
+        actionButton("cropcalmultirandom", "Zoom")),
+        column(width=12,
+        div(
+        style = "position:relative",
+        plotOutput("valcurveplotsrandom_multi", height = 455, click = "plot_val_click_random_multi",
+            dblclick = "plot_val_dblclick_random_multi",
+            brush = brushOpts(id = "plot_val_brush_random_multi", resetOnNew = TRUE),
+            hover = hoverOpts("plot_hoverval_random_multi", delay = 100, delayType = "debounce")),
+        uiOutput("hover_infoval_random_multi")),
+        actionButton("cropvalmultirandom", "Zoom"))
+    ),
+    tags$hr(),
+        sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.20),
+        checkboxInput('switchmulti', "Use Cross-Validation for Report", value=FALSE),
+        checkboxInput('switchrand', "Randomize by Spectrum", value=FALSE)
 
 ),
 
