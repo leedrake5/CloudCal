@@ -59,8 +59,31 @@ shinyServer(function(input, output, session) {
         
     })
     
-    gainshiftHold <- reactive({
+    
+    output$binaryui <- renderUI({
         
+        if(input$advanced==TRUE && input$filetype=="PDZ"){
+            numericInput('binaryshift', "Binary Shift (bits)", min=0, max=1000, value=0)
+        } else {
+            p()
+        }
+        
+    })
+    
+    
+    binaryHold <- reactive({
+    
+        if(input$advanced==TRUE){
+            input$binaryshift
+        } else if(input$advanced==FALSE){
+            500
+        }
+        
+    })
+
+
+    gainshiftHold <- reactive({
+
         if(input$advanced==TRUE){
             input$gainshift
         } else if(input$advanced==FALSE){
@@ -280,7 +303,12 @@ shinyServer(function(input, output, session) {
             n <- length(inFile$datapath)
             names <- inFile$name
             
-            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+            if(input$advanced==FALSE){
+                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+            } else if(input$advanced==TRUE){
+                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZ25DataManual(filepath=inFile$datapath[x], filename=inFile$name[x], binaryshift=binaryHold()))))
+
+            }
             
             
             incProgress(1/n)
@@ -678,39 +706,8 @@ elementallinestouse <- reactive({
 
  
  spectraData <- reactive({
-     
-     data <- dataHold()
-     
-     elements <- elementallinestouse()
 
-
-
-
-
-     spectra.line.list <- lapply(elements, function(x) elementGrab(element.line=x, data=data))
-     element.count.list <- lapply(spectra.line.list, '[', 2)
-
-     spectra.line.vector <- as.numeric(unlist(element.count.list))
-     
-     dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
-     
-     spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
-     
-     colnames(spectra.line.frame) <- c("Spectrum", elements)
-     
-     spectra.line.frame <- as.data.frame(spectra.line.frame)
-     
-     spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]
-
-     spectra.line.frame$Spectrum <- gsub(".pdz", "", spectra.line.frame$Spectrum)
-     spectra.line.frame$Spectrum <- gsub(".csv", "", spectra.line.frame$Spectrum)
-     spectra.line.frame$Spectrum <- gsub(".CSV", "", spectra.line.frame$Spectrum)
-     spectra.line.frame$Spectrum <- gsub(".spt", "", spectra.line.frame$Spectrum)
-     spectra.line.frame$Spectrum <- gsub(".mca", "", spectra.line.frame$Spectrum)
-     spectra.line.frame$Spectrum <- gsub(".spx", "", spectra.line.frame$Spectrum)
-
-
-     spectra.line.frame
+    elementFrame(data=dataHold(), elements=elementallinestouse())
      
  })
  
@@ -1082,7 +1079,7 @@ output$inVar2 <- renderUI({
     selectInput(inputId = "calcurveelement", label = h4("Element"), choices =  outVar())
 })
 
-inVar3Selected <- reactive({
+inVar3Selectedpre <- reactive({
     
     hold <- values[["DF"]]
     
@@ -1108,10 +1105,7 @@ inVar3Selected <- reactive({
 })
 
 
-output$inVar3 <- renderUI({
-    
-    selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt2(), selected=inVar3Selected(), multiple=TRUE)
-})
+
 
 inVar4Selectedpre <- reactive({
     
@@ -1151,6 +1145,91 @@ inVar4Selected <- reactive({
 })
 
 
+cephlopodVector <- reactive({
+    
+    combos_mod <- function(a.vector){
+        
+        so <- seq(from=1, to=length(a.vector), by=1)
+        
+        long <- pblapply(so, function(x) gRbase::combnPrim(x=a.vector, m=x), cl=6L)
+        and <- pblapply(long, function(x) plyr::alply(x, 2), cl=6L)
+        thanks.for.all.the.fish <- do.call(list, unlist(and, recursive=FALSE))
+        
+        thanks.for.all.the.fish
+        
+    }
+    
+    if(!is.null(likely_intercepts(input$calcurveelement))){
+        combos_mod(likely_intercepts(input$calcurveelement))
+    } else if(is.null(likely_intercepts(input$calcurveelement))){
+        c("Rh.K.alpha", "Rh.L.alpha")
+    }
+    
+})
+
+
+bestInterceptVars <- reactive({
+    
+    element <- input$calcurveelement
+    
+    choices <- elementallinestouse()
+    
+    spectra.line.table <- if(all(cephlopodVector() %in% colnames(spectraLineTable()))==TRUE){
+        spectraLineTable()
+    } else if(all(cephlopodVector() %in% colnames(spectraLineTable()))==FALSE){
+        merge(spectraLineTable(), elementFrame(data=dataHold(), elements=cephlopodVector()[cephlopodVector() %in% colnames(spectraLineTable())]))
+    }
+    
+    data <- dataNorm()
+    concentration.table <- concentrationTable()
+    
+    
+    spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% holdFrame()$Spectrum, ]
+    
+    
+    predict.intensity.list <- if(input$normcal==1){
+        pblapply(cephlopodVector(), function(x) lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element, intercept.element.lines=c(element, x)))
+    } else if(input$normcal==2){
+        pblapply(cephlopodVector(), function(x) lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element, intercept.element.lines=c(element, x)))
+    } else if(input$normcal==3){
+        pblapply(cephlopodVector(), function(x) lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element, intercept.element.lines=c(element, x), norm.min=input$comptonmin, norm.max=input$comptonmax))
+    }
+    
+    optimal_intercept_chain(element=element, intensities=predict.intensity.list, values=concentration.table, keep=vals$keeprows)
+    
+    
+})
+
+
+intercepthold <- reactiveValues()
+intercepthold$intercepts <- NULL
+
+observeEvent(input$calcurveelement, {
+    
+    isolate(intercepthold$intercepts <- inVar3Selectedpre())
+    
+})
+
+
+#observeEvent(input$trainslopes, {
+    
+    #    isolate(intercepthold$intercepts <- bestInterceptVars())
+    
+    #})
+
+
+inVar3Selected <- reactive({
+    
+    intercepthold$intercepts
+    
+    
+})
+
+output$inVar3 <- renderUI({
+    
+    selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt2(), selected=inVar3Selected(), multiple=TRUE)
+})
+
 
 
 fishVector <- reactive({
@@ -1162,6 +1241,7 @@ fishVector <- reactive({
         long <- pblapply(so, function(x) gRbase::combnPrim(x=a.vector, m=x), cl=6L)
         and <- pblapply(long, function(x) plyr::alply(x, 2), cl=6L)
         thanks.for.all.the.fish <- do.call(list, unlist(and, recursive=FALSE))
+        thanks.for.all.the.fish <- pblapply(thanks.for.all.the.fish, function(x) c(input$calcurveelement, x))
         
         thanks.for.all.the.fish
         
@@ -1183,10 +1263,21 @@ bestSlopeVars <- reactive({
     data <- dataNorm()
     concentration.table <- concentrationTable()
     
+    #concentration.table[complete.cases(concentration.table[,input$calcurveelement]),]
+    
+    #index <- complete.cases(concentration.table[,input$calcurveelement])
+    
     
     spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
     
-        spectra.line.table <- spectraLineTable()[, c(element, choices)]
+    #spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum, ]
+    
+    spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, element]),]
+    
+    data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
+
+
+    
     
     predict.intensity <- if(input$normcal==1){
        if(dataType()=="Spectra"){
@@ -1210,7 +1301,7 @@ bestSlopeVars <- reactive({
 
     
     
-    c(input$calcurveelement, optimal_r_chain(element=element, intensities=predict.intensity, values= concentration.table, possible.slopes=fishVector(), keep=vals$keeprows))
+    optimal_r_chain(element=element, intensities=predict.intensity, values= concentration.table, possible.slopes=fishVector(), keep=vals$keeprows)
     
 })
 

@@ -29,6 +29,7 @@ textInput("calname", label = "Calibration Name", value="myCalibration"),
 
 checkboxInput('advanced', "Advanced", value=FALSE),
 uiOutput('gainshiftui'),
+uiOutput('binaryui'),
              
              tags$hr(),
 

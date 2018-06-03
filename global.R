@@ -52,8 +52,6 @@ library(gRbase)
 library(reticulate)
 library(Rcpp)
 
-
-
 options(digits=4)
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
@@ -361,6 +359,27 @@ readPDZ25Data <- function(filepath, filename){
 }
 
 
+readPDZ25DataManual <- function(filepath, filename, binaryshift){
+    
+    filename <- gsub(".pdz", "", filename)
+    filename.vector <- rep(filename, 2020)
+    
+    nbrOfRecords <- 2020
+    integers <- readPDZ25(filepath, start=binaryshift, size=nbrOfRecords)
+    
+    sequence <- seq(1, length(integers), 1)
+    
+    time.est <- integers[21]
+    
+    channels <- sequence
+    energy <- sequence*.02
+    counts <- integers/(integers[144]/10)
+    
+    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
+    
+}
+
+
 readPDZ24Data<- function(filepath, filename){
     
     filename <- gsub(".pdz", "", filename)
@@ -396,6 +415,8 @@ readPDZData <- function(filepath, filename) {
 
     
 }
+
+
 
 
 file.0 <- function(file) {
@@ -1259,6 +1280,12 @@ colnames(Rh.table) <- c("Line", "Intensity")
 Pd.table <- data.frame(as.vector(t(Pd.lines)), Intensity)
 colnames(Pd.table) <- c("Line", "Intensity")
 
+Ag.table <- data.frame(as.vector(t(Ag.lines)), Intensity)
+colnames(Ag.table) <- c("Line", "Intensity")
+
+Cd.table <- data.frame(as.vector(t(Cd.lines)), Intensity)
+colnames(Cd.table) <- c("Line", "Intensity")
+
 In.table <- data.frame(as.vector(t(In.lines)), Intensity)
 colnames(In.table) <- c("Line", "Intensity")
 
@@ -1507,7 +1534,7 @@ elementGrab <- function(element.line, data) {
     destination <- strsplit(x=element.line, split="\\.")[[1]][2]
     distance <- strsplit(x=element.line, split="\\.")[[1]][3]
     
-    elementSelection <- if(destination=="K" && distance=="alpha"){
+    if(destination=="K" && distance=="alpha"){
         elementGrabKalpha(element, data)
     } else if(destination=="K" && distance=="beta"){
         elementGrabKbeta(element, data)
@@ -1518,8 +1545,36 @@ elementGrab <- function(element.line, data) {
     } else if (destination=="M" && distance=="line"){
         elementGrabMalpha(element, data)
     }
+        
+}
+
+
+elementFrame <- function(data, elements){
     
-    elementSelection
+    spectra.line.list <- lapply(elements, function(x) elementGrab(element.line=x, data=data))
+    element.count.list <- lapply(spectra.line.list, '[', 2)
+    
+    spectra.line.vector <- as.numeric(unlist(element.count.list))
+    
+    dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
+    
+    spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
+    
+    colnames(spectra.line.frame) <- c("Spectrum", elements)
+    
+    spectra.line.frame <- as.data.frame(spectra.line.frame)
+    
+    spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]
+    
+    spectra.line.frame$Spectrum <- gsub(".pdz", "", spectra.line.frame$Spectrum)
+    spectra.line.frame$Spectrum <- gsub(".csv", "", spectra.line.frame$Spectrum)
+    spectra.line.frame$Spectrum <- gsub(".CSV", "", spectra.line.frame$Spectrum)
+    spectra.line.frame$Spectrum <- gsub(".spt", "", spectra.line.frame$Spectrum)
+    spectra.line.frame$Spectrum <- gsub(".mca", "", spectra.line.frame$Spectrum)
+    spectra.line.frame$Spectrum <- gsub(".spx", "", spectra.line.frame$Spectrum)
+    
+    
+    spectra.line.frame
     
 }
 
@@ -1949,7 +2004,6 @@ lucas.simp.prep <- function(spectra.line.table, element.line, slope.element.line
 }
 
 
-
 lucas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
     
@@ -2282,7 +2336,17 @@ combos <- function(a.vector){
     
 }
 
-create.frame <- function(element, slopes, values, intensities){
+create.frame.slopes <- function(element, slopes, values, intensities){
+    values <- values[complete.cases(values[,element]),]
+    intensities <- intensities[complete.cases(values[,element]),]
+    
+    data.frame(Value=values[,element],
+    Intensity=intensities[,"Intensity"],
+    intensities[,slopes])
+    
+}
+
+create.frame.intercepts <- function(element, slopes, values, intensities){
     
     data.frame(Value=values[,element],
     Intensity=intensities[,"Intensity"],
@@ -2294,15 +2358,36 @@ create.frame <- function(element, slopes, values, intensities){
 
 optimal_r_chain <- function(element, intensities, values, possible.slopes, keep){
     
+    values <- values[complete.cases(values[,element]),]
+    intensities <- intensities[complete.cases(values[,element]),]
+    index <- seq(1, length(possible.slopes), 1)
     
-    chain.lm <- pbapply::pblapply(possible.slopes, function(x) lm(Value~Intensity+., data=create.frame(element=element, slopes=x, values=values, intensities=intensities)[keep,]))
+    chain.lm <- pbapply::pblapply(possible.slopes, function(x) lm(Value~Intensity+., data=create.frame.slopes(element=element, slopes=x, values=values[keep,], intensities=intensities)[keep,]))
+    
+    #chain.predict <- pblapply(index, function(x) predict(object=chain.lm[[x]], newdata=create.frame.slopes(element=element, slopes=possible.slopes[[x]], values=values[keep,], intensities=intensities)[keep,], interval='confidence'))
+    #chain.fits <- pblapply(chain.predict, function(x) data.frame(x)$fit)
+    #val.lm <- pblapply(chain.fits, function(x) lm(values[,element]~x))
+    
     aic <- lapply(chain.lm, function(x) extractAIC(x, k=log(length(possible.slopes)))[2])
     best <- chain.lm[[which.min(unlist(aic))]]
+    best.aic <- unlist(aic)[which.min(unlist(aic))]
+    #r.adj <- lapply(chain.lm, function(x) summary(x)$adj.r.squared)
+    #best <- chain.lm[[which.max(unlist(r.adj))]]
     coef <- data.frame(best$coefficients)
     best.var <- rownames(coef)[3:length(rownames(coef))]
     
-    best.var
+    simple.lm <- lm(Value~Intensity, data=create.frame.slopes(element=element, slopes=element, values=values, intensities=intensities)[keep,])
+    #simple.predict <- as.data.frame(predict(simple.lm, newdata=create.frame.slopes(element=element, slopes=element, values=values[keep,], intensities=intensities)[keep,], interval='confidence'), interval='confidence')$fit
+    #simple.val <- lm(values[,element]~simple.predict)
+    simple.aic <- extractAIC(simple.lm, k=log(length(1)))[2]
     
+    if(simple.aic <= best.aic){
+           element
+        } else if(best.aic < simple.aic){
+           best.var
+       }
+    
+    #best.var
 }
 
 
@@ -2318,5 +2403,142 @@ optimal_norm_chain <- function(data, element, spectra.line.table, values, possib
     best
     
 }
+
+
+optimal_intercept_chain <- function(element, intensities, values, keep){
+    
+    
+    chain.lm <- pbapply::pblapply(intensities, function(x) lm(values[,element]~Intensity, data=x[keep,]))
+    aic <- lapply(chain.lm, function(x) extractAIC(x, k=log(1))[2])
+    best <- chain.lm[[which.min(unlist(aic))]]
+    coef <- data.frame(best$coefficients)
+    best.var <- rownames(coef)[3:length(rownames(coef))]
+    
+    best.var
+    
+}
+
+
+likely_intercepts <- function(element){
+    
+    if(element=="Na.K.alpha"){
+        c("Cl.K.alpha", "Rh.L.alpha")
+    } else if(element=="Mg.K.alpha"){
+        c("Rh.L.alpha", "Al.K.alpha", "Cl.K.alpha")
+    } else if(element=="Al.K.alpha"){
+        c("Mg.K.alpha", "Si.K.alpha", "K.K.alpha")
+    } else if(element=="Si.K.alpha"){
+        c("Al.K.alpha", "Ca.K.alpha")
+    } else if(element=="P.K.alpha"){
+        c("Ca.K.alpha", "Si.K.alpha", "S.K.alpha")
+    } else if(element=="S.K.alpha"){
+        c("Rh.L.alpha", "P.K.alpha", "Cl.K.alpha")
+    } else if(element=="Cl.K.alpha"){
+        c("Rh.L.alpha", "S.K.alpha")
+    } else if(element=="K.K.alpha"){
+        c("Rh.L.alpha", "Ag.L.alpha", "Cd.L.alpha")
+    } else if(element=="Ca.K.alpha"){
+        c("K.K.alpha", "Ag.L.alpha", "Cd.L.alpha")
+    } else if(element=="Sc.K.alpha"){
+        c("Ca.K.alpha", "Cd.L.alpha")
+    } else if(element=="Ti.K.alpha"){
+        c("Ba.L.alpha", "Fe.K.alpha")
+    } else if(element=="V.K.alpha"){
+        c("Ba.L.alpha", "Ti.K.alpha")
+    } else if(element=="Cr.K.alpha"){
+        c("Ba.L.alpha", "V.K.alpha")
+    } else if(element=="Mn.K.alpha"){
+        c("Cr.K.alpha", "Ba.L.alpha")
+    } else if(element=="Mn.K.alpha"){
+        c("Cr.K.alpha", "Ba.L.alpha", "Fe.K.alpha")
+    } else if(element=="Fe.K.alpha"){
+        c("Mn.K.alpha", "K.K.alpha", "Cu.K.alpha", "Ca.K.alpha")
+    } else if(element=="Co.K.alpha"){
+        c("Fe.K.alpha", "Ca.K.alpha", "Zn.K.alpha")
+    } else if(element=="Ni.K.alpha"){
+        c("Co.K.alpha", "Ca.K.alpha", "Zn.K.alpha")
+    } else if(element=="Cu.K.alpha"){
+        c("Ni.K.alpha", "Zn.K.alpha")
+    } else if(element=="Zn.K.alpha"){
+        c("Cu.K.alpha", "Pb.L.alpha", "Au.L.alpha")
+    } else if(element=="Ga.K.alpha"){
+        c("Zn.K.alpha", "Au.L.alpha", "Pb.L.alpha")
+    } else if(element=="As.K.alpha"){
+        c("Pb.L.beta", "Cr.K.alpha")
+    } else if(element=="Rb.K.alpha"){
+        c("Th.L.alpha", "Fe.K.alpha")
+    } else if(element=="Sr.K.alpha"){
+        c("U.L.alpha", "Zr.K.alpha", "Co.K.alpha")
+    } else if(element=="Y.K.alpha"){
+        c("Rb.K.alpha", "Ni.K.alpha", "Nb.K.alpha")
+    } else if(element=="Zr.K.alpha"){
+        c("Sr.K.alpha", "Cu.K.alpha", "Mo.K.alpha")
+    } else if(element=="Nb.K.alpha"){
+        c("Y.K.alpha", "Cu.K.alpha", "Zn.K.alpha", "Rh.K.alpha")
+    } else if(element=="Mo.K.alpha"){
+        c("Zr.K.alpha", "Rh.K.alpha", "Zn.K.alpha")
+    } else if(element=="Ag.K.alpha"){
+        c("Rh.K.alpha", "Pd.K.alpha")
+    } else if(element=="Cd.K.alpha"){
+        c("Rh.K.alpha", "Pd.K.alpha")
+    } else if(element=="Sn.K.alpha"){
+        c("Rh.K.alpha", "Ag.K.alpha")
+    } else if(element=="Sb.K.alpha"){
+        c("Sn.K.alpha", "Rh.K.alpha")
+    } else if(element=="Ba.L.alpha"){
+        c("Ti.K.alpha", "Fe.K.alpha")
+    } else if(element=="La.L.alpha"){
+        c("Ti.K.alpha", "Fe.K.alpha")
+    } else if(element=="Ce.L.alpha"){
+        c("Ti.K.alpha", "V.K.alpha", "Ba.L.alpha", "Fe.K.alpha")
+    } else if(element=="Nd.L.alpha"){
+        c("Ti.K.alpha", "Cr.K.alpha", "V.K.alpha", "Ba.L.alpha", "Fe.K.alpha")
+    } else if(element=="W.L.alpha"){
+        c("Cu.K.alpha", "Ni.K.alpha")
+    } else if(element=="Au.L.alpha"){
+        c("Zn.K.alpha", "Ga.K.alpha", "W.L.alpha")
+    } else if(element=="Hg.L.alpha"){
+        c("Pb.L.alpha", "Au.L.alpha")
+    } else if(element=="Pb.L.beta"){
+        c("As.K.alpha", "Th.L.alpha")
+    } else if(element=="Th.L.alpha"){
+        c("Rb.K.alpha", "Pb.L.alpha")
+    } else if(element=="U.L.alpha"){
+        c("Rb.K.alpha", "Sr.K.alpha")
+    }
+}
+
+peak_threshold <- function(spectrum){
+    
+    spectrum$Hodder <- Hodder.v(Hodder.v(spectrum$CPS))*-1
+    spectrum$Peaks <- ifelse(spectrum$Hodder > 0, spectrum$Hodder, 0)
+    spectrum$isPeak <- ifelse(log(spectrum$Peaks) > 1, TRUE, FALSE)
+    ggplot(spectrum) + geom_line(aes(Energy, Peaks)) + theme_light() + scale_y_log10()
+    ggplot(spectrum) + geom_line(aes(Energy, CPS)) + theme_light() + geom_point(data=spectrum[spectrum$isPeak,], aes(Energy, CPS), colour="red", alpha=0.5)
+
+    
+}
+
+
+
+find_peaks <- function(spectrum){
+    
+    #spectrum$Hodder <- Hodder.v(spectrum$CPS)
+    #spectrum$Peak <- ifelse(spectrum$Hodder < (-200), TRUE, FALSE)
+    #ggplot(spectrum) + geom_line(aes(Energy, Hodder)) + theme_light() + geom_point(data=spectrum[spectrum$Peak,], aes(Energy, Hodder), colour="red", alpha=0.5)
+    
+    #spectrum$Hodder2 <- Hodder.v(spectrum$Hodder)
+    #ggplot(spectrum) + geom_line(aes(Energy, Hodder2)) + theme_light()
+
+    #spectrum$Peak <- ifelse(spectrum$Hodder2 < (-1), TRUE, FALSE)
+    #ggplot(spectrum) + geom_line(aes(Energy, Hodder2)) + theme_light() + geom_point(data=spectrum[spectrum$Peak,], aes(Energy, Hodder2), colour="red", alpha=0.5)
+
+
+    spectrum$Hodder <- Hodder.v(Hodder.v(spectrum$CPS))
+    spectrum$Peak <- ifelse(spectrum$Hodder < (-1), TRUE, FALSE)
+    data.frame(Energy=spectrum[spectrum$Peak,]$Energy, CPS=spectrum[spectrum$Peak,]$CPS)
+
+}
+
 
 
