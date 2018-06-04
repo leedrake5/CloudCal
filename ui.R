@@ -42,7 +42,7 @@ tags$hr(),
 
 uiOutput('filegrab'),
 
-selectInput("filetype", label="Filetype", c("CSV", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="Spectra"),
+selectInput("filetype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="Spectra"),
 
 
 tags$hr(),
@@ -510,7 +510,7 @@ tags$hr(),
 
 uiOutput('filevalgrab'),
 
-selectInput("valfiletype", label="Filetype", c("CSV"="Spectra", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="Spectra"),
+selectInput("valfiletype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="Spectra"),
 
 
 tags$hr(),

@@ -178,7 +178,18 @@ csvFrame <- function(filepath, filename){
     
 }
 
+readTXTData <- function(filepath, filename){
+    
+    text <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
+    channels <- seq(1, length(text$V1)-4, 1)
+    counts <- as.numeric(as.character(text$V1[5:length(text$V1)]))
+    filename.vector <- rep(filename, length(text$V1)-4)
 
+    energy <- channels*as.numeric(substr(gsub("Elin=", "", as.character(text$V1[2])), 1, 4))
+    
+    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
+    
+}
 
 
 

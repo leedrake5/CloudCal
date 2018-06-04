@@ -29,6 +29,9 @@ shinyServer(function(input, output, session) {
         if(input$filetype=="CSV") {
             fileInput('file1', 'Choose CSV', multiple=TRUE,
             accept=c(".csv"))
+        } else if(input$filetype=="TXT") {
+            fileInput('file1', 'Choose TXT', multiple=TRUE,
+            accept=c(".txt"))
         } else if(input$filetype=="Net") {
             fileInput('file1', 'Choose Net Counts', multiple=TRUE,
             accept=c(".csv"))
@@ -218,6 +221,29 @@ shinyServer(function(input, output, session) {
         
     })
     
+    
+    readTXT <- reactive({
+        
+        withProgress(message = 'Processing Data', value = 0, {
+            
+            inFile <- input$file1
+            if (is.null(inFile)) return(NULL)
+            
+            n <- length(inFile$datapath)
+            names <- inFile$name
+            
+            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readTXTData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+            
+            incProgress(1/n)
+            Sys.sleep(0.1)
+        })
+        
+        myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
+        
+        myfiles.frame
+        
+    })
+    
     readElio <- reactive({
         
         withProgress(message = 'Processing Data', value = 0, {
@@ -331,6 +357,8 @@ shinyServer(function(input, output, session) {
             
             data <- if(input$filetype=="CSV"){
                 fullSpectra()
+            } else if(input$filetype=="TXT"){
+                readTXT()
             } else if(input$filetype=="Net"){
                 netCounts()
             } else if(input$filetype=="Elio"){
@@ -607,6 +635,8 @@ standardElements <- reactive({
     
     if(input$usecalfile==FALSE && input$filetype=="CSV"){
         standard
+    } else if(input$usecalfile==FALSE && input$filetype=="TXT"){
+        standard
     } else if(input$usecalfile==FALSE && input$filetype=="Elio"){
         standard
     }  else if(input$usecalfile==FALSE && input$filetype=="MCA"){
@@ -631,6 +661,8 @@ standardLines <- reactive({
     
     
     choices <- if(input$filetype=="CSV"){
+        spectralLines
+    } else if(input$filetype=="TXT"){
         spectralLines
     } else if(input$filetype=="Elio"){
         spectralLines
@@ -737,6 +769,8 @@ elementallinestouse <- reactive({
      
      select.line.table <- if(input$filetype=="CSV"){
          spectraData()
+     } else if(input$filetype=="TXT"){
+         spectraData()
      } else if(input$filetype=="Elio"){
          spectraData()
      }  else if(input$filetype=="MCA"){
@@ -759,6 +793,8 @@ elementallinestouse <- reactive({
 
 
      select.line.table <- if(input$filetype=="CSV"){
+         spectraData()
+     } else if(input$filetype=="TXT"){
          spectraData()
      } else if(input$filetype=="Elio"){
          spectraData()
@@ -819,6 +855,8 @@ hotableInputBlank <- reactive({
 
 spectra.line.table <- if(input$filetype=="CSV"){
     spectraData()
+} else if(input$filetype=="TXT"){
+    spectraData()
 } else if(input$filetype=="Elio"){
     spectraData()
 }  else if(input$filetype=="MCA"){
@@ -855,6 +893,8 @@ hotableInputCal <- reactive({
     
     
     spectra.line.table <- if(input$filetype=="CSV"){
+        spectraData()
+    } else if(input$filetype=="TXT"){
         spectraData()
     } else if(input$filetype=="Elio"){
         spectraData()
@@ -1701,6 +1741,8 @@ output$temp <- renderTable({
 
 dataType <- reactive({
     if(input$filetype=="CSV"){
+        "Spectra"
+    } else if(input$filetype=="TXT"){
         "Spectra"
     } else if(input$filetype=="Elio"){
         "Spectra"
@@ -5425,9 +5467,12 @@ content = function(file){
     
     output$filevalgrab <- renderUI({
         
-        if(input$valfiletype=="Spectra") {
+        if(input$valfiletype=="CSV") {
             fileInput('loadvaldata', 'Choose CSV', multiple=TRUE,
             accept=c(".csv"))
+        } else if(input$valfiletype=="TXT") {
+            fileInput('loadvaldata', 'Choose TXT', multiple=TRUE,
+            accept=c(".txt"))
         } else if(input$valfiletype=="Net") {
             fileInput('loadvaldata', 'Choose Net Counts', multiple=TRUE,
             accept=c(".csv"))
@@ -5480,6 +5525,28 @@ content = function(file){
             data$Energy <- data$Energy + gainshiftHold()
             
             data
+        })
+        
+        readValTXT <- reactive({
+            
+            withProgress(message = 'Processing Data', value = 0, {
+                
+                inFile <- input$loadvaldata
+                if (is.null(inFile)) return(NULL)
+                
+                n <- length(inFile$datapath)
+                names <- inFile$name
+                
+                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readTXTData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
+                
+                incProgress(1/n)
+                Sys.sleep(0.1)
+            })
+            
+            myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
+            
+            myfiles.frame
+            
         })
         
         
@@ -5625,8 +5692,10 @@ content = function(file){
         
         myValData <- reactive({
             
-            data <- if(input$valfiletype=="Spectra"){
+            data <- if(input$valfiletype=="CSV"){
                 fullValSpectra()
+            } else if(input$valfiletype=="TXT"){
+                readValTXT()
             } else if(input$valfiletype=="Net"){
                 netValCounts()
             } else if(input$valfiletype=="Elio") {
@@ -5726,7 +5795,9 @@ content = function(file){
         
         valDataType <- reactive({
             
-            if(input$valfiletype=="Spectra"){
+            if(input$valfiletype=="CSV"){
+                "Spectra"
+            } else if(input$valfiletype=="TXT"){
                 "Spectra"
             } else if(input$valfiletype=="Net"){
                 "Net"
