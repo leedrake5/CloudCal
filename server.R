@@ -1282,12 +1282,30 @@ caretSlope <- reactive({
     registerDoMC(cores=4)
     
     data <- dataNorm()
+    
 
-
-    cal.table <- data.frame(spectraLineTable(), Concentration=concentrationTable()[,input$calcurveelement])
-
-
-
+    cal.table <- if(dataType()=="Spectra"){
+        if(input$normcal==1){
+            lucas.simp.prep(spectra.line.table=spectraLineTable(), element.line=input$calcurveelemenet,slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars)
+        } else if(input$normcal==2){
+            lucas.tc.prep(data=data, spectra.line.table=spectraLineTable(), element.line=input$calcurveelement, slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars)
+        } else if(input$normcal==3){
+            lucas.comp.prep(data=data, spectra.line.table=spectraLineTable(), element.line=input$calcurveelement, slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+        }
+    } else if(dataType()=="Net"){
+        if(input$normcal==1){
+            lucas.simp.prep.net(spectra.line.table=spectraLineTable(), element.line=input$calcurveelemenet,slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars)
+        } else if(input$normcal==2){
+            lucas.tc.prep.net(data=data, spectra.line.table=spectraLineTable(), element.line=input$calcurveelement, slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars)
+        } else if(input$normcal==3){
+            lucas.comp.prep.net(data=data, spectra.line.table=spectraLineTable(), element.line=input$calcurveelement, slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+        }
+    }
+    
+    cal.table <- cal.table[,!colnames(cal.table) %in% "Intensity"]
+    cal.table$Concentration <- concentrationTable()[,input$calcurveelement]
+        
+    
     fit.lm <- train(Concentration~., data=cal.table[,-1], method="lm", metric=metric, preProc=c("center", "scale"), trControl=control)
     fit.lm
 
@@ -1592,7 +1610,7 @@ bestNormVars <- reactive({
     time.bic <- if(dataType()=="Spectra"){
         extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep(spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
     } else if(dataType()=="Net"){
-        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep.net(spectra.line.table, input$calcurveelement), k=log(length(1))))[2]
+        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep.net(spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
     }
     
     tc.bic <- if(dataType()=="Spectra"){

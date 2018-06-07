@@ -2218,15 +2218,12 @@ lucas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.
     
     
     
-    predict.frame.luk <- data.frame(((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope)
-    colnames(predict.frame.luk) <- c("Intensity", names(lucas.slope))
+    predict.frame.luk <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope)
     
     
     
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lucas.slope)
-    colnames(predict.intensity.luk) <- c("Intensity", names(lucas.slope))
     
-    predict.intensity.luk
+    predict.frame.luk
     
     
 }
