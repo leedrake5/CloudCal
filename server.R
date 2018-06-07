@@ -15,6 +15,8 @@ library(rmarkdown)
 library(XML)
 library(corrplot)
 library(scales)
+library(caret)
+library(doMC)
 
 
 options(shiny.maxRequestSize=9000000*1024^2)
@@ -1270,6 +1272,45 @@ output$inVar3 <- renderUI({
     selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt2(), selected=inVar3Selected(), multiple=TRUE)
 })
 
+caretSlope <- reactive({
+    
+    # prepare simple test suite
+    control <- trainControl(method="cv", number=5)
+    seed <- 7
+    metric <- "RMSE"
+    set.seed(seed)
+    registerDoMC(cores=4)
+    
+    data <- dataNorm()
+
+
+    cal.table <- data.frame(spectraLineTable(), Concentration=concentrationTable()[,input$calcurveelement])
+
+
+
+    fit.lm <- train(Concentration~., data=cal.table[,-1], method="lm", metric=metric, preProc=c("center", "scale"), trControl=control)
+    fit.lm
+
+})
+
+output$testtable <- renderDataTable({
+    
+    data.frame(spectraLineTable(), Concentration=concentrationTable()[,input$calcurveelement])
+    
+})
+
+slopeImportance <- reactive({
+    
+    varImp(caretSlope(), scale=FALSE)
+    
+})
+
+output$importanceplot <- renderPlot({
+    
+    plot(slopeImportance())
+    
+})
+
 
 
 fishVector <- reactive({
@@ -1287,9 +1328,16 @@ fishVector <- reactive({
         
     }
     
+    first.combos <- c(elementallinestouse()[!elementallinestouse() %in% input$calcurveelement])
+    
+    coef.frame <- as.data.frame(summary(fit.lm)$coefficients)
+    sig.frame <- subset(coef.frame, coef.frame[,4] < 0.05)
+    
+    second.combos <- first.combos[c(first.combos %in% rownames(sig.frame)[c(!rownames(sig.frame) %in% "(Intercept)")])]
+
     
     
-    combos_mod(elementallinestouse()[!elementallinestouse() %in% input$calcurveelement])
+    combos_mod(second.combos)
 
 })
 
