@@ -1306,8 +1306,8 @@ caretSlope <- reactive({
     cal.table$Concentration <- concentrationTable()[,input$calcurveelement]
         
     
-    fit.lm <- train(Concentration~., data=cal.table[,-1], method="lm", metric=metric, preProc=c("center", "scale"), trControl=control)
-    fit.lm
+    train(Concentration~., data=cal.table[,-1], method="lm", metric=metric, preProc=c("center", "scale"), trControl=control)
+    
 
 })
 
@@ -1345,6 +1345,8 @@ fishVector <- reactive({
         thanks.for.all.the.fish
         
     }
+    
+    fit.lm <- caretSlope()
     
     first.combos <- c(elementallinestouse()[!elementallinestouse() %in% input$calcurveelement])
     
