@@ -17,6 +17,7 @@ library(corrplot)
 library(scales)
 library(caret)
 library(doMC)
+library(randomForest)
 
 
 options(shiny.maxRequestSize=9000000*1024^2)
@@ -683,60 +684,174 @@ standardLines <- reactive({
     
 })
 
+
+
+
+
+selectedKalpha <- reactive({
+    
+    if(input$usecalfile==FALSE){
+        c("Ca.K.alpha", "Ti.K.alpha", "Fe.K.alpha")
+    } else if(input$usecalfile==TRUE){
+        as.vector(subset(selectedElementsCal(), Orbital=="K" & Line=="alpha")$ElementLine)
+    }
+    
+})
+
+
+selectedKbeta <- reactive({
+    
+    if(input$usecalfile==FALSE){
+        NULL
+    } else if(input$usecalfile==TRUE){
+        as.vector(subset(selectedElementsCal(), Orbital=="K" & Line=="beta")$ElementLine)
+    }
+    
+})
+
+selectedLalpha <- reactive({
+    
+    if(input$usecalfile==FALSE){
+        "Rh.L.alpha"
+    } else if(input$usecalfile==TRUE){
+        as.vector(subset(selectedElementsCal(), Orbital=="L" & Line=="alpha")$ElementLine)
+    }
+    
+})
+
+selectedLbeta <- reactive({
+    
+    if(input$usecalfile==FALSE){
+        "Pb.L.beta"
+    } else if(input$usecalfile==TRUE){
+        as.vector(subset(selectedElementsCal(), Orbital=="L" & Line=="beta")$ElementLine)
+    }
+    
+})
+
+selectedMLine <- reactive({
+    
+    if(input$usecalfile==FALSE){
+        NULL
+    } else if(input$usecalfile==TRUE){
+        as.vector(subset(selectedElementsCal(), Orbital=="M" & Line=="line")$Element)
+    }
+    
+})
+
 output$checkboxElements <-  renderUI({
     
     checkboxGroupInput("show_vars", label="Elemental lines to show:",
-    choices = standardLines(), selected = standardElements())
+    choices = standardLines(), selected = selectedElements())
     
 })
 
 output$checkboxElementsKalpha <-  renderUI({
     
     selectInput("show_vars_k_alpha", label="K-alpha",
-    choices = kalphaLines, selected = c("Ca.K.alpha", "Ti.K.alpha", "Fe.K.alpha"), multiple=TRUE)
+    choices = kalphaLines, selected = selectedKalpha() , multiple=TRUE)
     
 })
 
 output$checkboxElementsKbeta <-  renderUI({
     
     selectInput("show_vars_k_beta", label="K-beta",
-    choices = kbetaLines, selected = NULL, multiple=TRUE)
+    choices = kbetaLines, selected = selectedKbeta(), multiple=TRUE)
     
 })
 
 output$checkboxElementsLalpha <-  renderUI({
     
     selectInput("show_vars_l_alpha", label="L-alpha",
-    choices = lalphaLines, selected = "Rh.L.alpha", multiple=TRUE)
+    choices = lalphaLines, selected = selectedLalpha(), multiple=TRUE)
     
 })
 
 output$checkboxElementsLbeta <-  renderUI({
     
     selectInput("show_vars_l_beta", label="L-beta",
-    choices = lbetaLines, selected = NULL, multiple=TRUE)
+    choices = lbetaLines, selected = selectedLbeta(), multiple=TRUE)
     
 })
 
 output$checkboxElementsM <-  renderUI({
     
     selectInput("show_vars_m", label="M",
-    choices = mLines, selected = "Pb.M.line", multiple=TRUE)
+    choices = mLines, selected = selectedMLine(), multiple=TRUE)
+    
+})
+
+
+
+testfFrame <- reactive({
+    
+    k.alpha.lines <- kalphaLines[input$show_vars_k_alpha]
+    k.beta.lines <- kbetaLines[input$show_vars_k_beta]
+    l.alpha.lines <- lalphaLines[input$show_vars_l_alpha]
+    l.beta.lines <- lbetaLines[input$show_vars_l_beta]
+    m.lines <- mLines[input$show_vars_m]
+    
+    k.alpha.lines <- k.alpha.lines[!is.na(k.alpha.lines)]
+    k.beta.lines <- k.beta.lines[!is.na(k.beta.lines)]
+    l.alpha.lines <- l.alpha.lines[!is.na(l.alpha.lines)]
+    l.beta.lines <- l.beta.lines[!is.na(l.beta.lines)]
+    m.lines <- m.lines[!is.na(m.lines)]
+    
+    choosen.elements <- c(input$show_vars_k_alpha, input$show_vars_k_beta, input$show_vars_l_alpha, input$show_vars_l_beta, input$show_vars_m)
+    
+    
+    element.frame <- data.frame(elements=choosen.elements, order=atomic_order_vector(choosen.elements))
+    
+    element.frame
+})
+
+selectedElements <- reactive({
+    
+    k.alpha.lines <- kalphaLines[input$show_vars_k_alpha]
+    k.beta.lines <- kbetaLines[input$show_vars_k_beta]
+    l.alpha.lines <- lalphaLines[input$show_vars_l_alpha]
+    l.beta.lines <- lbetaLines[input$show_vars_l_beta]
+    m.lines <- mLines[input$show_vars_m]
+    
+    k.alpha.lines <- k.alpha.lines[!is.na(k.alpha.lines)]
+    k.beta.lines <- k.beta.lines[!is.na(k.beta.lines)]
+    l.alpha.lines <- l.alpha.lines[!is.na(l.alpha.lines)]
+    l.beta.lines <- l.beta.lines[!is.na(l.beta.lines)]
+    m.lines <- m.lines[!is.na(m.lines)]
+    
+    choosen.elements <- c(input$show_vars_k_alpha, input$show_vars_k_beta, input$show_vars_l_alpha, input$show_vars_l_beta, input$show_vars_m)
+    
+    element.frame <- data.frame(elements=choosen.elements, order=atomic_order_vector(choosen.elements))
+    as.vector(element.frame[order(element.frame$order),]$elements)
+    
+    
+})
+
+selectedElementsCal <- reactive({
+    
+    element.lines <- ls(calFileContents()$Intensities)
+    
+    
+    do.call("rbind", lapply(element.lines, element_line_pull))
     
 })
 
 elementallinestouse <- reactive({
     
-    #c(input$show_vars_k_alpha, input$show_vars_k_beta, input$show_vars_l_alpha, input$show_vars_l_beta, input$show_vars_m)
+    #c(selectedElements()_k_alpha, selectedElements()_k_beta, selectedElements()_l_alpha, selectedElements()_l_beta, selectedElements()_m)
     
-    input$show_vars
+    selectedElements()
     
     
 })
 
 
 
+output$testtable <- renderDataTable({
+    
+    subset(testf, Orbital=="K" & Line=="alpha")
 
+})
 
  
  spectraData <- reactive({
@@ -810,7 +925,7 @@ elementallinestouse <- reactive({
          netData()
      }
      
-     rounded <- round(select.line.table[elements], digits=0)
+     rounded <- round(select.line.table[,elements], digits=0)
      full <- data.frame(select.line.table$Spectrum, rounded)
      colnames(full) <- c("Spectrum", elements)
      
@@ -820,7 +935,9 @@ elementallinestouse <- reactive({
 
   output$mytable1 <- renderDataTable({
    
-  tableInput()
+  base.table <- tableInput()[,-1]
+  rownames(base.table) <- tableInput()$Spectrum
+  base.table
 
   })
   
@@ -855,21 +972,21 @@ hotableInputBlank <- reactive({
 
 
 
-spectra.line.table <- if(input$filetype=="CSV"){
-    spectraData()
-} else if(input$filetype=="TXT"){
-    spectraData()
-} else if(input$filetype=="Elio"){
-    spectraData()
-}  else if(input$filetype=="MCA"){
-    spectraData()
-}  else if(input$filetype=="SPX"){
-    spectraData()
-}  else if(input$filetype=="PDZ"){
-    spectraData()
-} else if(input$filetype=="Net"){
-    dataHold()
-}
+    spectra.line.table <- if(input$filetype=="CSV"){
+        spectraData()
+    } else if(input$filetype=="TXT"){
+        spectraData()
+    } else if(input$filetype=="Elio"){
+        spectraData()
+    }  else if(input$filetype=="MCA"){
+        spectraData()
+    }  else if(input$filetype=="SPX"){
+        spectraData()
+    }  else if(input$filetype=="PDZ"){
+        spectraData()
+    } else if(input$filetype=="Net"){
+        dataHold()
+    }
 
         empty.line.table <- spectra.line.table[,elements] * 0.0000
 
@@ -1176,15 +1293,207 @@ inVar4Selectedpre <- reactive({
 
 
 
+########Machine Learning: Normalization
 
-
-
-inVar4Selected <- reactive({
+normMinPre <- reactive({
     
-    slopehold$slopes
+    hold <- values[["DF"]]
+    
+    optionhold <- if(is.null(input$calcurveelement)){
+        ls(hold)[2]
+    }else{
+        input$calcurveelement
+    }
+    
+    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
+        calConditons[[1]][[3]]
+    }else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE && is.null(calList[[optionhold]])==TRUE){
+        calFileContents()$calList[[optionhold]][[1]]$CalTable$Min
+    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$Min
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$Min
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
+        calConditons[[1]][[3]]
+    }
+    
+})
+
+normMaxPre <- reactive({
+    
+    hold <- values[["DF"]]
+    
+    optionhold <- if(is.null(input$calcurveelement)){
+        ls(hold)[2]
+    }else{
+        input$calcurveelement
+    }
+    
+    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
+        calConditons[[1]][[4]]
+    }else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
+        calFileContents()$calList[[optionhold]][[1]]$CalTable$Max
+    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$Max
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$Max
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
+        calConditons[[1]][[4]]
+    }
+})
+
+
+
+planktonVector <- reactive({
+    
+    #0.7, 0.9
+    #2.5, 2.8
+    #11.0, 11.2
+    #18.4, 19.4
+    #19.5, 22
+    #21, 22
+    #30, 35
+    #35, 40
+    
+    mins <- c(0.7, 2.5, 11.0, 18.4, 19.5, 21, 30, 35)
+    maxs <- c(0.9, 2.8, 11.2, 19.4, 22, 22, 35, 40)
+    
+    norm.list <- list(mins, maxs)
+    names(norm.list) <- c("Min", "Max")
+    norm.list
     
     
 })
+
+bestNormVars <- reactive({
+    
+    norm.list <- planktonVector()
+    
+    element <- input$calcurveelement
+    
+    choices <- elementallinestouse()
+    spectra.line.table <- spectraLineTable()
+    data <- dataNorm()
+    
+    index <- seq(1, length(norm.list[[1]]), 1)
+    
+    
+    spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
+    
+    concentration.table <- concentrationTable()[concentrationTable()$Spectrum %in% holdFrame()$Spectrum, ]
+    
+    
+    time.bic <- if(dataType()=="Spectra"){
+        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep(spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+    } else if(dataType()=="Net"){
+        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep.net(spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+    }
+    
+    tc.bic <- if(dataType()=="Spectra"){
+        extractAIC(lm(concentration.table[, input$calcurveelement]~simple.tc.prep(data, spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+    } else if(dataType()=="Net"){
+        extractAIC(lm(concentration.table[, input$calcurveelement]~simple.tc.prep.net(data, spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+    }
+    
+    comp.bic <- if(dataType()=="Spectra"){
+        optimal_norm_chain(data=data, element=element, spectra.line.table=spectra.line.table, values=concentration.table, possible.mins=norm.list[["Min"]], possible.maxs=norm.list[["Max"]])
+    } else if(dataType()=="Net"){
+        time.bic
+    }
+    
+    norm.chain <- c(time.bic, tc.bic, comp.bic)
+    type.chain <- c(1, 2, 3)
+    
+    best <- index[[which.min(unlist(norm.chain))]]
+    best.comp <- c(planktonVector()[["Min"]][best], planktonVector()[["Max"]][best])
+    best.type <- type.chain[which.min(unlist(norm.chain))]
+    result.list <- list(best.type, best.comp)
+    names(result.list) <- c("Type", "Compton")
+    result.list
+})
+
+
+normhold <- reactiveValues()
+
+observeEvent(input$hotableprocess2, {
+    normhold$norms <- c(normMinPre(), normMaxPre())
+    normhold$normtype <- calNormSelectionpre()
+})
+
+
+observeEvent(input$trainslopes, {
+    
+    isolate(normhold$norms[1] <- bestNormVars()[["Compton"]][1])
+    isolate(normhold$norms[2] <- bestNormVars()[["Compton"]][2])
+    isolate(normhold$normtype <- bestNormVars()[["Type"]])
+    
+})
+
+calNormSelection <- reactive({
+    normhold$normtype
+})
+
+normMinSelection <- reactive({
+    normhold$norms[1]
+})
+
+normMaxSelection <- reactive({
+    normhold$norms[2]
+})
+
+
+
+
+calNormSelectionpre <- reactive({
+    
+    hold <- values[["DF"]]
+    
+    optionhold <- if(is.null(input$calcurveelement)){
+        ls(hold)[2]
+    }else{
+        input$calcurveelement
+    }
+    
+    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
+        calConditons[[1]][[2]]
+    }else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
+        calFileContents()$calList[[optionhold]][[1]]$CalTable$NormType
+    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$NormType
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$NormType
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
+        calConditons[[1]][[2]]
+    }
+    
+})
+
+
+output$normTypeInput <- renderUI({
+    
+    selectInput("normcal", label = "Normalization",
+    choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3),
+    selected = calNormSelection())
+    
+    
+})
+
+
+output$comptonMinInput <- renderUI({
+    
+    numericInput('comptonmin', label=h6("Min"), step=0.001, value=normMinSelection(), min=0, max=50, width='30%')
+    
+})
+
+output$comptonMaxInput <- renderUI({
+    
+    numericInput('comptonmax', label=h6("Max"), step=0.001, value=normMaxSelection(), min=0, max=50, width='30%')
+    
+})
+
+
+#####Machine Learning: Intercepts
+
 
 
 cephlopodVector <- reactive({
@@ -1272,7 +1581,13 @@ output$inVar3 <- renderUI({
     selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt2(), selected=inVar3Selected(), multiple=TRUE)
 })
 
+
+
+####Machine Learning: Slopes
+
 caretSlope <- reactive({
+    
+    element <- input$calcurveelement
     
     # prepare simple test suite
     control <- trainControl(method="cv", number=5)
@@ -1282,28 +1597,41 @@ caretSlope <- reactive({
     registerDoMC(cores=4)
     
     data <- dataNorm()
+    concentration.table <- concentrationTable()
+
+    concentration.table <- concentration.table[complete.cases(concentration.table[,input$calcurveelement]),]
+
+    
+    
+    spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
+    
+    #spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum, ]
+    
+    spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, element]),]
+    
+    data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
     
 
     cal.table <- if(dataType()=="Spectra"){
         if(input$normcal==1){
-            lucas.simp.prep(spectra.line.table=spectraLineTable(), element.line=input$calcurveelemenet,slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars)
+            lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelemenet,slope.element.lines=colnames(spectra.line.table[,-1]), intercept.element.lines=input$intercept_vars)
         } else if(input$normcal==2){
-            lucas.tc.prep(data=data, spectra.line.table=spectraLineTable(), element.line=input$calcurveelement, slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars)
+            lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=colnames(spectra.line.table[,-1]), intercept.element.lines=input$intercept_vars)
         } else if(input$normcal==3){
-            lucas.comp.prep(data=data, spectra.line.table=spectraLineTable(), element.line=input$calcurveelement, slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+            lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=colnames(spectra.line.table[,-1]), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
         }
     } else if(dataType()=="Net"){
         if(input$normcal==1){
-            lucas.simp.prep.net(spectra.line.table=spectraLineTable(), element.line=input$calcurveelemenet,slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars)
+            lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelemenet,slope.element.lines=colnames(spectra.line.table[,-1]), intercept.element.lines=input$intercept_vars)
         } else if(input$normcal==2){
-            lucas.tc.prep.net(data=data, spectra.line.table=spectraLineTable(), element.line=input$calcurveelement, slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars)
+            lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=colnames(spectra.line.table[,-1]), intercept.element.lines=input$intercept_vars)
         } else if(input$normcal==3){
-            lucas.comp.prep.net(data=data, spectra.line.table=spectraLineTable(), element.line=input$calcurveelement, slope.element.lines=colnames(spectraLineTable()[,-1]), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+            lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=colnames(spectra.line.table[,-1]), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
         }
     }
     
-    cal.table <- cal.table[,!colnames(cal.table) %in% "Intensity"]
-    cal.table$Concentration <- concentrationTable()[,input$calcurveelement]
+    #cal.table <- cal.table[,!colnames(cal.table) %in% "Intensity"]
+    cal.table$Concentration <- concentration.table[,input$calcurveelement]
         
     
     train(Concentration~., data=cal.table[,-1], method="lm", metric=metric, preProc=c("center", "scale"), trControl=control)
@@ -1311,11 +1639,7 @@ caretSlope <- reactive({
 
 })
 
-output$testtable <- renderDataTable({
-    
-    data.frame(spectraLineTable(), Concentration=concentrationTable()[,input$calcurveelement])
-    
-})
+
 
 slopeImportance <- reactive({
     
@@ -1358,6 +1682,7 @@ fishVector <- reactive({
     
     
     combos_mod(second.combos)
+    
 
 })
 
@@ -1409,7 +1734,12 @@ bestSlopeVars <- reactive({
 
     
     
-    optimal_r_chain(element=element, intensities=predict.intensity, values= concentration.table, possible.slopes=fishVector(), keep=vals$keeprows)
+    #optimal_r_chain(element=element, intensities=predict.intensity, values= concentration.table, possible.slopes=fishVector(), keep=vals$keeprows)
+    
+    results <- variable_select_short(slopeImportance())
+    
+    c(input$calcurveelement, results[!results %in% input$calcurveelement])
+
     
 })
 
@@ -1435,12 +1765,103 @@ inVar4Selected <- reactive({
     
 })
 
+
+
 output$inVar4 <- renderUI({
     
     selectInput(inputId = "slope_vars", label = h4("Slope"), choices =  outVaralt(), selected=inVar4Selected(), multiple=TRUE)
 })
 
 
+
+
+#####Machine Learning: Cal Type
+
+
+calTypeSelectionPre <- reactive({
+    
+    hold <- values[["DF"]]
+    
+    optionhold <- if(is.null(input$calcurveelement)){
+        ls(hold)[2]
+    }else{
+        input$calcurveelement
+    }
+    
+    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
+        calConditons[[1]][[1]]
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
+        calFileContents()$calList[[optionhold]][[1]]$CalTable$CalType
+    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$CalType
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
+        calList[[optionhold]][[1]]$CalTable$CalType
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
+        calConditons[[1]][[1]]
+    }
+    
+})
+
+
+
+
+bestCalType <- reactive({
+    
+    predict.frame <- predictFrame()[complete.cases(predictFrame()$Concentration),]
+    
+    
+    cal.lm.simp <- lm(Concentration~Intensity, data=predict.frame[ vals$keeprows, , drop = FALSE])
+    
+    cal.lm.two <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame[ vals$keeprows, , drop = FALSE])
+    
+    cal.lm.luc <- lm(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE])
+    
+    cal.lm.forest <- randomForest(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE], na.action=na.omit)
+    
+    forest.predict <- predict(cal.lm.forest, new.data=predict.frame, proximity=FALSE)
+    forest.sum <- lm(forest.predict~predict.frame$Intensity)
+    
+    
+    r2.vector <- c(summary(cal.lm.simp)$adj.r.squared, summary(cal.lm.two)$adj.r.squared-.1, summary(cal.lm.luc)$adj.r.squared, summary(forest.sum)$adj.r.squared)
+    which.max(r2.vector)
+    
+    
+})
+
+
+calhold <- reactiveValues()
+
+observeEvent(input$hotableprocess2, {
+    calhold$caltype <- calTypeSelectionPre()
+})
+
+
+observeEvent(input$trainslopes, {
+    
+    isolate(calhold$caltype <- bestCalType())
+    
+})
+
+
+
+calTypeSelection <- reactive({
+    calhold$caltype
+})
+
+
+output$calTypeInput <- renderUI({
+    
+    selectInput("radiocal", label = "Calibration Curve",
+    choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3, "Forest" = 4),
+    selected = calTypeSelection())
+    
+    
+})
+
+
+
+
+#####Set Defaults
 
 
 calConditons <- reactiveValues()
@@ -1472,236 +1893,6 @@ observeEvent(input$hotableprocess2, {
 
 
 
-calTypeSelection <- reactive({
-    
-    hold <- values[["DF"]]
-    
-    optionhold <- if(is.null(input$calcurveelement)){
-        ls(hold)[2]
-    }else{
-        input$calcurveelement
-    }
-    
-    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-        calConditons[[1]][[1]]
-    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
-        calFileContents()$calList[[optionhold]][[1]]$CalTable$CalType
-    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
-        calList[[optionhold]][[1]]$CalTable$CalType
-    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
-        calList[[optionhold]][[1]]$CalTable$CalType
-    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
-        calConditons[[1]][[1]]
-    }
-    
-})
-
-calNormSelectionpre <- reactive({
-    
-    hold <- values[["DF"]]
-    
-    optionhold <- if(is.null(input$calcurveelement)){
-        ls(hold)[2]
-    }else{
-        input$calcurveelement
-    }
-    
-    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-        calConditons[[1]][[2]]
-    }else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
-        calFileContents()$calList[[optionhold]][[1]]$CalTable$NormType
-    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
-        calList[[optionhold]][[1]]$CalTable$NormType
-    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
-        calList[[optionhold]][[1]]$CalTable$NormType
-    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
-        calConditons[[1]][[2]]
-    }
-    
-})
-
-
-normMinPre <- reactive({
-    
-    hold <- values[["DF"]]
-    
-    optionhold <- if(is.null(input$calcurveelement)){
-        ls(hold)[2]
-    }else{
-        input$calcurveelement
-    }
-    
-    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-        calConditons[[1]][[3]]
-    }else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE && is.null(calList[[optionhold]])==TRUE){
-        calFileContents()$calList[[optionhold]][[1]]$CalTable$Min
-    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
-        calList[[optionhold]][[1]]$CalTable$Min
-    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
-        calList[[optionhold]][[1]]$CalTable$Min
-    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
-        calConditons[[1]][[3]]
-    }
-    
-})
-
-normMaxPre <- reactive({
-    
-    hold <- values[["DF"]]
-    
-    optionhold <- if(is.null(input$calcurveelement)){
-        ls(hold)[2]
-    }else{
-        input$calcurveelement
-    }
-    
-    if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-        calConditons[[1]][[4]]
-    }else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
-        calFileContents()$calList[[optionhold]][[1]]$CalTable$Max
-    } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
-        calList[[optionhold]][[1]]$CalTable$Max
-    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
-        calList[[optionhold]][[1]]$CalTable$Max
-    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
-        calConditons[[1]][[4]]
-    }
-})
-
-
-
-planktonVector <- reactive({
-    
-    #0.7, 0.9
-    #2.5, 2.8
-    #11.0, 11.2
-    #18.4, 19.4
-    #19.5, 22
-    #21, 22
-    #30, 35
-    #35, 40
-    
-    mins <- c(0.7, 2.5, 11.0, 18.4, 19.5, 21, 30, 35)
-    maxs <- c(0.9, 2.8, 11.2, 19.4, 22, 22, 35, 40)
-    
-    norm.list <- list(mins, maxs)
-    names(norm.list) <- c("Min", "Max")
-    norm.list
-    
-    
-})
-
-bestNormVars <- reactive({
-    
-    norm.list <- planktonVector()
-    
-    element <- input$calcurveelement
-    
-    choices <- elementallinestouse()
-    spectra.line.table <- spectraLineTable()
-    data <- dataNorm()
-    
-    index <- seq(1, length(norm.list[[1]]), 1)
-
-    
-    spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
-    
-        concentration.table <- concentrationTable()[concentrationTable()$Spectrum %in% holdFrame()$Spectrum, ]
-    
-    
-    time.bic <- if(dataType()=="Spectra"){
-        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep(spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
-    } else if(dataType()=="Net"){
-        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep.net(spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
-    }
-    
-    tc.bic <- if(dataType()=="Spectra"){
-        extractAIC(lm(concentration.table[, input$calcurveelement]~simple.tc.prep(data, spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
-    } else if(dataType()=="Net"){
-        extractAIC(lm(concentration.table[, input$calcurveelement]~simple.tc.prep.net(data, spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
-    }
-    
-    comp.bic <- if(dataType()=="Spectra"){
-        optimal_norm_chain(data=data, element=element, spectra.line.table=spectra.line.table, values=concentration.table, possible.mins=norm.list[["Min"]], possible.maxs=norm.list[["Max"]])
-    } else if(dataType()=="Net"){
-        time.bic
-    }
-    
-    norm.chain <- c(time.bic, tc.bic, comp.bic)
-    type.chain <- c(1, 2, 3)
-    
-    best <- index[[which.min(unlist(norm.chain))]]
-    best.comp <- c(planktonVector()[["Min"]][best], planktonVector()[["Max"]][best])
-    best.type <- type.chain[which.min(unlist(norm.chain))]
-    result.list <- list(best.type, best.comp)
-    names(result.list) <- c("Type", "Compton")
-    result.list
-})
-
-
-normhold <- reactiveValues()
-
-observeEvent(input$hotableprocess2, {
-normhold$norms <- c(normMinPre(), normMaxPre())
-normhold$normtype <- calNormSelectionpre()
-})
-
-
-observeEvent(input$trainslopes, {
-    
-    isolate(normhold$norms[1] <- bestNormVars()[["Compton"]][1])
-    isolate(normhold$norms[2] <- bestNormVars()[["Compton"]][2])
-    isolate(normhold$normtype <- bestNormVars()[["Type"]])
-
-})
-
-calNormSelection <- reactive({
-    normhold$normtype
-})
-
-normMinSelection <- reactive({
-    normhold$norms[1]
-})
-
-normMaxSelection <- reactive({
-    normhold$norms[2]
-})
-
-
-
-
-
-output$calTypeInput <- renderUI({
-    
-    selectInput("radiocal", label = "Calibration Curve",
-    choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3),
-    selected = calTypeSelection())
-    
-    
-})
-
-
-output$normTypeInput <- renderUI({
-    
-    selectInput("normcal", label = "Normalization",
-    choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3),
-    selected = calNormSelection())
-    
-    
-})
-
-
-output$comptonMinInput <- renderUI({
-    
-    numericInput('comptonmin', label=h6("Min"), step=0.001, value=normMinSelection(), min=0, max=50, width='30%')
-    
-})
-
-output$comptonMaxInput <- renderUI({
-    
-    numericInput('comptonmax', label=h6("Max"), step=0.001, value=normMaxSelection(), min=0, max=50, width='30%')
-    
-})
 
 
 
@@ -1888,9 +2079,9 @@ dataType <- reactive({
   
   predictFramePre <- reactive({
       
-      
-      concentration <- holdFrame()$Concentration
       intensity <- holdFrame()$Intensity
+
+      concentration <- holdFrame()$Concentration
       
       predict.frame <- data.frame(concentration, intensity)
       colnames(predict.frame) <- c("Concentration", "Intensity")
@@ -1912,7 +2103,7 @@ dataType <- reactive({
       spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
 
       
-      if (input$radiocal!=3){
+      if (input$radiocal==1){
           
           if(input$normcal==1){
               predict.intensity <- if(dataType()=="Spectra"){
@@ -1929,6 +2120,34 @@ dataType <- reactive({
                   simple.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
               }
           }
+          
+          if(input$normcal==3){
+              predict.intensity <- if(dataType()=="Spectra"){
+                  simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
+              } else if(dataType()=="Net"){
+                  simple.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
+              }
+          }
+          
+      }
+          
+          if (input$radiocal==2){
+              
+              if(input$normcal==1){
+                  predict.intensity <- if(dataType()=="Spectra"){
+                      general.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
+                  } else if(dataType()=="Net"){
+                      general.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
+                  }
+              }
+              
+              if(input$normcal==2){
+                  predict.intensity <- if(dataType()=="Spectra"){
+                      simple.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
+                  } else if(dataType()=="Net"){
+                      simple.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
+                  }
+              }
           
           if(input$normcal==3){
               predict.intensity <- if(dataType()=="Spectra"){
@@ -1964,6 +2183,33 @@ dataType <- reactive({
                   lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
               } else if(dataType()=="Net"){
                   lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+              }
+          }
+          
+      }
+      
+      if (input$radiocal==4){
+          concentration.table <- concentrationTable()
+          spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, input$calcurveelement]),]
+          data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
+
+          predict.intensity <- if(input$normcal==1){
+              if(dataType()=="Spectra"){
+                  lucas.simp.prep(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
+              } else if(dataType()=="Net"){
+                  lucas.simp.prep.net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
+              }
+          } else if(input$normcal==2){
+              predict.intensity <- if(dataType()=="Spectra"){
+                  lucas.tc.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
+              } else if(dataType()=="Net"){
+                  lucas.tc.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
+              }
+          } else if(input$normcal==3){
+              predict.intensity <- if(dataType()=="Spectra"){
+                  lucas.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+              } else if(dataType()=="Net"){
+                  lucas.comp.prep.net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
               }
           }
           
@@ -2032,6 +2278,10 @@ dataType <- reactive({
           cal.lm <- lm(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE])
       }
       
+      if (input$radiocal==4){
+          cal.lm <- randomForest(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE], na.action=na.omit)
+      }
+      
       cal.lm
       
   })
@@ -2044,7 +2294,16 @@ dataType <- reactive({
       element.model <- elementModel()
       
       
-      if (input$radiocal!=3){
+      if (input$radiocal==1){
+          cal.est.conc.pred <- predict(object=element.model, newdata=predict.intensity, interval='confidence')
+          cal.est.conc.tab <- data.frame(cal.est.conc.pred)
+          cal.est.conc <- cal.est.conc.tab$fit
+          
+          val.frame <- data.frame(predict.frame$Concentration, cal.est.conc)
+          colnames(val.frame) <- c("Concentration", "Prediction")
+      }
+      
+      if (input$radiocal==2){
           cal.est.conc.pred <- predict(object=element.model, newdata=predict.intensity, interval='confidence')
           cal.est.conc.tab <- data.frame(cal.est.conc.pred)
           cal.est.conc <- cal.est.conc.tab$fit
@@ -2078,6 +2337,31 @@ dataType <- reactive({
           colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
       }
       
+      if (input$radiocal==4){
+          
+          xmin = 0; xmax=10
+          N = length(predict.frame$Concentration)
+          means = colMeans(predict.frame)
+          dummyDF = t(as.data.frame(means))
+          for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+          xv=seq(xmin,xmax, length.out=N)
+          dummyDF$Concentration = xv
+          yv=predict(element.model, newdata=predict.intensity)
+          
+          
+          lucas.x <- yv
+          
+          cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
+          #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+          #cal.est.conc.luc <- cal.est.conc.tab$fit
+          #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+          #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+          
+          
+          val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, as.vector(cal.est.conc.pred.luc))
+          colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
+      }
+      
       
       
       
@@ -2088,6 +2372,22 @@ dataType <- reactive({
   calValFrame <- reactive({
       
       valFrame()
+      
+  })
+  
+  
+  calType <- reactive({
+      
+      
+      if(input$radiocal==1){
+          1
+      } else if(input$radiocal==2){
+          2
+      } else if(input$radiocal==3){
+          3
+      } else if(input$radiocal==4){
+          3
+      }
       
   })
   
@@ -2153,6 +2453,19 @@ dataType <- reactive({
           scale_y_continuous(paste(element.name, conen)) +
           coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
 
+      }
+      
+      if(input$radiocal==4){
+          calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
+          theme_light() +
+          annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+          geom_point() +
+          geom_point(aes(IntensityNorm, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+          geom_smooth() +
+          scale_x_continuous(paste(element.name, norma)) +
+          scale_y_continuous(paste(element.name, conen)) +
+          coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
+          
       }
       
       
@@ -2325,6 +2638,10 @@ dataType <- reactive({
           cal.lm <- lm(Concentration~., data=predict.frame)
       }
       
+      if (input$radiocal==4){
+          cal.lm <- randomForest(Concentration~., data=predict.frame, na.action=na.omit)
+      }
+      
       cal.lm
       
   })
@@ -2341,7 +2658,16 @@ dataType <- reactive({
       
       
       
-      if (input$radiocal!=3){
+      if (input$radiocal==1){
+          cal.est.conc.pred <- predict(object=element.model, newdata=predict.intensity, interval='confidence')
+          cal.est.conc.tab <- data.frame(cal.est.conc.pred)
+          cal.est.conc <- cal.est.conc.tab$fit
+          
+          val.frame <- data.frame(predict.frame$Concentration, cal.est.conc)
+          colnames(val.frame) <- c("Concentration", "Prediction")
+      }
+      
+      if (input$radiocal==2){
           cal.est.conc.pred <- predict(object=element.model, newdata=predict.intensity, interval='confidence')
           cal.est.conc.tab <- data.frame(cal.est.conc.pred)
           cal.est.conc <- cal.est.conc.tab$fit
@@ -2373,6 +2699,31 @@ dataType <- reactive({
           
           val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
           colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+      }
+      
+      if (input$radiocal==4){
+          
+          xmin = 0; xmax=10
+          N = length(predict.frame$Concentration)
+          means = colMeans(predict.frame)
+          dummyDF = t(as.data.frame(means))
+          for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+          xv=seq(xmin,xmax, length.out=N)
+          dummyDF$Concentration = xv
+          yv=predict(element.model, newdata=predict.intensity)
+          
+          
+          lucas.x <- yv
+          
+          cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
+          #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+          #cal.est.conc.luc <- cal.est.conc.tab$fit
+          #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+          #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+          
+          
+          val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, as.vector(cal.est.conc.pred.luc))
+          colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
       }
       
       
@@ -2394,7 +2745,16 @@ dataType <- reactive({
       
       
       
-      if (input$radiocal!=3){
+      if (input$radiocal==1){
+          cal.est.conc.pred <- predict(object=element.model, newdata=predict.intensity, interval='confidence')
+          cal.est.conc.tab <- data.frame(cal.est.conc.pred)
+          cal.est.conc <- cal.est.conc.tab$fit
+          
+          val.frame <- data.frame(predict.frame$Concentration, cal.est.conc)
+          colnames(val.frame) <- c("Concentration", "Prediction")
+      }
+      
+      if (input$radiocal==2){
           cal.est.conc.pred <- predict(object=element.model, newdata=predict.intensity, interval='confidence')
           cal.est.conc.tab <- data.frame(cal.est.conc.pred)
           cal.est.conc <- cal.est.conc.tab$fit
@@ -2426,6 +2786,28 @@ dataType <- reactive({
           
           val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
           colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+      }
+      
+      if (input$radiocal==4){
+          
+          xmin = 0; xmax=10
+          N = length(predict.frame$Concentration)
+          means = colMeans(predict.frame)
+          dummyDF = t(as.data.frame(means))
+          for(i in 2:N){dummyDF=rbind(dummyDF,means)}
+          xv=seq(xmin,xmax, length.out=N)
+          dummyDF$Concentration = xv
+          yv=predict(element.model, newdata=predict.intensity)
+          
+          
+          lucas.x <- yv
+          
+          cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
+
+          
+          
+          val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, as.vector(cal.est.conc.pred.luc))
+          colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
       }
       
       
@@ -2492,6 +2874,20 @@ dataType <- reactive({
           geom_point() +
           geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
           geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
+          scale_x_continuous(paste(element.name, norma)) +
+          scale_y_continuous(paste(element.name, conen)) +
+          coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+      }
+      
+      if(input$radiocal==4){
+          val.frame <- valFrameRandomizedRev()
+          
+          calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration)) +
+          theme_light() +
+          annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+          geom_point() +
+          geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
+          geom_smooth() +
           scale_x_continuous(paste(element.name, norma)) +
           scale_y_continuous(paste(element.name, conen)) +
           coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -2578,9 +2974,9 @@ dataType <- reactive({
   # Float over info
   output$hover_infocal <- renderUI({
       
-      point.table <- if(input$radiocal!=3){
+      point.table <- if(calType()!=3){
           calCurveFrame()
-      } else if(input$radiocal==3) {
+      } else if(calType()==3) {
           calValFrame()
       }
       
@@ -2628,9 +3024,9 @@ dataType <- reactive({
   # Float over info
   output$hover_infocal_random <- renderUI({
       
-      point.table <- if(input$radiocal!=3){
+      point.table <- if(calType()!=3){
           calCurveFrame()
-      } else if(input$radiocal==3) {
+      } else if(calType()==3) {
           valFrame()
       }
       
@@ -2688,9 +3084,9 @@ dataType <- reactive({
   # Toggle points that are clicked
   observeEvent(input$plot_cal_click, {
       
-      predict.frame <- if(input$radiocal!=3){
+      predict.frame <- if(calType()!=3){
           calCurveFrame()
-      } else if(input$radiocal==3) {
+      } else if(calType()==3) {
           calValFrame()
       }
       
@@ -2703,9 +3099,9 @@ dataType <- reactive({
   # Toggle points that are brushed, when button is clicked
   observeEvent(input$exclude_toggle, {
       
-      predict.frame <- if(input$radiocal!=3){
+      predict.frame <- if(calType()!=3){
           calCurveFrame()
-      } else if(input$radiocal==3) {
+      } else if(calType()==3) {
           calValFrame()
       }
       res <- brushedPoints(predict.frame, input$plot_cal_brush, allRows = TRUE)
@@ -2716,9 +3112,9 @@ dataType <- reactive({
   # Reset all points
   observeEvent(input$exclude_reset, {
       
-      predict.frame <- if(input$radiocal!=3){
+      predict.frame <- if(calType()!=3){
           calCurveFrame()
-      } else if(input$radiocal==3) {
+      } else if(calType()==3) {
           calValFrame()
       }
       vals$keeprows <- rep(TRUE, nrow(predict.frame))
@@ -2877,10 +3273,8 @@ dataType <- reactive({
   })
   
   
-  
-  modelFrame <- reactive({
+  normalLM <- reactive({
       
-
       
       model <- elementModel()
       
@@ -2898,6 +3292,26 @@ dataType <- reactive({
       
       model.frame
       
+  })
+  
+  
+  forestLM <- reactive({
+      
+      model <- elementModel()
+
+      
+  })
+  
+  
+  modelFrame <- reactive({
+      
+      if(input$radiocal!=4){
+          normalLM()
+      } else if(input$radiocal==4){
+          forestLM()
+      }
+
+
       
   })
   
@@ -3937,7 +4351,7 @@ dev.off()
         output$calTypeInput_multi <- renderUI({
             
             selectInput("radiocal_multi", label = "Calibration Curve",
-            choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3),
+            choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3, "Forest" = 4),
             selected = calTypeSelectionMulti())
             
             
@@ -3971,7 +4385,20 @@ dev.off()
 observeEvent(input$actionprocess2_multi, {
 
         
- 
+        calTypeMulti <- reactive({
+            
+            
+            if(input$radiocal_multi==1){
+                1
+            } else if(input$radiocal_multi==2){
+                2
+            } else if(input$radiocal_multi==3){
+                3
+            } else if(input$radiocal_multi==4){
+                3
+            }
+            
+        })
         
         
         
@@ -4167,7 +4594,36 @@ observeEvent(input$actionprocess2_multi, {
 
             
             
-            if (input$radiocal_multi!=3){
+            if (input$radiocal_multi==1){
+                
+                if(input$normcal_multi==1){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(quantNames(),function(x) general.prep(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(quantNames(),function(x) general.prep.net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                    }
+                }
+                
+                if(input$normcal_multi==2){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(quantNames(),function(x) simple.tc.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(quantNames(),function(x) simple.tc.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
+                    }
+                }
+                
+                if(input$normcal_multi==3){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(quantNames(),function(x) simple.comp.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(quantNames(),function(x) simple.comp.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                    }
+                }
+                
+            }
+            
+            
+            if (input$radiocal_multi==2){
                 
                 if(input$normcal_multi==1){
                     predict.intensity <- if(dataTypeMulti()=="Spectra"){
@@ -4197,6 +4653,34 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if (input$radiocal_multi==3){
+                
+                if(input$normcal_multi==1){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(quantNames(),function(x) lucas.simp.prep(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(quantNames(),function(x) lucas.simp.prep.net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                    }
+                }
+                
+                if(input$normcal_multi==2){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(quantNames(),function(x) lucas.tc.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(quantNames(),function(x) lucas.tc.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi))
+                    }
+                }
+                
+                if(input$normcal_multi==3){
+                    predict.intensity <- if(dataTypeMulti()=="Spectra"){
+                        lapply(quantNames(),function(x) lucas.comp.prep(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                    } else if(dataTypeMulti()=="Net"){
+                        lapply(quantNames(),function(x) lucas.comp.prep.net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=input$slope_vars_multi, intercept.element.lines=input$intercept_vars_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi))
+                    }
+                }
+                
+            }
+            
+            if (input$radiocal_multi==4){
                 
                 if(input$normcal_multi==1){
                     predict.intensity <- if(dataTypeMulti()=="Spectra"){
@@ -4303,6 +4787,10 @@ observeEvent(input$actionprocess2_multi, {
                 cal.lm <- lapply(quantNames(),function(x) lm(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
             }
             
+            if (input$radiocal_multi==4){
+                cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE], na.action=na.omit))
+            }
+            
             names(cal.lm) <- quantNames()
 
             
@@ -4323,7 +4811,23 @@ observeEvent(input$actionprocess2_multi, {
             element.model <- elementModelMulti()
             
             
-            if (input$radiocal_multi!=3){
+            if (input$radiocal_multi==1){
+                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred) <- quantNames()
+                cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
+                names(cal.est.conc.tab) <- quantNames()
+                cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc) <- quantNames()
+                
+                
+                val.frame <- lapply(quantNames(),function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
+                names(val.frame) <- quantNames()
+                
+                #data.frame(predict.frame$Concentration, cal.est.conc)
+                #colnames(val.frame) <- c("Concentration", "Prediction")
+            }
+            
+            if (input$radiocal_multi==2){
                 cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
                 names(cal.est.conc.pred) <- quantNames()
                 cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
@@ -4367,6 +4871,33 @@ observeEvent(input$actionprocess2_multi, {
                 Prediction=cal.est.conc.luc[[x]],
                 Upper=cal.est.conc.luc.up[[x]],
                 Lower=cal.est.conc.luc.low[[x]]
+                ))
+                names(val.frame) <- quantNames()
+                
+                
+                #val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+                #colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+            }
+            
+            if (input$radiocal_multi==4){
+                
+                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
+                names(yv) <- quantNames()
+                
+                
+                lucas.x <- yv
+                
+                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred.luc) <- quantNames()
+                cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
+  
+                
+                val.frame <- lapply(quantNames(),function(x)
+                data.frame(
+                Concentration=predict.frame[[x]][,"Concentration"],
+                Intensity=predict.intensity[[x]],
+                IntensityNorm=lucas.x[[x]],
+                Prediction=cal.est.conc.luc[[x]]
                 ))
                 names(val.frame) <- quantNames()
                 
@@ -4457,6 +4988,20 @@ observeEvent(input$actionprocess2_multi, {
                 geom_point() +
                 geom_point(aes(IntensityNorm, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
+                scale_x_continuous(paste(element.name, norma)) +
+                scale_y_continuous(paste(element.name, conen)) +
+                coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
+                
+            }
+            
+            
+            if(input$radiocal_multi==4){
+                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_point() +
+                geom_point(aes(IntensityNorm, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_smooth(alpha=0.1) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
@@ -4688,6 +5233,10 @@ observeEvent(input$actionprocess2_multi, {
                 cal.lm <- lapply(quantNames(),function(x) lm(Concentration~., data=predict.list[[x]]))
             }
             
+            if (input$radiocal_multi==4){
+                cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]], na.action=na.omit))
+            }
+            
             names(cal.lm) <- quantNames()
             
             
@@ -4725,7 +5274,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            if (input$radiocal_multi!=3){
+            if (input$radiocal_multi==1){
                 cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
                 names(cal.est.conc.pred) <- quantNames()
 
@@ -4737,6 +5286,22 @@ observeEvent(input$actionprocess2_multi, {
                 names(cal.est.conc) <- quantNames()
 
 
+                val.frame <- lapply(quantNames(),function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
+                names(val.frame) <- quantNames()
+            }
+            
+            if (input$radiocal_multi==2){
+                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred) <- quantNames()
+                
+                
+                cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
+                names(cal.est.conc.tab) <- quantNames()
+                
+                cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc) <- quantNames()
+                
+                
                 val.frame <- lapply(quantNames(),function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
                 names(val.frame) <- quantNames()
             }
@@ -4774,6 +5339,37 @@ observeEvent(input$actionprocess2_multi, {
                 Prediction=cal.est.conc.luc[[x]],
                 Upper=cal.est.conc.luc.up[[x]],
                 Lower=cal.est.conc.luc.low[[x]]
+                ))
+                
+                names(val.frame) <- quantNames()
+            }
+            
+            
+            if (input$radiocal_multi==4){
+                
+                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
+                names(yv) <- quantNames()
+                
+                
+                
+                lucas.x <- yv
+                
+                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred.luc) <- quantNames()
+                
+                cal.est.conc.tab <- lapply(cal.est.conc.pred.luc, data.frame)
+                names(cal.est.conc.tab) <- quantNames()
+                
+                cal.est.conc.luc <- lapply(cal.est.conc.tab, function(x) as.vector(x))
+
+                
+                
+                val.frame <- lapply(quantNames(),function(x)
+                data.frame(
+                Concentration=predict.frame[[x]][,"Concentration"],
+                Intensity=predict.intensity[[x]],
+                IntensityNorm=lucas.x[[x]],
+                Prediction=cal.est.conc.luc[[x]]
                 ))
                 
                 names(val.frame) <- quantNames()
@@ -4819,7 +5415,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            if (input$radiocal_multi!=3){
+            if (input$radiocal_multi==1){
                 cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
                 names(cal.est.conc.pred) <- quantNames()
 
@@ -4829,6 +5425,21 @@ observeEvent(input$actionprocess2_multi, {
                 cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
                 names(cal.est.conc) <- quantNames()
 
+                
+                val.frame <- lapply(quantNames(),function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
+                names(val.frame) <- quantNames()
+            }
+            
+            if (input$radiocal_multi==2){
+                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred) <- quantNames()
+                
+                cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
+                names(cal.est.conc.tab) <- quantNames()
+                
+                cal.est.conc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc) <- quantNames()
+                
                 
                 val.frame <- lapply(quantNames(),function(x) data.frame(Concentration=predict.frame[[x]][,"Concentration"], Prediction=cal.est.conc[[x]]))
                 names(val.frame) <- quantNames()
@@ -4858,6 +5469,45 @@ observeEvent(input$actionprocess2_multi, {
                 cal.est.conc.luc.low <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"lwr"]))
                 names(cal.est.conc.luc.low) <- quantNames()
 
+                
+                val.frame <- lapply(quantNames(),function(x)
+                data.frame(
+                Concentration=predict.frame[[x]][,"Concentration"],
+                Intensity=predict.intensity[[x]],
+                IntensityNorm=lucas.x[[x]],
+                Prediction=cal.est.conc.luc[[x]],
+                Upper=cal.est.conc.luc.up[[x]],
+                Lower=cal.est.conc.luc.low[[x]]
+                ))
+                
+                names(val.frame) <- quantNames()
+            }
+            
+            
+            if (input$radiocal_multi==4){
+                
+                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
+                names(yv) <- quantNames()
+                
+                
+                
+                lucas.x <- yv
+                
+                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                names(cal.est.conc.pred.luc) <- quantNames()
+                
+                cal.est.conc.tab <- lapply(cal.est.conc.pred.luc, data.frame)
+                names(cal.est.conc.tab) <- quantNames()
+                
+                cal.est.conc.luc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                names(cal.est.conc.luc) <- quantNames()
+                
+                cal.est.conc.luc.up <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"upr"]))
+                names(cal.est.conc.luc.up) <- quantNames()
+                
+                cal.est.conc.luc.low <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"lwr"]))
+                names(cal.est.conc.luc.low) <- quantNames()
+                
                 
                 val.frame <- lapply(quantNames(),function(x)
                 data.frame(
@@ -4937,6 +5587,20 @@ observeEvent(input$actionprocess2_multi, {
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
                 geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
+                scale_x_continuous(paste(element.name, norma)) +
+                scale_y_continuous(paste(element.name, conen)) +
+                coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
+            }
+            
+            
+            if(input$radiocal_multi==4){
+                val.frame <- valFrameRandomizedRevMulti()
+                
+                calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_point() +
+                geom_smooth(alpha=0.1) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
@@ -5066,9 +5730,9 @@ observeEvent(input$actionprocess2_multi, {
         # Float over info
         output$hover_infocal_multi <- renderUI({
             
-            point.table <- if(input$radiocal_multi!=3){
+            point.table <- if(calTypeMulti()!=3){
                 calCurveFrameMulti()
-            } else if(input$radiocal_multi==3) {
+            } else if(calTypeMulti()==3) {
                 valFrameMulti()
             }
             
@@ -5119,9 +5783,9 @@ observeEvent(input$actionprocess2_multi, {
         # Float over info
         output$hover_infocal_random_multi <- renderUI({
             
-            point.table <- if(input$radiocal_multi!=3){
+            point.table <- if(calTypeMulti()!=3){
                 calCurveFrameRandomizedMulti()
-            } else if(input$radiocal_multi==3) {
+            } else if(calTypeMulti()==3) {
                 valFrameRandomizedRevMulti()
             }
             
@@ -5188,9 +5852,9 @@ observeEvent(input$actionprocess2_multi, {
         # Toggle points that are clicked
         observeEvent(input$plot_cal_click_random_multi, {
             
-            predict.frame <- if(input$radiocal_multi!=3){
+            predict.frame <- if(calTypeMulti()!=3){
                 calCurveFrameMulti()
-            } else if(input$radiocal_multi==3) {
+            } else if(calTypeMulti()==3) {
                 calValFrameMulti()
             }
             
@@ -5206,9 +5870,9 @@ observeEvent(input$actionprocess2_multi, {
         # Toggle points that are brushed, when button is clicked
         observeEvent(input$exclude_toggle_multi, {
             
-            predict.frame <- if(input$radiocal_multi!=3){
+            predict.frame <- if(calTypeMulti()!=3){
                 calCurveFrameMulti()
-            } else if(input$radiocal_multi==3) {
+            } else if(calTypeMulti()==3) {
                 calValFrameMulti()
             }
             res <- brushedPoints(predict.frame, input$plot_cal_brush_multi, allRows = TRUE)
@@ -5919,6 +6583,7 @@ content = function(file){
 
         })
         
+
         
         
         fullInputValCounts <- reactive({
@@ -5961,6 +6626,8 @@ content = function(file){
         
         tableInputValQuant <- reactive({
             
+            
+            
         count.table <- data.frame(fullInputValCounts())
         the.cal <- calValHold()
         elements.cal <- calValElements()
@@ -5970,11 +6637,25 @@ content = function(file){
         
         #elements <- fluorescence.lines$Symbol[sort(order(fluorescence.lines$Symbol)[elements])]
 
+        cal_type <- function(element){
+    
+    
+            if(the.cal[[element]][[1]]$CalTable$CalType==1){
+                    1
+                } else if(the.cal[[element]][[1]]$CalTable$CalType==2){
+                        1
+                    } else if(the.cal[[element]][[1]]$CalTable$CalType==3){
+                            3
+                        } else if(the.cal[[element]][[1]]$CalTable$CalType==4){
+                                4
+                            }
+    
+        }
 
             
             
         predicted.list <- lapply(elements, function (x)
-            if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            if(valDataType()=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=general.prep(
@@ -5983,7 +6664,7 @@ content = function(file){
                             ),
                         element.line=x)
                 )
-            } else if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+            } else if(valDataType()=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==2) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple.tc.prep(
@@ -5994,7 +6675,7 @@ content = function(file){
                         element.line=x
                     )
                 )
-            } else if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+            } else if(valDataType()=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==3) {
                 predict(
                     object=the.cal[[x]][[2]],
                         newdata=simple.comp.prep(
@@ -6007,7 +6688,7 @@ content = function(file){
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                             )
                 )
-            } else if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(valDataType()=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                  predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.simp.prep(
@@ -6019,7 +6700,7 @@ content = function(file){
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         )
                  )
-            } else if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(valDataType()=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.tc.prep(
@@ -6032,7 +6713,7 @@ content = function(file){
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     )
                 )
-            } else if(valDataType()=="Spectra" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(valDataType()=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.comp.prep(
@@ -6047,7 +6728,47 @@ content = function(file){
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                         )
                 )
-            }else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(valDataType()=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas.simp.prep(
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    )
+                )
+            } else if(valDataType()=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas.tc.prep(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    )
+                )
+            } else if(valDataType()=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas.comp.prep(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    )
+                )
+            } else if(valDataType()=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=general.prep.net(
@@ -6056,7 +6777,7 @@ content = function(file){
                             ),
                         element.line=x)
                 )
-            } else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+            } else if(valDataType()=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==2) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple.tc.prep.net(
@@ -6067,7 +6788,7 @@ content = function(file){
                             element.line=x
                             )
                 )
-            } else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType!=3 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+            } else if(valDataType()=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==3) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple.comp.prep.net(
@@ -6078,9 +6799,9 @@ content = function(file){
                         element.line=x,
                         norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                        )
                 )
-                )
-            } else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(valDataType()=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.simp.prep.net(
@@ -6092,7 +6813,7 @@ content = function(file){
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         )
                 )
-            } else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(valDataType()=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.tc.prep.net(
@@ -6105,7 +6826,7 @@ content = function(file){
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         )
                 )
-            } else if(valDataType()=="Net" && the.cal[[x]][[1]]$CalTable$CalType==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(valDataType()=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas.comp.prep.net(
@@ -6120,10 +6841,47 @@ content = function(file){
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
                         )
                 )
-            }
-            
-            
-            
+        } else if(valDataType()=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas.simp.prep.net(
+                    spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    )
+            )
+        } else if(valDataType()=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas.tc.prep.net(
+                    data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        )
+            )
+        } else if(valDataType()=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas.comp.prep.net(
+                data=valdata,
+                    spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    )
+            )
+        }
             )
             
         predicted.vector <- unlist(predicted.list)
@@ -6169,8 +6927,3 @@ content = function(file){
 })
 
  })
-
-
-
-
-

@@ -22,7 +22,7 @@ if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2", "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown", "gRbase", "httpuv", "stringi", "dplyr", "reticulate", "devtools")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern", "ggplot2", "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown", "gRbase", "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "doMC")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
@@ -55,6 +55,40 @@ library(Rcpp)
 options(digits=4)
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
+
+######Load lines
+k.lines <- read.csv(file="data/K Line-Table 1.csv", sep=",")
+l.lines <- read.csv(file="data/L Line-Table 1.csv", sep=",")
+fluorescence.lines <- read.csv("data/FluorescenceLines.csv")
+
+
+line_strip <- function(elements){
+    elements <- gsub(".K.alpha", "", elements)
+    elements <- gsub(".K.beta", "", elements)
+    elements <- gsub(".L.alpha", "", elements)
+    elements <- gsub(".L.beta", "", elements)
+    elements <- gsub(".M.line", "", elements)
+    elements <- gsub(".K12", "", elements)
+    elements <- gsub(".L1", "", elements)
+    elements
+}
+
+atomic_order <- function(element){
+    subset(fluorescence.lines, Symbol==line_strip(element))$AtomicNumber
+}
+
+atomic_order_vector <- function(elements){
+    unlist(lapply(elements, atomic_order))
+}
+
+
+element_line_pull <- function(element.line){
+    element <- strsplit(x=element.line, split="\\.")[[1]][1]
+    destination <- strsplit(x=element.line, split="\\.")[[1]][2]
+    distance <- strsplit(x=element.line, split="\\.")[[1]][3]
+    data.frame(ElementLine=element.line, Element=element, Orbital=destination, Line=distance)
+}
+
 
 Hodder.v.old <- function(y)
 {
@@ -662,14 +696,63 @@ GG_save_pdf = function(list, filename) {
     invisible(NULL)
 }
 
+###Train Functions
+
+pull_test <- function(a.vector, a.value.position){
+    
+    scaled <- scale(a.vector)[,1]
+    
+    value <- scaled[a.value.position]
+    scale.vector <- scaled[-a.value.position]
+    
+    ZScore <- (value-mean(scale.vector))/sd(scale.vector)
+    pvalue <- pnorm(-abs(ZScore))
+    is.sig <- pvalue < 0.05
+    
+    data.frame(Value=a.vector[a.value.position], ZScore=ZScore, pvalue=pvalue, Sig=is.sig)
+}
+
+
+Z_frame <- function(a.vector){
+    
+    do.call("rbind", lapply(seq(1, length(a.vector), 1), function(x) pull_test(a.vector, x)))
+}
+
+
+Z_choose <- function(a.vector){
+    
+    full <- Z_frame(a.vector)
+    full[full$Sig,]
+    
+}
+
+variable_select <- function(intensities, values, analyte){
+    
+    control <- trainControl(method="cv", number=5)
+    seed <- 7
+    metric <- "RMSE"
+    set.seed(seed)
+    
+    cal.table <- data.frame(intensities, Concentration=values[,analyte])
+    fit.lm <- train(Concentration~., data=cal.table, method="lm", metric=metric, preProc=c("center", "scale"), trControl=control)
+    importance <- varImp(fit.lm, scale=FALSE)
+    importance.frame <- as.data.frame(importance$importance)
+    elements <- rownames(importance$importance)
+    elements[as.numeric(rownames(Z_choose(importance.frame$Overall)))]
+    
+}
+
+
+variable_select_short <- function(importance){
+    importance.frame <- as.data.frame(importance$importance)
+    elements <- rownames(importance$importance)
+    elements[as.numeric(rownames(Z_choose(importance.frame$Overall)))]
+}
+
 
 black.diamond <- read.csv("data/blackdiamond.csv", header=FALSE, sep=",")
 black.diamond.melt <- read.csv(file="data/blackdiamondmelt.csv")
 
-######Load lines
-k.lines <- read.csv(file="data/K Line-Table 1.csv", sep=",")
-l.lines <- read.csv(file="data/L Line-Table 1.csv", sep=",")
-fluorescence.lines <- read.csv("data/FluorescenceLines.csv")
 
 
 #k.lines[k.lines < 0.01] <- 1
@@ -1438,15 +1521,15 @@ spectralLines <- c("Ne.K.alpha", "Ne.K.beta", "Na.K.alpha", "Na.K.beta", "Mg.K.a
 
 standard <- c("Spectrum", "Ca.K.alpha", "Ti.K.alpha", "Fe.K.alpha")
 
-kalphaLines <- c("Na.K.alpha",  "Mg.K.alpha", "Al.K.alpha", "Si.K.alpha", "P.K.alpha", "S.K.alpha", "Cl.K.alpha", "Ar.K.alpha", "K.K.alpha", "Ca.K.alpha", "Sc.K.alpha", "Ti.K.alpha", "V.K.alpha", "Cr.K.alpha", "Mn.K.alpha", "Fe.K.alpha", "Co.K.alpha", "Ni.K.alpha", "Cu.K.alpha", "Zn.K.alpha", "Ga.K.alpha", "Ge.K.alpha", "As.K.alpha", "Se.K.alpha", "Br.K.alpha", "Kr.K.alpha", "Rb.K.alpha", "Sr.K.alpha", "Y.K.alpha", "Zr.K.alpha", "Nb.K.alpha", "Mo.K.alpha", "Ru.K.alpha", "Rh.K.alpha", "Pd.K.alpha", "Ag.K.alpha", "Cd.K.alpha", "In.K.alpha", "Sn.K.alpha", "Sb.K.alpha", "Te.K.alpha", "Te.K.beta", "I.K.alpha", "Xe.K.alpha", "Cs.K.alpha", "Ba.K.alpha", "La.K.alpha", "Ce.K.alpha", "Pr.K.alpha", "Nd.K.alpha")
+kalphaLines <- c("Na"="Na.K.alpha",  "Mg"="Mg.K.alpha", "Al"="Al.K.alpha", "Si"="Si.K.alpha", "P"="P.K.alpha", "S"="S.K.alpha", "Cl"="Cl.K.alpha", "Ar"="Ar.K.alpha", "K"="K.K.alpha", "Ca"="Ca.K.alpha", "Sc"="Sc.K.alpha", "Ti"="Ti.K.alpha", "V"="V.K.alpha", "Cr"="Cr.K.alpha", "Mn"="Mn.K.alpha", "Fe"="Fe.K.alpha", "Co"="Co.K.alpha", "Ni"="Ni.K.alpha", "Cu"="Cu.K.alpha", "Zn"="Zn.K.alpha", "Ga"="Ga.K.alpha", "Ge"="Ge.K.alpha", "As"="As.K.alpha", "Se"="Se.K.alpha", "Br"="Br.K.alpha", "Kr"="Kr.K.alpha", "Rb"="Rb.K.alpha", "Sr"="Sr.K.alpha", "Y"="Y.K.alpha", "Zr"="Zr.K.alpha", "Nb"="Nb.K.alpha", "Mo"="Mo.K.alpha", "Ru"="Ru.K.alpha", "Rh"="Rh.K.alpha", "Pd"="Pd.K.alpha", "Ag"="Ag.K.alpha", "Cd"="Cd.K.alpha", "In"="In.K.alpha", "Sn"="Sn.K.alpha", "Sb"="Sb.K.alpha", "Te"="Te.K.alpha", "I"="I.K.alpha", "Xe"="Xe.K.alpha", "Cs"="Cs.K.alpha", "Ba"="Ba.K.alpha", "La"="La.K.alpha", "Ce"="Ce.K.alpha", "Pr"="Pr.K.alpha", "Nd"="Nd.K.alpha")
 
-kbetaLines <- c("Na.K.beta",  "Mg.K.beta", "Al.K.beta", "Si.K.beta", "P.K.beta", "S.K.beta", "Cl.K.beta", "Ar.K.beta", "K.K.beta", "Ca.K.beta", "Sc.K.beta", "Ti.K.beta", "V.K.beta", "Cr.K.beta", "Mn.K.beta", "Fe.K.beta", "Co.K.beta", "Ni.K.beta", "Cu.K.beta", "Zn.K.beta", "Ga.K.beta", "Ge.K.beta", "As.K.beta", "Se.K.beta", "Br.K.beta", "Kr.K.beta", "Rb.K.beta", "Sr.K.beta", "Y.K.beta", "Zr.K.beta", "Nb.K.beta", "Mo.K.beta", "Ru.K.beta", "Rh.K.beta", "Pd.K.beta", "Ag.K.beta", "Cd.K.beta", "In.K.beta", "Sn.K.beta", "Sb.K.beta", "Te.K.beta", "Te.K.beta", "I.K.beta", "Xe.K.beta", "Cs.K.beta", "Ba.K.beta", "La.K.beta", "Ce.K.beta", "Pr.K.beta", "Nd.K.beta")
+kbetaLines <- c("Na"="Na.K.beta",  "Mg"="Mg.K.beta", "Al"="Al.K.beta", "Si"="Si.K.beta", "P"="P.K.beta", "S"="S.K.beta", "Cl"="Cl.K.beta", "Ar"="Ar.K.beta", "K"="K.K.beta", "Ca"="Ca.K.beta", "Sc"="Sc.K.beta", "Ti"="Ti.K.beta", "V"="V.K.beta", "Cr"="Cr.K.beta", "Mn"="Mn.K.beta", "Fe"="Fe.K.beta", "Co"="Co.K.beta", "Ni"="Ni.K.beta", "Cu"="Cu.K.beta", "Zn"="Zn.K.beta", "Ga"="Ga.K.beta", "Ge"="Ge.K.beta", "As"="As.K.beta", "Se"="Se.K.beta", "Br"="Br.K.beta", "Kr"="Kr.K.beta", "Rb"="Rb.K.beta", "Sr"="Sr.K.beta", "Y"="Y.K.beta", "Zr"="Zr.K.beta", "Nb"="Nb.K.beta", "Mo"="Mo.K.beta", "Ru"="Ru.K.beta", "Rh"="Rh.K.beta", "Pd"="Pd.K.beta", "Ag"="Ag.K.beta", "Cd"="Cd.K.beta", "In"="In.K.beta", "Sn"="Sn.K.beta", "Sb"="Sb.K.beta", "Te"="Te.K.beta", "I"="I.K.beta", "Xe"="Xe.K.beta", "Cs"="Cs.K.beta", "Ba"="Ba.K.beta", "La"="La.K.beta", "Ce"="Ce.K.beta", "Pr"="Pr.K.beta", "Nd"="Nd.K.beta")
 
-lalphaLines <- c("Mo.L.alpha", "Ru.L.alpha", "Rh.L.alpha", "Pd.L.alpha", "Ag.L.alpha", "Cd.L.alpha", "In.L.alpha", "Sn.L.alpha", "Sb.L.alpha", "Te.L.alpha", "I.L.alpha", "Xe.L.alpha", "Cs.L.alpha", "Ba.L.alpha", "La.L.alpha", "Ce.L.alpha", "Pr.L.alpha", "Nd.L.alpha", "Pm.L.alpha", "Sm.L.alpha", "Eu.L.alpha", "Gd.L.alpha", "Tb.L.alpha", "Dy.L.alpha", "Ho.L.alpha", "Er.L.alpha", "Tm.L.alpha", "Yb.L.alpha", "Lu.L.alpha", "Hf.L.alpha", "Ta.L.alpha", "W.L.alpha", "Re.L.alpha", "Os.L.alpha", "Ir.L.alpha", "Pt.L.alpha", "Au.L.alpha", "Hg.L.alpha", "Tl.L.alpha", "Pb.L.alpha", "Bi.L.alpha", "Po.L.alpha", "At.L.alpha", "Rn.L.alpha", "Fr.L.alpha", "Ra.L.alpha", "Ac.L.alpha", "Th.L.alpha", "Pa.L.alpha", "U.L.alpha")
+lalphaLines <- c("Mo"="Mo.L.alpha", "Ru"="Ru.L.alpha", "Rh"="Rh.L.alpha", "Pd"="Pd.L.alpha", "Ag"="Ag.L.alpha", "Cd"="Cd.L.alpha", "In"="In.L.alpha", "Sn"="Sn.L.alpha", "Sb"="Sb.L.alpha", "Te"="Te.L.alpha", "I"="I.L.alpha", "Xe"="Xe.L.alpha", "Cs"="Cs.L.alpha", "Ba"="Ba.L.alpha", "La"="La.L.alpha", "Ce"="Ce.L.alpha", "Pr"="Pr.L.alpha", "Nd"="Nd.L.alpha", "Pm"="Pm.L.alpha", "Sm"="Sm.L.alpha", "Eu"="Eu.L.alpha", "Gd"="Gd.L.alpha", "Tb"="Tb.L.alpha", "Dy"="Dy.L.alpha", "Ho"="Ho.L.alpha", "Er"="Er.L.alpha", "Tm"="Tm.L.alpha", "Yb"="Yb.L.alpha", "Lu"="Lu.L.alpha", "Hf"="Hf.L.alpha", "Ta"="Ta.L.alpha", "W"="W.L.alpha", "Re"="Re.L.alpha", "Os"="Os.L.alpha", "Ir"="Ir.L.alpha", "Pt"="Pt.L.alpha", "Au"="Au.L.alpha", "Hg"="Hg.L.alpha", "Tl"="Tl.L.alpha", "Pb"="Pb.L.alpha", "Bi"="Bi.L.alpha", "Po"="Po.L.alpha", "At"="At.L.alpha", "Rn"="Rn.L.alpha", "Fr"="Fr.L.alpha", "Ra"="Ra.L.alpha", "Ac"="Ac.L.alpha", "Th"="Th.L.alpha", "Pa"="Pa.L.alpha", "U"="U.L.alpha")
 
-lbetaLines <- c("Mo.L.beta", "Ru.L.beta", "Rh.L.beta", "Pd.L.beta", "Ag.L.beta", "Cd.L.beta", "In.L.beta", "Sn.L.beta", "Sb.L.beta", "Te.L.beta", "I.L.beta", "Xe.L.beta", "Cs.L.beta", "Ba.L.beta", "La.L.beta", "Ce.L.beta", "Pr.L.beta", "Nd.L.beta", "Pm.L.beta", "Sm.L.beta", "Eu.L.beta", "Gd.L.beta", "Tb.L.beta", "Dy.L.beta", "Ho.L.beta", "Er.L.beta", "Tm.L.beta", "Yb.L.beta", "Lu.L.beta", "Hf.L.beta", "Ta.L.beta", "W.L.beta", "Re.L.beta", "Os.L.beta", "Ir.L.beta", "Pt.L.beta", "Au.L.beta", "Hg.L.beta", "Tl.L.beta", "Pb.L.beta", "Bi.L.beta", "Po.L.beta", "At.L.beta", "Rn.L.beta", "Fr.L.beta", "Ra.L.beta", "Ac.L.beta", "Th.L.beta", "Pa.L.beta", "U.L.beta")
+lbetaLines <- c("Mo"="Mo.L.beta", "Ru"="Ru.L.beta", "Rh"="Rh.L.beta", "Pd"="Pd.L.beta", "Ag"="Ag.L.beta", "Cd"="Cd.L.beta", "In"="In.L.beta", "Sn"="Sn.L.beta", "Sb"="Sb.L.beta", "Te"="Te.L.beta", "I"="I.L.beta", "Xe"="Xe.L.beta", "Cs"="Cs.L.beta", "Ba"="Ba.L.beta", "La"="La.L.beta", "Ce"="Ce.L.beta", "Pr"="Pr.L.beta", "Nd"="Nd.L.beta", "Pm"="Pm.L.beta", "Sm"="Sm.L.beta", "Eu"="Eu.L.beta", "Gd"="Gd.L.beta", "Tb"="Tb.L.beta", "Dy"="Dy.L.beta", "Ho"="Ho.L.beta", "Er"="Er.L.beta", "Tm"="Tm.L.beta", "Yb"="Yb.L.beta", "Lu"="Lu.L.beta", "Hf"="Hf.L.beta", "Ta"="Ta.L.beta", "W"="W.L.beta", "Re"="Re.L.beta", "Os"="Os.L.beta", "Ir"="Ir.L.beta", "Pt"="Pt.L.beta", "Au"="Au.L.beta", "Hg"="Hg.L.beta", "Tl"="Tl.L.beta", "Pb"="Pb.L.beta", "Bi"="Bi.L.beta", "Po"="Po.L.beta", "At"="At.L.beta", "Rn"="Rn.L.beta", "Fr"="Fr.L.beta", "Ra"="Ra.L.beta", "Ac"="Ac.L.beta", "Th"="Th.L.beta", "Pa"="Pa.L.beta", "U"="U.L.beta")
 
-mLines <- c("Au.M.line", "Hg.M.line", "Pb.M.line", "U.M.line")
+mLines <- c("Au"="Au.M.line","Hg"="Hg.M.line", "Pb"="Pb.M.line", "U"="U.M.line")
 
 
 elementGrabKalpha <- function(element, data) {
@@ -1533,7 +1616,7 @@ elementGrabMalpha <- function(element, data) {
     hold.frame <- data.frame(is.0(hold.cps, hold.file))
     colnames(hold.frame) <- c("Counts", "Spectrum")
     hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")
-    colnames(hold.ag) <- c("Spectrum", paste(element, "M-lines", sep=" "))
+    colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
     
     hold.ag
     
@@ -1925,15 +2008,9 @@ simple.tc.prep <- function(data,spectra.line.table, element.line) {
     
     
     
-    predict.frame.tc <- data.frame(intensity/total.counts$CPS)
-    colnames(predict.frame.tc) <- c("Intensity")
+    predict.frame.tc <- data.frame(Intensity=intensity/total.counts$CPS)
     
-    
-    
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)
-    colnames(predict.intensity.tc) <- c("Intensity")
-    
-    predict.intensity.tc
+    predict.frame.tc
 }
 
 
@@ -1951,15 +2028,9 @@ simple.comp.prep <- function(data, spectra.line.table, element.line, norm.min, n
     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
-    predict.frame.comp <- data.frame( intensity/compton.frame.ag$Compton)
-    colnames(predict.frame.comp) <- c("Intensity")
+    predict.frame.comp <- data.frame(Intensity=intensity/compton.frame.ag$Compton)
     
-    
-    
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)
-    colnames(predict.intensity.comp) <- c("Intensity")
-    
-    predict.intensity.comp
+    predict.frame.comp
     
 }
 
@@ -1998,18 +2069,9 @@ lucas.simp.prep <- function(spectra.line.table, element.line, slope.element.line
     
     
     
-    predict.frame.luk <- data.frame(((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope)
-    colnames(predict.frame.luk) <- c("Intensity", names(lucas.slope))
+    predict.frame.luk <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope)
     
-    predict.frame.luk <- data.frame(((1+intensity/(intensity+lucas.intercept)-lucas.intercept/(intensity+lucas.intercept))),lucas.slope)
-    colnames(predict.frame.luk) <- c("Intensity", names(lucas.slope))
-    
-    
-    
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lucas.slope)
-    colnames(predict.intensity.luk) <- c("Intensity", names(lucas.slope))
-    
-    predict.intensity.luk
+    predict.frame.luk
     
     
 }
@@ -2048,9 +2110,7 @@ lucas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.
     
     
     
-    predict.intensity.luc.tc <- data.frame(((1+intensity/(intensity+lucas.intercept.tc)-lucas.intercept.tc/(intensity+lucas.intercept.tc))),lucas.slope.tc)
-    colnames(predict.intensity.luc.tc) <- c("Intensity", names(lucas.slope.tc))
-    
+    predict.intensity.luc.tc <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept.tc)-lucas.intercept.tc/(intensity+lucas.intercept.tc))),lucas.slope.tc)
     
     predict.intensity.luc.tc
 }
@@ -2097,16 +2157,9 @@ lucas.comp.prep <- function(data, spectra.line.table, element.line, slope.elemen
     colnames(lucas.slope.comp) <- slope.element.lines
     
     
-    predict.frame.luc.comp <- data.frame(((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)-lucas.intercept.comp/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)),lucas.slope.comp)
-    colnames(predict.frame.luc.comp) <- c("Intensity", names(lucas.slope.comp))
-    
-    
-    
-    predict.intensity.luc.comp <- data.frame(predict.frame.luc.comp$Intensity, lucas.slope.comp)
-    colnames(predict.intensity.luc.comp) <- c("Intensity", names(lucas.slope.comp))
-    
-    
-    predict.intensity.luc.comp
+    predict.frame.luc.comp <- data.frame(Intensity=((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)-lucas.intercept.comp/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)),lucas.slope.comp)
+   
+    predict.frame.luc.comp
 }
 
 
@@ -2127,15 +2180,9 @@ general.prep.net <- function(spectra.line.table, element.line) {
     intensity <- spectra.line.table[,element.line]
     
     
-    predict.frame <- data.frame(intensity)
-    colnames(predict.frame) <- c("Intensity")
+    predict.frame <- data.frame(Intensity=intensity)
     
-    
-    
-    predict.intensity <- data.frame(predict.frame$Intensity)
-    colnames(predict.intensity) <- c("Intensity")
-    
-    predict.intensity
+    predict.frame
 }
 
 simple.tc.prep.net <- function(data,spectra.line.table, element.line) {
@@ -2148,15 +2195,9 @@ simple.tc.prep.net <- function(data,spectra.line.table, element.line) {
     
     
     
-    predict.frame.tc <- data.frame(intensity/total.counts$CPS)
-    colnames(predict.frame.tc) <- c("Intensity")
+    predict.frame.tc <- data.frame(Intensity=intensity/total.counts$CPS)
     
-    
-    
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)
-    colnames(predict.intensity.tc) <- c("Intensity")
-    
-    predict.intensity.tc
+    predict.frame.tc
 }
 
 
@@ -2172,15 +2213,9 @@ simple.comp.prep.net <- function(data, spectra.line.table, element.line, norm.mi
     compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
     colnames(compton.ag.fake) <- c("Spectrum", "Compton")
     
-    predict.frame.comp <- data.frame( intensity/compton.ag.fake$Compton)
-    colnames(predict.frame.comp) <- c("Intensity")
-    
-    
-    
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)
-    colnames(predict.intensity.comp) <- c("Intensity")
-    
-    predict.intensity.comp
+    predict.frame.comp <- data.frame(Intensity=intensity/compton.ag.fake$Compton)
+
+    predict.frame.comp
     
 }
 
@@ -2267,9 +2302,7 @@ lucas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.elem
     colnames(lucas.slope.tc) <- slope.element.lines
     
     
-    predict.intensity.luc.tc <- data.frame(((1+intensity/(intensity+lucas.intercept.tc)-lucas.intercept.tc/(intensity+lucas.intercept.tc))),lucas.slope.tc)
-    colnames(predict.intensity.luc.tc) <- c("Intensity", names(lucas.slope.tc))
-    
+    predict.intensity.luc.tc <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept.tc)-lucas.intercept.tc/(intensity+lucas.intercept.tc))),lucas.slope.tc)
     
     predict.intensity.luc.tc
 }
@@ -2314,16 +2347,10 @@ lucas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.el
     
     
     
-    predict.frame.luc.comp <- data.frame(((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lucas.intercept.comp)-lucas.intercept.comp/(predict.frame.comp$Intensity+lucas.intercept.comp))),lucas.slope.comp)
-    colnames(predict.frame.luc.comp) <- c("Intensity", names(lucas.slope.comp))
+    predict.frame.luc.comp <- data.frame(Intensity=((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lucas.intercept.comp)-lucas.intercept.comp/(predict.frame.comp$Intensity+lucas.intercept.comp))),lucas.slope.comp)
     
     
-    
-    predict.intensity.luc.comp <- data.frame(predict.frame.luc.comp$Intensity, lucas.slope.comp)
-    colnames(predict.intensity.luc.comp) <- c("Intensity", names(lucas.slope.comp))
-    
-    
-    predict.intensity.luc.comp
+    predict.frame.luc.comp
 }
 
 

@@ -22,7 +22,7 @@ tabPanel("Spectrum",
 div(class="outer",
 headerPanel("X-Ray Fluorescence Calibration"),
 sidebarLayout(
-sidebarPanel(
+sidebarPanel(width=3,
 
 
 textInput("calname", label = "Calibration Name", value="myCalibration"),
@@ -165,7 +165,7 @@ div(class="outer",
 
 fluidRow(
 sidebarLayout(
-sidebarPanel(
+sidebarPanel(width=3,
 
 actionButton('linecommit', "Confirm Elements"),
 downloadButton('downloadData', "Table"),
@@ -179,12 +179,11 @@ tags$hr(),
 
 conditionalPanel(
 condition='input.dataset === dataHold()',
-uiOutput('checkboxElements')
-#uiOutput('checkboxElementsKalpha'),
-#uiOutput('checkboxElementsKbeta'),
-#uiOutput('checkboxElementsLalpha'),
-#uiOutput('checkboxElementsLbeta'),
-#uiOutput('checkboxElementsM')
+uiOutput('checkboxElementsKalpha'),
+uiOutput('checkboxElementsKbeta'),
+uiOutput('checkboxElementsLalpha'),
+uiOutput('checkboxElementsLbeta'),
+uiOutput('checkboxElementsM')
 
 
 )),
@@ -196,7 +195,9 @@ mainPanel(
 tabsetPanel(
 id = 'dataset',
 tabPanel('Spectral Lines', dataTableOutput('mytable1')),
-tabPanel('Covariance', plotOutput('covarianceplot'))
+tabPanel('Covariance', plotOutput('covarianceplot')),
+tabPanel("test", dataTableOutput('testtable'))
+#tabPanel('All Element Lines', uiOutput('checkboxElements'))
 
 )
 
@@ -214,7 +215,7 @@ div(class="outer",
 
 fluidRow(
 sidebarLayout(
-sidebarPanel(
+sidebarPanel(width=3,
 
 actionButton('resethotable', "Reset"),
 actionButton('hotableprocess2', "Enter Values"),
@@ -242,7 +243,7 @@ div(class="outer",
 
 fluidRow(
 sidebarLayout(
-sidebarPanel(
+sidebarPanel(width=3,
 
 
 downloadButton('downloadcloudplot', "Plot"),
@@ -272,8 +273,8 @@ uiOutput('comptonMinInput'),
 uiOutput('comptonMaxInput'),
 
 uiOutput('inVar3'),
-uiOutput('inVar4'),
-sliderInput("nvariables", label = "# Elements", min=1, max=7, value=2)
+uiOutput('inVar4')
+#sliderInput("nvariables", label = "# Elements", min=1, max=7, value=2)
 
 ),
 
@@ -372,7 +373,6 @@ actionButton("exclude_toggle_diag", "Toggle points"),
 actionButton("exclude_reset_diag", "Reset")),
 
 tabPanel("Variables", plotOutput('importanceplot')),
-#tabPanel("test", dataTableOutput('testtable')),
 
 
 tabPanel("Standards",
@@ -393,7 +393,7 @@ div(class="outer",
 
 fluidRow(
 sidebarLayout(
-sidebarPanel(
+sidebarPanel(width=3,
 
 actionButton('actionprocess_multi', "Load Cals"),
 actionButton('actionprocess2_multi', "Process Cals"),
@@ -504,7 +504,7 @@ div(class="outer",
 
 fluidRow(
 sidebarLayout(
-sidebarPanel(
+sidebarPanel(width=3,
 
 actionButton('processvalspectra', "Quantify"),
 
