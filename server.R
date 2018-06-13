@@ -17,6 +17,7 @@ library(corrplot)
 library(scales)
 library(caret)
 library(randomForest)
+pdf(NULL)
 
 
 options(shiny.maxRequestSize=9000000*1024^2)
