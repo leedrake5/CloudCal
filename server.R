@@ -1816,8 +1816,8 @@ bestCalType <- reactive({
     
     cal.lm.forest <- randomForest(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE], na.action=na.omit)
     
-    forest.predict <- predict(cal.lm.forest, new.data=predict.frame, proximity=FALSE)
-    forest.sum <- lm(forest.predict~predict.frame$Intensity)
+    forest.predict <- predict(cal.lm.forest, new.data=predict.frame[ vals$keeprows, , drop = FALSE], proximity=FALSE)
+    forest.sum <- lm(forest.predict~predict.frame$Intensity[ vals$keeprows])
     
     
     r2.vector <- c(summary(cal.lm.simp)$adj.r.squared, summary(cal.lm.two)$adj.r.squared-.1, summary(cal.lm.luc)$adj.r.squared, summary(forest.sum)$adj.r.squared)
