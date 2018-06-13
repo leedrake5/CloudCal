@@ -16,7 +16,6 @@ library(XML)
 library(corrplot)
 library(scales)
 library(caret)
-library(doMC)
 library(randomForest)
 
 
@@ -1594,7 +1593,6 @@ caretSlope <- reactive({
     seed <- 7
     metric <- "RMSE"
     set.seed(seed)
-    registerDoMC(cores=4)
     
     data <- dataNorm()
     concentration.table <- concentrationTable()
