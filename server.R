@@ -2579,7 +2579,7 @@ dataType <- reactive({
       standard.table.summary[,-1] <-round(standard.table.summary[,-1],4)
       standard.table.summary[,5] <- as.character(percent(standard.table.summary[,5]))
       
-      this.table <- DT::datatable(standard.table.summary)
+      this.table <- standard.table.summary
       this.table
       
   })
@@ -3295,7 +3295,22 @@ dataType <- reactive({
   
   forestLM <- reactive({
       
-      model <- elementModel()
+      
+      model <- lm(Concentration~Prediction, data=as.data.frame(calValTable()))
+      
+      model.frame <- as.data.frame(augment(model))
+      
+      model.frame$qq <- qqnorm(model.frame$.std.resid)[[1]]
+      
+      model.frame$sqrt.std.resid <- sqrt(abs(model.frame$.std.resid))
+      
+      model.frame$seq.cooksd <- seq_along(model.frame$.cooksd)
+      
+      #model.frame$Spectrum <- predictFrameName()$Spectrum
+      
+      
+      
+      model.frame
 
       
   })

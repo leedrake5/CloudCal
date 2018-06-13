@@ -195,8 +195,8 @@ mainPanel(
 tabsetPanel(
 id = 'dataset',
 tabPanel('Spectral Lines', dataTableOutput('mytable1')),
-tabPanel('Covariance', plotOutput('covarianceplot')),
-tabPanel("test", dataTableOutput('testtable'))
+tabPanel('Covariance', plotOutput('covarianceplot'))
+#tabPanel("test", dataTableOutput('testtable'))
 #tabPanel('All Element Lines', uiOutput('checkboxElements'))
 
 )
