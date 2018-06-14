@@ -4933,6 +4933,11 @@ observeEvent(input$actionprocess2_multi, {
                 #colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
             }
             
+            
+            
+            
+        
+            
             if (input$radiocal_multi==4){
                 
                 yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
@@ -4944,7 +4949,8 @@ observeEvent(input$actionprocess2_multi, {
                 cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
                 names(cal.est.conc.pred.luc) <- quantNames()
                 cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
-  
+                names(cal.est.conc.luc) <- quantNames()
+
                 
                 val.frame <- lapply(quantNames(),function(x)
                 data.frame(
@@ -5399,6 +5405,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             
+            
             if (input$radiocal_multi==4){
                 
                 yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
@@ -5411,10 +5418,9 @@ observeEvent(input$actionprocess2_multi, {
                 cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
                 names(cal.est.conc.pred.luc) <- quantNames()
                 
-                cal.est.conc.tab <- lapply(cal.est.conc.pred.luc, data.frame)
-                names(cal.est.conc.tab) <- quantNames()
-                
-                cal.est.conc.luc <- lapply(cal.est.conc.tab, function(x) as.vector(x))
+                cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
+                names(cal.est.conc.luc) <- quantNames()
+
 
                 
                 
@@ -5550,17 +5556,10 @@ observeEvent(input$actionprocess2_multi, {
                 cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
                 names(cal.est.conc.pred.luc) <- quantNames()
                 
-                cal.est.conc.tab <- lapply(cal.est.conc.pred.luc, data.frame)
-                names(cal.est.conc.tab) <- quantNames()
-                
-                cal.est.conc.luc <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"fit"]))
+                cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
                 names(cal.est.conc.luc) <- quantNames()
-                
-                cal.est.conc.luc.up <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"upr"]))
-                names(cal.est.conc.luc.up) <- quantNames()
-                
-                cal.est.conc.luc.low <- lapply(cal.est.conc.tab, function(x) as.vector(x[,"lwr"]))
-                names(cal.est.conc.luc.low) <- quantNames()
+
+
                 
                 
                 val.frame <- lapply(quantNames(),function(x)
@@ -5568,9 +5567,7 @@ observeEvent(input$actionprocess2_multi, {
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
                 IntensityNorm=lucas.x[[x]],
-                Prediction=cal.est.conc.luc[[x]],
-                Upper=cal.est.conc.luc.up[[x]],
-                Lower=cal.est.conc.luc.low[[x]]
+                Prediction=cal.est.conc.luc[[x]]
                 ))
                 
                 names(val.frame) <- quantNames()
