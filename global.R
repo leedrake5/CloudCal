@@ -2028,6 +2028,9 @@ simple.comp.prep <- function(data, spectra.line.table, element.line, norm.min, n
     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
+    compton.frame.ag[compton.frame.ag ==0 ] <- 1
+
+    
     predict.frame.comp <- data.frame(Intensity=intensity/compton.frame.ag$Compton)
     
     predict.frame.comp
@@ -2132,7 +2135,8 @@ lucas.comp.prep <- function(data, spectra.line.table, element.line, slope.elemen
     colnames(compton.frame) <- c("Compton", "Spectrum")
     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
-    
+    compton.frame.ag[compton.frame.ag ==0 ] <- 1
+
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
     lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
@@ -2430,7 +2434,7 @@ optimal_norm_chain <- function(data, element, spectra.line.table, values, possib
     
     index <- seq(1, length(possible.mins), 1)
     
-    chain.lm <- pbapply::pblapply(index, function(x) lm(values[,element]~simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=possible.mins[x], norm.max=possible.maxs[x])$Intensity))
+    chain.lm <- pbapply::pblapply(index, function(x) lm(values[,element]~simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=possible.mins[x], norm.max=possible.maxs[x])$Intensity, na.action=na.exclude))
     aic <- lapply(chain.lm, function(x) extractAIC(x, k=log(length(1)))[2])
     best <- index[[which.min(unlist(aic))]]
 

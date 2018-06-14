@@ -1374,25 +1374,34 @@ bestNormVars <- reactive({
     choices <- elementallinestouse()
     spectra.line.table <- spectraLineTable()
     data <- dataNorm()
-    
+    concentration.table <- concentrationTable()
+
     index <- seq(1, length(norm.list[[1]]), 1)
+    
+    
+    concentration.table <- concentration.table[complete.cases(concentration.table[,input$calcurveelement]),]
+    
     
     
     spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
     
-    concentration.table <- concentrationTable()[concentrationTable()$Spectrum %in% holdFrame()$Spectrum, ]
+    #spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum, ]
+    
+    spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, element]),]
+    
+    data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
     
     
     time.bic <- if(dataType()=="Spectra"){
-        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep(spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep(spectra.line.table, input$calcurveelement)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
     } else if(dataType()=="Net"){
-        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep.net(spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+        extractAIC(lm(concentration.table[, input$calcurveelement]~general.prep.net(spectra.line.table, input$calcurveelement)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
     }
     
     tc.bic <- if(dataType()=="Spectra"){
-        extractAIC(lm(concentration.table[, input$calcurveelement]~simple.tc.prep(data, spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+        extractAIC(lm(concentration.table[, input$calcurveelement]~simple.tc.prep(data, spectra.line.table, input$calcurveelement)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
     } else if(dataType()=="Net"){
-        extractAIC(lm(concentration.table[, input$calcurveelement]~simple.tc.prep.net(data, spectra.line.table, input$calcurveelement)$Intensity, k=log(length(1))))[2]
+        extractAIC(lm(concentration.table[, input$calcurveelement]~simple.tc.prep.net(data, spectra.line.table, input$calcurveelement)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
     }
     
     comp.bic <- if(dataType()=="Spectra"){
