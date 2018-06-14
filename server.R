@@ -4564,6 +4564,9 @@ observeEvent(input$actionprocess2_multi, {
             hold.list <- lapply(quantNames(),function(x) data.frame(Spectrum=spectra.names[[x]], Concentration=concentration[[x]], Intensity=intensity[[x]]))
             names(hold.list) <- quantNames()
             
+            hold.list <- lapply(quantNames(),function(x) hold.list[[x]][complete.cases(hold.list[[x]]),])
+            names(hold.list) <- quantNames()
+            
             hold.list <- lapply(quantNames(),function(x) na.omit(hold.list[[x]]))
             names(hold.list) <- quantNames()
             
