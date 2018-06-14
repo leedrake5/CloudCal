@@ -847,11 +847,7 @@ elementallinestouse <- reactive({
 
 
 
-output$testtable <- renderDataTable({
-    
-    subset(testf, Orbital=="K" & Line=="alpha")
 
-})
 
  
  spectraData <- reactive({
@@ -1815,24 +1811,55 @@ calTypeSelectionPre <- reactive({
 
 bestCalType <- reactive({
     
-    predict.frame <- predictFrame()[complete.cases(predictFrame()$Concentration),]
+    predict.frame <- predictFrame()
+    predict.frame <- predict.frame[complete.cases(predict.frame$Concentration),]
     
+    cal.lm.simp <- lm(Concentration~Intensity, data=predict.frame, na.action=na.exclude)
     
-    cal.lm.simp <- lm(Concentration~Intensity, data=predict.frame[ vals$keeprows, , drop = FALSE])
+    cal.lm.two <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame, na.action=na.exclude)
     
-    cal.lm.two <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame[ vals$keeprows, , drop = FALSE])
+    cal.lm.luc <- lm(Concentration~., data=predict.frame, na.action=na.exclude)
     
-    cal.lm.luc <- lm(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE])
+    cal.lm.forest <- randomForest(Concentration~., data=predict.frame, na.action=na.omit)
     
-    cal.lm.forest <- randomForest(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE], na.action=na.omit)
-    
-    forest.predict <- predict(cal.lm.forest, new.data=predict.frame[ vals$keeprows, , drop = FALSE], proximity=FALSE)
-    forest.sum <- lm(forest.predict~predict.frame$Intensity[ vals$keeprows])
+    forest.predict <- predict(cal.lm.forest, new.data=predict.frame, proximity=FALSE)
+    forest.sum <- lm(predict.frame$Concentration~forest.predict, na.action=na.exclude)
     
     
     r2.vector <- c(summary(cal.lm.simp)$adj.r.squared, summary(cal.lm.two)$adj.r.squared-.1, summary(cal.lm.luc)$adj.r.squared, summary(forest.sum)$adj.r.squared)
     which.max(r2.vector)
     
+    
+})
+
+testing2 <- reactive({
+    
+    predict.frame <- predictFrame()
+    predict.frame <- predict.frame[complete.cases(predict.frame$Concentration),]
+    
+    predict.frame
+    
+})
+
+
+testing <- reactive({
+    predict.frame <- predictFrame()[complete.cases(predictFrame()$Concentration),]
+    cal.lm.forest <- randomForest(Concentration~., data=predict.frame, na.action=na.omit)
+
+    forest.predict <- predict(cal.lm.forest, new.data=predict.frame, proximity=FALSE)
+    as.data.frame(forest.predict)
+    
+})
+
+output$testtable <- renderDataTable({
+    
+    testing()
+    
+})
+
+output$testtable2 <- renderDataTable({
+    
+    testing2()
     
 })
 
@@ -2071,7 +2098,7 @@ dataType <- reactive({
       hold.frame <- hold.frame[order(as.character(hold.frame$Spectrum)),]
 
       
-      hold.frame
+      hold.frame[complete.cases(hold.frame),]
       
       
   })
@@ -2198,6 +2225,7 @@ dataType <- reactive({
       
       if (input$radiocal==4){
           concentration.table <- concentrationTable()
+          concentration.table <- concentration.table[complete.cases(concentration.table[, input$calcurveelement]),]
           spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, input$calcurveelement]),]
           data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
 

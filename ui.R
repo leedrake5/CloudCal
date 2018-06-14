@@ -373,6 +373,9 @@ actionButton("exclude_toggle_diag", "Toggle points"),
 actionButton("exclude_reset_diag", "Reset")),
 
 tabPanel("Variables", plotOutput('importanceplot')),
+#tabPanel("Testing", dataTableOutput('testtable')),
+#tabPanel("Testing2", dataTableOutput('testtable2')),
+
 
 
 tabPanel("Standards",
