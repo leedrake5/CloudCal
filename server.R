@@ -1306,15 +1306,15 @@ normMinPre <- reactive({
     }
     
     if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-        calConditons[[1]][[3]]
+        calConditons[["CalTable"]][["Min"]]
     }else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE && is.null(calList[[optionhold]])==TRUE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$Min
     } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
         calList[[optionhold]][[1]]$CalTable$Min
     } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
         calList[[optionhold]][[1]]$CalTable$Min
-    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
-        calConditons[[1]][[3]]
+    } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
+        calConditons[["CalTable"]][["Min"]]
     }
     
 })
@@ -1330,7 +1330,7 @@ normMaxPre <- reactive({
     }
     
     if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-        calConditons[[1]][[4]]
+        calConditons[["CalTable"]][["Max"]]
     }else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$Max
     } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
@@ -1338,7 +1338,7 @@ normMaxPre <- reactive({
     } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
         calList[[optionhold]][[1]]$CalTable$Max
     } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
-        calConditons[[1]][[4]]
+        calConditons[["CalTable"]][["Max"]]
     }
 })
 
@@ -1464,7 +1464,7 @@ calNormSelectionpre <- reactive({
     }
     
     if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-        calConditons[[1]][[2]]
+        calConditons[["CalTable"]][["NormType"]]
     }else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$NormType
     } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
@@ -1472,7 +1472,7 @@ calNormSelectionpre <- reactive({
     } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
         calList[[optionhold]][[1]]$CalTable$NormType
     } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
-        calConditons[[1]][[2]]
+        calConditons[["CalTable"]][["NormType"]]
     }
     
 })
@@ -1797,7 +1797,7 @@ calTypeSelectionPre <- reactive({
     }
     
     if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-        calConditons[[1]][[1]]
+        calConditons[["CalTable"]][["CalType"]]
     } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
         calFileContents()$calList[[optionhold]][[1]]$CalTable$CalType
     } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
@@ -1805,7 +1805,7 @@ calTypeSelectionPre <- reactive({
     } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
         calList[[optionhold]][[1]]$CalTable$CalType
     } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
-        calConditons[[1]][[1]]
+        calConditons[["CalTable"]][["CalType"]]
     }
     
 })
