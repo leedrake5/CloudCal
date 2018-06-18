@@ -1847,6 +1847,7 @@ bestCalType <- reactive({
     
     predict.frame <- data.frame(predict.intensity, concentration.table[,input$calcurveelement])
     predict.frame <- predict.frame[complete.cases(predict.frame),]
+    predict.frame <- predict.frame[vals$keeprows,]
     colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
     predict.frame <- predict.frame[complete.cases(predict.frame$Concentration),]
     
