@@ -373,6 +373,8 @@ actionButton("exclude_toggle_diag", "Toggle points"),
 actionButton("exclude_reset_diag", "Reset")),
 
 tabPanel("Variables", plotOutput('importanceplot')),
+#tabPanel("test", dataTableOutput('testingagain')),
+
 #tabPanel("Testing", dataTableOutput('testtable')),
 #tabPanel("Testing2", dataTableOutput('testtable2')),
 
@@ -491,6 +493,7 @@ tabPanel("Cross Validation",
 
 ),
 
+#stabPanel("testing", dataTableOutput("moretesting")),
 
 
 tabPanel("Standards", dataTableOutput("standardsperformance_multi"))

@@ -1978,6 +1978,95 @@ lucas.comp <- function(data, concentration.table, spectra.line.table, element.li
 }
 
 
+###############
+###Prep Data###
+###############
+
+
+###############
+###Full Spectra##
+###############
+
+
+spectra_frame <- function(spectra){
+    
+    data <- reshape2::dcast(spectra, Spectrum~Energy, value.var="CPS")
+    
+    #test <- apply(test, 2, as.numeric)
+    colnames(data) <- make.names(colnames(data))
+    data[complete.cases(data),]
+}
+
+
+spectra_table <- function(spectra, concentration){
+    
+    data <- reshape2::dcast(spectra, Spectrum~Energy, value.var="CPS")
+    data$Concentration <- concentration
+    
+    #test <- apply(test, 2, as.numeric)
+    colnames(data) <- make.names(colnames(data))
+    data[complete.cases(data),]
+}
+
+spectra.simp.prep <- function(spectra){
+    
+    spectra$Energy <- round(spectra$Energy, 1)
+    
+    spectra.aggregate <- aggregate(spectra, by=list(spectra$Energy, spectra$Spectrum), FUN=mean)
+    new.spectra <- data.frame(Energy=spectra.aggregate$Group.1, CPS=spectra.aggregate$CPS, Spectrum=spectra.aggregate$Group.2)
+    
+    data <- reshape2::dcast(new.spectra, Spectrum~Energy, value.var="CPS")
+    
+    #test <- apply(test, 2, as.numeric)
+    colnames(data) <- make.names(colnames(data))
+    do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
+
+}
+
+spectra.tc.prep <- function(spectra){
+    
+    spectra$Energy <- round(spectra$Energy, 1)
+    
+    spectra.aggregate <- aggregate(spectra, by=list(spectra$Energy, spectra$Spectrum), FUN=mean)
+    new.spectra <- data.frame(Energy=spectra.aggregate$Group.1, CPS=spectra.aggregate$CPS, Spectrum=spectra.aggregate$Group.2)
+    
+    data <- reshape2::dcast(new.spectra, Spectrum~Energy, value.var="CPS")
+    
+    #test <- apply(test, 2, as.numeric)
+    colnames(data) <- make.names(colnames(data))
+    data <- data[complete.cases(data),]
+    
+    total.counts <- rowSums(data[,-1], na.rm=TRUE)
+    
+    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/total.counts)
+    do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
+
+
+    
+}
+
+spectra.comp.prep <- function(spectra, norm.min, norm.max){
+    
+    compton.norm <- subset(spectra$CPS, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
+    compton.file <- subset(spectra$Spectrum, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
+    compton.frame <- data.frame(is.0(compton.norm, compton.file))
+    colnames(compton.frame) <- c("Compton", "Spectrum")
+    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    colnames(compton.frame.ag) <- c("Spectrum", "Compton")
+    
+    spectra$Energy <- round(spectra$Energy, 1)
+    
+    spectra.aggregate <- aggregate(spectra, by=list(spectra$Energy, spectra$Spectrum), FUN=mean)
+    new.spectra <- data.frame(Energy=spectra.aggregate$Group.1, CPS=spectra.aggregate$CPS, Spectrum=spectra.aggregate$Group.2)
+    
+    data <- reshape2::dcast(new.spectra, Spectrum~Energy, value.var="CPS")
+    #test <- apply(test, 2, as.numeric)
+    colnames(data) <- make.names(colnames(data))
+    
+    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/compton.frame.ag$Compton)
+    do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
+
+}
 
 ###############
 ###Prep Data###
