@@ -7126,7 +7126,9 @@ content = function(file){
                             3
                         } else if(the.cal[[element]][[1]]$CalTable$CalType==4){
                                 4
-                            }
+                            } else if(the.cal[[element]][[1]]$CalTable$CalType==5){
+                                5
+                                }
     
         }
 
