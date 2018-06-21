@@ -527,6 +527,7 @@ tags$hr(),
 tags$hr(),
 
 fileInput('calfileinput2', 'Load Cal File', accept=".quant", multiple=FALSE),
+sliderInput('resultrounding', "Round Results", min=0, max=10, value=4),
 
 downloadButton('downloadValData', "Results")
 

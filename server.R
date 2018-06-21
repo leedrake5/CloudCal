@@ -7381,7 +7381,7 @@ content = function(file){
         }
             )
             
-        predicted.vector <- unlist(predicted.list)
+        predicted.vector <- round(unlist(predicted.list), input$resultrounding)
         
         dim(predicted.vector) <- c(length(count.table$Spectrum), length(elements))
         
