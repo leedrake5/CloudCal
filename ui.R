@@ -372,7 +372,8 @@ tabPanel("Diagnostics",
 actionButton("exclude_toggle_diag", "Toggle points"),
 actionButton("exclude_reset_diag", "Reset")),
 
-tabPanel("Variables", plotOutput('importanceplot')),
+tabPanel("Variables", plotOutput('importanceplot', hover = hoverOpts('plot_hover_variable', delay = 100, delayType = "debounce")),
+uiOutput('hover_info_variable')),
 #tabPanel("test", dataTableOutput('testingagain')),
 
 #tabPanel("Testing", dataTableOutput('testtable')),

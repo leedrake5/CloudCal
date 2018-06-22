@@ -1686,33 +1686,38 @@ slopeImportance <- reactive({
 })
 
 
-
-
 rainForestImportance <- reactive({
     
-
+    
     as.data.frame(importance(elementModel()))
+    
+})
+
+
+importanceFrame <- reactive({
+    
+    importance.frame <- rainForestImportance()
+    colnames(importance.frame) <- c("NodePurity")
+    importance.frame$Energy <- as.numeric(gsub("X", "", rownames(importance.frame)))
+    importance.frame
     
 })
 
 rainForestImportancePlot <- reactive({
     
+    importance.frame <- importanceFrame()
     
-    importance.frame <- rainForestImportance()
-    colnames(importance.frame) <- c("NodePurity")
-    importance.frame$Energy <- as.numeric(gsub("X", "", rownames(importance.frame)))
     
     ggplot(importance.frame) +
     geom_line(aes(Energy, NodePurity)) +
     theme_light() +
     scale_x_continuous("Energy (keV)")
-
+    
     
 })
 
 
-
-output$importanceplot <- renderPlot({
+variablesPlot <- reactive({
     
     if(calType()!=5){
         plot(slopeImportance())
@@ -1721,6 +1726,53 @@ output$importanceplot <- renderPlot({
     }
     
 })
+
+
+output$importanceplot <- renderPlot({
+    
+    variablesPlot()
+    
+})
+
+
+output$hover_info_variable <- renderUI({
+    
+    point.table <- importanceFrame()
+    
+    hover <- input$plot_hover_variable
+    point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+    if (nrow(point) == 0) return(NULL)
+    
+    # calculate point position INSIDE the image as percent of total dimensions
+    # from left (horizontal) and from top (vertical)
+    left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
+    top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
+    
+    # calculate distance from left and bottom side of the picture in pixels
+    left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
+    top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+    
+    
+    # create style property fot tooltip
+    # background color is set so tooltip is a bit transparent
+    # z-index is set so we are sure are tooltip will be on top
+    style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
+    "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+    
+    # actual tooltip created as wellPanel
+    wellPanel(
+    style = style,
+    p(HTML(paste0("Energy:", " ", round(point$Energy, 0)))),
+    p(HTML(paste0("NodePurity:", " ", round(point$NodePurity, 1))))
+    )
+})
+
+output$variablePlot <- downloadHandler(
+filename = function() { paste0(input$projectname, '_Variables', '.jpg', sep='') },
+content = function(file) {
+    ggsave(file,variablesPlot(), width=14, height=8, device="jpeg")
+}
+)
 
 
 
