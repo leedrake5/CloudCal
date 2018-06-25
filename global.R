@@ -727,7 +727,7 @@ Z_choose <- function(a.vector){
     
 }
 
-variable_select <- function(intensities, values, analyte){
+variable_select_xrf <- function(intensities, values, analyte){
     
     control <- trainControl(method="cv", number=5)
     seed <- 7
@@ -744,7 +744,7 @@ variable_select <- function(intensities, values, analyte){
 }
 
 
-variable_select_short <- function(importance){
+variable_select_short_xrf <- function(importance){
     importance.frame <- as.data.frame(importance$importance)
     elements <- rownames(importance$importance)
     elements[as.numeric(rownames(Z_choose(importance.frame$Overall)))]
@@ -1679,7 +1679,7 @@ elementFrame <- function(data, elements){
 
 ####Normalize
 
-element.norm <- function(data, element, min, max) {
+element_norm <- function(data, element, min, max) {
     
     compton.norm <- subset(data$CPS, !(data$Energy < input$min | data$max > input$comptonmax))
     compton.file <- subset(data$Spectrum, !(data$Energy < input$min | data$Energy > input$max))
@@ -1693,7 +1693,7 @@ element.norm <- function(data, element, min, max) {
 
 ####Cal Models
 
-linear.simp <- function(concentration.table, spectra.line.table, element.line) {
+linear_simp_xrf <- function(concentration.table, spectra.line.table, element.line) {
     
     
     
@@ -1717,7 +1717,7 @@ linear.simp <- function(concentration.table, spectra.line.table, element.line) {
     
 }
 
-poly.simp <- function(concentration.table, spectra.line.table, element.line) {
+poly_simp_xrf <- function(concentration.table, spectra.line.table, element.line) {
     
     
     
@@ -1741,7 +1741,7 @@ poly.simp <- function(concentration.table, spectra.line.table, element.line) {
     
 }
 
-lucas.simp <- function(concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lucas_simp_xrf <- function(concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
     
     concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))
@@ -1775,7 +1775,7 @@ lucas.simp <- function(concentration.table, spectra.line.table, element.line, sl
 }
 
 
-linear.tc <- function(concentration.table, spectra.line.table, element.line) {
+linear_tc_xrf <- function(concentration.table, spectra.line.table, element.line) {
     
     
     
@@ -1804,7 +1804,7 @@ linear.tc <- function(concentration.table, spectra.line.table, element.line) {
     
 }
 
-poly.tc <- function(concentration.table, spectra.line.table, element.line) {
+poly_tc_xrf <- function(concentration.table, spectra.line.table, element.line) {
     
     
     
@@ -1840,7 +1840,7 @@ poly.tc <- function(concentration.table, spectra.line.table, element.line) {
 
 
 
-lucas.tc <- function(concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lucas_tc_xrf <- function(concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
     
     concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))
@@ -1873,7 +1873,7 @@ lucas.tc <- function(concentration.table, spectra.line.table, element.line, slop
     
 }
 
-linear.comp <- function(data, concentration.table, spectra.line.table, element.line) {
+linear_comp_xrf <- function(data, concentration.table, spectra.line.table, element.line) {
     
     
     
@@ -1904,7 +1904,7 @@ linear.comp <- function(data, concentration.table, spectra.line.table, element.l
     
 }
 
-poly.comp <- function(data, concentration.table, spectra.line.table, element.line) {
+poly_comp_xrf <- function(data, concentration.table, spectra.line.table, element.line) {
     
     
     
@@ -1935,7 +1935,7 @@ poly.comp <- function(data, concentration.table, spectra.line.table, element.lin
     
 }
 
-lucas.comp <- function(data, concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lucas_comp_xrf <- function(data, concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
     
     concentration <- na.omit(as.vector(as.numeric(unlist(concentration.table[element.line]))))
@@ -1989,7 +1989,7 @@ lucas.comp <- function(data, concentration.table, spectra.line.table, element.li
 ###############
 
 
-spectra_frame <- function(spectra){
+spectra_frame_xrf <- function(spectra){
     
     data <- reshape2::dcast(spectra, Spectrum~Energy, value.var="CPS")
     
@@ -1999,7 +1999,7 @@ spectra_frame <- function(spectra){
 }
 
 
-spectra_table <- function(spectra, concentration){
+spectra_table_xrf <- function(spectra, concentration){
     
     data <- reshape2::dcast(spectra, Spectrum~Energy, value.var="CPS")
     data$Concentration <- concentration
@@ -2009,7 +2009,7 @@ spectra_table <- function(spectra, concentration){
     data[complete.cases(data),]
 }
 
-spectra.simp.prep <- function(spectra){
+spectra_simp_prep_xrf <- function(spectra){
     
     spectra$Energy <- round(spectra$Energy, 1)
     spectra <- data.table(spectra)
@@ -2023,7 +2023,7 @@ spectra.simp.prep <- function(spectra){
     
 }
 
-spectra.tc.prep <- function(spectra){
+spectra_tc_prep_xrf <- function(spectra){
     
     spectra$Energy <- round(spectra$Energy, 1)
     
@@ -2045,7 +2045,7 @@ spectra.tc.prep <- function(spectra){
     
 }
 
-spectra.comp.prep <- function(spectra, norm.min, norm.max){
+spectra_comp_prep_xrf <- function(spectra, norm.min, norm.max){
     
     compton.norm <- subset(spectra$CPS, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
     compton.file <- subset(spectra$Spectrum, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
@@ -2079,7 +2079,7 @@ spectra.comp.prep <- function(spectra, norm.min, norm.max){
 ###############
 
 
-general.prep <- function(spectra.line.table, element.line) {
+general_prep_xrf <- function(spectra.line.table, element.line) {
     
     intensity <- spectra.line.table[,element.line]
     
@@ -2088,7 +2088,7 @@ general.prep <- function(spectra.line.table, element.line) {
 
 }
 
-simple.tc.prep <- function(data,spectra.line.table, element.line) {
+simple_tc_prep_xrf <- function(data,spectra.line.table, element.line) {
     
     intensity <- spectra.line.table[,element.line]
     
@@ -2104,7 +2104,7 @@ simple.tc.prep <- function(data,spectra.line.table, element.line) {
 }
 
 
-simple.comp.prep <- function(data, spectra.line.table, element.line, norm.min, norm.max) {
+simple_comp_prep_xrf <- function(data, spectra.line.table, element.line, norm.min, norm.max) {
     
     
     
@@ -2133,7 +2133,7 @@ simple.comp.prep <- function(data, spectra.line.table, element.line, norm.min, n
 
 
 
-lucas.simp.prep <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lucas_simp_prep_xrf <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
     
     intensity <- spectra.line.table[,element.line]
@@ -2170,7 +2170,7 @@ lucas.simp.prep <- function(spectra.line.table, element.line, slope.element.line
 }
 
 
-lucas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lucas_tc_prep_xrf <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
     
     intensity <- spectra.line.table[,element.line]
@@ -2212,7 +2212,7 @@ lucas.tc.prep <- function(data, spectra.line.table, element.line, slope.element.
 
 
 
-lucas.comp.prep <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {
+lucas_comp_prep_xrf <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {
     
     
     intensity <- spectra.line.table[,element.line]
@@ -2269,7 +2269,7 @@ lucas.comp.prep <- function(data, spectra.line.table, element.line, slope.elemen
 ###############
 
 
-general.prep.net <- function(spectra.line.table, element.line) {
+general_prep_xrf_net <- function(spectra.line.table, element.line) {
     
     intensity <- spectra.line.table[,element.line]
     
@@ -2279,7 +2279,7 @@ general.prep.net <- function(spectra.line.table, element.line) {
     predict.frame
 }
 
-simple.tc.prep.net <- function(data,spectra.line.table, element.line) {
+simple_tc_prep_xrf_net <- function(data,spectra.line.table, element.line) {
     
     intensity <- spectra.line.table[,element.line]
     
@@ -2295,7 +2295,7 @@ simple.tc.prep.net <- function(data,spectra.line.table, element.line) {
 }
 
 
-simple.comp.prep.net <- function(data, spectra.line.table, element.line, norm.min, norm.max) {
+simple_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, norm.min, norm.max) {
     
     
     
@@ -2319,7 +2319,7 @@ simple.comp.prep.net <- function(data, spectra.line.table, element.line, norm.mi
 
 
 
-lucas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lucas_simp_prep_xrf_net <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
     
     intensity <- spectra.line.table[,element.line]
@@ -2359,7 +2359,7 @@ lucas.simp.prep.net <- function(spectra.line.table, element.line, slope.element.
 
 
 
-lucas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lucas_tc_prep_xrf_net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
     
     intensity <- spectra.line.table[,element.line]
@@ -2402,7 +2402,7 @@ lucas.tc.prep.net <- function(data, spectra.line.table, element.line, slope.elem
 }
 
 
-lucas.comp.prep.net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {
+lucas_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {
     
     
     intensity <- spectra.line.table[,element.line]
@@ -2453,7 +2453,7 @@ blank.data.frame <- data.frame(rep(0, length(standard)), rep(0, length(standard)
 colnames(blank.data.frame) <- standard
 
 
-combos <- function(a.vector){
+combos.xrf <- function(a.vector){
     
     so <- seq(from=2, to=length(a.vector), by=1)
     
@@ -2465,7 +2465,7 @@ combos <- function(a.vector){
     
 }
 
-create.frame.slopes <- function(element, slopes, values, intensities){
+create.frame.slopes.xrf <- function(element, slopes, values, intensities){
     values <- values[complete.cases(values[,element]),]
     intensities <- intensities[complete.cases(values[,element]),]
     
@@ -2475,7 +2475,7 @@ create.frame.slopes <- function(element, slopes, values, intensities){
     
 }
 
-create.frame.intercepts <- function(element, slopes, values, intensities){
+create.frame.intercepts.xrf <- function(element, slopes, values, intensities){
     
     data.frame(Value=values[,element],
     Intensity=intensities[,"Intensity"],
@@ -2485,7 +2485,7 @@ create.frame.intercepts <- function(element, slopes, values, intensities){
 
 
 
-optimal_r_chain <- function(element, intensities, values, possible.slopes, keep){
+optimal_r_chain.xrf <- function(element, intensities, values, possible.slopes, keep){
     
     values <- values[complete.cases(values[,element]),]
     intensities <- intensities[complete.cases(values[,element]),]
@@ -2520,11 +2520,11 @@ optimal_r_chain <- function(element, intensities, values, possible.slopes, keep)
 }
 
 
-optimal_norm_chain <- function(data, element, spectra.line.table, values, possible.mins, possible.maxs){
+optimal_norm_chain_xrf <- function(data, element, spectra.line.table, values, possible.mins, possible.maxs){
     
     index <- seq(1, length(possible.mins), 1)
     
-    chain.lm <- pbapply::pblapply(index, function(x) lm(values[,element]~simple.comp.prep(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=possible.mins[x], norm.max=possible.maxs[x])$Intensity, na.action=na.exclude))
+    chain.lm <- pbapply::pblapply(index, function(x) lm(values[,element]~simple_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=possible.mins[x], norm.max=possible.maxs[x])$Intensity, na.action=na.exclude))
     aic <- lapply(chain.lm, function(x) extractAIC(x, k=log(length(1)))[2])
     best <- index[[which.min(unlist(aic))]]
 
@@ -2534,7 +2534,7 @@ optimal_norm_chain <- function(data, element, spectra.line.table, values, possib
 }
 
 
-optimal_intercept_chain <- function(element, intensities, values, keep){
+optimal_intercept_chain_xrf <- function(element, intensities, values, keep){
     
     
     chain.lm <- pbapply::pblapply(intensities, function(x) lm(values[,element]~Intensity, data=x[keep,]))
@@ -2548,7 +2548,7 @@ optimal_intercept_chain <- function(element, intensities, values, keep){
 }
 
 
-likely_intercepts <- function(element){
+likely_intercepts_xrf <- function(element){
     
     if(element=="Na.K.alpha"){
         c("Cl.K.alpha", "Rh.L.alpha")
@@ -2637,7 +2637,7 @@ likely_intercepts <- function(element){
     }
 }
 
-peak_threshold <- function(spectrum){
+peak_threshold_xrf <- function(spectrum){
     
     spectrum$Hodder <- Hodder.v(Hodder.v(spectrum$CPS))*-1
     spectrum$Peaks <- ifelse(spectrum$Hodder > 0, spectrum$Hodder, 0)
@@ -2650,7 +2650,7 @@ peak_threshold <- function(spectrum){
 
 
 
-find_peaks <- function(spectrum){
+find_peaks_xrf <- function(spectrum){
     
     #spectrum$Hodder <- Hodder.v(spectrum$CPS)
     #spectrum$Peak <- ifelse(spectrum$Hodder < (-200), TRUE, FALSE)
