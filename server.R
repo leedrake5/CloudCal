@@ -693,7 +693,7 @@ selectedKalpha <- reactive({
     if(input$usecalfile==FALSE){
         c("Ca.K.alpha", "Ti.K.alpha", "Fe.K.alpha")
     } else if(input$usecalfile==TRUE){
-        as.vector(subset(selectedElementsCal(), Orbital=="K" & Line=="alpha")$ElementLine)
+        as.vector(subset(selectedElementsCalpre(), Orbital=="K" & Line=="alpha")$ElementLine)
     }
     
 })
@@ -704,7 +704,7 @@ selectedKbeta <- reactive({
     if(input$usecalfile==FALSE){
         NULL
     } else if(input$usecalfile==TRUE){
-        as.vector(subset(selectedElementsCal(), Orbital=="K" & Line=="beta")$ElementLine)
+        as.vector(subset(selectedElementsCalpre(), Orbital=="K" & Line=="beta")$ElementLine)
     }
     
 })
@@ -714,7 +714,7 @@ selectedLalpha <- reactive({
     if(input$usecalfile==FALSE){
         "Rh.L.alpha"
     } else if(input$usecalfile==TRUE){
-        as.vector(subset(selectedElementsCal(), Orbital=="L" & Line=="alpha")$ElementLine)
+        as.vector(subset(selectedElementsCalpre(), Orbital=="L" & Line=="alpha")$ElementLine)
     }
     
 })
@@ -724,7 +724,7 @@ selectedLbeta <- reactive({
     if(input$usecalfile==FALSE){
         "Pb.L.beta"
     } else if(input$usecalfile==TRUE){
-        as.vector(subset(selectedElementsCal(), Orbital=="L" & Line=="beta")$ElementLine)
+        as.vector(subset(selectedElementsCalpre(), Orbital=="L" & Line=="beta")$ElementLine)
     }
     
 })
@@ -734,7 +734,7 @@ selectedMLine <- reactive({
     if(input$usecalfile==FALSE){
         NULL
     } else if(input$usecalfile==TRUE){
-        as.vector(subset(selectedElementsCal(), Orbital=="M" & Line=="line")$Element)
+        as.vector(subset(selectedElementsCalpre(), Orbital=="M" & Line=="line")$Element)
     }
     
 })
@@ -783,6 +783,121 @@ output$checkboxElementsM <-  renderUI({
 
 
 
+
+linevalues <- reactiveValues()
+
+
+lineInput <- reactive({
+    
+    blank.frame <- data.frame(
+    Name=as.vector(as.character(rep("", 25))),
+    EnergyMin=as.numeric(rep("", 25)),
+    EnergyMax=as.numeric(rep("", 25)),
+    stringsAsFactors = FALSE
+    )
+    
+    blank.frame
+    
+})
+
+
+lineInputCal <- reactive({
+    
+    
+    calFileContents()[["Definitions"]]
+    
+    
+})
+
+lineTableInput <- reactive({
+    
+    
+    if(input$usecalfile==FALSE){
+        lineInput()
+    } else if(input$usecalfile==TRUE && "Definitions" %in% ls(calFileContents())){
+        lineInputCal()
+    } else if(input$usecalfile==TRUE && !"Definitions" %in% ls(calFileContents())){
+        lineInput()
+    }
+
+})
+
+observe({
+    if (!is.null(input$hotline)) {
+        DF <- hot_to_r(input$hotline)
+    } else {
+        DF <- lineTableInput()
+    }
+    linevalues[["DF"]] <- DF
+})
+
+eventReactive(input$linecommit,{
+    
+    linevalues[["DF"]] <- lineTableInput()
+    
+})
+
+
+## Handsontable
+
+output$hotline <- renderRHandsontable({
+    
+    DF <- linevalues[["DF"]]
+    
+    
+    
+    
+    rhandsontable(DF) %>% hot_col(1:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
+    
+    
+})
+
+
+observeEvent(input$resethotableline, {
+    
+    linevalues[["DF"]] <- NULL
+    
+    linevalues[["DF"]] <- lineTableInput()
+    
+    
+})
+
+
+
+# randomInterList <- reactive({
+#   if (is.null(input$intercept_vars))
+#   paste(,2)
+#   else
+#   input$intercept_vars
+#})
+
+
+#randomSlopeList <- reactive({
+#   if (is.null(input$intercept_vars))
+#   paste(,2)
+#   else
+#   input$slope_vars
+#})
+
+#output$nullintercept <- randomInterList()
+
+#output$nullslope <- randomSlopeList()
+
+lineSubset <- reactive({
+    
+    xrf_parse(range.table = linevalues[["DF"]], data=dataHold())
+    
+})
+
+
+output$LineValues <- renderDataTable({
+    lineSubset()
+})
+
+
+
+
+
 testfFrame <- reactive({
     
     k.alpha.lines <- kalphaLines[input$show_vars_k_alpha]
@@ -827,7 +942,7 @@ selectedElements <- reactive({
     
 })
 
-selectedElementsCal <- reactive({
+selectedElementsCalpre <- reactive({
     
     element.lines <- ls(calFileContents()$Intensities)
     
@@ -836,7 +951,35 @@ selectedElementsCal <- reactive({
     
 })
 
-elementallinestouse <- reactive({
+selectedElementsCalpost <- reactive({
+    table <- linevalues[["DF"]]
+    table <- table[complete.cases(table),]
+    
+    element.lines <- ls(calFileContents()$Intensities)
+    
+    
+    c(do.call("rbind", lapply(element.lines, element_line_pull)),  as.vector(table$Name))
+    
+})
+
+
+selectedElementsCal <- reactive({
+    
+    table <- linevalues[["DF"]]
+    table <- table[complete.cases(table),]
+    
+    if(length(table[,1])==0){
+        selectedElementsCalpre()
+    } else if(length(table[,1])!=0){
+        selectedElementsCalpost()
+    }
+    
+})
+
+elementallinestousepre <- reactive({
+    
+    table <- linevalues[["DF"]]
+    table <- table[complete.cases(table),]
     
     #c(selectedElements()_k_alpha, selectedElements()_k_beta, selectedElements()_l_alpha, selectedElements()_l_beta, selectedElements()_m)
     
@@ -845,14 +988,44 @@ elementallinestouse <- reactive({
     
 })
 
+elementallinestousepost <- reactive({
+    table <- linevalues[["DF"]]
+    table <- table[complete.cases(table),]
+    
+    
+    
+    c(selectedElements(),  as.vector(table$Name))
+    
+})
 
 
+elementallinestouse <- reactive({
+    table <- linevalues[["DF"]]
+    table <- table[complete.cases(table),]
+    
+    if(length(table[,1])==0){
+        elementallinestousepre()
+    } else if(length(table[,1])!=0){
+        elementallinestousepost()
+    }
+
+    
+})
 
 
  
  spectraData <- reactive({
 
-    elementFrame(data=dataHold(), elements=elementallinestouse())
+    line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre())
+    
+    table <- linevalues[["DF"]]
+    table <- table[complete.cases(table),]
+    
+    if(length(table[,1])==0){
+        line.data
+    } else if(length(table[,1])!=0){
+        merge(line.data, lineSubset(), by="Spectrum")
+    }
      
  })
  

@@ -2671,3 +2671,31 @@ find_peaks_xrf <- function(spectrum){
 
 
 
+####Custom Lines
+
+
+range_subset <- function(range.frame, data){
+    
+    new.data <- subset(data, Energy >= range.frame$EnergyMin & Energy <= range.frame$EnergyMax, drop=TRUE)
+    newer.data <- aggregate(new.data, by=list(new.data$Spectrum), FUN=mean, na.rm=TRUE)[,c("Group.1", "CPS")]
+    colnames(newer.data) <- c("Spectrum", as.character(range.frame$Name))
+    newer.data
+}
+
+xrf_parse <- function(range.table, data){
+    
+    choice.lines <- range.table[complete.cases(range.table),]
+    
+    choice.list <- split(choice.lines, f=choice.lines$Name)
+    names(choice.list) <- choice.lines[,"Name"]
+    
+    index <- choice.lines[,"Name"]
+    
+    selected.list <- lapply(index, function(x) range_subset(range.frame=choice.list[[x]], data=data))
+    
+    Reduce(function(...) merge(..., all=T), selected.list)
+}
+
+
+
+

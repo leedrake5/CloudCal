@@ -194,9 +194,10 @@ uiOutput('checkboxElementsM')
 mainPanel(
 tabsetPanel(
 id = 'dataset',
+tabPanel('Custom Lines', rHandsontableOutput('hotline')),
 tabPanel('Spectral Lines', dataTableOutput('mytable1')),
-tabPanel('Covariance', plotOutput('covarianceplot'))
-#tabPanel("test", dataTableOutput('testtable'))
+tabPanel('Covariance', plotOutput('covarianceplot')),
+tabPanel("test", dataTableOutput('LineValues'))
 #tabPanel('All Element Lines', uiOutput('checkboxElements'))
 
 )
@@ -372,8 +373,11 @@ tabPanel("Diagnostics",
 actionButton("exclude_toggle_diag", "Toggle points"),
 actionButton("exclude_reset_diag", "Reset")),
 
-tabPanel("Variables", plotOutput('importanceplot', hover = hoverOpts('plot_hover_variable', delay = 100, delayType = "debounce")),
-uiOutput('hover_info_variable')),
+tabPanel("Variables",
+    div(
+    style = "position:relative",
+    plotOutput('importanceplot', hover = hoverOpts('plot_hover_variable', delay = 100, delayType = "debounce")),
+    uiOutput('hover_info_variable'))),
 #tabPanel("test", dataTableOutput('testingagain')),
 
 #tabPanel("Testing", dataTableOutput('testtable')),
