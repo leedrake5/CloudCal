@@ -2201,7 +2201,7 @@ output$testtable2 <- renderDataTable({
 
 calhold <- reactiveValues()
 
-observeEvent(input$hotableprocess2, {
+observeEvent(input$calcurveelement, {
     calhold$caltype <- calTypeSelectionPre()
 })
 
