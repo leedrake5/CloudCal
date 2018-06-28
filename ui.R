@@ -16,7 +16,7 @@ tagList(
 header=tags$head(tags$style(".table .alignRight {color: black; text-align:right;}"))),
 
 
-shinyUI(navbarPage("CloudCal", id="nav", theme = shinytheme("flatly"),
+shinyUI(navbarPage("CloudCal", id="nav", theme = shinytheme("yeti"),
 
 tabPanel("Spectrum",
 div(class="outer",
@@ -247,9 +247,11 @@ sidebarLayout(
 sidebarPanel(width=3,
 
 
-downloadButton('downloadcloudplot', "Plot"),
 actionButton('createcalelement', "Update"),
 actionButton('createcal', "Save"),
+
+tags$hr(),
+
 downloadButton('downloadModel', "Model"),
 downloadButton('downloadReport', "Report"),
 
@@ -305,7 +307,8 @@ tabPanel("Cal Curves",
         ),
         tags$hr(),
         actionButton("exclude_toggle", "Toggle points"),
-        actionButton("exclude_reset", "Reset")
+        actionButton("exclude_reset", "Reset"),
+        downloadButton('downloadcloudplot', "Plot")
 
 ),
 
@@ -371,7 +374,11 @@ tabPanel("Diagnostics",
         uiOutput("hover_infocooksleverage"))
 ),
 actionButton("exclude_toggle_diag", "Toggle points"),
-actionButton("exclude_reset_diag", "Reset")),
+actionButton("exclude_reset_diag", "Reset"),
+downloadButton('diagplots', "Plot")
+
+
+),
 
 tabPanel("Variables",
     div(
@@ -407,12 +414,14 @@ sidebarPanel(width=3,
 
 actionButton('actionprocess_multi', "Load Cals"),
 actionButton('actionprocess2_multi', "Process Cals"),
-downloadButton('downloadcloudplot_multi', "Plot"),
 
 tags$hr(),
 
 actionButton('createcalelement_multi', "Update"),
 actionButton('createcal_multi', "Save"),
+
+tags$hr(),
+
 downloadButton('downloadModel_multi', "Model"),
 downloadButton('downloadReport_multi', "Report"),
 
@@ -465,10 +474,11 @@ tabPanel("Cal Curves",
             hover = hoverOpts("plot_hoverval_multi", delay = 100, delayType = "debounce")),
         uiOutput("hover_infoval_multi")),
         actionButton("cropvalmulti", "Zoom")
-    ),
+    )),
     tags$hr(),
         actionButton("exclude_toggle_multi", "Toggle points"),
-        actionButton("exclude_reset_multi", "Reset"))
+        actionButton("exclude_reset_multi", "Reset"),
+        downloadButton("downloadcloudplot_multi", "Plot")
     ),
 tabPanel("Cross Validation",
     splitLayout(cellWidths = c("50%", "50%"),
