@@ -2440,7 +2440,7 @@ lucas_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, slop
     colnames(lucas.slope.comp) <- slope.element.lines
     
     
-    
+
     predict.frame.luc.comp <- data.frame(Intensity=((1+predict.frame.comp$Intensity/(predict.frame.comp$Intensity+lucas.intercept.comp)-lucas.intercept.comp/(predict.frame.comp$Intensity+lucas.intercept.comp))),lucas.slope.comp)
     
     

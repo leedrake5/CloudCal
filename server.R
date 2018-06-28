@@ -1814,18 +1814,18 @@ caretSlope <- reactive({
 
     
     
-    spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
+    #spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
     
     #spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum, ]
     
-    spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, element]),]
+    spectra.line.table <- spectraLineTable()[complete.cases(concentration.table[, element]),]
     
     data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
     
 
     cal.table <- if(dataType()=="Spectra"){
         if(input$normcal==1){
-            lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelemenet,slope.element.lines=colnames(spectra.line.table[,-1]), intercept.element.lines=input$intercept_vars)
+            lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelemenet, slope.element.lines=colnames(spectra.line.table[,-1]), intercept.element.lines=input$intercept_vars)
         } else if(input$normcal==2){
             lucas_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=colnames(spectra.line.table[,-1]), intercept.element.lines=input$intercept_vars)
         } else if(input$normcal==3){
@@ -3478,7 +3478,7 @@ dataType <- reactive({
   # Float over info
   output$hover_infocal <- renderUI({
       
-      point.table <- if(calType()==3){
+      point.table <- if(calType()==1){
           calCurveFrame()
       } else if(calType()==2){
           calCurveFrame()
@@ -3532,7 +3532,7 @@ dataType <- reactive({
   # Float over info
   output$hover_infocal_random <- renderUI({
       
-      point.table <- if(calType()==3){
+      point.table <- if(calType()==1){
           calCurveFrame()
       } else if(calType()==2){
           calCurveFrame()
@@ -3596,7 +3596,7 @@ dataType <- reactive({
   # Toggle points that are clicked
   observeEvent(input$plot_cal_click, {
       
-      predict.frame <- if(calType()==3){
+      predict.frame <- if(calType()==1){
           calCurveFrame()
       } else if(calType()==2){
           calCurveFrame()
@@ -3632,7 +3632,7 @@ dataType <- reactive({
   # Reset all points
   observeEvent(input$exclude_reset, {
       
-      predict.frame <- if(calType()==3){
+      predict.frame <- if(calType()==1){
           calCurveFrame()
       } else if(calType()==2){
           calCurveFrame()
