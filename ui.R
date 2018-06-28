@@ -373,6 +373,7 @@ tabPanel("Diagnostics",
             hover = hoverOpts("plot_hovercooksleverage", delay = 100, delayType = "debounce")),
         uiOutput("hover_infocooksleverage"))
 ),
+tags$hr(),
 actionButton("exclude_toggle_diag", "Toggle points"),
 actionButton("exclude_reset_diag", "Reset"),
 downloadButton('diagplots', "Plot")
