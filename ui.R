@@ -134,8 +134,7 @@ c("(Ne) Neon" = "Ne.table",
 selected="Fe.table"),
 
 tags$hr(),
-tags$hr(),
-tags$hr(),
+
 
 
 fileInput('calfileinput', 'Load Cal File', accept=".quant", multiple=FALSE),
