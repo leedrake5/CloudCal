@@ -2135,6 +2135,26 @@ bestCalType <- reactive({
         }
     }
     
+    if(input$normcal==1){
+        spectra.data <- if(dataType()=="Spectra"){
+            spectra_simp_prep_xrf(spectra=data)[,-1]
+        } else if(dataType()=="Net"){
+            NULL
+        }
+    } else if(input$normcal==2){
+        spectra.data <- if(dataType()=="Spectra"){
+            spectra_tc_prep_xrf(spectra=data)[,-1]
+        } else if(dataType()=="Net"){
+            NULL
+        }
+    } else if(input$normcal==3){
+        spectra.data <- if(dataType()=="Spectra"){
+            spectra_comp_prep_xrf(spectra=data, norm.min=input$comptonmin, norm.max=input$comptonmax)[,-1]
+        } else if(dataType()=="Net"){
+            NULL
+        }
+    }
+    
     
     
     predict.frame <- data.frame(predict.intensity, concentration.table[,input$calcurveelement])
@@ -2142,12 +2162,13 @@ bestCalType <- reactive({
     predict.frame <- predict.frame[vals$keeprows,]
     colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
     predict.frame <- predict.frame[complete.cases(predict.frame$Concentration),]
-    
+    spectra.data$Concentration <- concentration.table[,input$calcurveelement]
+    spectra.data <- spectra.data[complete.cases(concentration.table[,input$calcurveelement]),]
     
     predict.frame.simp <- predict.frame[,c("Concentration", "Intensity")]
     predict.frame.luc <- predict.frame[, c("Concentration", "Intensity", input$slope_vars)]
     predict.frame.forest <- predict.frame
-    
+    predict.frame.rainforest <- spectra.data
     
     cal.lm.simp <- lm(Concentration~Intensity, data=predict.frame.simp, na.action=na.exclude)
     
@@ -2160,8 +2181,13 @@ bestCalType <- reactive({
     forest.predict <- predict(cal.lm.forest, new.data=predict.frame.forest, proximity=FALSE)
     forest.sum <- lm(predict.frame$Concentration~forest.predict, na.action=na.exclude)
     
+    cal.lm.rainforest <- randomForest(Concentration~., data=predict.frame.forest, na.action=na.omit)
     
-    r2.vector <- c(summary(cal.lm.simp)$adj.r.squared, summary(cal.lm.two)$adj.r.squared-.5, summary(cal.lm.luc)$adj.r.squared, summary(forest.sum)$adj.r.squared)
+    rainforest.predict <- predict(cal.lm.rainforest, new.data=predict.frame.rainforest, proximity=FALSE)
+    rainforest.sum <- lm(predict.frame$Concentration~rainforest.predict, na.action=na.exclude)
+    
+    
+    r2.vector <- c(summary(cal.lm.simp)$adj.r.squared, summary(cal.lm.two)$adj.r.squared-.5, summary(cal.lm.luc)$adj.r.squared, summary(forest.sum)$adj.r.squared, summary(rainforest.sum)$adj.r.squared)
     which.max(r2.vector)
     
     
