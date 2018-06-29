@@ -1816,9 +1816,9 @@ caretSlope <- reactive({
     
     #spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
     
-    #spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum, ]
+    spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% concentration.table$Spectrum, ]
     
-    spectra.line.table <- spectraLineTable()[complete.cases(concentration.table[, element]),]
+    #spectra.line.table <- spectraLineTable()[complete.cases(concentration.table[, element]),]
     
     data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
     
@@ -1999,9 +1999,9 @@ bestSlopeVars <- reactive({
     
     spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
     
-    #spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum, ]
+    spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum, ]
     
-    spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, element]),]
+    #spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, element]),]
     
     data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
 
@@ -2113,7 +2113,7 @@ bestCalType <- reactive({
     #concentration.table <- concentration.table[complete.cases(concentration.table[, input$calcurveelement]),]
     
     #spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, input$calcurveelement]),]
-    #data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
+    #data2 <- data[data$Spectrum %in% concentration.table$Spectrum, ]
     
     predict.intensity <- if(input$normcal==1){
         if(dataType()=="Spectra"){
@@ -2162,9 +2162,10 @@ bestCalType <- reactive({
     predict.frame <- predict.frame[vals$keeprows,]
     colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
     predict.frame <- predict.frame[complete.cases(predict.frame$Concentration),]
-    spectra.data$Concentration <- concentration.table[,input$calcurveelement]
-    spectra.data <- spectra.data[complete.cases(concentration.table[,input$calcurveelement]),]
     
+    spectra.data$Concentration <- concentration.table[complete.cases(concentration.table[,input$calcurveelement]),input$calcurveelement]
+    spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
+
     predict.frame.simp <- predict.frame[,c("Concentration", "Intensity")]
     predict.frame.luc <- predict.frame[, c("Concentration", "Intensity", input$slope_vars)]
     predict.frame.forest <- predict.frame
