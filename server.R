@@ -2181,7 +2181,7 @@ bestCalType <- reactive({
     forest.predict <- predict(cal.lm.forest, new.data=predict.frame.forest, proximity=FALSE)
     forest.sum <- lm(predict.frame$Concentration~forest.predict, na.action=na.exclude)
     
-    cal.lm.rainforest <- randomForest(Concentration~., data=predict.frame.forest, na.action=na.omit)
+    cal.lm.rainforest <- randomForest(Concentration~., data=spectra.data, na.action=na.omit)
     
     rainforest.predict <- predict(cal.lm.rainforest, new.data=predict.frame.rainforest, proximity=FALSE)
     rainforest.sum <- lm(predict.frame$Concentration~rainforest.predict, na.action=na.exclude)
