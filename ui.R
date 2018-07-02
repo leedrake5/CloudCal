@@ -195,8 +195,8 @@ tabsetPanel(
 id = 'dataset',
 tabPanel('Custom Lines', rHandsontableOutput('hotline')),
 tabPanel('Spectral Lines', dataTableOutput('mytable1')),
-tabPanel('Covariance', plotOutput('covarianceplot')),
-tabPanel("test", dataTableOutput('LineValues'))
+tabPanel('Covariance', plotOutput('covarianceplot'))
+#tabPanel("test", dataTableOutput('LineValues'))
 #tabPanel('All Element Lines', uiOutput('checkboxElements'))
 
 )
@@ -337,6 +337,9 @@ tabPanel("Cross Validation",
         sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.20)
 
 ),
+
+tabPanel("Models", dataTableOutput("models")),
+
 
 tabPanel("Diagnostics",
     splitLayout(cellWidths = c("50%", "50%"),

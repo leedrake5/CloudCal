@@ -2012,6 +2012,9 @@ spectra_table_xrf <- function(spectra, concentration){
 spectra_simp_prep_xrf <- function(spectra){
     
     spectra$Energy <- round(spectra$Energy, 1)
+    spectra <- subset(spectra, !(spectra$Energy < 0.7 | spectra$Energy > 37))
+
+    
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
     
@@ -2026,6 +2029,7 @@ spectra_simp_prep_xrf <- function(spectra){
 spectra_tc_prep_xrf <- function(spectra){
     
     spectra$Energy <- round(spectra$Energy, 1)
+    spectra <- subset(spectra, !(spectra$Energy < 0.7 | spectra$Energy > 37))
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
@@ -2055,6 +2059,7 @@ spectra_comp_prep_xrf <- function(spectra, norm.min, norm.max){
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     spectra$Energy <- round(spectra$Energy, 1)
+    spectra <- subset(spectra, !(spectra$Energy < 0.7 | spectra$Energy > 37))
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]

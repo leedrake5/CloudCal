@@ -2104,7 +2104,7 @@ calTypeSelectionPre <- reactive({
 
 
 
-bestCalType <- reactive({
+bestCalTypeFrame <- reactive({
     
     concentration.table <- concentrationTable()
     data <- dataNorm()
@@ -2116,7 +2116,27 @@ bestCalType <- reactive({
     #spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, input$calcurveelement]),]
     #data2 <- data[data$Spectrum %in% concentration.table$Spectrum, ]
     
-    predict.intensity <- if(input$normcal==1){
+    predict.intensity.simp <- if(input$normcal==1){
+        if(dataType()=="Spectra"){
+            general_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
+        } else if(dataType()=="Net"){
+            general_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
+        }
+    } else if(input$normcal==2){
+        predict.intensity <- if(dataType()=="Spectra"){
+            simple_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
+        } else if(dataType()=="Net"){
+            simple_tc_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
+        }
+    } else if(input$normcal==3){
+        predict.intensity <- if(dataType()=="Spectra"){
+            simple_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
+        } else if(dataType()=="Net"){
+            simple_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
+        }
+    }
+    
+    predict.intensity.luc <- if(input$normcal==1){
         if(dataType()=="Spectra"){
             lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
         } else if(dataType()=="Net"){
@@ -2157,49 +2177,77 @@ bestCalType <- reactive({
     }
     
     
+    predict.frame.simp <- data.frame(predict.intensity.simp, concentration.table[,input$calcurveelement])
+    predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp),]
+    predict.frame.simp <- predict.frame.simp[vals$keeprows,]
+    colnames(predict.frame.simp) <- c(names(predict.intensity.simp), "Concentration")
+    predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp$Concentration),]
     
-    predict.frame <- data.frame(predict.intensity, concentration.table[,input$calcurveelement])
-    predict.frame <- predict.frame[complete.cases(predict.frame),]
-    predict.frame <- predict.frame[vals$keeprows,]
-    colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
-    predict.frame <- predict.frame[complete.cases(predict.frame$Concentration),]
+    predict.frame.luc <- data.frame(predict.intensity.luc, concentration.table[,input$calcurveelement])
+    predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc),]
+    predict.frame.luc <- predict.frame.luc[vals$keeprows,]
+    colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
+    predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc$Concentration),]
     
     spectra.data$Concentration <- concentration.table[complete.cases(concentration.table[,input$calcurveelement]),input$calcurveelement]
     spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
     spectra.data <- spectra.data[vals$keeprows,]
 
 
-    predict.frame.simp <- predict.frame[,c("Concentration", "Intensity")]
-    predict.frame.luc <- predict.frame[, c("Concentration", "Intensity", input$slope_vars)]
-    predict.frame.forest <- predict.frame
+    predict.frame.forest <- predict.frame.luc
+    predict.frame.luc <- predict.frame.luc[,c("Concentration", "Intensity", input$slope_vars)]
     predict.frame.rainforest <- spectra.data
     
     cal.lm.simp <- lm(Concentration~Intensity, data=predict.frame.simp, na.action=na.exclude)
     lm.predict <- predict(cal.lm.simp, new.data=predict.frame.simp, proximity=FALSE)
-    lm.sum <- summary(lm(predict.frame$Concentration~lm.predict, na.action=na.exclude))
+    lm.sum <- summary(lm(predict.frame.simp$Concentration~lm.predict, na.action=na.exclude))
     
     cal.lm.two <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame.simp, na.action=na.exclude)
     lm2.predict <- predict(cal.lm.two, new.data=predict.frame.simp, proximity=FALSE)
-    lm2.sum <- summary(lm(predict.frame$Concentration~lm2.predict, na.action=na.exclude))
+    lm2.sum <- summary(lm(predict.frame.simp$Concentration~lm2.predict, na.action=na.exclude))
     
     cal.lm.luc <- lm(Concentration~., data=predict.frame.luc, na.action=na.exclude)
     lucas.predict <- predict(cal.lm.luc, new.data=predict.frame.luc, proximity=FALSE)
-    lucas.sum <- summary(lm(predict.frame$Concentration~lucas.predict, na.action=na.exclude))
+    lucas.sum <- summary(lm(predict.frame.luc$Concentration~lucas.predict, na.action=na.exclude))
     
     cal.lm.forest <- randomForest(Concentration~., data=predict.frame.forest, na.action=na.omit)
     forest.predict <- predict(cal.lm.forest, new.data=predict.frame.forest, proximity=FALSE)
-    forest.sum <- summary(lm(predict.frame$Concentration~forest.predict, na.action=na.exclude))
+    forest.sum <- summary(lm(predict.frame.forest$Concentration~forest.predict, na.action=na.exclude))
     
     cal.lm.rainforest <- randomForest(Concentration~., data=spectra.data, na.action=na.omit)
     rainforest.predict <- predict(cal.lm.rainforest, new.data=predict.frame.rainforest, proximity=FALSE)
-    rainforest.sum <- summary(lm(predict.frame$Concentration~rainforest.predict, na.action=na.exclude))
+    rainforest.sum <- summary(lm(spectra.data$Concentration~rainforest.predict, na.action=na.exclude))
     
     
-    r2.slope.vector <- c(lm.sum$r.squared*lm.sum$coef[2], lm2.sum$r.squared*lm2.sum$coef[2], lucas.sum$r.squared*lucas.sum$coef[2], forest.sum$r.squared*forest.sum$coef[2], rainforest.sum$r.squared*rainforest.sum$coef[2])
+    model.frame <- data.frame(Model = c("Linear", "Non-Linear", "Lucas-Tooth", "Forest", "Rainforest"),
+    valSlope = round(c(lm.sum$coef[2], lm2.sum$coef[2], lucas.sum$coef[2], forest.sum$coef[2], rainforest.sum$coef[2]), 2),
+    R2 = round(c(lm.sum$r.squared, lm2.sum$r.squared, lucas.sum$r.squared, forest.sum$r.squared, rainforest.sum$r.squared), 2),
+    Score = round(c(lm.sum$r.squared*lm.sum$coef[2], lm2.sum$r.squared*lm2.sum$coef[2], lucas.sum$r.squared*lucas.sum$coef[2], forest.sum$r.squared*forest.sum$coef[2], rainforest.sum$r.squared*rainforest.sum$coef[2]), 2),
+    Rank = round(abs(1-c(lm.sum$r.squared*lm.sum$coef[2], lm2.sum$r.squared*lm2.sum$coef[2], lucas.sum$r.squared*lucas.sum$coef[2], forest.sum$r.squared*forest.sum$coef[2], rainforest.sum$r.squared*rainforest.sum$coef[2])), 2),
+    Code=c(1, 2, 3, 4, 5))
     
-    Closest(r2.slope.vector, 1, which=TRUE)
+    
+   model.frame <- model.frame %>%  arrange(Rank)
+    
+    #model.frame[order(model.frame, model.frame$Rank),]
+    model.frame
     
 })
+
+
+bestCalType <- reactive({
+    
+    bestCalTypeFrame()[1,6]
+    
+})
+
+
+output$models <- renderDataTable({
+    
+    bestCalTypeFrame()
+    
+})
+
 
 testing2 <- reactive({
     
