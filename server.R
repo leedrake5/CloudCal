@@ -2682,11 +2682,11 @@ dataType <- reactive({
       }
       
       if (input$radiocal==4){
-          cal.lm <- randomForest(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE], na.action=na.omit)
+          cal.lm <- randomForest(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE], na.action=na.omit, importance=TRUE)
       }
       
       if (input$radiocal==5){
-          cal.lm <- randomForest(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE], na.action=na.omit)
+          cal.lm <- randomForest(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE], na.action=na.omit, importance=TRUE)
       }
       
       cal.lm
@@ -4622,7 +4622,11 @@ dev.off()
         
         
         dataTypeMulti <- reactive({
-            if(quantType()=="Spectra"){
+            if(quantType()=="CSV"){
+                "Spectra"
+            } else if(quantType()=="PDZ"){
+                "Spectra"
+            } else if(quantType()=="TXT"){
                 "Spectra"
             } else if(quantType()=="Elio"){
                 "Spectra"
@@ -4630,7 +4634,7 @@ dev.off()
                 "Spectra"
             }  else if(quantType()=="SPX"){
                 "Spectra"
-            } else if (quantType()=="Net"){
+            } else if(quantType()=="Net"){
                 "Net"
             }
             
@@ -4805,7 +4809,7 @@ dev.off()
             
             optionhold <- if(is.null(input$calcurveelement_multi)){
                 ls(hold[[input$defaultcal]])[2]
-            }else{
+            } else if(!is.null(input$calcurveelement_multi)){
                 input$calcurveelement_multi
             }
             
@@ -4827,7 +4831,7 @@ dev.off()
             
             optionhold <- if(is.null(input$calcurveelement_multi)){
                 ls(hold[[input$defaultcal]])[2]
-            }else{
+            }else  if(!is.null(input$calcurveelement_multi)){
                 input$calcurveelement_multi
             }
             
@@ -4848,7 +4852,7 @@ dev.off()
             
             optionhold <- if(is.null(input$calcurveelement_multi)){
                 ls(hold[[input$defaultcal]])[2]
-            }else{
+            } else if(!is.null(input$calcurveelement_multi)){
                 input$calcurveelement_multi
             }
             
@@ -4895,7 +4899,7 @@ dev.off()
             
             optionhold <- if(is.null(input$calcurveelement_multi)){
                 ls(hold[[input$defaultcal]])[2]
-            }else{
+            }else if(!is.null(input$calcurveelement_multi)){
                 input$calcurveelement_multi
             }
             
