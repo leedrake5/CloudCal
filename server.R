@@ -2487,6 +2487,10 @@ bestCalTypeFrame <- reactive({
     predict.intensity.forest <- predictIntensityForest()
     
     spectra.data <- rainforestData()
+    spectra.data <- spectra.data[complete.cases(spectra.data),]
+    
+    spectra.data <- spectra.data[ , !(names(spectra.data) %in% "Concentration")]
+
     
 
     predict.frame.simp <- predictFrameSimp()
@@ -2495,24 +2499,24 @@ bestCalTypeFrame <- reactive({
     predict.frame.rainforest <- rainforestData()
     
     cal.lm.simp <- simpleLinearModel()
-    lm.predict <- predict(cal.lm.simp, new.data=predict.frame.simp)
+    lm.predict <- predict(cal.lm.simp, newdata=predict.frame.simp)
     lm.sum <- summary(lm(predict.frame.simp$Concentration~lm.predict, na.action=na.exclude))
     
     cal.lm.two <- nonLinearModel()
-    lm2.predict <- predict(cal.lm.two, new.data=predict.frame.simp)
+    lm2.predict <- predict(cal.lm.two, newdata=predict.frame.simp)
     lm2.sum <- summary(lm(predict.frame.simp$Concentration~lm2.predict, na.action=na.exclude))
     
     cal.lm.luc <- lucasToothModel()
-    lucas.predict <- predict(cal.lm.luc, new.data=predict.frame.luc)
+    lucas.predict <- predict(cal.lm.luc, newdata=predict.frame.luc)
     lucas.sum <- summary(lm(predict.frame.luc$Concentration~lucas.predict, na.action=na.exclude))
     
     cal.lm.forest <- forestModel()
-    forest.predict <- predict(cal.lm.forest, new.data=predict.frame.forest)
+    forest.predict <- predict(cal.lm.forest, newdata=predict.frame.forest)
     forest.sum <- summary(lm(predict.frame.forest$Concentration~forest.predict, na.action=na.exclude))
     
     cal.lm.rainforest <- rainforestModel()
-    rainforest.predict <- predict(cal.lm.rainforest, new.data=predict.frame.rainforest)
-    rainforest.sum <- summary(lm(spectra.data$Concentration~rainforest.predict, na.action=na.exclude))
+    rainforest.predict <- predict(cal.lm.rainforest, newdata=predict.frame.rainforest)
+    rainforest.sum <- summary(lm(predict.frame.rainforest$Concentration~rainforest.predict, na.action=na.exclude))
     
     
     model.frame <- data.frame(Model = c("Linear", "Non-Linear", "Lucas-Tooth", "Forest", "Rainforest"),
@@ -2533,8 +2537,11 @@ bestCalTypeFrame <- reactive({
 
 bestCalType <- reactive({
     
-    bestCalTypeFrame()[1,6]
+    model.frame <- bestCalTypeFrame()
     
+    model.frame <- subset(model.frame, !(model.frame$valSlope < 0.8 | model.frame$valSlope > 1.2))
+    model.frame[Closest(model.frame$Score, 1, which=TRUE),6]
+
 })
 
 
