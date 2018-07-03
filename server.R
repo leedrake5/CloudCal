@@ -1338,6 +1338,128 @@ output$covarianceplotvalues <- renderPlot({
     
 })
 
+
+
+
+
+
+
+keepRowsFrame <- reactive({
+    
+    spectra.stuff <- values[["DF"]]
+    rows <- vals$keeprows
+    
+    the.frame <- data.frame(Spectrum=spectra.stuff$Spectrum, Standards=rows)
+    the.frame
+    
+})
+
+
+output$whichrowstokeep <- renderRHandsontable({
+    
+    DF <- keepRowsFrame()
+    
+    DF <- DF[order(as.character(DF$Spectrum)),]
+    
+    
+    
+    if (!is.null(DF))
+    rhandsontable(DF) %>% hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
+    
+    
+})
+
+
+
+
+#if(input$hotableprocess2){vals$keeprows <- vals$keeprows[dropStandard()]}
+
+
+output$temp <- renderTable({
+    
+    as.data.frame(vals$keeprows)
+    
+})
+
+
+dataType <- reactive({
+    if(input$filetype=="CSV"){
+        "Spectra"
+    } else if(input$filetype=="TXT"){
+        "Spectra"
+    } else if(input$filetype=="Elio"){
+        "Spectra"
+    }  else if(input$filetype=="MCA"){
+        "Spectra"
+    }  else if(input$filetype=="SPX"){
+        "Spectra"
+    }  else if(input$filetype=="PDZ"){
+        "Spectra"
+    } else if (input$filetype=="Net"){
+        "Net"
+    }
+    
+})
+
+
+
+concentrationTable <- reactive({
+    
+    concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+    concentration.table[concentration.table==""] <- NA
+    concentration.table[values[["DF"]]$Include,]
+    
+})
+
+spectraLineTable <- reactive({
+    
+    spectra.line.table <- if(dataType()=="Spectra"){
+        spectraData()[values[["DF"]]$Include,]
+    }else if(dataType()=="Net"){
+        dataHold()[values[["DF"]]$Include,]
+    }
+    
+    
+    spectra.line.table <- spectra.line.table[order(as.character(spectra.line.table$Spectrum)),]
+    spectra.line.table
+    
+    
+    
+})
+
+
+holdFrame <- reactive({
+    
+    spectra.line.table <- spectraLineTable()
+    
+    concentration <- as.vector(as.numeric(unlist(concentrationTable()[,input$calcurveelement])))
+    
+    
+    
+    intensity <- as.vector(as.numeric(unlist(spectraLineTable()[,input$calcurveelement])))
+    
+    spectra.names <- spectra.line.table$Spectrum
+    
+    hold.frame <- data.frame(spectra.names, concentration, intensity)
+    colnames(hold.frame) <- c("Spectrum", "Concentration", "Intensity")
+    hold.frame <- na.omit(hold.frame)
+    
+    hold.frame <- hold.frame[order(as.character(hold.frame$Spectrum)),]
+    
+    
+    hold.frame[complete.cases(hold.frame),]
+    
+    
+})
+
+dataNorm <- reactive({
+    
+    data <- dataHold()
+    data[data$Spectrum %in% holdFrame()$Spectrum, ]
+    
+    
+})
+
       # randomInterList <- reactive({
       #   if (is.null(input$intercept_vars))
       #   paste(,2)
@@ -2071,6 +2193,58 @@ output$inVar4 <- renderUI({
 
 
 
+####Set up Standards
+elementHold <- reactive({
+    
+    if(is.null(input$calcurveelement)==TRUE){
+        ls(dataHold())[1]
+    } else if(!is.null(input$calcurveelement)==TRUE){
+        input$calcurveelement
+    }
+    
+})
+
+
+
+
+calFileStandards <- reactive({
+    
+    
+    
+    if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==FALSE){
+        calFileContents()$calList[[elementHold()]][[1]][[4]]
+    } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
+        rep(TRUE, dataCount())
+    } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
+        calList[[elementHold()]][[1]][[4]]
+    } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==FALSE){
+        calList[[elementHold()]][[1]][[4]]
+    } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
+        calList[[elementHold()]][[1]][[4]]
+    } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==FALSE){
+        calList[[elementHold()]][[1]][[4]]
+    } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
+        rep(TRUE, dataCount())
+    }
+    
+    
+    
+    
+})
+
+
+
+
+vals <- reactiveValues()
+
+
+vals$keeprows <- if(input$usecalfile==TRUE){
+    calFileStandards()
+}else{
+    rep(TRUE, dataCount())
+}
+
+
 
 #####Machine Learning: Cal Type
 
@@ -2100,23 +2274,13 @@ calTypeSelectionPre <- reactive({
 })
 
 
-
-
-
-
-bestCalTypeFrame <- reactive({
+predictIntensitySimp <- reactive({
     
     concentration.table <- concentrationTable()
     data <- dataNorm()
     spectra.line.table <- spectraLineTable()
     
-    
-    #concentration.table <- concentration.table[complete.cases(concentration.table[, input$calcurveelement]),]
-    
-    #spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, input$calcurveelement]),]
-    #data2 <- data[data$Spectrum %in% concentration.table$Spectrum, ]
-    
-    predict.intensity.simp <- if(input$normcal==1){
+    if(input$normcal==1){
         if(dataType()=="Spectra"){
             general_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
         } else if(dataType()=="Net"){
@@ -2136,7 +2300,48 @@ bestCalTypeFrame <- reactive({
         }
     }
     
-    predict.intensity.luc <- if(input$normcal==1){
+})
+
+
+predictFrameSimp <- reactive({
+    
+    concentration.table <- concentrationTable()
+    data <- dataNorm()
+    spectra.line.table <- spectraLineTable()
+    
+    predict.intensity.simp <- predictIntensitySimp()
+    
+    predict.frame.simp <- data.frame(predict.intensity.simp, concentration.table[,input$calcurveelement])
+    predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp),]
+    predict.frame.simp <- predict.frame.simp[vals$keeprows,]
+    colnames(predict.frame.simp) <- c(names(predict.intensity.simp), "Concentration")
+    predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp$Concentration),]
+    
+    predict.frame.simp
+    
+})
+
+simpleLinearModel <- reactive({
+    
+    lm(Concentration~Intensity, data=predictFrameSimp(), na.action=na.exclude)
+
+    
+    })
+
+nonLinearModel <- reactive({
+    
+    lm(Concentration~Intensity + I(Intensity^2), data=predictFrameSimp(), na.action=na.exclude)
+    
+})
+
+predictIntensityForest <- reactive({
+    
+    concentration.table <- concentrationTable()
+    data <- dataNorm()
+    spectra.line.table <- spectraLineTable()
+    
+    
+    if(input$normcal==1){
         if(dataType()=="Spectra"){
             lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
         } else if(dataType()=="Net"){
@@ -2156,32 +2361,50 @@ bestCalTypeFrame <- reactive({
         }
     }
     
-    if(input$normcal==1){
-        spectra.data <- if(dataType()=="Spectra"){
-            spectra_simp_prep_xrf(spectra=data)[,-1]
-        } else if(dataType()=="Net"){
-            NULL
-        }
-    } else if(input$normcal==2){
-        spectra.data <- if(dataType()=="Spectra"){
-            spectra_tc_prep_xrf(spectra=data)[,-1]
-        } else if(dataType()=="Net"){
-            NULL
-        }
-    } else if(input$normcal==3){
-        spectra.data <- if(dataType()=="Spectra"){
-            spectra_comp_prep_xrf(spectra=data, norm.min=input$comptonmin, norm.max=input$comptonmax)[,-1]
-        } else if(dataType()=="Net"){
-            NULL
-        }
-    }
+    
+})
+
+
+predictFrameForest <- reactive({
+    
+    concentration.table <- concentrationTable()
+    data <- dataNorm()
+    spectra.line.table <- spectraLineTable()
     
     
-    predict.frame.simp <- data.frame(predict.intensity.simp, concentration.table[,input$calcurveelement])
-    predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp),]
-    predict.frame.simp <- predict.frame.simp[vals$keeprows,]
-    colnames(predict.frame.simp) <- c(names(predict.intensity.simp), "Concentration")
-    predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp$Concentration),]
+    predict.intensity.forest <- predictIntensityForest()
+    
+    predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=concentration.table[,input$calcurveelement])
+    predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest),]
+    predict.frame.forest <- predict.frame.forest[vals$keeprows,]
+    predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
+    
+    predict.frame.forest
+    
+})
+
+forestModel <- reactive({
+    
+    randomForest(Concentration~., data=predictFrameForest(), na.action=na.omit, ntree=1000, nPerm=100)
+    
+    })
+
+
+predictIntensityLuc <- reactive({
+    
+    
+    predictIntensityForest()[,c("Intensity", input$slope_vars)]
+    
+})
+
+predictFrameLuc <- reactive({
+    
+    concentration.table <- concentrationTable()
+    data <- dataNorm()
+    spectra.line.table <- spectraLineTable()
+    
+    
+    predict.intensity.luc <- predictIntensityLuc()
     
     predict.frame.luc <- data.frame(predict.intensity.luc, concentration.table[,input$calcurveelement])
     predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc),]
@@ -2189,33 +2412,106 @@ bestCalTypeFrame <- reactive({
     colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
     predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc$Concentration),]
     
+    predict.frame.luc
+    
+})
+
+
+lucasToothModel <- reactive({
+    
+    lm(Concentration~., data=predictFrameLuc(), na.action=na.exclude)
+    })
+
+
+rainforestData <- reactive({
+    
+    concentration.table <- concentrationTable()
+    data <- dataNorm()
+    spectra.line.table <- spectraLineTable()
+    
+    spectra.data <- if(input$normcal==1){
+        if(dataType()=="Spectra"){
+            spectra_simp_prep_xrf(spectra=data)[,-1]
+        } else if(dataType()=="Net"){
+            NULL
+        }
+    } else if(input$normcal==2){
+        if(dataType()=="Spectra"){
+            spectra_tc_prep_xrf(spectra=data)[,-1]
+        } else if(dataType()=="Net"){
+            NULL
+        }
+    } else if(input$normcal==3){
+        if(dataType()=="Spectra"){
+            spectra_comp_prep_xrf(spectra=data, norm.min=input$comptonmin, norm.max=input$comptonmax)[,-1]
+        } else if(dataType()=="Net"){
+            NULL
+        }
+    }
+    
     spectra.data$Concentration <- concentration.table[complete.cases(concentration.table[,input$calcurveelement]),input$calcurveelement]
     spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
     spectra.data <- spectra.data[vals$keeprows,]
-
-
-    predict.frame.forest <- predict.frame.luc
-    predict.frame.luc <- predict.frame.luc[,c("Concentration", "Intensity", input$slope_vars)]
-    predict.frame.rainforest <- spectra.data
     
-    cal.lm.simp <- lm(Concentration~Intensity, data=predict.frame.simp, na.action=na.exclude)
-    lm.predict <- predict(cal.lm.simp, new.data=predict.frame.simp, proximity=FALSE)
+    spectra.data
+    
+})
+
+
+rainforestModel <- reactive({
+    
+    randomForest(Concentration~., data=rainforestData(), na.action=na.omit, ntree=1000, nPerm=100)
+    
+    })
+
+
+
+
+
+bestCalTypeFrame <- reactive({
+    
+    concentration.table <- concentrationTable()
+    data <- dataNorm()
+    spectra.line.table <- spectraLineTable()
+    
+    
+    #concentration.table <- concentration.table[complete.cases(concentration.table[, input$calcurveelement]),]
+    
+    #spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, input$calcurveelement]),]
+    #data2 <- data[data$Spectrum %in% concentration.table$Spectrum, ]
+    
+    predict.intensity.simp <- predictIntensitySimp()
+    
+    predict.intensity.luc <- predictIntensityLuc()
+    
+    predict.intensity.forest <- predictIntensityForest()
+    
+    spectra.data <- rainforestData()
+    
+
+    predict.frame.simp <- predictFrameSimp()
+    predict.frame.forest <- predictFrameForest()
+    predict.frame.luc <- predictFrameLuc()
+    predict.frame.rainforest <- rainforestData()
+    
+    cal.lm.simp <- simpleLinearModel()
+    lm.predict <- predict(cal.lm.simp, new.data=predict.frame.simp, interval='confidence')
     lm.sum <- summary(lm(predict.frame.simp$Concentration~lm.predict, na.action=na.exclude))
     
-    cal.lm.two <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame.simp, na.action=na.exclude)
-    lm2.predict <- predict(cal.lm.two, new.data=predict.frame.simp, proximity=FALSE)
+    cal.lm.two <- nonLinearModel()
+    lm2.predict <- predict(cal.lm.two, new.data=predict.frame.simp, interval='confidence')
     lm2.sum <- summary(lm(predict.frame.simp$Concentration~lm2.predict, na.action=na.exclude))
     
-    cal.lm.luc <- lm(Concentration~., data=predict.frame.luc, na.action=na.exclude)
-    lucas.predict <- predict(cal.lm.luc, new.data=predict.frame.luc, proximity=FALSE)
+    cal.lm.luc <- lucasToothModel()
+    lucas.predict <- predict(cal.lm.luc, new.data=predict.frame.luc, interval='confidence')
     lucas.sum <- summary(lm(predict.frame.luc$Concentration~lucas.predict, na.action=na.exclude))
     
-    cal.lm.forest <- randomForest(Concentration~., data=predict.frame.forest, na.action=na.omit)
-    forest.predict <- predict(cal.lm.forest, new.data=predict.frame.forest, proximity=FALSE)
+    cal.lm.forest <- forestModel()
+    forest.predict <- as.vector(predict(cal.lm.forest, new.data=predict.frame.forest, interval='confidence'))
     forest.sum <- summary(lm(predict.frame.forest$Concentration~forest.predict, na.action=na.exclude))
     
-    cal.lm.rainforest <- randomForest(Concentration~., data=spectra.data, na.action=na.omit)
-    rainforest.predict <- predict(cal.lm.rainforest, new.data=predict.frame.rainforest, proximity=FALSE)
+    cal.lm.rainforest <- rainforestModel()
+    rainforest.predict <- as.vector(predict(cal.lm.rainforest, new.data=predict.frame.rainforest, interval='confidence'))
     rainforest.sum <- summary(lm(spectra.data$Concentration~rainforest.predict, na.action=na.exclude))
     
     
@@ -2313,190 +2609,6 @@ output$calTypeInput <- renderUI({
 
 
 
-
-
-
-
-
-
-elementHold <- reactive({
-    
-    if(is.null(input$calcurveelement)==TRUE){
-        ls(dataHold())[1]
-    } else{
-        input$calcurveelement
-    }
-    
-})
-
-
-
-  
-  calFileStandards <- reactive({
-
-          
-  
-     if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==FALSE){
-          calFileContents()$calList[[elementHold()]][[1]][[4]]
-      } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
-          rep(TRUE, dataCount())
-      } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
-          calList[[elementHold()]][[1]][[4]]
-      } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==FALSE){
-          calList[[elementHold()]][[1]][[4]]
-      } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
-          calList[[elementHold()]][[1]][[4]]
-      } else if(input$usecalfile==FALSE && is.null(calList[[elementHold()]])==FALSE && is.null(calFileContents()$calList[[elementHold()]])==FALSE){
-          calList[[elementHold()]][[1]][[4]]
-      } else if(input$usecalfile==TRUE && is.null(calList[[elementHold()]])==TRUE && is.null(calFileContents()$calList[[elementHold()]])==TRUE){
-          rep(TRUE, dataCount())
-      }
-      
-      
-      
-      
-  })
-  
-  
-  
-  
-  vals <- reactiveValues()
-  
-
-vals$keeprows <- if(input$usecalfile==TRUE){
-    calFileStandards()
-}else{
-    rep(TRUE, dataCount())
-}
-
-keepRowsFrame <- reactive({
-    
-    spectra.stuff <- values[["DF"]]
-    rows <- vals$keeprows
-    
-    the.frame <- data.frame(Spectrum=spectra.stuff$Spectrum, Standards=rows)
-    the.frame
-
-})
-
-
-output$whichrowstokeep <- renderRHandsontable({
-    
-    DF <- keepRowsFrame()
-    
-    DF <- DF[order(as.character(DF$Spectrum)),]
-    
-    
-    
-    if (!is.null(DF))
-    rhandsontable(DF) %>% hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
-    
-    
-})
-
-
-
-observe({
-    if (!is.null(input$hot)) {
-        DF <- hot_to_r(input$hot)
-    } else {
-        if (input$linecommit)
-        DF <- hotableInput()
-        else
-        DF <- values[["DF"]]
-    }
-    values[["DF"]] <- DF
-})
-
-
-  
-  #if(input$hotableprocess2){vals$keeprows <- vals$keeprows[dropStandard()]}
-
-
-output$temp <- renderTable({
-    
-    as.data.frame(vals$keeprows)
-    
-})
-
-
-dataType <- reactive({
-    if(input$filetype=="CSV"){
-        "Spectra"
-    } else if(input$filetype=="TXT"){
-        "Spectra"
-    } else if(input$filetype=="Elio"){
-        "Spectra"
-    }  else if(input$filetype=="MCA"){
-        "Spectra"
-    }  else if(input$filetype=="SPX"){
-        "Spectra"
-    }  else if(input$filetype=="PDZ"){
-        "Spectra"
-    } else if (input$filetype=="Net"){
-        "Net"
-    }
-    
-})
-
-  
-  
-  concentrationTable <- reactive({
-      
-      concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
-      concentration.table[concentration.table==""] <- NA
-      concentration.table[values[["DF"]]$Include,]
-      
-  })
-  
-  spectraLineTable <- reactive({
-      
-      spectra.line.table <- if(dataType()=="Spectra"){
-          spectraData()[values[["DF"]]$Include,]
-      }else if(dataType()=="Net"){
-          dataHold()[values[["DF"]]$Include,]
-      }
-      
-      
-      spectra.line.table <- spectra.line.table[order(as.character(spectra.line.table$Spectrum)),]
-      spectra.line.table
-
-      
-      
-  })
-  
-  
-  holdFrame <- reactive({
-      
-      spectra.line.table <- spectraLineTable()
-      
-      concentration <- as.vector(as.numeric(unlist(concentrationTable()[,input$calcurveelement])))
-      
-      
-      
-      intensity <- as.vector(as.numeric(unlist(spectraLineTable()[,input$calcurveelement])))
-      
-      spectra.names <- spectra.line.table$Spectrum
-      
-      hold.frame <- data.frame(spectra.names, concentration, intensity)
-      colnames(hold.frame) <- c("Spectrum", "Concentration", "Intensity")
-      hold.frame <- na.omit(hold.frame)
-      
-      hold.frame <- hold.frame[order(as.character(hold.frame$Spectrum)),]
-
-      
-      hold.frame[complete.cases(hold.frame),]
-      
-      
-  })
-  
-  dataNorm <- reactive({
-      
-      data <- dataHold()
-      data[data$Spectrum %in% holdFrame()$Spectrum, ]
-      
-      
-  })
   
   
   predictFramePre <- reactive({
@@ -2713,31 +2825,21 @@ dataType <- reactive({
   
   elementModel <- reactive({
       
-      predict.frame <- predictFrame()
       
       
       if (input$radiocal==1){
-          cal.lm <- lm(Concentration~Intensity, data=predict.frame[ vals$keeprows, , drop = FALSE])
+          simpleLinearModel()
+      } else if (input$radiocal==2){
+          nonLinearModel()
+      } else if (input$radiocal==3){
+          lucasToothModel()
+      } else if (input$radiocal==4){
+          forestModel()
+      } else if (input$radiocal==5){
+          rainforestModel()
       }
       
       
-      if (input$radiocal==2){
-          cal.lm <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame[ vals$keeprows, , drop = FALSE])
-      }
-      
-      if (input$radiocal==3){
-          cal.lm <- lm(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE])
-      }
-      
-      if (input$radiocal==4){
-          cal.lm <- randomForest(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE], na.action=na.omit, importance=TRUE)
-      }
-      
-      if (input$radiocal==5){
-          cal.lm <- randomForest(Concentration~., data=predict.frame[ vals$keeprows, , drop = FALSE], na.action=na.omit, importance=TRUE)
-      }
-      
-      cal.lm
       
   })
   
