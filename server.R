@@ -2004,8 +2004,13 @@ rainForestImportancePlot <- reactive({
     importance.frame <- importanceFrame()
     
     
+    element <- datasetInputVar()
+    intensity.norm <- (element$Intensity/max(element$Intensity))*max(importance.frame$NodePurity)
+    intensity.base <- (element$Intensity/max(element$Intensity))
+    
     ggplot(importance.frame) +
     geom_line(aes(Energy, NodePurity)) +
+    geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
     theme_light() +
     scale_x_continuous("Energy (keV)")
     
@@ -2024,6 +2029,196 @@ variablesPlot <- reactive({
 })
 
 
+
+
+output$varelementui <- renderUI({
+    
+    selectInput(
+    "elementvar", "Element:",
+    choices=c("(Ne) Neon" = "Ne",
+    "(Na) Sodium" = "Na",
+    "(Mg) Magnesium" = "Mg",
+    "(Al) Aluminum" = "Al",
+    "(Si) Silicon" = "Si",
+    "(P)  Phosphorous" = "P",
+    "(S)  Sulfur" = "S",
+    "(Cl) Chlorine" = "Cl",
+    "(Ar) Argon" = "Ar",
+    "(K)  Potassium" = "K",
+    "(Ca) Calcium" = "Ca",
+    "(Sc) Scandium" = "Sc",
+    "(Ti) Titanium" = "Ti",
+    "(Cr) Chromium" = "Cr",
+    "(Mn) Manganese" = "Mn",
+    "(Fe) Iron" = "Fe",
+    "(Co) Cobalt" = "Co",
+    "(Ni) Nickel" = "Ni",
+    "(Cu) Copper" = "Cu",
+    "(Zn) Zinc"= "Zn",
+    "(Ga) Gallium" = "Ga",
+    "(Ge) Germanium" = "Ge",
+    "(As) Arsenic" = "As",
+    "(Se) Selenium" = "Se",
+    "(Br) Bromium" = "Br",
+    "(Kr) Krypton" = "Kr",
+    "(Rb) Rubidium" = "Rb",
+    "(Sr) Strontium" = "Sr",
+    "(Y)  Yttrium" = "Y",
+    "(Zr) Zirconium" = "Zr",
+    "(Nb) Niobium" = "Nb",
+    "(Mo) Molybdenum" = "Mo",
+    "(Tc) Technicium" = "Tc",
+    "(Ru) Ruthenium" = "Ru",
+    "(Rh) Rhodium" = "Rh",
+    "(Pd) Paladium" = "Pd",
+    "(Ag) Silver" = "Ag",
+    "(Cd) Cadmium" = "Cd",
+    "(In) Indium" = "In",
+    "(Sn) Tin" = "Sn",
+    "(Sb) Antimony" = "Sb",
+    "(Te) Tellerium" = "Te",
+    "(I) Iodine" = "I",
+    "(Xe) Xenon" = "Xe",
+    "(Cs) Cesium" = "Cs",
+    "(Ba) Barium" = "Ba",
+    "(Ce) Cerium" = "Ce",
+    "(Pr) Praeseodymeum" = "Pr",
+    "(Nd) Neodymeum" = "Nd",
+    "(Pr) Promethium" = "Pr",
+    "(Sm) Samarium" = "Sm",
+    "(Eu) Europium" = "Eu",
+    "(Gd) Gadolinium" = "Gd",
+    "(Tb) Terbium" = "Tb",
+    "(Dy) Dysprosium" = "Dy",
+    "(Ho) Holmium" = "Ho",
+    "(Er) Erbium" = "Er",
+    "(Tm) Thullium" = "Tm",
+    "(Yb) Ytterbium" = "Yb",
+    "(Lu) Lutetium" = "Lu",
+    "(Hf) Halfnium" = "Hf",
+    "(Ta) Tantalum" = "Ta",
+    "(W)  Tungsten" = "W",
+    "(Re) Rhenium" = "Re",
+    "(Os) Osmium" = "Os",
+    "(Ir) Irridium" = "Ir",
+    "(Pt) Platinum" = "Pt",
+    "(Au) Gold" = "Au",
+    "(Tl) Thallium" = "Tl",
+    "(Pb) Lead" = "Pb",
+    "(Bi) Bismuth" = "Bi",
+    "(Po) Polonium" = "Po",
+    "(At) Astatine" = "At",
+    "(Rn) Radon" = "Rn",
+    "(Fr) Francium" = "Fr",
+    "(Ra) Radium" = "Ra",
+    "(Ac) Actinum" = "Ac",
+    "(Th) Thorium" = "Th",
+    "(Pa) Proactinum" = "Pa",
+    "(U)  Uranium" = "U"),
+    selected=strsplit(x=input$calcurveelement, split="\\.")[[1]][1])
+
+})
+
+
+
+# Return the requested dataset
+datasetInputVar <- reactive({
+    switch(input$elementvar,
+    "H" = H.table,
+    "He" = He.table,
+    "Li" = Li.table,
+    "Be" = Be.table,
+    "B" = B.table,
+    "C" = C.table,
+    "N" = N.table,
+    "O" = O.table,
+    "F" = F.table,
+    "Ne" = Ne.table,
+    "Na" = Na.table,
+    "Mg" = Mg.table,
+    "Al" = Al.table,
+    "Si" = Si.table,
+    "P" = P.table,
+    "S" = S.table,
+    "Cl" = Cl.table,
+    "Ar" = Ar.table,
+    "K" = K.table,
+    "Ca" = Ca.table,
+    "Sc" = Sc.table,
+    "Ti" = Ti.table,
+    "V" = V.table,
+    "Cr" = Cr.table,
+    "Mn" = Mn.table,
+    "Fe" = Fe.table,
+    "Co" = Co.table,
+    "Ni" = Ni.table,
+    "Cu" = Cu.table,
+    "Zn" = Zn.table,
+    "Ga" = Ga.table,
+    "Ge" = Ge.table,
+    "As" = As.table,
+    "Se" = Se.table,
+    "Br" = Br.table,
+    "Kr" = Kr.table,
+    "Rb" = Rb.table,
+    "Sr" = Sr.table,
+    "Y" = Y.table,
+    "Zr" = Zr.table,
+    "Nb" = Nb.table,
+    "Mo" = Mo.table,
+    "Tc" = Tc.table,
+    "Ru" = Ru.table,
+    "Rh" = Rh.table,
+    "Pd" = Pd.table,
+    "Ag" = Ag.table,
+    "Cd" = Cd.table,
+    "In" = In.table,
+    "Sn" = Sn.table,
+    "Sb" = Sb.table,
+    "Te" = Te.table,
+    "I" = I.table,
+    "Xe" = Xe.table,
+    "Cs" = Cs.table,
+    "Ba" = Ba.table,
+    "La" = La.table,
+    "Ce" = Ce.table,
+    "Pr" = Pr.table,
+    "Nd" = Nd.table,
+    "Pm" = Pm.table,
+    "Sm" = Sm.table,
+    "Eu" = Eu.table,
+    "Gd" = Gd.table,
+    "Tb" = Tb.table,
+    "Dy" = Dy.table,
+    "Ho" = Ho.table,
+    "Er" = Er.table,
+    "Tm" = Tm.table,
+    "Yb" = Yb.table,
+    "Lu" = Lu.table,
+    "Hf" = Hf.table,
+    "Ta" = Ta.table,
+    "W" = W.table,
+    "Re" = Re.table,
+    "Os" = Os.table,
+    "Ir" = Ir.table,
+    "Pt" = Pt.table,
+    "Au" = Au.table,
+    "Hg" = Hg.table,
+    "Tl" = Tl.table,
+    "Pb" = Pb.table,
+    "Bi" = Bi.table,
+    "Po" = Po.table,
+    "At" = At.table,
+    "Rn" = Rn.table,
+    "Fr" = Fr.table,
+    "Ra" = Ra.table,
+    "Ac" = Ac.table,
+    "Th" = Th.table,
+    "Pa" = Pa.table,
+    "U" = U.table)
+})
+
+
 output$importanceplot <- renderPlot({
     
     variablesPlot()
@@ -2032,7 +2227,8 @@ output$importanceplot <- renderPlot({
 
 
 output$hover_info_variable <- renderUI({
-    
+    if(calType()==5){
+        
     point.table <- importanceFrame()
     
     hover <- input$plot_hover_variable
@@ -2061,12 +2257,15 @@ output$hover_info_variable <- renderUI({
     p(HTML(paste0("Energy:", " ", round(point$Energy, 0)))),
     p(HTML(paste0("NodePurity:", " ", round(point$NodePurity, 1))))
     )
+    } else if(calType()!=5){
+        NULL
+    }
 })
 
 output$variablePlot <- downloadHandler(
-filename = function() { paste0(input$projectname, '_Variables', '.jpg', sep='') },
+filename = function() { paste0(input$calname, "_", input$calcurveelement, '_Variables', '.tiff', sep='') },
 content = function(file) {
-    ggsave(file,variablesPlot(), width=14, height=8, device="jpeg")
+    ggsave(file,variablesPlot(), width=14, height=8, device="tiff", compression="lzw", type="cairo", dpi=300)
 }
 )
 
@@ -3156,6 +3355,8 @@ output$calTypeInput <- renderUI({
   output$valcurveplots <- renderPlot({
       valCurvePlot()
   })
+  
+  
   
   
   

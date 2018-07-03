@@ -386,8 +386,15 @@ downloadButton('diagplots', "Plot")
 tabPanel("Variables",
     div(
     style = "position:relative",
-    plotOutput('importanceplot', hover = hoverOpts('plot_hover_variable', delay = 100, delayType = "debounce")),
-    uiOutput('hover_info_variable'))),
+    plotOutput('importanceplot',
+        hover = hoverOpts('plot_hover_variable', delay = 100, delayType = "debounce"),
+        brush = brushOpts(id = 'plot_val_brush', resetOnNew = TRUE)),
+    uiOutput('hover_info_variable')),
+    tags$hr(),
+    actionButton("cropvar", "Zoom"),
+    downloadButton("variablePlot", "Plot"),
+    uiOutput('varelementui')),
+
 #tabPanel("test", dataTableOutput('testingagain')),
 
 #tabPanel("Testing", dataTableOutput('testtable')),
