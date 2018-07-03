@@ -2495,31 +2495,31 @@ bestCalTypeFrame <- reactive({
     predict.frame.rainforest <- rainforestData()
     
     cal.lm.simp <- simpleLinearModel()
-    lm.predict <- predict(cal.lm.simp, new.data=predict.frame.simp, interval='confidence')
+    lm.predict <- predict(cal.lm.simp, new.data=predict.frame.simp)
     lm.sum <- summary(lm(predict.frame.simp$Concentration~lm.predict, na.action=na.exclude))
     
     cal.lm.two <- nonLinearModel()
-    lm2.predict <- predict(cal.lm.two, new.data=predict.frame.simp, interval='confidence')
+    lm2.predict <- predict(cal.lm.two, new.data=predict.frame.simp)
     lm2.sum <- summary(lm(predict.frame.simp$Concentration~lm2.predict, na.action=na.exclude))
     
     cal.lm.luc <- lucasToothModel()
-    lucas.predict <- predict(cal.lm.luc, new.data=predict.frame.luc, interval='confidence')
+    lucas.predict <- predict(cal.lm.luc, new.data=predict.frame.luc)
     lucas.sum <- summary(lm(predict.frame.luc$Concentration~lucas.predict, na.action=na.exclude))
     
     cal.lm.forest <- forestModel()
-    forest.predict <- as.vector(predict(cal.lm.forest, new.data=predict.frame.forest, interval='confidence'))
+    forest.predict <- predict(cal.lm.forest, new.data=predict.frame.forest)
     forest.sum <- summary(lm(predict.frame.forest$Concentration~forest.predict, na.action=na.exclude))
     
     cal.lm.rainforest <- rainforestModel()
-    rainforest.predict <- as.vector(predict(cal.lm.rainforest, new.data=predict.frame.rainforest, interval='confidence'))
+    rainforest.predict <- predict(cal.lm.rainforest, new.data=predict.frame.rainforest)
     rainforest.sum <- summary(lm(spectra.data$Concentration~rainforest.predict, na.action=na.exclude))
     
     
     model.frame <- data.frame(Model = c("Linear", "Non-Linear", "Lucas-Tooth", "Forest", "Rainforest"),
     valSlope = round(c(lm.sum$coef[2], lm2.sum$coef[2], lucas.sum$coef[2], forest.sum$coef[2], rainforest.sum$coef[2]), 2),
-    R2 = round(c(lm.sum$r.squared, lm2.sum$r.squared, lucas.sum$r.squared, forest.sum$r.squared, rainforest.sum$r.squared), 2),
-    Score = round(c(lm.sum$r.squared*lm.sum$coef[2], lm2.sum$r.squared*lm2.sum$coef[2], lucas.sum$r.squared*lucas.sum$coef[2], forest.sum$r.squared*forest.sum$coef[2], rainforest.sum$r.squared*rainforest.sum$coef[2]), 2),
-    Rank = round(abs(1-c(lm.sum$r.squared*lm.sum$coef[2], lm2.sum$r.squared*lm2.sum$coef[2], lucas.sum$r.squared*lucas.sum$coef[2], forest.sum$r.squared*forest.sum$coef[2], rainforest.sum$r.squared*rainforest.sum$coef[2])), 2),
+    R2 = round(c(lm.sum$adj.r.squared, lm2.sum$adj.r.squared, lucas.sum$adj.r.squared, forest.sum$adj.r.squared, rainforest.sum$adj.r.squared), 2),
+    Score = round(c(lm.sum$adj.r.squared*lm.sum$coef[2], lm2.sum$adj.r.squared*lm2.sum$coef[2], lucas.sum$adj.r.squared*lucas.sum$coef[2], forest.sum$adj.r.squared*forest.sum$coef[2], rainforest.sum$adj.r.squared*rainforest.sum$coef[2]), 2),
+    Rank = round(abs(1-c(lm.sum$adj.r.squared*lm.sum$coef[2], lm2.sum$adj.r.squared*lm2.sum$coef[2], lucas.sum$adj.r.squared*lucas.sum$coef[2], forest.sum$adj.r.squared*forest.sum$coef[2], rainforest.sum$adj.r.squared*rainforest.sum$coef[2])), 2),
     Code=c(1, 2, 3, 4, 5))
     
     
