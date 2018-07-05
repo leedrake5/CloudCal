@@ -1999,6 +1999,16 @@ importanceFrame <- reactive({
     
 })
 
+
+
+importanceranges <- reactiveValues(x = NULL, y = NULL)
+
+
+
+
+
+
+
 rainForestImportancePlot <- reactive({
     
     importance.frame <- importanceFrame()
@@ -2009,14 +2019,33 @@ rainForestImportancePlot <- reactive({
     intensity.base <- (element$Intensity/max(element$Intensity))
     
     ggplot(importance.frame) +
+    geom_area(aes(Energy, NodePurity), fill="grey80", alpha=0.8) +
     geom_line(aes(Energy, NodePurity)) +
     geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
     theme_light() +
-    scale_x_continuous("Energy (keV)")
-    
+    scale_x_continuous("Energy (keV)") +
+    coord_cartesian(xlim = importanceranges$x, ylim = importanceranges$y, expand = TRUE)
+
     
 })
 
+# When a double-click happens, check if there's a brush on the plot.
+# If so, zoom to the brush bounds; if not, reset the zoom.
+observeEvent(input$cropvar, {
+    data <- dataHold()
+    brush <- input$plot_var_brush
+    if (!is.null(brush)) {
+        importanceranges$x <- c(brush$xmin, brush$xmax)
+        importanceranges$y <- c(brush$ymin, brush$ymax)
+        
+    } else {
+        importanceranges$x <- NULL
+        importanceranges$y <- NULL
+    }
+    
+    
+    
+})
 
 variablesPlot <- reactive({
     
@@ -4845,12 +4874,14 @@ observeEvent(input$createcal, {
                  myData()
              }
              
+             cal.definitions <- linevalues[["DF"]]
+             
              
              dataHold()
 
              calibrationList <- NULL
-             calibrationList <- list(input$filetype, input$calunits, cal.data, cal.intensities, cal.values, calList)
-             names(calibrationList) <- c("FileType", "Units", "Spectra", "Intensities", "Values", "calList")
+             calibrationList <- list(input$filetype, input$calunits, cal.data, cal.intensities, cal.definitions, cal.values, calList)
+             names(calibrationList) <- c("FileType", "Units", "Spectra", "Intensities", "Definitions", "Values", "calList")
              
     Calibration <<- calibrationList
 
@@ -7631,6 +7662,18 @@ content = function(file){
             variableelements
         })
         
+        
+        
+        calDefinitions <- reactive({
+            
+            if(!is.null(calFileContents2()[["Definitions"]])){
+                calFileContents2()[["Definitions"]]
+            } else if(is.null(calFileContents2()[["Definitions"]])){
+                NULL
+            }
+            
+        })
+        
         valDataType <- reactive({
             
             if(input$valfiletype=="CSV"){
@@ -7661,7 +7704,7 @@ content = function(file){
             variableelements <- calVariableElements()
             val.data <- myValData()
             
-            if(valDataType()=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data))}
+            if(valDataType()=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
             if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, '[', 2)}
             
             
@@ -7697,7 +7740,7 @@ content = function(file){
             variableelements <- calVariableElements()
             val.data <- myValData()
             
-            if(valDataType()=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data))}
+            if(valDataType()=="Spectra" ){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
             if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
             
             

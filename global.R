@@ -1627,7 +1627,7 @@ elementGrabMalpha <- function(element, data) {
     
 }
 
-elementGrab <- function(element.line, data) {
+elementGrabpre <- function(element.line, data) {
     
     element <- strsplit(x=element.line, split="\\.")[[1]][1]
     destination <- strsplit(x=element.line, split="\\.")[[1]][2]
@@ -1645,6 +1645,46 @@ elementGrab <- function(element.line, data) {
         elementGrabMalpha(element, data)
     }
         
+}
+
+
+
+
+range_subset_xrf <- function(range.frame, data){
+    
+    new.data <- subset(data, Energy >= range.frame$EnergyMin & Energy <= range.frame$EnergyMax, drop=TRUE)
+    newer.data <- aggregate(new.data, by=list(new.data$Spectrum), FUN=mean, na.rm=TRUE)[,c("Group.1", "CPS")]
+    colnames(newer.data) <- c("Spectrum", as.character(range.frame$Name))
+    newer.data
+}
+
+xrf_parse <- function(range.table, data){
+    
+    choice.lines <- range.table[complete.cases(range.table),]
+    
+    choice.list <- split(choice.lines, f=choice.lines$Name)
+    names(choice.list) <- choice.lines[,"Name"]
+    
+    index <- choice.lines[,"Name"]
+    
+    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data))
+    
+    Reduce(function(...) merge(..., all=T), selected.list)
+}
+
+
+
+elementGrab <- function(element.line, data, range.table){
+    
+    is.element <- element.line %in% spectralLines
+    
+    if(is.element==TRUE){
+        elementGrabpre(element.line, data)
+    } else if(is.element==FALSE){
+        xrf_parse(range.table, data)
+    }
+
+    
 }
 
 
