@@ -5175,7 +5175,7 @@ shinyServer(function(input, output, session) {
         elementallinestouseMulti <- reactive({
             
             
-            names(quantCals()[[input$defaultcal]])
+            colnames(quantIntensities()[[input$defaultcal]])
             
             
         })
@@ -5415,22 +5415,39 @@ observeEvent(input$actionprocess2_multi, {
         
         calFileStandardsMulti <- reactive({
             
+            calstandardmulticheck <- function(cal, vals, element){
+                if(is.null(cal[[element]][[1]][["StandardsUsed"]])){
+                    as.vector(rep(TRUE, length(vals[element])))
+                } else if(!is.null(cal[[element]][[1]][["StandardsUsed"]])){
+                   cal[[element]][[1]][["StandardsUsed"]]
+                }
+                
+            }
+            
            cal.list <- quantCals()
+           
+           val.list <- quantValues()
            
            cal.names <- quantNames()
            
            n <- length(cal.names)
            
-           element.cal.meta <- lapply(cal.list, "[[", elementHoldMulti())
-           element.cal.meta2 <- lapply(element.cal.meta, "[[", 1)
-           element.cal.meta3 <- lapply(element.cal.meta2, "[[", "StandardsUsed")
-           element.cal.meta4 <- lapply(element.cal.meta3, as.vector)
+           #element.cal.meta <- lapply(cal.list, "[[", elementHoldMulti())
+           #element.cal.meta2 <- lapply(element.cal.meta, "[[", 1)
+           #element.cal.meta3 <- lapply(element.cal.meta2, "[[", "StandardsUsed")
+           #element.cal.meta4 <- lapply(element.cal.meta3, as.vector)
 
            
-           names(element.cal.meta4) <- quantNames()
-           element.cal.meta4
+           #names(element.cal.meta4) <- quantNames()
+           #element.cal.meta4
+           
+           element.cal.meta <- lapply(quantNames(), function(x) calstandardmulticheck(cal=quantCals()[[x]], vals=quantValues()[[x]], element=input$calcurveelement_multi))
+           names(element.cal.meta) <- quantNames()
+           element.cal.meta
            
         })
+        
+        
         
         
         
