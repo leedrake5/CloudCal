@@ -6,7 +6,6 @@ library(dtplyr)
 library(rhandsontable)
 library(Cairo)
 
-#Jonathan Crouch
 
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
@@ -146,6 +145,8 @@ checkboxInput('usecalfile', "Use Cal File")
 
 
 mainPanel(
+tabsetPanel(
+tabPanel("Spectrum",
 plotOutput("distPlot", height = 685,
 dblclick = "plot1_dblclick",
 brush = brushOpts(
@@ -154,8 +155,14 @@ resetOnNew = TRUE
 )),
 actionButton("cropspectra", "Zoom")
 ),
+
+tabPanel("Notes",
+uiOutput('notesui'))
+)
+
+
 ))
-),
+)),
 
 
 
