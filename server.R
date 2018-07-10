@@ -7037,7 +7037,7 @@ observeEvent(input$actionprocess2_multi, {
         
         
         # Toggle points that are clicked
-        observeEvent(input$plot_cal_click_random_multi, {
+        observeEvent(input$plot_cal_click_multi, {
             
             predict.frame <- if(calTypeMulti()==1){
                 calCurveFrameMulti()
