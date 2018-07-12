@@ -3261,7 +3261,11 @@ shinyServer(function(input, output, session) {
             element.model <- elementModel()
             val.frame <- valFrame()
             
-            element.name <- gsub("[.]", "", substr(input$calcurveelement, 1, 2))
+            element.name <- if(input$calcurveelement %in% spectralLines){
+                gsub("[.]", "", substr(input$calcurveelement, 1, 2))
+            } else {
+                input$calcurveelement
+            }
             intens <- " Counts per Second"
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
@@ -3375,7 +3379,11 @@ shinyServer(function(input, output, session) {
             
             
             
-            element.name <- gsub("[.]", "", substr(input$calcurveelement, 1, 2))
+            element.name <- if(input$calcurveelement %in% spectralLines){
+                gsub("[.]", "", substr(input$calcurveelement, 1, 2))
+            } else {
+                input$calcurveelement
+            }
             intens <- " Counts per Second"
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
@@ -3752,7 +3760,11 @@ shinyServer(function(input, output, session) {
             element.model <- elementModelRandom()
             
             
-            element.name <- gsub("[.]", "", substr(input$calcurveelement, 1, 2))
+            element.name <- if(input$calcurveelement %in% spectralLines){
+                gsub("[.]", "", substr(input$calcurveelement, 1, 2))
+            } else {
+                input$calcurveelement
+            }
             intens <- " Counts per Second"
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
@@ -3863,7 +3875,14 @@ shinyServer(function(input, output, session) {
             
             
             
-            element.name <- gsub("[.]", "", substr(input$calcurveelement, 1, 2))
+            #element.name <- gsub("[.]", "", substr(input$calcurveelement, 1, 2))
+            
+            element.name <- if(input$calcurveelement %in% spectralLines){
+                gsub("[.]", "", substr(input$calcurveelement, 1, 2))
+            } else {
+                input$calcurveelement
+            }
+
             intens <- " Counts per Second"
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"

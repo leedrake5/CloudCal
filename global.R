@@ -13,8 +13,8 @@ get_os <- function(){
     }
     tolower(os)
 }
-
-
+#options(repos = BiocInstaller::biocinstallRepos())
+#getOption("repos")
 options(download.file.method="libcurl", url.method="libcurl")
 list.of.bioconductor <- c("graph", "RBGL", "Rgraphviz")
 new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.packages()[,"Package"])]
