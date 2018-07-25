@@ -545,6 +545,8 @@ sidebarLayout(
 sidebarPanel(width=3,
 
 actionButton('processvalspectra', "Quantify"),
+checkboxInput('converttoppm', "Convert to ppm"),
+checkboxInput('converttopercent', "Convert to percent"),
 
 
 tags$hr(),
@@ -555,13 +557,11 @@ selectInput("valfiletype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA
 
 
 tags$hr(),
-tags$hr(),
-tags$hr(),
 
 fileInput('calfileinput2', 'Load Cal File', accept=".quant", multiple=FALSE),
-sliderInput('resultrounding', "Round Results", min=0, max=10, value=4),
+uiOutput('roundingui')
 
-downloadButton('downloadValData', "Results")
+
 
 ),
 
@@ -569,7 +569,13 @@ downloadButton('downloadValData', "Results")
 mainPanel(
 tabsetPanel(
 id = 'dataset2',
-tabPanel('Validation', dataTableOutput('myvaltable2')),
+tabPanel('Validation', dataTableOutput('myvaltable2'),
+tags$hr(),
+
+
+textInput('quantifiedname', label=NULL, placeholder="Data Label"),
+downloadButton('downloadValData', "Results")
+),
 tabPanel('Counts', dataTableOutput('myvaltable1'))
 
 ))

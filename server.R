@@ -8041,7 +8041,13 @@ content = function(file){
         }
             )
             
-        predicted.vector <- round(unlist(predicted.list), input$resultrounding)
+        predicted.vector <- unlist(predicted.list)
+        
+        if(input$converttoppm==TRUE){predicted.vector <- predicted.vector*10000}
+        if(input$converttopercent==TRUE){predicted.vector <- predicted.vector/10000}
+        
+        predicted.vector <- round(predicted.vector, input$resultrounding)
+
         
         dim(predicted.vector) <- c(length(count.table$Spectrum), length(elements))
         
@@ -8060,6 +8066,21 @@ content = function(file){
             
         })
         
+        output$roundingui <- renderUI({
+            
+            if(input$converttoppm==TRUE && input$converttopercent==FALSE){
+                sliderInput('resultrounding', "Round Results", min=0, max=10, value=0)
+            } else if(input$converttoppm==FALSE && input$converttopercent==TRUE){
+                sliderInput('resultrounding', "Round Results", min=0, max=10, value=4)
+            } else if(input$converttoppm==FALSE && input$converttopercent==FALSE){
+                sliderInput('resultrounding', "Round Results", min=0, max=10, value=4)
+            } else if(input$converttoppm==TRUE && input$converttopercent==TRUE){
+                sliderInput('resultrounding', "Round Results", min=0, max=10, value=4)
+            }
+
+            
+        })
+        
         output$myvaltable2 <- renderDataTable({
             
             tableInputValQuant()
@@ -8070,7 +8091,7 @@ content = function(file){
         # valtest <- lapply(valelements, function(x) predict(calsList[[x]], as.data.frame(val.line.table[x])))
         
         output$downloadValData <- downloadHandler(
-        filename = function() { paste(input$calname, "_ValData", '.csv', sep='', collapse='') },
+        filename = function() { paste(input$quantifiedname, "_ValData", '.csv', sep='', collapse='') },
         content = function(file
         ) {
             write.csv(tableInputValQuant(), file)
