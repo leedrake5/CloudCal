@@ -3222,6 +3222,7 @@ shinyServer(function(input, output, session) {
             } else {
                 input$calcurveelement
             }
+            
             intens <- " Counts per Second"
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
@@ -5961,7 +5962,13 @@ observeEvent(input$actionprocess2_multi, {
             element.model <- elementModelMulti()[[input$defaultcal]]
             val.frame <- valFrameMulti()
             
-            element.name <- gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            element.name <- if(input$calcurveelement_multi %in% spectralLines){
+                gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            } else {
+                input$calcurveelement_multi
+            }
+            
+            
             intens <- " Counts per Second"
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
@@ -6080,7 +6087,12 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            element.name <- gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            element.name <- if(input$calcurveelement_multi %in% spectralLines){
+                gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            } else {
+                input$calcurveelement_multi
+            }
+            
             intens <- " Counts per Second"
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
@@ -6631,7 +6643,13 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            element.name <- gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            element.name <- if(input$calcurveelement_multi %in% spectralLines){
+                gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            } else {
+                input$calcurveelement_multi
+            }
+
+
             intens <- " Counts per Second"
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
@@ -6782,7 +6800,12 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            element.name <- gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            element.name <- if(input$calcurveelement_multi %in% spectralLines){
+                gsub("[.]", "", substr(input$calcurveelement_multi, 1, 2))
+            } else {
+                input$calcurveelement_multi
+            }
+
             intens <- " Counts per Second"
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
@@ -7199,6 +7222,27 @@ observeEvent(input$actionprocess2_multi, {
             ggsave(file,calPlotDownloadMulti(), device="tiff", compression="lzw", type="cairo", dpi=300, width=18, height=7)
         }
         )
+        
+        
+        
+        calPlotDownloadMulti_val <- reactive({
+
+                grid.arrange(calCurvePlotRandomMulti(), valCurvePlotRandomMulti(), ncol=2)
+                
+            
+            
+            
+        })
+        
+        
+        output$downloadcloudplot_multi_val <- downloadHandler(
+        filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement_multi), collapse=''), '.tiff',  sep='') },
+        content = function(file) {
+            ggsave(file,calPlotDownloadMulti_val(), device="tiff", compression="lzw", type="cairo", dpi=300, width=18, height=7)
+        }
+        )
+
+
 
 
 

@@ -521,7 +521,9 @@ tabPanel("Cross Validation",
     tags$hr(),
         sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.20),
         checkboxInput('switchmulti', "Use Cross-Validation for Report", value=FALSE),
-        checkboxInput('switchrand', "Randomize by Spectrum", value=FALSE)
+        checkboxInput('switchrand', "Randomize by Spectrum", value=FALSE),
+        downloadButton("downloadcloudplot_multi_val", "Plot")
+
 
 ),
 
