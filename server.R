@@ -1171,9 +1171,56 @@ shinyServer(function(input, output, session) {
         }
         )
         
-        observeEvent(input$hotableprocess1, {
+        
+        outVar <- reactive({
+            input$linecommit
+            
+            myelements <- elementallinestouse()
+            
+            result <- if(is.null(myelements)){
+                "Ca.K.alpha"
+            }else{
+                myelements
+            }
+            
+            result
+            
+            
         })
         
+        outVaralt <- reactive({
+            input$linecommit
+            
+            
+            myelements <- c(elementallinestouse())
+            
+            
+            if(is.null(myelements)){
+                paste("Ca.K.alpha")
+            }else{
+                myelements
+            }
+            
+        })
+        
+        outVaralt2 <- reactive({
+            input$linecommit
+            
+            
+            myelements <- c(elementallinestouse())
+            
+            
+            if(is.null(myelements)){
+                paste("Ca.K.alpha")
+            }else{
+                myelements[! myelements %in% c(input$calcurveelement)]
+            }
+            
+        })
+        
+        output$inVar2 <- renderUI({
+            selectInput(inputId = "calcurveelement", label = h4("Element"), choices =  outVar())
+        })
         
         
         hotableInputBlank <- reactive({
@@ -1531,7 +1578,7 @@ shinyServer(function(input, output, session) {
         calList <- reactiveValues()
         calList <- NULL
         
-        observeEvent(input$hotableprocess2, {
+        observeEvent(input$linecommit, {
             
             cal.condition <- 3
             norm.condition <- 1
@@ -1554,77 +1601,22 @@ shinyServer(function(input, output, session) {
             
         })
         
-        
-        outVar <- reactive({
-            input$hotableprocess2
-            
-            myelements <- elementallinestouse()
-            
-            result <- if(is.null(myelements)){
-                "Ca.K.alpha"
-            }else{
-                myelements
-            }
-            
-            result
-            
-            
-        })
-        
-        outVaralt <- reactive({
-            input$hotableprocess2
-            
-            
-            myelements <- c(elementallinestouse())
-            
-            
-            if(is.null(myelements)){
-                paste("Ca.K.alpha")
-            }else{
-                myelements
-            }
-            
-        })
-        
-        outVaralt2 <- reactive({
-            input$hotableprocess2
-            
-            
-            myelements <- c(elementallinestouse())
-            
-            
-            if(is.null(myelements)){
-                paste("Ca.K.alpha")
-            }else{
-                myelements[! myelements %in% c(input$calcurveelement)]
-            }
-            
-        })
-        
-        output$inVar2 <- renderUI({
-            selectInput(inputId = "calcurveelement", label = h4("Element"), choices =  outVar())
-        })
+
         
         inVar3Selectedpre <- reactive({
             
-            hold <- values[["DF"]]
+
             
-            optionhold <- if(is.null(input$calcurveelement)){
-                ls(hold)[2]
-            }else{
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
                 input$calcurveelement
-            }
-            
-            if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-                optionhold
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE  && is.null(calFileContents()$calList[[optionhold]])==FALSE){
-                calFileContents()$calList[[optionhold]][[1]]$Intercept
-            } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$Intercept
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$Intercept
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
-                optionhold
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE  && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$Intercept
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$Intercept
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$Intercept
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+                input$calcurveelement
             }
             
             
@@ -1635,25 +1627,17 @@ shinyServer(function(input, output, session) {
         
         inVar4Selectedpre <- reactive({
             
-            hold <- values[["DF"]]
             
-            optionhold <- if(is.null(input$calcurveelement)){
-                ls(hold)[2]
-            }else{
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
                 input$calcurveelement
-            }
-            
-            
-            if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-                optionhold
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
-                calFileContents()$calList[[optionhold]][[1]]$Slope
-            } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$Slope
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$Slope
-            }  else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
-                optionhold
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$Slope
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$Slope
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$Slope
+            }  else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+                input$calcurveelement
             }
         })
         
@@ -1664,23 +1648,16 @@ shinyServer(function(input, output, session) {
         
         normMinPre <- reactive({
             
-            hold <- values[["DF"]]
             
-            optionhold <- if(is.null(input$calcurveelement)){
-                ls(hold)[2]
-            }else{
-                input$calcurveelement
-            }
-            
-            if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
                 calConditons[["CalTable"]][["Min"]]
-            }else if(input$usecalfile==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE && is.null(calList[[optionhold]])==TRUE){
-                calFileContents()$calList[[optionhold]][[1]]$CalTable$Min
-            } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$CalTable$Min
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$CalTable$Min
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$Min
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$Min
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$Min
+            }  else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
                 calConditons[["CalTable"]][["Min"]]
             }
             
@@ -1688,23 +1665,16 @@ shinyServer(function(input, output, session) {
         
         normMaxPre <- reactive({
             
-            hold <- values[["DF"]]
             
-            optionhold <- if(is.null(input$calcurveelement)){
-                ls(hold)[2]
-            }else{
-                input$calcurveelement
-            }
-            
-            if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
-                calConditons[["CalTable"]][["Max"]]
-            }else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
-                calFileContents()$calList[[optionhold]][[1]]$CalTable$Max
-            } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$CalTable$Max
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$CalTable$Max
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["MAx"]]
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$Max
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$Max
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$Max
+            }  else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
                 calConditons[["CalTable"]][["Max"]]
             }
         })
@@ -1791,7 +1761,7 @@ shinyServer(function(input, output, session) {
         
         normhold <- reactiveValues()
         
-        observeEvent(input$hotableprocess2, {
+        observeEvent(input$calcurveelement, {
             normhold$norms <- c(normMinPre(), normMaxPre())
             normhold$normtype <- calNormSelectionpre()
         })
@@ -1821,24 +1791,17 @@ shinyServer(function(input, output, session) {
         
         
         calNormSelectionpre <- reactive({
+
             
-            hold <- values[["DF"]]
-            
-            optionhold <- if(is.null(input$calcurveelement)){
-                ls(hold)[2]
-            }else{
-                input$calcurveelement
-            }
-            
-            if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
                 calConditons[["CalTable"]][["NormType"]]
-            }else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
-                calFileContents()$calList[[optionhold]][[1]]$CalTable$NormType
-            } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$CalTable$NormType
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$CalTable$NormType
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
+            }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$NormType
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$NormType
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$NormType
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
                 calConditons[["CalTable"]][["NormType"]]
             }
             
@@ -2520,23 +2483,16 @@ shinyServer(function(input, output, session) {
         
         calTypeSelectionPre <- reactive({
             
-            hold <- values[["DF"]]
             
-            optionhold <- if(is.null(input$calcurveelement)){
-                ls(hold)[2]
-            }else{
-                input$calcurveelement
-            }
-            
-            if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==TRUE){
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
                 calConditons[["CalTable"]][["CalType"]]
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==FALSE){
-                calFileContents()$calList[[optionhold]][[1]]$CalTable$CalType
-            } else if(input$usecalfile==FALSE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$CalTable$CalType
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==FALSE){
-                calList[[optionhold]][[1]]$CalTable$CalType
-            } else if(input$usecalfile==TRUE && is.null(calList[[optionhold]])==TRUE && is.null(calFileContents()$calList[[optionhold]])==TRUE){
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$CalType
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$CalType
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$CalType
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
                 calConditons[["CalTable"]][["CalType"]]
             }
             
@@ -5257,16 +5213,8 @@ shinyServer(function(input, output, session) {
         })
         
         inVar3SelectedMulti <- reactive({
-            
-            hold <- quantValues()
-            
-            optionhold <- if(is.null(input$calcurveelement_multi)){
-                ls(hold[[input$defaultcal]])[2]
-            } else if(!is.null(input$calcurveelement_multi)){
-                input$calcurveelement_multi
-            }
-            
-            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$Intercept
+
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$Intercept
             
             
             
@@ -5279,17 +5227,9 @@ shinyServer(function(input, output, session) {
         })
         
         inVar4SelectedMulti <- reactive({
+
             
-            hold <- quantValues()
-            
-            optionhold <- if(is.null(input$calcurveelement_multi)){
-                ls(hold[[input$defaultcal]])[2]
-            }else  if(!is.null(input$calcurveelement_multi)){
-                input$calcurveelement_multi
-            }
-            
-            
-            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$Slope
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$Slope
             
         })
         
@@ -5300,63 +5240,31 @@ shinyServer(function(input, output, session) {
         
         
         calTypeSelectionMulti <- reactive({
-            
-            hold <- quantValues()
-            
-            optionhold <- if(is.null(input$calcurveelement_multi)){
-                ls(hold[[input$defaultcal]])[2]
-            } else if(!is.null(input$calcurveelement_multi)){
-                input$calcurveelement_multi
-            }
-            
-            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$CalTable$CalType
+
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable$CalType
             
             
         })
         
         calNormSelectionMulti <- reactive({
             
-            hold <- quantValues()
             
-            optionhold <- if(is.null(input$calcurveelement_multi)){
-                ls(hold[[input$defaultcal]])[2]
-            }else{
-                input$calcurveelement_multi
-            }
-            
-            
-            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$CalTable$NormType
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable$NormType
             
             
         })
         
         normMinSelectionMulti <- reactive({
+        
             
-            hold <- quantValues()
-            
-            optionhold <- if(is.null(input$calcurveelement_multi)){
-                ls(hold[[input$defaultcal]])[2]
-            }else{
-                input$calcurveelement_multi
-            }
-            
-            
-            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$CalTable$Min
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable$Min
             
             
         })
         
         normMaxSelectionMulti <- reactive({
             
-            hold <- quantValues()
-            
-            optionhold <- if(is.null(input$calcurveelement_multi)){
-                ls(hold[[input$defaultcal]])[2]
-            }else if(!is.null(input$calcurveelement_multi)){
-                input$calcurveelement_multi
-            }
-            
-            calListMulti[[input$defaultcal]][["calList"]][[optionhold]][[1]]$CalTable$Max
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable$Max
             
         })
         
