@@ -21,7 +21,7 @@ library(DescTools)
 pdf(NULL)
 
 
-options(shiny.maxRequestSize=9000000*1024^2)
+options(shiny.maxRequestSize=30*1024^2)
 
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
@@ -2296,7 +2296,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$variablePlot <- downloadHandler(
-        filename = function() { paste0(input$calname, "_", input$calcurveelement, '_Variables', '.tiff', sep='') },
+        filename = function() { paste0(input$calname, "_", input$calcurveelemenet , '_Variables', '.tiff', sep='') },
         content = function(file) {
             ggsave(file,variablesPlot(), width=14, height=8, device="tiff", compression="lzw", type="cairo", dpi=300)
         }
