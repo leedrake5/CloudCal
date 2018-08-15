@@ -18,6 +18,10 @@ library(scales)
 library(caret)
 library(randomForest)
 library(DescTools)
+library(prospectr)
+library(pls)
+library(baseline)
+library(doParallel)
 pdf(NULL)
 
 
@@ -1650,7 +1654,7 @@ shinyServer(function(input, output, session) {
             
             
             if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
-                calConditons[["CalTable"]][["Min"]]
+                calConditons[["CalTable"]]["Min"]
             } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
                 calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$Min
             } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
@@ -1658,7 +1662,7 @@ shinyServer(function(input, output, session) {
             } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
                 calList[[input$calcurveelement]][[1]]$CalTable$Min
             }  else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
-                calConditons[["CalTable"]][["Min"]]
+                calConditons[["CalTable"]]["Min"]
             }
             
         })
@@ -1667,7 +1671,7 @@ shinyServer(function(input, output, session) {
             
             
             if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
-                calConditons[["CalTable"]][["MAx"]]
+                calConditons[["CalTable"]]["Max"]
             } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
                 calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$Max
             } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
@@ -1675,7 +1679,7 @@ shinyServer(function(input, output, session) {
             } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
                 calList[[input$calcurveelement]][[1]]$CalTable$Max
             }  else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
-                calConditons[["CalTable"]][["Max"]]
+                calConditons[["CalTable"]]["Max"]
             }
         })
         
@@ -1761,7 +1765,7 @@ shinyServer(function(input, output, session) {
         
         normhold <- reactiveValues()
         
-        observeEvent(input$calcurveelement, {
+        observeEvent(input$c, {
             normhold$norms <- c(normMinPre(), normMaxPre())
             normhold$normtype <- calNormSelectionpre()
         })
@@ -1989,7 +1993,7 @@ shinyServer(function(input, output, session) {
         rainForestImportance <- reactive({
             
             
-            as.data.frame(importance(elementModel()))
+            as.data.frame(varImp(elementModel(), scale=FALSE)$importance)
             
         })
         
@@ -1997,7 +2001,7 @@ shinyServer(function(input, output, session) {
         importanceFrame <- reactive({
             
             importance.frame <- rainForestImportance()
-            colnames(importance.frame) <- c("NodePurity")
+            colnames(importance.frame) <- c("Importance")
             importance.frame$Energy <- as.numeric(gsub("X", "", rownames(importance.frame)))
             importance.frame
             
@@ -2019,15 +2023,15 @@ shinyServer(function(input, output, session) {
             
             
             element <- datasetInputVar()
-            intensity.norm <- (element$Intensity/max(element$Intensity))*max(importance.frame$NodePurity)
+            intensity.norm <- (element$Intensity/max(element$Intensity))*max(importance.frame$Importance)
             intensity.base <- (element$Intensity/max(element$Intensity))
             
             ggplot(importance.frame) +
-            geom_area(aes(Energy, NodePurity), fill="grey80", alpha=0.8) +
-            geom_line(aes(Energy, NodePurity)) +
+            geom_line(aes(Energy, Importance)) +
             geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
             theme_light() +
             scale_x_continuous("Energy (keV)") +
+            scale_y_continuous(paste0(input$calcurveelement, " Importance")) +
             coord_cartesian(xlim = importanceranges$x, ylim = importanceranges$y, expand = TRUE)
             
             
@@ -2287,8 +2291,8 @@ shinyServer(function(input, output, session) {
                 # actual tooltip created as wellPanel
                 wellPanel(
                 style = style,
-                p(HTML(paste0("Energy:", " ", round(point$Energy, 0)))),
-                p(HTML(paste0("NodePurity:", " ", round(point$NodePurity, 1))))
+                p(HTML(paste0("Energy:", " ", round(point$Energy, 2)))),
+                p(HTML(paste0("Importance:", " ", round(point$Importance, 1))))
                 )
             } else if(calType()!=5){
                 NULL
@@ -2499,7 +2503,7 @@ shinyServer(function(input, output, session) {
         })
         
         
-        predictIntensitySimp <- reactive({
+        predictIntensitySimpPre <- reactive({
             
             concentration.table <- concentrationTable()
             data <- dataNorm()
@@ -2534,11 +2538,10 @@ shinyServer(function(input, output, session) {
             data <- dataNorm()
             spectra.line.table <- spectraLineTable()
             
-            predict.intensity.simp <- predictIntensitySimp()
+            predict.intensity.simp <- predictIntensitySimpPre()
             
             predict.frame.simp <- data.frame(predict.intensity.simp, concentration.table[,input$calcurveelement])
             predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp),]
-            predict.frame.simp <- predict.frame.simp[vals$keeprows,]
             colnames(predict.frame.simp) <- c(names(predict.intensity.simp), "Concentration")
             predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp$Concentration),]
             
@@ -2546,20 +2549,27 @@ shinyServer(function(input, output, session) {
             
         })
         
+        predictIntensitySimp <- reactive({
+            
+            data.frame(Intensitys=predictFrameSimp()[,1])
+            
+            
+        })
+        
         simpleLinearModel <- reactive({
             
-            lm(Concentration~Intensity, data=predictFrameSimp(), na.action=na.exclude)
+            lm(Concentration~Intensity, data=predictFrameSimp()[vals$keeprows,, drop=FALSE], na.action=na.omit)
             
             
         })
         
         nonLinearModel <- reactive({
             
-            lm(Concentration~Intensity + I(Intensity^2), data=predictFrameSimp(), na.action=na.exclude)
+            lm(Concentration~Intensity + I(Intensity^2), data=predictFrameSimp()[vals$keeprows,, drop=FALSE], na.action=na.omit)
             
         })
         
-        predictIntensityForest <- reactive({
+        predictIntensityForestPre <- reactive({
             
             concentration.table <- concentrationTable()
             data <- dataNorm()
@@ -2597,25 +2607,41 @@ shinyServer(function(input, output, session) {
             spectra.line.table <- spectraLineTable()
             
             
-            predict.intensity.forest <- predictIntensityForest()
+            predict.intensity.forest <- predictIntensityForestPre()
             
             predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=concentration.table[,input$calcurveelement])
             predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest),]
-            predict.frame.forest <- predict.frame.forest[vals$keeprows,]
             predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
             
             predict.frame.forest
             
         })
         
+        predictIntensityForest <- reactive({
+            
+            predictFrameForest()[,!(colnames(predictFrameForest()) %in% "Concentration")]
+            
+            
+        })
+        
         forestModel <- reactive({
             
-            randomForest(Concentration~., data=predictFrameForest(), na.action=na.omit, ntree=1000, nPerm=100)
+            #randomForest(Concentration~., data=predictFrameForest()[vals$keeprows,, drop=FALSE], na.action=na.omit, ntree=1000, nPerm=100)
+            
+            cl <- makePSOCKcluster(as.numeric(my.cores))
+            registerDoParallel(cl)
+            
+            rf_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
+            trControl=trainControl(method="cv",number=5),
+            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric="RMSE")
+            
+            stopCluster(cl)
+            rf_model
             
         })
         
         
-        predictIntensityLuc <- reactive({
+        predictIntensityLucPre <- reactive({
             
             
             predictIntensityForest()[,c("Intensity", input$slope_vars)]
@@ -2629,11 +2655,10 @@ shinyServer(function(input, output, session) {
             spectra.line.table <- spectraLineTable()
             
             
-            predict.intensity.luc <- predictIntensityLuc()
+            predict.intensity.luc <- predictIntensityLucPre()
             
             predict.frame.luc <- data.frame(predict.intensity.luc, concentration.table[,input$calcurveelement])
             predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc),]
-            predict.frame.luc <- predict.frame.luc[vals$keeprows,]
             colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
             predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc$Concentration),]
             
@@ -2641,18 +2666,22 @@ shinyServer(function(input, output, session) {
             
         })
         
-        
-        lucasToothModel <- reactive({
+        predictIntensityLuc <- reactive({
             
-            lm(Concentration~., data=predictFrameLuc(), na.action=na.exclude)
+            predictFrameLuc()[,!(colnames(predictFrameLuc()) %in% "Concentration")]
+            
+            
         })
         
         
-        rainforestData <- reactive({
+        lucasToothModel <- reactive({
             
-            concentration.table <- concentrationTable()
+            lm(Concentration~., data=predictFrameLuc()[vals$keeprows,, drop=FALSE], na.action=na.omit)
+        })
+        
+        
+        rainforestIntensityPre <- reactive({
             data <- dataNorm()
-            spectra.line.table <- spectraLineTable()
             
             spectra.data <- if(input$normcal==1){
                 if(dataType()=="Spectra"){
@@ -2673,19 +2702,51 @@ shinyServer(function(input, output, session) {
                     NULL
                 }
             }
+
+
+            spectra.data
+            
+        })
+        
+        
+        rainforestData <- reactive({
+            
+            concentration.table <- concentrationTable()
+            spectra.line.table <- spectraLineTable()
+            
+            spectra.data <- rainforestIntensityPre()
+            
+
             
             spectra.data$Concentration <- concentration.table[complete.cases(concentration.table[,input$calcurveelement]),input$calcurveelement]
             spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
-            spectra.data <- spectra.data[vals$keeprows,]
             
             spectra.data
+            
+        })
+        
+        rainforestIntensity <- reactive({
+            
+            rainforestData()[,!(colnames(rainforestData()) %in% "Concentration")]
             
         })
         
         
         rainforestModel <- reactive({
             
-            randomForest(Concentration~., data=rainforestData(), na.action=na.omit, ntree=1000, nPerm=100)
+            #randomForest(Concentration~., data=rainforestData(), na.action=na.omit, ntree=1000, nPerm=100)
+            
+            
+            cl <- makePSOCKcluster(as.numeric(my.cores))
+            registerDoParallel(cl)
+            
+            rf_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
+            trControl=trainControl(method="cv",number=5),
+            prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
+            
+            
+            stopCluster(cl)
+            rf_model
             
         })
         
@@ -2862,150 +2923,17 @@ shinyServer(function(input, output, session) {
         
         predictIntensity <- reactive({
             
-            spectra.line.table <- spectraLineTable()
-            data <- dataNorm()
-            
-            
-            spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
-            
-            
             if (input$radiocal==1){
-                
-                if(input$normcal==1){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        general_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-                    } else if(dataType()=="Net"){
-                        general_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-                    }
-                }
-                
-                if(input$normcal==2){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        simple_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-                    } else if(dataType()=="Net"){
-                        simple_tc_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-                    }
-                }
-                
-                if(input$normcal==3){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        simple_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
-                    } else if(dataType()=="Net"){
-                        simple_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
-                    }
-                }
-                
+                predictIntensitySimp()
+            } else if(input$radiocal==2){
+                predictIntensitySimp()
+            } else if(input$radiocal==3){
+                predictIntensityLuc()
+            } else if(input$radiocal==4){
+                predictIntensityForest()
+            } else if(input$radiocal==5){
+                rainforestIntensity()
             }
-            
-            if (input$radiocal==2){
-                
-                if(input$normcal==1){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        general_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-                    } else if(dataType()=="Net"){
-                        general_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-                    }
-                }
-                
-                if(input$normcal==2){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        simple_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-                    } else if(dataType()=="Net"){
-                        simple_tc_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement)
-                    }
-                }
-                
-                if(input$normcal==3){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        simple_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
-                    } else if(dataType()=="Net"){
-                        simple_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, norm.min=input$comptonmin, norm.max=input$comptonmax)
-                    }
-                }
-                
-            }
-            
-            
-            if (input$radiocal==3){
-                
-                if(input$normcal==1){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-                    } else if(dataType()=="Net"){
-                        lucas_simp_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-                    }
-                }
-                
-                if(input$normcal==2){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        lucas_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-                    } else if(dataType()=="Net"){
-                        lucas_tc_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars)
-                    }
-                }
-                
-                if(input$normcal==3){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
-                    } else if(dataType()=="Net"){
-                        lucas_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=input$slope_vars, intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
-                    }
-                }
-                
-            }
-            
-            if (input$radiocal==4){
-                concentration.table <- concentrationTable()
-                concentration.table <- concentration.table[complete.cases(concentration.table[, input$calcurveelement]),]
-                spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, input$calcurveelement]),]
-                data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
-                
-                predict.intensity <- if(input$normcal==1){
-                    if(dataType()=="Spectra"){
-                        lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
-                    } else if(dataType()=="Net"){
-                        lucas_simp_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
-                    }
-                } else if(input$normcal==2){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        lucas_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
-                    } else if(dataType()=="Net"){
-                        lucas_tc_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
-                    }
-                } else if(input$normcal==3){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
-                    } else if(dataType()=="Net"){
-                        lucas_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
-                    }
-                }
-                
-            }
-            
-            if (input$radiocal==5){
-                if(input$normcal==1){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        spectra_simp_prep_xrf(spectra=data)[,-1]
-                    } else if(dataType()=="Net"){
-                        NULL
-                    }
-                } else if(input$normcal==2){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        spectra_tc_prep_xrf(spectra=data)[,-1]
-                    } else if(dataType()=="Net"){
-                        NULL
-                    }
-                } else if(input$normcal==3){
-                    predict.intensity <- if(dataType()=="Spectra"){
-                        spectra_comp_prep_xrf(spectra=data, norm.min=input$comptonmin, norm.max=input$comptonmax)[,-1]
-                    } else if(dataType()=="Net"){
-                        NULL
-                    }
-                }
-            }
-            
-            
-            predict.intensity
             
             
         })
@@ -3019,17 +2947,17 @@ shinyServer(function(input, output, session) {
         
         predictFrame <- reactive({
             
-            predict.frame <- predictFramePre()
-            predict.intensity <- predictIntensity()
-            
-            
-            
-            predict.frame <- data.frame(predict.intensity, predict.frame$Concentration)
-            colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
-            
-            
-            
-            predict.frame
+            if (input$radiocal==1){
+                predictFrameSimp()
+            } else if(input$radiocal==2){
+                predictFrameSimp()
+            } else if(input$radiocal==3){
+                predictFrameLuc()
+            } else if(input$radiocal==4){
+                predictFrameForest()
+            } else if(input$radiocal==5){
+                rainforestData()
+            }
             
             
         })
@@ -3103,17 +3031,6 @@ shinyServer(function(input, output, session) {
             
             if (input$radiocal==3){
                 
-                xmin = 0; xmax=10
-                N = length(predict.frame$Concentration)
-                means = colMeans(predict.frame)
-                dummyDF = t(as.data.frame(means))
-                for(i in 2:N){dummyDF=rbind(dummyDF,means)}
-                xv=seq(xmin,xmax, length.out=N)
-                dummyDF$Concentration = xv
-                yv=predict(element.model, newdata=predict.intensity)
-                
-                
-                lucas.x <- yv
                 
                 cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
                 cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
@@ -3122,58 +3039,37 @@ shinyServer(function(input, output, session) {
                 cal.est.conc.luc.low <- cal.est.conc.tab$lwr
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, cal.est.conc.luc, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
                 colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
             }
             
             if (input$radiocal==4){
                 
-                xmin = 0; xmax=10
-                N = length(predict.frame$Concentration)
-                means = colMeans(predict.frame)
-                dummyDF = t(as.data.frame(means))
-                for(i in 2:N){dummyDF=rbind(dummyDF,means)}
-                xv=seq(xmin,xmax, length.out=N)
-                dummyDF$Concentration = xv
-                yv=predict(element.model, newdata=predict.intensity)
+
                 
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
                 #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
                 #cal.est.conc.luc <- cal.est.conc.tab$fit
                 #cal.est.conc.luc.up <- cal.est.conc.tab$upr
                 #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, as.vector(cal.est.conc.pred.luc))
+                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
             }
             
             
             if (input$radiocal==5){
+
                 
-                xmin = 0; xmax=10
-                N = length(predict.frame$Concentration)
-                means = colMeans(predict.frame)
-                dummyDF = t(as.data.frame(means))
-                for(i in 2:N){dummyDF=rbind(dummyDF,means)}
-                xv=seq(xmin,xmax, length.out=N)
-                dummyDF$Concentration = xv
-                yv=predict(element.model, newdata=predict.intensity)
-                
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
                 #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
                 #cal.est.conc.luc <- cal.est.conc.tab$fit
                 #cal.est.conc.luc.up <- cal.est.conc.tab$upr
                 #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, lucas.x, as.vector(cal.est.conc.pred.luc))
+                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration",  "IntensityNorm", "Prediction")
             }
             
@@ -3241,9 +3137,9 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- ggplot(data=predict.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~Intensity, predict.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                stat_smooth(method="lm", fullrange = TRUE) +
                 geom_point() +
                 geom_point(data = predict.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                stat_smooth(method="lm", fullrange = TRUE) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
@@ -3254,9 +3150,9 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- ggplot(data=predict.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn_poly(lm(Concentration~Intensity + I(Intensity^2), predict.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                stat_smooth(method="lm", formula=y~poly(x,2)) +
                 geom_point() +
                 geom_point(data = predict.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                stat_smooth(method="lm", formula=y~poly(x,2)) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
@@ -3267,9 +3163,9 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
                 geom_point() +
                 geom_point(aes(IntensityNorm, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
@@ -3280,9 +3176,9 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
                 geom_point() +
                 geom_point(aes(IntensityNorm, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                geom_smooth() +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
@@ -3293,9 +3189,9 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
                 geom_point() +
                 geom_point(aes(IntensityNorm, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                geom_smooth() +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
@@ -3479,11 +3375,29 @@ shinyServer(function(input, output, session) {
             }
             
             if (input$radiocal==4){
-                cal.lm <- randomForest(Concentration~., data=predict.frame, na.action=na.omit)
+                cl <- makePSOCKcluster(as.numeric(my.cores))
+                registerDoParallel(cl)
+                
+                cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
+                trControl=trainControl(method="cv",number=5),
+                prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
+                
+                
+                stopCluster(cl)
+                
             }
             
             if (input$radiocal==5){
-                cal.lm <- randomForest(Concentration~., data=predict.frame, na.action=na.omit)
+                cl <- makePSOCKcluster(as.numeric(my.cores))
+                registerDoParallel(cl)
+                
+                cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
+                trControl=trainControl(method="cv",number=5),
+                prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
+                
+                
+                stopCluster(cl)
+                
             }
             
             cal.lm
@@ -3521,18 +3435,7 @@ shinyServer(function(input, output, session) {
             }
             
             if (input$radiocal==3){
-                
-                xmin = 0; xmax=10
-                N = length(predict.frame$Concentration)
-                means = colMeans(predict.frame)
-                dummyDF = t(as.data.frame(means))
-                for(i in 2:N){dummyDF=rbind(dummyDF,means)}
-                xv=seq(xmin,xmax, length.out=N)
-                dummyDF$Concentration = xv
-                yv=predict(element.model, newdata=predict.intensity)
-                
-                
-                lucas.x <- yv
+
                 
                 cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
                 cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
@@ -3541,57 +3444,34 @@ shinyServer(function(input, output, session) {
                 cal.est.conc.luc.low <- cal.est.conc.tab$lwr
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, cal.est.conc.luc, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
                 colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
             }
             
             if (input$radiocal==4){
+
                 
-                xmin = 0; xmax=10
-                N = length(predict.frame$Concentration)
-                means = colMeans(predict.frame)
-                dummyDF = t(as.data.frame(means))
-                for(i in 2:N){dummyDF=rbind(dummyDF,means)}
-                xv=seq(xmin,xmax, length.out=N)
-                dummyDF$Concentration = xv
-                yv=predict(element.model, newdata=predict.intensity)
-                
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
                 #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
                 #cal.est.conc.luc <- cal.est.conc.tab$fit
                 #cal.est.conc.luc.up <- cal.est.conc.tab$upr
                 #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, as.vector(cal.est.conc.pred.luc))
+                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
             }
             
             if (input$radiocal==5){
-                
-                xmin = 0; xmax=10
-                N = length(predict.frame$Concentration)
-                means = colMeans(predict.frame)
-                dummyDF = t(as.data.frame(means))
-                for(i in 2:N){dummyDF=rbind(dummyDF,means)}
-                xv=seq(xmin,xmax, length.out=N)
-                dummyDF$Concentration = xv
-                yv=predict(element.model, newdata=predict.intensity)
-                
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
+
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
                 #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
                 #cal.est.conc.luc <- cal.est.conc.tab$fit
                 #cal.est.conc.luc.up <- cal.est.conc.tab$upr
                 #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, lucas.x, as.vector(cal.est.conc.pred.luc))
+                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration", "IntensityNorm", "Prediction")
             }
             
@@ -3634,17 +3514,6 @@ shinyServer(function(input, output, session) {
             
             if (input$radiocal==3){
                 
-                xmin = 0; xmax=10
-                N = length(predict.frame$Concentration)
-                means = colMeans(predict.frame)
-                dummyDF = t(as.data.frame(means))
-                for(i in 2:N){dummyDF=rbind(dummyDF,means)}
-                xv=seq(xmin,xmax, length.out=N)
-                dummyDF$Concentration = xv
-                yv=predict(element.model, newdata=predict.intensity)
-                
-                
-                lucas.x <- yv
                 
                 cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
                 cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
@@ -3653,51 +3522,29 @@ shinyServer(function(input, output, session) {
                 cal.est.conc.luc.low <- cal.est.conc.tab$lwr
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, cal.est.conc.luc, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
                 colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
             }
             
             if (input$radiocal==4){
+
                 
-                xmin = 0; xmax=10
-                N = length(predict.frame$Concentration)
-                means = colMeans(predict.frame)
-                dummyDF = t(as.data.frame(means))
-                for(i in 2:N){dummyDF=rbind(dummyDF,means)}
-                xv=seq(xmin,xmax, length.out=N)
-                dummyDF$Concentration = xv
-                yv=predict(element.model, newdata=predict.intensity)
-                
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
                 
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, as.vector(cal.est.conc.pred.luc))
+                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
             }
             
             if (input$radiocal==5){
+
                 
-                xmin = 0; xmax=10
-                N = length(predict.frame$Concentration)
-                means = colMeans(predict.frame)
-                dummyDF = t(as.data.frame(means))
-                for(i in 2:N){dummyDF=rbind(dummyDF,means)}
-                xv=seq(xmin,xmax, length.out=N)
-                dummyDF$Concentration = xv
-                yv=predict(element.model, newdata=predict.intensity)
-                
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
                 
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, lucas.x, as.vector(cal.est.conc.pred.luc))
+                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration", "IntensityNorm", "Prediction")
             }
             
@@ -3738,9 +3585,9 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                stat_smooth(method="lm", fullrange = TRUE) +
                 geom_point() +
                 geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                stat_smooth(method="lm", fullrange = TRUE) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -3752,9 +3599,9 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn_poly(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                stat_smooth(method="lm", formula=y~poly(x,2)) +
                 geom_point() +
                 geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                stat_smooth(method="lm", formula=y~poly(x,2)) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -3766,9 +3613,9 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
                 geom_point() +
                 geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -3780,9 +3627,9 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
                 geom_point() +
                 geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                geom_smooth() +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -3794,9 +3641,9 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
                 geom_point() +
                 geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                geom_smooth() +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -5772,11 +5619,26 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             if (input$radiocal_multi==4){
-                cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE], na.action=na.omit))
+                #cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE], na.action=na.omit))
+                
+                cl <- makePSOCKcluster(as.numeric(my.cores))
+                registerDoParallel(cl)
+                cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
+                    trControl=trainControl(method="cv",number=5),
+                    prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE))
+                    stopCluster(cl)
+
             }
             
             if (input$radiocal_multi==5){
-                cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE], na.action=na.omit))
+                #cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], , drop = FALSE], na.action=na.omit))
+                cl <- makePSOCKcluster(as.numeric(my.cores))
+                registerDoParallel(cl)
+                cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
+                    trControl=trainControl(method="cv",number=5),
+                    prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE))
+                    stopCluster(cl)
+
             }
             
             names(cal.lm) <- quantNames()
@@ -5833,11 +5695,6 @@ observeEvent(input$actionprocess2_multi, {
             
             if (input$radiocal_multi==3){
         
-                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                names(yv) <- quantNames()
-
-                
-                lucas.x <- yv
                 
                 cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
                 names(cal.est.conc.pred.luc) <- quantNames()
@@ -5855,7 +5712,7 @@ observeEvent(input$actionprocess2_multi, {
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
-                IntensityNorm=lucas.x[[x]],
+                IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]],
                 Upper=cal.est.conc.luc.up[[x]],
                 Lower=cal.est.conc.luc.low[[x]]
@@ -5873,26 +5730,21 @@ observeEvent(input$actionprocess2_multi, {
         
             
             if (input$radiocal_multi==4){
+
                 
-                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                names(yv) <- quantNames()
-                
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred.luc <- pblapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]]), cl=my.cores)
                 names(cal.est.conc.pred.luc) <- quantNames()
                 cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
                 names(cal.est.conc.luc) <- quantNames()
 
                 
-                val.frame <- lapply(quantNames(),function(x)
+                val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
-                IntensityNorm=lucas.x[[x]],
+                IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
-                ))
+                ), cl=my.cores)
                 names(val.frame) <- quantNames()
                 
                 
@@ -5902,25 +5754,20 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if (input$radiocal_multi==5){
+
                 
-                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                names(yv) <- quantNames()
-                
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred.luc <- pblapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]]), cl=my.cores)
                 names(cal.est.conc.pred.luc) <- quantNames()
                 cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
                 names(cal.est.conc.luc) <- quantNames()
                 
                 
-                val.frame <- lapply(quantNames(),function(x)
+                val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
-                IntensityNorm=lucas.x[[x]],
+                IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
-                ))
+                ), cl=my.cores)
                 names(val.frame) <- quantNames()
                 
                 
@@ -6281,11 +6128,23 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             if (input$radiocal_multi==4){
-                cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]], na.action=na.omit))
+                #cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]], na.action=na.omit))
+                cl <- makePSOCKcluster(as.numeric(my.cores))
+                registerDoParallel(cl)
+                cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
+                trControl=trainControl(method="cv",number=5),
+                prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE))
+                stopCluster
             }
             
             if (input$radiocal_multi==5){
-                cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]], na.action=na.omit))
+                #cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]], na.action=na.omit))
+                cl <- makePSOCKcluster(as.numeric(my.cores))
+                registerDoParallel(cl)
+                cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
+                trControl=trainControl(method="cv",number=5),
+                prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE))
+                stopCluster
             }
             
             names(cal.lm) <- quantNames()
@@ -6358,14 +6217,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             if (input$radiocal_multi==3){
-                
-                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                names(yv) <- quantNames()
 
-                
-                
-                lucas.x <- yv
-                
                 cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
                 names(cal.est.conc.pred.luc) <- quantNames()
 
@@ -6386,7 +6238,7 @@ observeEvent(input$actionprocess2_multi, {
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
-                IntensityNorm=lucas.x[[x]],
+                IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]],
                 Upper=cal.est.conc.luc.up[[x]],
                 Lower=cal.est.conc.luc.low[[x]]
@@ -6398,15 +6250,9 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if (input$radiocal_multi==4){
+
                 
-                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                names(yv) <- quantNames()
-                
-                
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]]))
                 names(cal.est.conc.pred.luc) <- quantNames()
                 
                 cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
@@ -6415,13 +6261,13 @@ observeEvent(input$actionprocess2_multi, {
 
                 
                 
-                val.frame <- lapply(quantNames(),function(x)
+                val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
-                IntensityNorm=lucas.x[[x]],
+                IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
-                ))
+                ), cl=my.cores)
                 
                 names(val.frame) <- quantNames()
             }
@@ -6429,15 +6275,9 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if (input$radiocal_multi==5){
+
                 
-                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                names(yv) <- quantNames()
-                
-                
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]]))
                 names(cal.est.conc.pred.luc) <- quantNames()
                 
                 cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
@@ -6446,12 +6286,12 @@ observeEvent(input$actionprocess2_multi, {
                 
                 
                 
-                val.frame <- lapply(quantNames(),function(x)
+                val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
-                IntensityNorm=lucas.x[[x]],
+                IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
-                ))
+                ), cl=my.cores)
                 
                 names(val.frame) <- quantNames()
             }
@@ -6527,13 +6367,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             if (input$radiocal_multi==3){
-                
-                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                names(yv) <- quantNames()
-
-                
-                
-                lucas.x <- yv
+  
                 
                 cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
                 names(cal.est.conc.pred.luc) <- quantNames()
@@ -6555,7 +6389,7 @@ observeEvent(input$actionprocess2_multi, {
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
-                IntensityNorm=lucas.x[[x]],
+                IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]],
                 Upper=cal.est.conc.luc.up[[x]],
                 Lower=cal.est.conc.luc.low[[x]]
@@ -6566,15 +6400,9 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if (input$radiocal_multi==4){
+
                 
-                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                names(yv) <- quantNames()
-                
-                
-                
-                lucas.x <- yv
-                
-                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]]))
                 names(cal.est.conc.pred.luc) <- quantNames()
                 
                 cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
@@ -6587,7 +6415,7 @@ observeEvent(input$actionprocess2_multi, {
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
-                IntensityNorm=lucas.x[[x]],
+                IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ))
                 
@@ -6596,13 +6424,6 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if (input$radiocal_multi==5){
-                
-                yv=lapply(quantNames(),function(x) predict(element.model[[x]], newdata=predict.intensity[[x]]))
-                names(yv) <- quantNames()
-                
-                
-                
-                lucas.x <- yv
                 
                 cal.est.conc.pred.luc <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
                 names(cal.est.conc.pred.luc) <- quantNames()
@@ -6616,7 +6437,7 @@ observeEvent(input$actionprocess2_multi, {
                 val.frame <- lapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
-                IntensityNorm=lucas.x[[x]],
+                IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ))
                 
@@ -6666,8 +6487,8 @@ observeEvent(input$actionprocess2_multi, {
                 calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_point() +
                 stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
+                geom_point() +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
@@ -6679,8 +6500,8 @@ observeEvent(input$actionprocess2_multi, {
                 calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn_poly(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
                 geom_point() +
-                stat_smooth(method="lm", formula=y~poly(x,2), aes(fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, intens)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
@@ -6692,8 +6513,8 @@ observeEvent(input$actionprocess2_multi, {
                 calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_point() +
                 geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
+                geom_point() +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
@@ -6706,8 +6527,8 @@ observeEvent(input$actionprocess2_multi, {
                 calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_point() +
                 geom_smooth(alpha=0.1) +
+                geom_point() +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
@@ -6720,8 +6541,8 @@ observeEvent(input$actionprocess2_multi, {
                 calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_point() +
                 geom_smooth(alpha=0.1) +
+                geom_point() +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)

@@ -58,10 +58,19 @@ library(gRbase)
 library(reticulate)
 library(Rcpp)
 library(data.table)
+library(doMC)
+registerDoMC()
+library(doSNOW)
 
 options(digits=4)
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
+
+my.cores <- if(parallel::detectCores()>=3){
+    paste0(parallel::detectCores()-2)
+} else if(parallel::detectCores()<=2){
+    "1"
+}
 
 ######Load lines
 k.lines <- read.csv(file="data/K Line-Table 1.csv", sep=",")

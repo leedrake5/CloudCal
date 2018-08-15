@@ -341,7 +341,7 @@ tabPanel("Cross Validation",
         actionButton("cropvalrandom", "Zoom")
 )),
         tags$hr(),
-        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.20)
+        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.33)
 
 ),
 
@@ -519,7 +519,7 @@ tabPanel("Cross Validation",
         actionButton("cropvalmultirandom", "Zoom"))
     ),
     tags$hr(),
-        sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.20),
+        sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.33),
         checkboxInput('switchmulti', "Use Cross-Validation for Report", value=FALSE),
         checkboxInput('switchrand', "Randomize by Spectrum", value=FALSE),
         downloadButton("downloadcloudplot_multi_val", "Plot")
