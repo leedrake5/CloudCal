@@ -1975,8 +1975,12 @@ shinyServer(function(input, output, session) {
             #cal.table <- cal.table[,!colnames(cal.table) %in% "Intensity"]
             cal.table$Concentration <- concentration.table[,input$calcurveelement]
             
+            cl <- makePSOCKcluster(as.numeric(my.cores))
+            registerDoParallel(cl)
+            train_model <- caret::train(Concentration~., data=cal.table[,-1], method="lm", metric=metric, trControl=control, allowParallel=TRUE, prox=TRUE, importance=TRUE)
             
-            train(Concentration~., data=cal.table[,-1], method="lm", metric=metric, preProc=c("center", "scale"), trControl=control)
+            stopCluster(cl)
+            train_model
             
             
         })
@@ -2551,7 +2555,7 @@ shinyServer(function(input, output, session) {
         
         predictIntensitySimp <- reactive({
             
-            data.frame(Intensitys=predictFrameSimp()[,1])
+            data.frame(Intensity=predictFrameSimp()[,1])
             
             
         })
@@ -2840,10 +2844,7 @@ shinyServer(function(input, output, session) {
         
         testing2 <- reactive({
             
-            predict.frame <- predictFrame()
-            predict.frame <- predict.frame[complete.cases(predict.frame$Concentration),]
-            
-            predict.frame
+            predictIntensity()
             
         })
         
@@ -3016,7 +3017,7 @@ shinyServer(function(input, output, session) {
                 cal.est.conc.tab <- data.frame(cal.est.conc.pred)
                 cal.est.conc <- cal.est.conc.tab$fit
                 
-                val.frame <- data.frame(predict.frame$Concentration, cal.est.conc)
+                val.frame <- data.frame(na.omit(predict.frame$Concentration), cal.est.conc)
                 colnames(val.frame) <- c("Concentration", "Prediction")
             }
             
@@ -3025,7 +3026,7 @@ shinyServer(function(input, output, session) {
                 cal.est.conc.tab <- data.frame(cal.est.conc.pred)
                 cal.est.conc <- cal.est.conc.tab$fit
                 
-                val.frame <- data.frame(predict.frame$Concentration, cal.est.conc)
+                val.frame <- data.frame(na.omit(predict.frame$Concentration), cal.est.conc)
                 colnames(val.frame) <- c("Concentration", "Prediction")
             }
             
