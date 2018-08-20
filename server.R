@@ -1526,17 +1526,11 @@ shinyServer(function(input, output, session) {
             
             concentration <- as.vector(as.numeric(unlist(concentrationTable()[,input$calcurveelement])))
             
+            hold.frame <- data.frame(spectra.line.table, Concentration=concentration)
             
             
-            intensity <- as.vector(as.numeric(unlist(spectraLineTable()[,input$calcurveelement])))
             
-            spectra.names <- spectra.line.table$Spectrum
-            
-            hold.frame <- data.frame(spectra.names, concentration, intensity)
-            colnames(hold.frame) <- c("Spectrum", "Concentration", "Intensity")
-            hold.frame <- na.omit(hold.frame)
-            
-            hold.frame <- hold.frame[order(as.character(hold.frame$Spectrum)),]
+ 
             
             
             hold.frame[complete.cases(hold.frame),]
@@ -2509,9 +2503,8 @@ shinyServer(function(input, output, session) {
         
         predictIntensitySimpPre <- reactive({
             
-            concentration.table <- concentrationTable()
             data <- dataNorm()
-            spectra.line.table <- spectraLineTable()
+            spectra.line.table <- holdFrame()
             
             if(input$normcal==1){
                 if(dataType()=="Spectra"){
@@ -2538,13 +2531,12 @@ shinyServer(function(input, output, session) {
         
         predictFrameSimp <- reactive({
             
-            concentration.table <- concentrationTable()
             data <- dataNorm()
-            spectra.line.table <- spectraLineTable()
+            spectra.line.table <- holdFrame()
             
             predict.intensity.simp <- predictIntensitySimpPre()
             
-            predict.frame.simp <- data.frame(predict.intensity.simp, concentration.table[,input$calcurveelement])
+            predict.frame.simp <- data.frame(predict.intensity.simp, spectra.line.table[,"Concentration"])
             predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp),]
             colnames(predict.frame.simp) <- c(names(predict.intensity.simp), "Concentration")
             predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp$Concentration),]
@@ -2575,9 +2567,8 @@ shinyServer(function(input, output, session) {
         
         predictIntensityForestPre <- reactive({
             
-            concentration.table <- concentrationTable()
             data <- dataNorm()
-            spectra.line.table <- spectraLineTable()
+            spectra.line.table <- holdFrame()
             
             
             if(input$normcal==1){
@@ -2606,14 +2597,13 @@ shinyServer(function(input, output, session) {
         
         predictFrameForest <- reactive({
             
-            concentration.table <- concentrationTable()
             data <- dataNorm()
-            spectra.line.table <- spectraLineTable()
+            spectra.line.table <- holdFrame()
             
             
             predict.intensity.forest <- predictIntensityForestPre()
             
-            predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=concentration.table[,input$calcurveelement])
+            predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=spectra.line.table[,"Concentration"])
             predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest),]
             predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
             
@@ -2654,14 +2644,13 @@ shinyServer(function(input, output, session) {
         
         predictFrameLuc <- reactive({
             
-            concentration.table <- concentrationTable()
             data <- dataNorm()
-            spectra.line.table <- spectraLineTable()
+            spectra.line.table <- holdFrame()
             
             
             predict.intensity.luc <- predictIntensityLucPre()
             
-            predict.frame.luc <- data.frame(predict.intensity.luc, concentration.table[,input$calcurveelement])
+            predict.frame.luc <- data.frame(predict.intensity.luc, na.omit(spectra.line.table[,"Concentration"]))
             predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc),]
             colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
             predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc$Concentration),]
@@ -2715,14 +2704,13 @@ shinyServer(function(input, output, session) {
         
         rainforestData <- reactive({
             
-            concentration.table <- concentrationTable()
-            spectra.line.table <- spectraLineTable()
+            spectra.line.table <- holdFrame()
             
             spectra.data <- rainforestIntensityPre()
             
 
             
-            spectra.data$Concentration <- concentration.table[complete.cases(concentration.table[,input$calcurveelement]),input$calcurveelement]
+            spectra.data$Concentration <- spectra.line.table[complete.cases(spectra.line.table[,"Concentration"]),input$calcurveelement]
             spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
             
             spectra.data
@@ -3335,7 +3323,7 @@ shinyServer(function(input, output, session) {
         
         randomizeData <- reactive({
             
-            cal.frame <- concentrationTable()
+            cal.frame <- holdFrame()[complete.cases(holdFrame()[,"Concentration"]),]
             cal.frame <- cal.frame[ vals$keeprows, , drop = FALSE]
             total.number <- length(cal.frame[,1])
             sample.number <- total.number-round(input$percentrandom*total.number, 0)
@@ -3459,7 +3447,7 @@ shinyServer(function(input, output, session) {
                 #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                val.frame <- data.frame(na.omit(predict.frame$Concentration), predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
             }
             
@@ -3534,7 +3522,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                val.frame <- data.frame(na.omit(predict.frame$Concentration), predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
             }
             
@@ -3748,8 +3736,8 @@ shinyServer(function(input, output, session) {
                 calValFrame()
             }
             
-            concentration.table <- concentrationTable()
-            hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
+            concentration.table <- holdFrame()
+            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
             colnames(hold.table) <- c("Spectrum", "Selection")
             hold.table$Selection[hold.table$Selection==""] <- NA
             hold.table <- hold.table[complete.cases(hold.table), ]
@@ -3809,7 +3797,7 @@ shinyServer(function(input, output, session) {
             point.table <- point.table[randomized,]
             
             
-            concentration.table <- concentrationTable()
+            concentration.table <- holdFrame()
             
             concentration.table <- concentration.table[ vals$keeprows, , drop = FALSE]
             concentration.table <- concentration.table[randomized,]
@@ -3927,8 +3915,8 @@ shinyServer(function(input, output, session) {
         output$hover_infoval <- renderUI({
             
             point.table <- calValFrame()
-            concentration.table <- concentrationTable()
-            hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
+            concentration.table <- holdFrame()
+            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
             colnames(hold.table) <- c("Spectrum", "Selection")
             hold.table$Selection[hold.table$Selection==""] <- NA
             hold.table <- hold.table[complete.cases(hold.table), ]
@@ -3979,20 +3967,20 @@ shinyServer(function(input, output, session) {
             point.table <- point.table[ vals$keeprows, , drop = FALSE]
             point.table <- point.table[!(randomized),]
             
-            concentration.table <- concentrationTable()
+            concentration.table <- holdFrame()
             
             concentration.table <- concentration.table[ vals$keeprows, , drop = FALSE]
             concentration.table <- concentration.table[!(randomized),]
             concentration.table.rev <- concentration.table[(randomized),]
             
-            hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
+            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
             colnames(hold.table) <- c("Spectrum", "Selection")
             
             
             point.table$Spectrum <- hold.table["Spectrum"]
             
             
-            point.table <- point.table[point.table$Concentration > min(concentration.table.rev[,input$calcurveelement], na.rm = TRUE) & point.table$Concentration < max(concentration.table.rev[,input$calcurveelement], na.rm = TRUE), ]
+            point.table <- point.table[point.table$Concentration > min(concentration.table.rev[,"Concentration"], na.rm = TRUE) & point.table$Concentration < max(concentration.table.rev[,"Concentration"], na.rm = TRUE), ]
             
             
             
@@ -5290,20 +5278,9 @@ observeEvent(input$actionprocess2_multi, {
             
             index <- seq(from=1, to=length(cal.names), by=1)
             
-            concentration <- lapply(quantNames(),function(x) as.vector(as.numeric(unlist(concentrationTableMulti()[[x]][input$calcurveelement_multi]))))
-            names(concentration) <- quantNames()
-
-            
-            
-            intensity <- lapply(quantNames(),function(x) as.vector(as.numeric(unlist(spectraLineTableMulti()[[x]][input$calcurveelement_multi]))))
-            names(intensity) <- quantNames()
-
-            
-            spectra.names <- lapply(quantNames(),function(x) as.vector(spectra.line.table[[x]][,"Spectrum"]))
-            names(spectra.names) <- quantNames()
-            
-            hold.list <- lapply(quantNames(),function(x) data.frame(Spectrum=spectra.names[[x]], Concentration=concentration[[x]], Intensity=intensity[[x]]))
+            hold.list <- lapply(quantNames(),function(x) data.frame(spectra.line.table[[x]], Concentration=as.vector(as.numeric(unlist(concentrationTableMulti()[[x]][input$calcurveelement_multi])))))
             names(hold.list) <- quantNames()
+
             
             hold.list <- lapply(quantNames(),function(x) hold.list[[x]][complete.cases(hold.list[[x]]),])
             names(hold.list) <- quantNames()
@@ -5357,7 +5334,7 @@ observeEvent(input$actionprocess2_multi, {
             concentration <- lapply(holdFrameMulti(), function(x) as.vector(x[,"Concentration"]))
             names(concentration) <- quantNames()
             
-            intensity <- lapply(holdFrameMulti(), function(x) as.vector(x[,"Intensity"]))
+            intensity <- lapply(holdFrameMulti(), function(x) as.vector(x[,input$calcurveelement_multi]))
             names(intensity) <- quantNames()
 
             predict.frame <- lapply(quantNames(),function(x) data.frame(Concentration=concentration[[x]], Intensity==intensity[[x]]))
@@ -5374,11 +5351,11 @@ observeEvent(input$actionprocess2_multi, {
         
 
 
-        predictIntensityMulti <- reactive({
+        predictFrameMulti <- reactive({
             
 
             
-            spectra.line.table <- spectraLineTableMulti()
+            spectra.line.table <- holdFrameMulti()
             data <- dataNormMulti()
             
             
@@ -5536,10 +5513,23 @@ observeEvent(input$actionprocess2_multi, {
             
             
             predict.intensity <- lapply(predict.intensity, as.data.frame)
+            names(predict.intensity) <- quantNames()
+
             
+            predict.frame <- lapply(quantNames(), function(x) data.frame(predict.intensity[[x]], Concentration=spectra.line.table[[x]]$Concentration))
+            names(predict.frame) <- quantNames()
+            
+            predict.frame
+            
+        })
+        
+        predictIntensityMulti <- reactive({
+            
+            
+            predict.intensity <- lapply(quantNames(), function(x) data.frame(predictFrameMulti()[[x]][, !(colnames(predictFrameMulti()[[x]]) %in% "Concentration")]))
             names(predict.intensity) <- quantNames()
             predict.intensity
-            
+
             
         })
         
@@ -5548,37 +5538,7 @@ observeEvent(input$actionprocess2_multi, {
             
         })
         
-
-        
-        predictFrameMulti <- reactive({
-            
-
-            
-            predict.frame <- predictFramePreMulti()
-            predict.intensity <- predictIntensityMulti()
-            
-            
-            
-            predict.frame <- lapply(quantNames(),function(x) data.frame(predict.intensity[[x]], Concentration=predict.frame[[x]][,"Concentration"]))
-            predict.frame <- lapply(predict.frame, as.data.frame)
-
-            names(predict.frame) <- quantNames()
-            
-            predict.frame
-            
-            #data.frame(predict.intensity, predict.frame$Concentration)
-            #colnames(predict.frame) <- c(names(predict.intensity), "Concentration")
-            
-            #predict.frame$Instrument <- holdFrameMulti()$Instrument
-            
-            #predict.frame
-            
-            
-        })
-        
-        
-    
-        
+ 
         
         
         calCurveFrameMulti <- reactive({
@@ -5663,7 +5623,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if (input$radiocal_multi==1){
-                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.frame[[x]], interval='confidence'))
                 names(cal.est.conc.pred) <- quantNames()
                 cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
                 names(cal.est.conc.tab) <- quantNames()
@@ -5679,7 +5639,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             if (input$radiocal_multi==2){
-                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.frame[[x]], interval='confidence'))
                 names(cal.est.conc.pred) <- quantNames()
                 cal.est.conc.tab <- lapply(cal.est.conc.pred, data.frame)
                 names(cal.est.conc.tab) <- quantNames()
@@ -5765,7 +5725,7 @@ observeEvent(input$actionprocess2_multi, {
                 
                 val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
-                Concentration=predict.frame[[x]][,"Concentration"],
+                Concentration=na.omit(predict.frame[[x]][,"Concentration"]),
                 IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ), cl=my.cores)
@@ -6036,7 +5996,7 @@ observeEvent(input$actionprocess2_multi, {
         
         randomizeDataMulti <- reactive({
             
-            cal.frame <- spectraLineTableMulti()[[input$defaultcal]]
+            cal.frame <- holdFrameMulti()[[input$defaultcal]]
             cal.frame <- cal.frame[ vals_multi$keeprows[[input$defaultcal]], , drop = FALSE]
             total.number <- length(cal.frame[,1])
             sample.number <- total.number-round(input$percentrandom_multi*total.number, 0)
@@ -6186,7 +6146,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if (input$radiocal_multi==1){
-                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.frame[[x]], interval='confidence'))
                 names(cal.est.conc.pred) <- quantNames()
 
                 
@@ -6202,7 +6162,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             if (input$radiocal_multi==2){
-                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]], interval='confidence'))
+                cal.est.conc.pred <- lapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.frame[[x]], interval='confidence'))
                 names(cal.est.conc.pred) <- quantNames()
                 
                 
@@ -6750,7 +6710,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            predict.frame <- lapply(quantNames(),function(x) data.frame(spectraLineTableMulti()[[x]][ vals_multi$keeprows[[x]], ]))
+            predict.frame <- lapply(quantNames(),function(x) data.frame(holdFrameMulti()[[x]][ vals_multi$keeprows[[x]], ]))
             names(predict.frame) <- quantNames()
             
             
