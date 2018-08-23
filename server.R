@@ -3737,8 +3737,8 @@ shinyServer(function(input, output, session) {
             }
             
             concentration.table <- holdFrame()
-            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            colnames(hold.table) <- c("Spectrum", "Selection")
+            hold.table <- concentration.table[,c("Spectrum", "Concentration", input$calcurveelement)]
+            colnames(hold.table) <- c("Spectrum", "Concentration", "Selection")
             hold.table$Selection[hold.table$Selection==""] <- NA
             hold.table <- hold.table[complete.cases(hold.table), ]
             
