@@ -289,7 +289,8 @@ uiOutput('inVar4')
 
 mainPanel(
 tabsetPanel(
-#tabPanel("Testing", dataTableOutput('testtable2')),
+#tabPanel("Testing", dataTableOutput('bader')),
+#stabPanel("Testing2", dataTableOutput('weird')),
 tabPanel("Cal Curves",
     splitLayout(cellWidths = c("50%", "50%"),
         column(width=12,

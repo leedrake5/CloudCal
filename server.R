@@ -1513,8 +1513,8 @@ shinyServer(function(input, output, session) {
             
             
             spectra.line.table <- spectra.line.table[order(as.character(spectra.line.table$Spectrum)),]
-            spectra.line.table
-            
+            spectra.line.table <- spectra.line.table[complete.cases(spectra.line.table),]
+            spectra.line.table[ rowSums(spectra.line.table[,-1])!=0, ]
             
             
         })
@@ -1523,8 +1523,13 @@ shinyServer(function(input, output, session) {
         holdFrame <- reactive({
             
             spectra.line.table <- spectraLineTable()
+            concentration.table <- concentrationTable()
             
-            concentration <- as.vector(as.numeric(unlist(concentrationTable()[,input$calcurveelement])))
+            concentration.table <- concentration.table[concentration.table$Spectrum %in% spectra.line.table$Spectrum,]
+            spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum,]
+
+            
+            concentration <- as.vector(as.numeric(unlist(concentration.table[,input$calcurveelement])))
             
             hold.frame <- data.frame(spectra.line.table, Concentration=concentration)
             
@@ -2537,7 +2542,6 @@ shinyServer(function(input, output, session) {
             predict.intensity.simp <- predictIntensitySimpPre()
             
             predict.frame.simp <- data.frame(predict.intensity.simp, spectra.line.table[,"Concentration"])
-            predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp),]
             colnames(predict.frame.simp) <- c(names(predict.intensity.simp), "Concentration")
             predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp$Concentration),]
             
@@ -2597,14 +2601,12 @@ shinyServer(function(input, output, session) {
         
         predictFrameForest <- reactive({
             
-            data <- dataNorm()
             spectra.line.table <- holdFrame()
             
             
             predict.intensity.forest <- predictIntensityForestPre()
             
             predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=spectra.line.table[,"Concentration"])
-            predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest),]
             predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
             
             predict.frame.forest
@@ -2627,7 +2629,7 @@ shinyServer(function(input, output, session) {
             
             rf_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
             trControl=trainControl(method="cv",number=5),
-            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric="RMSE")
+            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric="RMSE", na.action=na.omit)
             
             stopCluster(cl)
             rf_model
@@ -2645,12 +2647,12 @@ shinyServer(function(input, output, session) {
         predictFrameLuc <- reactive({
             
             data <- dataNorm()
-            spectra.line.table <- holdFrame()
+            spectra.line.table <- predictFrameForest()
             
             
             predict.intensity.luc <- predictIntensityLucPre()
             
-            predict.frame.luc <- data.frame(predict.intensity.luc, na.omit(spectra.line.table[,"Concentration"]))
+            predict.frame.luc <- data.frame(predict.intensity.luc, spectra.line.table[,"Concentration"])
             predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc),]
             colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
             predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc$Concentration),]
@@ -3720,6 +3722,27 @@ shinyServer(function(input, output, session) {
             valCurvePlotRandom()
         })
         
+        bad <- reactive({
+            
+            concentration.table <- holdFrame()
+            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
+            hold.table$Concentration[hold.table$Concentration==""] <- NA
+            hold.table <- hold.table[complete.cases(hold.table), ]
+            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
+            hold.table <- na.omit(hold.table)
+            hold.table
+        })
+        
+        output$bader <- renderDataTable({
+            
+            bad()
+            
+        })
+        
+        output$weird <- renderDataTable({
+            predictIntensityForest()
+            
+        })
         
         ####CalCurves
         
@@ -3737,10 +3760,12 @@ shinyServer(function(input, output, session) {
             }
             
             concentration.table <- holdFrame()
-            hold.table <- concentration.table[,c("Spectrum", "Concentration", input$calcurveelement)]
-            colnames(hold.table) <- c("Spectrum", "Concentration", "Selection")
-            hold.table$Selection[hold.table$Selection==""] <- NA
+            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
+            hold.table$Concentration[hold.table$Concentration==""] <- NA
             hold.table <- hold.table[complete.cases(hold.table), ]
+            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
+            hold.table <- na.omit(hold.table)
+
             
             point.table$Spectrum <- hold.table["Spectrum"]
             
@@ -3915,13 +3940,18 @@ shinyServer(function(input, output, session) {
         output$hover_infoval <- renderUI({
             
             point.table <- calValFrame()
+
+            
             concentration.table <- holdFrame()
             hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            colnames(hold.table) <- c("Spectrum", "Selection")
-            hold.table$Selection[hold.table$Selection==""] <- NA
+            hold.table$Concentration[hold.table$Concentration==""] <- NA
             hold.table <- hold.table[complete.cases(hold.table), ]
-            
+            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
+            hold.table <- na.omit(hold.table)
+
             point.table$Spectrum <- hold.table["Spectrum"]
+            
+            
             
             
             hover <- input$plot_hoverval
