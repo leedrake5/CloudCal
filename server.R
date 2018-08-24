@@ -2712,7 +2712,7 @@ shinyServer(function(input, output, session) {
             
 
             
-            spectra.data$Concentration <- spectra.line.table[complete.cases(spectra.line.table[,"Concentration"]),input$calcurveelement]
+            spectra.data$Concentration <- spectra.line.table[complete.cases(spectra.line.table[,"Concentration"]),]$Concentration
             spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
             
             spectra.data
@@ -3520,22 +3520,22 @@ shinyServer(function(input, output, session) {
             if (input$radiocal==4){
 
                 
-                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, na.action=na.omit)
                 
                 
                 
-                val.frame <- data.frame(na.omit(predict.frame$Concentration), predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
             }
             
             if (input$radiocal==5){
 
                 
-                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, na.action=na.omit)
                 
                 
                 
-                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration", "IntensityNorm", "Prediction")
             }
             
@@ -4010,7 +4010,7 @@ shinyServer(function(input, output, session) {
             point.table$Spectrum <- hold.table["Spectrum"]
             
             
-            point.table <- point.table[point.table$Concentration > min(concentration.table.rev[,"Concentration"], na.rm = TRUE) & point.table$Concentration < max(concentration.table.rev[,"Concentration"], na.rm = TRUE), ]
+            #point.table <- point.table[point.table$Concentration > min(concentration.table.rev[,"Concentration"], na.rm = TRUE) & point.table$Concentration < max(concentration.table.rev[,"Concentration"], na.rm = TRUE), ]
             
             
             
