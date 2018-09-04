@@ -202,7 +202,9 @@ tabsetPanel(
 id = 'dataset',
 tabPanel('Custom Lines', rHandsontableOutput('hotline')),
 tabPanel('Spectral Lines', dataTableOutput('mytable1')),
-tabPanel('Covariance', plotOutput('covarianceplot'))
+tabPanel('Covariance', plotOutput('covarianceplot', height=800),
+tags$hr(),
+checkboxInput('linecovarnumber', "Use Numbers", value=FALSE))
 #tabPanel("test", dataTableOutput('LineValues'))
 #tabPanel('All Element Lines', uiOutput('checkboxElements'))
 
@@ -237,7 +239,9 @@ mainPanel(
 tabsetPanel(
 id = 'dataset',
 tabPanel('Enter Concentrations', rHandsontableOutput('hot')),
-tabPanel('Covariance', plotOutput('covarianceplotvalues'))
+tabPanel('Covariance', plotOutput('covarianceplotvalues', height=800),
+tags$hr(),
+checkboxInput('conccovarnumber', "Use Numbers", value=FALSE))
 
 ))
 ))

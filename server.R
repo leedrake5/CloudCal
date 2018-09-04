@@ -1156,15 +1156,28 @@ shinyServer(function(input, output, session) {
             
         })
         
-        output$covarianceplot <- renderPlot({
-            
+        covarPlotLine <- reactive({
             data.table <- tableInput()
             correlations <- cor(data.table[,-1])
-            corrplot::corrplot(correlations, method="circle")
+            if(input$linecovarnumber==FALSE){
+                corrplot::corrplot(correlations, method="circle")
+            } else if(input$linecovarnumber==TRUE){
+                corrplot::corrplot(correlations, method="number", number.digits=1)
+            }
+        })
+        
+        output$covarianceplot <- renderPlot({
+            
+            covarPlotLine()
             
         })
         
-        
+        output$download_covarlines <- downloadHandler(
+        filename = function() { paste(paste(c(input$calname, "Line_Correlations"), collapse=''), '.tiff',  sep='') },
+        content = function(file) {
+            ggsave(file,covarPlotLine(), device="tiff", compression="lzw", type="cairo", dpi=300, width=18, height=7)
+        }
+        )
         
         
         output$downloadData <- downloadHandler(
@@ -1422,16 +1435,29 @@ shinyServer(function(input, output, session) {
             
         })
         
-        output$covarianceplotvalues <- renderPlot({
-            
+        covarPlotValues <- reactive({
             data.table <- values[["DF"]]
             correlations <- cor(data.table[,3:length(data.table)], use="pairwise.complete.obs")
-            corrplot::corrplot(correlations, method="circle")
-            
+            if(input$conccovarnumber==FALSE){
+                corrplot::corrplot(correlations, method="circle")
+            } else if(input$conccovarnumber==TRUE){
+                corrplot::corrplot(correlations, method="number", number.digits=1)
+            }
+        })
+        
+        output$covarianceplotvalues <- renderPlot({
+            covarPlotValues()
         })
         
         
-        
+        output$download_covarvalues <- downloadHandler(
+        filename = function() { paste(paste(c(input$calname, "_Value_Correlations"), collapse=''), '.tiff',  sep='') },
+        content = function(file) {
+            tiff(file, compression="lzw", type="cairo", width=18, height=18)
+            covarPlotValues()
+            dev.off()
+        }
+        )
         
         
         
