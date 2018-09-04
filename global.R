@@ -26,9 +26,8 @@ list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny",
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
-list.of.packages <- c("ggplot2")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
+
+if(packageVersion("ggplot2")!="2.2.1") devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
 
 
 
@@ -451,7 +450,7 @@ readPDZ24Data<- function(filepath, filename){
     filename.vector <- rep(filename, 2020)
     
     nbrOfRecords <- 2020
-    integers <- readPDZ24(filepath, start=357, size=nbrOfRecords)
+    integers <- readPDZ24(filepath, start=361, size=nbrOfRecords)
     sequence <- seq(1, length(integers), 1)
     
     time.est <- integers[21]

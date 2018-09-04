@@ -79,7 +79,7 @@ shinyServer(function(input, output, session) {
     output$binaryui <- renderUI({
         
         if(input$advanced==TRUE && input$filetype=="PDZ"){
-            numericInput('binaryshift', "Binary Shift (bits)", min=0, max=1000, value=0)
+            numericInput('binaryshift', "Binary Shift (bits)", min=0, max=1000, value=361)
         } else {
             p()
         }
@@ -1160,7 +1160,7 @@ shinyServer(function(input, output, session) {
             
             data.table <- tableInput()
             correlations <- cor(data.table[,-1])
-            corrplot(correlations, method="circle")
+            corrplot::corrplot(correlations, method="circle")
             
         })
         
@@ -1426,7 +1426,7 @@ shinyServer(function(input, output, session) {
             
             data.table <- values[["DF"]]
             correlations <- cor(data.table[,3:length(data.table)], use="pairwise.complete.obs")
-            corrplot(correlations, method="circle")
+            corrplot::corrplot(correlations, method="circle")
             
         })
         
@@ -3031,7 +3031,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, cal.est.conc.luc, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
-                colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction", "Upper", "Lower")
             }
             
             if (input$radiocal==4){
@@ -3046,7 +3046,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
+                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction")
             }
             
             
@@ -3061,7 +3061,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration",  "IntensityNorm", "Prediction")
+                colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
             }
             
             
@@ -3124,6 +3124,9 @@ shinyServer(function(input, output, session) {
             prediction.name <- c(element.name, predi)
             
             
+
+            
+            
             if(input$radiocal==1){
                 calcurve.plot <- ggplot(data=predict.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
                 theme_light() +
@@ -3151,12 +3154,12 @@ shinyServer(function(input, output, session) {
             }
             
             if(input$radiocal==3){
-                calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
+                calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
+                geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper)) +
                 geom_point() +
-                geom_point(aes(IntensityNorm, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
@@ -3164,12 +3167,12 @@ shinyServer(function(input, output, session) {
             }
             
             if(input$radiocal==4){
-                calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
+                calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth() +
                 geom_point() +
-                geom_point(aes(IntensityNorm, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
@@ -3177,12 +3180,12 @@ shinyServer(function(input, output, session) {
             }
             
             if(input$radiocal==5){
-                calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(IntensityNorm, Concentration)) +
+                calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth() +
                 geom_point() +
-                geom_point(aes(IntensityNorm, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
@@ -3436,7 +3439,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, cal.est.conc.luc, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
-                colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction", "Upper", "Lower")
             }
             
             if (input$radiocal==4){
@@ -3450,7 +3453,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 val.frame <- data.frame(na.omit(predict.frame$Concentration), predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
+                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction")
             }
             
             if (input$radiocal==5){
@@ -3463,7 +3466,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration", "IntensityNorm", "Prediction")
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
             }
             
             
@@ -3514,7 +3517,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, cal.est.conc.luc, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
-                colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction", "Upper", "Lower")
             }
             
             if (input$radiocal==4){
@@ -3525,7 +3528,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 val.frame <- data.frame(na.omit(predict.frame)$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction")
+                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction")
             }
             
             if (input$radiocal==5){
@@ -3536,7 +3539,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration", "IntensityNorm", "Prediction")
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
             }
             
             
@@ -3601,12 +3604,12 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==3){
                 val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration)) +
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper)) +
+                geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper)) +
                 geom_point() +
-                geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -3615,12 +3618,12 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==4){
                 val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration)) +
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth() +
                 geom_point() +
-                geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -3629,12 +3632,12 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==5){
                 val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration)) +
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth() +
                 geom_point() +
-                geom_point(aes(IntensityNorm, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma)) +
                 scale_y_continuous(paste(element.name, conen)) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -3769,8 +3772,9 @@ shinyServer(function(input, output, session) {
             
             point.table$Spectrum <- hold.table["Spectrum"]
             
+            
             hover <- input$plot_hovercal
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -3833,8 +3837,9 @@ shinyServer(function(input, output, session) {
             
             point.table$Spectrum <- hold.table["Spectrum"]
             
+            
             hover <- input$plot_hovercal_random
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -3879,7 +3884,7 @@ shinyServer(function(input, output, session) {
                 calValFrame()
             }
             
-            res <- nearPoints(predict.frame, input$plot_cal_click, allRows = TRUE)
+            res <- nearPoints(predict.frame, xvar="Intensity", yvar="Concentration", input$plot_cal_click, allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -3897,7 +3902,7 @@ shinyServer(function(input, output, session) {
             } else if(calType()==5) {
                 calValFrame()
             }
-            res <- brushedPoints(predict.frame, input$plot_cal_brush, allRows = TRUE)
+            res <- brushedPoints(predict.frame, xvar="Intensity", yvar="Concentration", input$plot_cal_brush, allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -3955,7 +3960,7 @@ shinyServer(function(input, output, session) {
             
             
             hover <- input$plot_hoverval
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints(point.table,  coordinfo=hover,  xvar="Prediction", yvar="Concentration", threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -4015,7 +4020,7 @@ shinyServer(function(input, output, session) {
             
             
             hover <- input$plot_hoverval_random
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints(point.table,  coordinfo=hover,  xvar="Prediction", yvar="Concentration", threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -4051,7 +4056,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- calValFrame()
             
-            res <- nearPoints(predict.frame, input$plot_val_click, allRows = TRUE)
+            res <- nearPoints(predict.frame, input$plot_val_click,  xvar="Prediction", yvar="Concentration", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -4061,7 +4066,7 @@ shinyServer(function(input, output, session) {
         observeEvent(input$exclude_toggle, {
             predict.frame <- calValFrame()
             
-            res <- brushedPoints(predict.frame, input$plot_val_brush, allRows = TRUE)
+            res <- brushedPoints(predict.frame, input$plot_val_brush,  xvar="Prediction", yvar="Concentration", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -5292,6 +5297,11 @@ observeEvent(input$actionprocess2_multi, {
             spectra.line.list <- lapply(quantNames(), function(x) as.data.frame(spectra.line.list[[x]][order(as.character(spectra.line.list[[x]][,"Spectrum"])),]))
             names(spectra.line.list) <- quantNames()
             
+            spectra.line.list <- lapply(quantNames(), function(x) data.frame(spectra.line.list[[x]][rowSums(spectra.line.list[[x]][,-1])!=0,]))
+            names(spectra.line.list) <- quantNames()
+
+            
+            
             spectra.line.list
 
             
@@ -5303,12 +5313,19 @@ observeEvent(input$actionprocess2_multi, {
         holdFrameMulti <- reactive({
             
             spectra.line.table <- spectraLineTableMulti()
+            concentration.table <- concentrationTableMulti()
             
+            concentration.table <- lapply(quantNames(), function(x) data.frame(concentration.table[[x]][concentration.table[[x]]$Spectrum %in% spectra.line.table[[x]]$Spectrum,]))
+            names(concentration.table) <- quantNames()
+
+            spectra.line.table <- lapply(quantNames(), function(x) data.frame(spectra.line.table[[x]][spectra.line.table[[x]]$Spectrum %in% concentration.table[[x]]$Spectrum,]))
+            names(spectra.line.table) <- quantNames()
+
             cal.names <- names(spectra.line.table)
             
             index <- seq(from=1, to=length(cal.names), by=1)
             
-            hold.list <- lapply(quantNames(),function(x) data.frame(spectra.line.table[[x]], Concentration=as.vector(as.numeric(unlist(concentrationTableMulti()[[x]][input$calcurveelement_multi])))))
+            hold.list <- lapply(quantNames(),function(x) data.frame(spectra.line.table[[x]], Concentration=as.vector(as.numeric(unlist(concentration.table[[x]][input$calcurveelement_multi])))))
             names(hold.list) <- quantNames()
 
             
@@ -6254,7 +6271,7 @@ observeEvent(input$actionprocess2_multi, {
                 
                 val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
-                Concentration=predict.frame[[x]][,"Concentration"],
+                Concentration=na.omit(predict.frame[[x]])[,"Concentration"],
                 Intensity=predict.intensity[[x]],
                 IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
@@ -6279,7 +6296,7 @@ observeEvent(input$actionprocess2_multi, {
                 
                 val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
-                Concentration=predict.frame[[x]][,"Concentration"],
+                Concentration=na.omit(predict.frame[[x]])[,"Concentration"],
                 IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ), cl=my.cores)
@@ -6427,7 +6444,7 @@ observeEvent(input$actionprocess2_multi, {
                 
                 val.frame <- lapply(quantNames(),function(x)
                 data.frame(
-                Concentration=predict.frame[[x]][,"Concentration"],
+                Concentration=na.omit(predict.frame[[x]])[,"Concentration"],
                 IntensityNorm=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ))
@@ -6749,7 +6766,7 @@ observeEvent(input$actionprocess2_multi, {
             
            
             
-            concentration.table <- do.call("rbind", predict.frame)
+            concentration.table <- do.call("rbind", na.omit(predict.frame))
 
             #concentration.table <- concentration.table[ unlist(vals_multi$keeprows), , drop = FALSE]
             #concentration.table <- concentration.table[(randomizeDataMulti()),]
@@ -6938,11 +6955,9 @@ observeEvent(input$actionprocess2_multi, {
             predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][!(randomizeDataMulti()), , drop = FALSE]))
             names(predict.frame) <- quantNames()
             
-            predict.frame <- lapply(quantNames(), function(x) as.data.frame(
-            predict.frame[[x]][predict.frame[[x]][, "Concentration"] > min(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE) & predict.frame[[x]][, "Concentration"] < max(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE), ]))
-            names(predict.frame) <- quantNames()
+
             
-            hold.table <- do.call("rbind", predict.frame)
+            hold.table <- do.call("rbind", na.omit(predict.frame))
             
             
             point.table$Spectrum <- hold.table[,"Spectrum"]
@@ -7658,7 +7673,8 @@ content = function(file){
                         spectra.line.table=as.data.frame(
                             count.table
                             ),
-                        element.line=x)
+                            element.line=x),
+                            na.action=na.pass
                 )
             } else if(valDataType()=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==2) {
                 predict(
@@ -7669,7 +7685,8 @@ content = function(file){
                             count.table
                             ),
                         element.line=x
-                    )
+                        ),
+                        na.action=na.pass
                 )
             } else if(valDataType()=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==3) {
                 predict(
@@ -7682,7 +7699,8 @@ content = function(file){
                             element.line=x,
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max
-                            )
+                            ),
+                            na.action=na.pass
                 )
             } else if(valDataType()=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                  predict(
@@ -7694,7 +7712,8 @@ content = function(file){
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        )
+                        ),
+                        na.action=na.pass
                  )
             } else if(valDataType()=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
@@ -7707,7 +7726,8 @@ content = function(file){
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    )
+                        ),
+                        na.action=na.pass
                 )
             } else if(valDataType()=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
@@ -7722,7 +7742,8 @@ content = function(file){
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
                         norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
-                        )
+                        ),
+                        na.action=na.pass
                 )
             } else if(valDataType()=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
@@ -7734,7 +7755,8 @@ content = function(file){
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    )
+                    ),
+                    na.action=na.pass
                 )
             } else if(valDataType()=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
@@ -7747,7 +7769,8 @@ content = function(file){
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    )
+                    ),
+                    na.action=na.pass
                 )
             } else if(valDataType()=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
@@ -7762,24 +7785,28 @@ content = function(file){
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max
-                    )
+                    ),
+                    na.action=na.pass
                 )
             } else if(valDataType()=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
-                    newdata=spectra_simp_prep_xrf(valdata)[,-1]
+                    newdata=spectra_simp_prep_xrf(valdata)[,-1],
+                    na.action=na.pass
                 )
             } else if(valDataType()=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
                 object=the.cal[[x]][[2]],
-                newdata=spectra_tc_prep_xrf(valdata)[,-1]
+                newdata=spectra_tc_prep_xrf(valdata)[,-1],
+                na.action=na.pass
                 )
             } else if(valDataType()=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(valdata,
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max)[,-1]
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max)[,-1],
+                    na.action=na.pass
                 )
             } else if(valDataType()=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
@@ -7788,7 +7815,8 @@ content = function(file){
                         spectra.line.table=as.data.frame(
                             count.table
                             ),
-                        element.line=x)
+                            element.line=x),
+                            na.action=na.pass
                 )
             } else if(valDataType()=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==2) {
                 predict(
@@ -7799,7 +7827,8 @@ content = function(file){
                             count.table
                             ),
                             element.line=x
-                            )
+                            ),
+                            na.action=na.pass
                 )
             } else if(valDataType()=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==3) {
                 predict(
@@ -7812,7 +7841,8 @@ content = function(file){
                         element.line=x,
                         norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
-                        )
+                        ),
+                        na.action=na.pass
                 )
             } else if(valDataType()=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
@@ -7824,7 +7854,8 @@ content = function(file){
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        )
+                        ),
+                        na.action=na.pass
                 )
             } else if(valDataType()=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
                 predict(
@@ -7837,7 +7868,8 @@ content = function(file){
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        )
+                        ),
+                        na.action=na.pass
                 )
             } else if(valDataType()=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
                 predict(
@@ -7852,7 +7884,8 @@ content = function(file){
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
                         norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max
-                        )
+                        ),
+                        na.action=na.pass
                 )
         } else if(valDataType()=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==1){
             predict(
@@ -7864,7 +7897,8 @@ content = function(file){
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    )
+                    ),
+                    na.action=na.pass
             )
         } else if(valDataType()=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==2){
             predict(
@@ -7877,7 +7911,8 @@ content = function(file){
                         element.line=x,
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        )
+                        ),
+                        na.action=na.pass
             )
         } else if(valDataType()=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==3){
             predict(
@@ -7892,7 +7927,8 @@ content = function(file){
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max
-                    )
+                    ),
+                    na.action=na.pass
             )
         }
             )
