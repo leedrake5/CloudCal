@@ -533,6 +533,18 @@ tabPanel("Cross Validation",
 
 ),
 
+tabPanel("Variables",
+div(
+style = "position:relative",
+plotOutput('importanceplot_multi',
+hover = hoverOpts('plot_hover_variable_multi', delay = 100, delayType = "debounce"),
+brush = brushOpts(id = 'plot_var_brush_multi', resetOnNew = TRUE), height=500),
+uiOutput('hover_info_variable_multi')),
+tags$hr(),
+actionButton("cropvar_multi", "Zoom"),
+downloadButton("variablePlot_multi", "Plot"),
+uiOutput('varelementui_multi')),
+
 #stabPanel("testing", dataTableOutput("moretesting")),
 
 
