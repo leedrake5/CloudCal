@@ -1878,9 +1878,9 @@ shinyServer(function(input, output, session) {
                 
             }
             
-            if(!is.null(likely_intercepts(input$calcurveelement))){
-                combos_mod.xrf(likely_intercepts(input$calcurveelement))
-            } else if(is.null(likely_intercepts(input$calcurveelement))){
+            if(!is.null(likely_intercepts_xrf(input$calcurveelement))){
+                combos_mod.xrf(likely_intercepts_xrf(input$calcurveelement))
+            } else if(is.null(likely_intercepts_xrf(input$calcurveelement))){
                 c("Rh.K.alpha", "Rh.L.alpha")
             }
             
@@ -1930,11 +1930,11 @@ shinyServer(function(input, output, session) {
         })
         
         
-        #observeEvent(input$trainslopes, {
+        observeEvent(input$trainslopes, {
         
-        #    isolate(intercepthold$intercepts <- bestInterceptVars())
+            isolate(intercepthold$intercepts <- bestInterceptVars())
         
-        #})
+        })
         
         
         inVar3Selected <- reactive({
@@ -2002,7 +2002,7 @@ shinyServer(function(input, output, session) {
             
             cl <- makePSOCKcluster(as.numeric(my.cores))
             registerDoParallel(cl)
-            train_model <- caret::train(Concentration~., data=cal.table[,-1], method="lm", metric=metric, trControl=control, allowParallel=TRUE, prox=TRUE, importance=TRUE)
+            train_model <- caret::train(Concentration~., data=cal.table[,-1], method="rf", metric=metric, trControl=control, allowParallel=FALSE, prox=TRUE, importance=TRUE)
             
             stopCluster(cl)
             train_model
