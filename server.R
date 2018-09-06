@@ -1995,11 +1995,11 @@ shinyServer(function(input, output, session) {
         })
         
         
-        observeEvent(input$trainslopes, {
+        #observeEvent(input$trainslopes, {
         
-            isolate(intercepthold$intercepts <- bestInterceptVars())
+        #isolate(intercepthold$intercepts <- bestInterceptVars())
         
-        })
+        #})
         
         
         inVar3Selected <- reactive({
@@ -2017,10 +2017,14 @@ shinyServer(function(input, output, session) {
         
         
         ####Machine Learning: Slopes
-       
+        
         slopeImportance <- reactive({
+            varImp(forestModel(), scale=FALSE)
+        })
+       
+        slopeImportanceFrame <- reactive({
             
-            forest.imp <- varImp(forestModel(), scale=FALSE)$importance
+            forest.imp <- slopeImportance()$importance
             colnames(forest.imp) <- "Importance"
             forest.imp$Element <- rownames(forest.imp)
             forest.imp
@@ -2029,7 +2033,7 @@ shinyServer(function(input, output, session) {
         
         slopeImportancePlot <- reactive({
             
-            ggplot(slopeImportance(), aes(reorder(Element, Importance), Importance)) + geom_bar(stat="identity", position="dodge") + theme_light() + coord_flip() + scale_x_discrete("Element")
+            ggplot(slopeImportanceFrame(), aes(reorder(Element, Importance), Importance)) + geom_bar(stat="identity", position="dodge") + theme_light() + coord_flip() + scale_x_discrete("Element")
 
         })
         
@@ -7575,9 +7579,8 @@ observeEvent(input$actionprocess2_multi, {
             ggsave(file,calPlotDownloadMulti_val(), device="tiff", compression="lzw", type="cairo", dpi=300, width=18, height=7)
         }
         )
-
-
-
+        
+        
 
 
 

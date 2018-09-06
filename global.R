@@ -2214,8 +2214,7 @@ lucas_simp_prep_xrf <- function(spectra.line.table, element.line, slope.element.
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
     
     
-    lucas.intercept.table <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))
-    colnames(lucas.intercept.table) <- c("first")
+    lucas.intercept.table <- data.frame(first=rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))
     
     
     
