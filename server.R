@@ -5376,7 +5376,7 @@ observeEvent(input$actionprocess2_multi, {
             spectra.line.table <- holdFrameMulti()
             
             if(input$normcal_multi==1){
-                if(dataTypeMulti()=="Spectra"){
+                predict.intensity <- if(dataTypeMulti()=="Spectra"){
                     lapply(quantNames(), function(x) general_prep_xrf(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
                 } else if(dataTypeMulti()=="Net"){
                     lapply(quantNames(), function(x) general_prep_xrf_net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi))
@@ -5451,7 +5451,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if(input$normcal_multi==1){
-                if(dataTypeMulti()=="Spectra"){
+                predict.intensity <- if(dataTypeMulti()=="Spectra"){
                     lapply(quantNames(), function(x)  lucas_simp_prep_xrf(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=elementallinestouseMulti(), intercept.element.lines=input$intercept_vars_multi))
                 } else if(dataTypeMulti()=="Net"){
                     lapply(quantNames(), function(x)  lucas_simp_prep_xrf_net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=elementallinestouseMulti(), intercept.element.lines=input$intercept_vars_multi))
