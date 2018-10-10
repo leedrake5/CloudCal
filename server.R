@@ -1625,7 +1625,11 @@ shinyServer(function(input, output, session) {
         
         calConditons <- reactiveValues()
         calList <- reactiveValues()
-        calList <- NULL
+        calList <- if(input$usecalfile==FALSE){
+            NULL
+        } else if(input$usecalfile==TRUE){
+            calFileContents()[["calList"]]
+        }
         
         observeEvent(input$linecommit, {
             
@@ -2168,6 +2172,7 @@ shinyServer(function(input, output, session) {
             "(Xe) Xenon" = "Xe",
             "(Cs) Cesium" = "Cs",
             "(Ba) Barium" = "Ba",
+            "(La) Lanthanum" = "La",
             "(Ce) Cerium" = "Ce",
             "(Pr) Praeseodymeum" = "Pr",
             "(Nd) Neodymeum" = "Nd",
@@ -4677,7 +4682,11 @@ shinyServer(function(input, output, session) {
         calList <- reactiveValues()
         
         observeEvent(input$actionprocess, {
-            isolate(calList <- emptyList())
+            isolate(calList <- if(input$usecalfile==FALSE){
+                emptyList()
+            } else if(input$usecalfile==TRUE){
+                calFileContents()[["calList"]]
+            })
             calList <<- calList
         })
         
@@ -8175,7 +8184,7 @@ content = function(file){
 
             
             
-        predicted.list <- lapply(elements, function (x)
+        predicted.list <- pblapply(elements, function(x)
             if(valDataType()=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
