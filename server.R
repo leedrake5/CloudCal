@@ -2084,8 +2084,8 @@ shinyServer(function(input, output, session) {
             geom_line(aes(Energy, Importance)) +
             geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
             theme_light() +
-            scale_x_continuous("Energy (keV)") +
-            scale_y_continuous(paste0(input$calcurveelement, " Importance")) +
+            scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
+            scale_y_continuous(paste0(input$calcurveelement, " Importance"), breaks=scales::pretty_breaks()) +
             coord_cartesian(xlim = importanceranges$x, ylim = importanceranges$y, expand = TRUE)
             
             
@@ -3134,8 +3134,8 @@ shinyServer(function(input, output, session) {
                 stat_smooth(method="lm", fullrange = TRUE) +
                 geom_point() +
                 geom_point(data = predict.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, intens)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
                 
             }
@@ -3147,8 +3147,8 @@ shinyServer(function(input, output, session) {
                 stat_smooth(method="lm", formula=y~poly(x,2)) +
                 geom_point() +
                 geom_point(data = predict.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, intens)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
                 
             }
@@ -3160,8 +3160,8 @@ shinyServer(function(input, output, session) {
                 geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper)) +
                 geom_point() +
                 geom_point(aes(Intensity, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
                 
             }
@@ -3173,8 +3173,8 @@ shinyServer(function(input, output, session) {
                 geom_smooth() +
                 geom_point() +
                 geom_point(aes(Intensity, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
                 
             }
@@ -3186,8 +3186,8 @@ shinyServer(function(input, output, session) {
                 geom_smooth() +
                 geom_point() +
                 geom_point(aes(Intensity, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
                 
             }
@@ -3252,8 +3252,8 @@ shinyServer(function(input, output, session) {
             stat_smooth(method="lm") +
             geom_point() +
             geom_point(aes(Prediction, Concentration),  data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-            scale_x_continuous(paste(element.name, predi)) +
-            scale_y_continuous(paste(element.name, conen)) +
+            scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
+            scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
             coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = TRUE)
             
             
@@ -3582,8 +3582,8 @@ shinyServer(function(input, output, session) {
                 stat_smooth(method="lm", fullrange = TRUE) +
                 geom_point() +
                 geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, intens)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
                 
             }
@@ -3596,8 +3596,8 @@ shinyServer(function(input, output, session) {
                 stat_smooth(method="lm", formula=y~poly(x,2)) +
                 geom_point() +
                 geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, intens)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
             }
             
@@ -3610,8 +3610,8 @@ shinyServer(function(input, output, session) {
                 geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper)) +
                 geom_point() +
                 geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
             }
             
@@ -3624,8 +3624,8 @@ shinyServer(function(input, output, session) {
                 geom_smooth() +
                 geom_point() +
                 geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
             }
             
@@ -3638,8 +3638,8 @@ shinyServer(function(input, output, session) {
                 geom_smooth() +
                 geom_point() +
                 geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
             }
             
@@ -3701,8 +3701,8 @@ shinyServer(function(input, output, session) {
             stat_smooth(method="lm") +
             geom_point() +
             geom_point(aes(Prediction, Concentration),  data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
-            scale_x_continuous(paste(element.name, predi)) +
-            scale_y_continuous(paste(element.name, conen)) +
+            scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
+            scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
             coord_cartesian(xlim = rangesvalcurverandom$x, ylim = rangesvalcurverandom$y, expand = TRUE)
             
             valcurve.plot
@@ -4152,8 +4152,8 @@ shinyServer(function(input, output, session) {
             p1 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(.fitted, .resid)) +
             stat_smooth(method="loess") +
             geom_hline(yintercept=0, col="red", linetype="dashed") +
-            xlab("Fitted values") +
-            ylab("Residuals") +
+            scale_x_continuous("Fitted values", breaks=scales::pretty_breaks()) +
+            scale_y_continuous("Residuals", breaks=scales::pretty_breaks()) +
             ggtitle("Residual vs Fitted Plot") +
             theme_light() +
             geom_point() +
@@ -4176,8 +4176,8 @@ shinyServer(function(input, output, session) {
             
             p2 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(qq, .std.resid))+geom_point(na.rm = TRUE) +
             geom_abline() +
-            xlab("Theoretical Quantiles") +
-            ylab("Standardized Residuals") +
+            scale_x_continuous("Theoretical Quantiles", breaks=scales::pretty_breaks()) +
+            scale_y_continuous("Standardized Residuals", breaks=scales::pretty_breaks()) +
             ggtitle("Normal Q-Q") +
             theme_light() +
             geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(qq, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
@@ -4201,8 +4201,8 @@ shinyServer(function(input, output, session) {
             
             p3 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(.fitted, sqrt.std.resid)) +
             stat_smooth(method="loess", na.rm = TRUE) +
-            xlab("Fitted Value") +
-            ylab(expression(sqrt("|Standardized residuals|"))) +
+            scale_x_continuous("Fitted Value", breaks=scales::pretty_breaks()) +
+            scale_y_continuous(expression(sqrt("|Standardized residuals|")), breaks=scales::pretty_breaks()) +
             ggtitle("Scale-Location") +
             theme_light() +
             geom_point(na.rm=TRUE) +
@@ -4228,8 +4228,8 @@ shinyServer(function(input, output, session) {
             
             p4 <- ggplot(model, aes(seq.cooksd, .cooksd)) +
             geom_bar(stat="identity", position="identity") +
-            xlab("Obs. Number") +
-            ylab("Cook's distance") +
+            scale_x_continuous("Obs. Number", breaks=scales::pretty_breaks()) +
+            scale_y_continuous("Cook's distance", breaks=scales::pretty_breaks()) +
             ggtitle("Cook's distance") +
             theme_light()
             
@@ -4253,8 +4253,8 @@ shinyServer(function(input, output, session) {
             geom_point(aes(size=.cooksd), na.rm=TRUE) +
             geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.hat, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25) +
             stat_smooth(method="loess", na.rm=TRUE) +
-            xlab("Leverage") +
-            ylab("Standardized Residuals") +
+            scale_x_continuous("Leverage", breaks=scales::pretty_breaks()) +
+            scale_y_continuous("Standardized Residuals", breaks=scales::pretty_breaks()) +
             ggtitle("Residual vs Leverage Plot") +
             scale_size_continuous("Cook's Distance", range=c(1,5)) +
             theme_light() +
@@ -4278,8 +4278,8 @@ shinyServer(function(input, output, session) {
             
             p6 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(.hat, .cooksd)) +
             stat_smooth(method="loess", na.rm=TRUE) +
-            xlab("Leverage hii") +
-            ylab("Cook's Distance") +
+            scale_x_continuous("Leverage hii", breaks=scales::pretty_breaks()) +
+            scale_y_continuous("Cook's Distance", breaks=scales::pretty_breaks()) +
             ggtitle("Cook's dist vs Leverage hii/(1-hii)") +
             geom_abline(slope=seq(0,3,0.5), color="gray", linetype="dashed") +
             theme_light() +
@@ -5807,7 +5807,12 @@ observeEvent(input$actionprocess2_multi, {
         
         slopeImportancePlotMulti <- reactive({
             
-            ggplot(slopeImportanceMulti(), aes(reorder(Element, Importance), Importance, fill=Instrument)) + geom_bar(stat="identity", position="dodge") + theme_light() + coord_flip() + scale_x_discrete("Element")
+            ggplot(slopeImportanceMulti(), aes(reorder(Element, Importance), Importance, fill=Instrument)) +
+            geom_bar(stat="identity", position="dodge") +
+            theme_light() +
+            coord_flip() +
+            scale_x_discrete("Element", breaks=scales::pretty_breaks()) +
+            scale_y_discrete(breaks=scales::pretty_breaks())
             
         })
         
@@ -5861,8 +5866,8 @@ observeEvent(input$actionprocess2_multi, {
             geom_line(aes(Energy, Importance, colour=Instrument, lty=Instrument)) +
             geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
             theme_light() +
-            scale_x_continuous("Energy (keV)") +
-            scale_y_continuous(paste0(input$calcurveelement_multi, " Importance")) +
+            scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
+            scale_y_continuous(paste0(input$calcurveelement_multi, " Importance"), breaks=scales::pretty_breaks()) +
             coord_cartesian(xlim = importanceranges_multi$x, ylim = importanceranges_multi$y, expand = TRUE)
 
         })
@@ -6239,8 +6244,8 @@ observeEvent(input$actionprocess2_multi, {
                 val.frame <- lapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
-                Intensity=predict.intensity[[x]],
-                IntensityNorm=cal.est.conc.luc[[x]],
+                IntensityOrg=predict.intensity[[x]],
+                Intensity=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]],
                 Upper=cal.est.conc.luc.up[[x]],
                 Lower=cal.est.conc.luc.low[[x]]
@@ -6249,7 +6254,7 @@ observeEvent(input$actionprocess2_multi, {
                 
                 
                 #val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
-                #colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+                #colnames(val.frame) <- c("Concentration", "Intensity", "Intensity", "Prediction", "Upper", "Lower")
             }
             
             
@@ -6269,15 +6274,15 @@ observeEvent(input$actionprocess2_multi, {
                 val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
-                Intensity=predict.intensity[[x]],
-                IntensityNorm=cal.est.conc.luc[[x]],
+                IntensityOrg=predict.intensity[[x]],
+                Intensity=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ), cl=my.cores)
                 names(val.frame) <- quantNames()
                 
                 
                 #val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
-                #colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+                #colnames(val.frame) <- c("Concentration", "Intensity", "Intensity", "Prediction", "Upper", "Lower")
             }
             
             
@@ -6293,14 +6298,14 @@ observeEvent(input$actionprocess2_multi, {
                 val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
                 Concentration=na.omit(predict.frame[[x]][,"Concentration"]),
-                IntensityNorm=cal.est.conc.luc[[x]],
+                Intensity=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ), cl=my.cores)
                 names(val.frame) <- quantNames()
                 
                 
                 #val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, lucas.x, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
-                #colnames(val.frame) <- c("Concentration", "Intensity", "IntensityNorm", "Prediction", "Upper", "Lower")
+                #colnames(val.frame) <- c("Concentration", "Intensity", "Intensity", "Prediction", "Upper", "Lower")
             }
             
             
@@ -6365,8 +6370,8 @@ observeEvent(input$actionprocess2_multi, {
                 geom_point() +
                 geom_point(data = predict.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
-                scale_x_continuous(paste(element.name, intens)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
                 
             }
@@ -6378,49 +6383,49 @@ observeEvent(input$actionprocess2_multi, {
                 geom_point() +
                 geom_point(data = predict.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 stat_smooth(method="lm", formula=y~poly(x,2), aes(fill=Instrument), alpha=0.1) +
-                scale_x_continuous(paste(element.name, intens)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
                 
             }
             
             if(input$radiocal_multi==3){
-                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(aes(IntensityNorm, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                geom_point(aes(Intensity, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
                 
             }
             
             
             if(input$radiocal_multi==4){
-                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(aes(IntensityNorm, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 geom_smooth(alpha=0.1) +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
                 
             }
             
             
             if(input$radiocal_multi==5){
-                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(aes(IntensityNorm, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 geom_smooth(alpha=0.1) +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
                 
             }
@@ -6489,8 +6494,8 @@ observeEvent(input$actionprocess2_multi, {
             stat_smooth(method="lm", aes(fill=Instrument), alpha=0.1) +
             geom_point() +
             geom_point(aes(Prediction, Concentration),  data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-            scale_x_continuous(paste(element.name, predi)) +
-            scale_y_continuous(paste(element.name, conen)) +
+            scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
+            scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
             coord_cartesian(xlim = rangesvalcurve_multi$x, ylim = rangesvalcurve_multi$y, expand = TRUE)
             
             
@@ -6589,7 +6594,23 @@ observeEvent(input$actionprocess2_multi, {
         
         
         
-        
+        holdFrameRandomMulti <- reactive({
+            
+            predict.frame <- holdFrameMulti()
+            
+            
+            
+            
+            predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][ vals_multi$keeprows[[x]], ]))
+            names(predict.frame) <- quantNames()
+            
+            predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][!randomizeDataMulti(),]))
+            names(predict.frame) <- quantNames()
+            
+            
+            predict.frame
+            
+        })
 
         
         
@@ -6766,7 +6787,7 @@ observeEvent(input$actionprocess2_multi, {
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
-                IntensityNorm=cal.est.conc.luc[[x]],
+                Intensity=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]],
                 Upper=cal.est.conc.luc.up[[x]],
                 Lower=cal.est.conc.luc.low[[x]]
@@ -6793,7 +6814,7 @@ observeEvent(input$actionprocess2_multi, {
                 data.frame(
                 Concentration=na.omit(predict.frame[[x]])[,"Concentration"],
                 Intensity=predict.intensity[[x]],
-                IntensityNorm=cal.est.conc.luc[[x]],
+                Intensity=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ), cl=my.cores)
                 
@@ -6817,7 +6838,7 @@ observeEvent(input$actionprocess2_multi, {
                 val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
                 Concentration=na.omit(predict.frame[[x]])[,"Concentration"],
-                IntensityNorm=cal.est.conc.luc[[x]],
+                Intensity=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ), cl=my.cores)
                 
@@ -6917,7 +6938,7 @@ observeEvent(input$actionprocess2_multi, {
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
-                IntensityNorm=cal.est.conc.luc[[x]],
+                Intensity=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]],
                 Upper=cal.est.conc.luc.up[[x]],
                 Lower=cal.est.conc.luc.low[[x]]
@@ -6943,7 +6964,7 @@ observeEvent(input$actionprocess2_multi, {
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
                 Intensity=predict.intensity[[x]],
-                IntensityNorm=cal.est.conc.luc[[x]],
+                Intensity=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ))
                 
@@ -6965,7 +6986,7 @@ observeEvent(input$actionprocess2_multi, {
                 val.frame <- lapply(quantNames(),function(x)
                 data.frame(
                 Concentration=na.omit(predict.frame[[x]])[,"Concentration"],
-                IntensityNorm=cal.est.conc.luc[[x]],
+                Intensity=cal.est.conc.luc[[x]],
                 Prediction=cal.est.conc.luc[[x]]
                 ))
                 
@@ -7017,8 +7038,8 @@ observeEvent(input$actionprocess2_multi, {
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
                 geom_point() +
-                scale_x_continuous(paste(element.name, intens)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
                 
             }
@@ -7030,21 +7051,21 @@ observeEvent(input$actionprocess2_multi, {
                 annotate("text", label=lm_eqn_poly(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
                 geom_point() +
-                scale_x_continuous(paste(element.name, intens)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
             }
             
             if(input$radiocal_multi==3){
                 val.frame <- valFrameRandomizedRevMulti()
 
-                calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth(aes(x=IntensityNorm, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
+                geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
                 geom_point() +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
             }
             
@@ -7052,13 +7073,13 @@ observeEvent(input$actionprocess2_multi, {
             if(input$radiocal_multi==4){
                 val.frame <- valFrameRandomizedRevMulti()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth(alpha=0.1) +
                 geom_point() +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
             }
             
@@ -7066,13 +7087,13 @@ observeEvent(input$actionprocess2_multi, {
             if(input$radiocal_multi==5){
                 val.frame <- valFrameRandomizedRevMulti()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(IntensityNorm, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth(alpha=0.1) +
                 geom_point() +
-                scale_x_continuous(paste(element.name, norma)) +
-                scale_y_continuous(paste(element.name, conen)) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
             }
             
@@ -7174,8 +7195,8 @@ observeEvent(input$actionprocess2_multi, {
             geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm", aes(fill=Instrument), alpha=0.1) +
             geom_point() +
-            scale_x_continuous(paste(element.name, predi)) +
-            scale_y_continuous(paste(element.name, conen)) +
+            scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
+            scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
             coord_cartesian(xlim = rangesvalcurverandom_multi$x, ylim = rangesvalcurverandom_multi$y, expand = TRUE)
             
             valcurve.plot
@@ -7217,17 +7238,23 @@ observeEvent(input$actionprocess2_multi, {
             
             
             concentration.table <- do.call("rbind", holdFrameMulti())
+            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
+            hold.table$Concentration[hold.table$Concentration==""] <- NA
+            hold.table <- hold.table[complete.cases(hold.table), ]
+            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
+            hold.table <- na.omit(hold.table)
+            #hold.table <- as.vector(concentration.table[,"Spectrum"])
             
-            hold.table <- as.vector(concentration.table[,"Spectrum"])
+            
+            point.table$Spectrum <- hold.table[,"Spectrum"]
+
             
             
-            point.table$Spectrum <- hold.table
-           
             
             #point.table$Spectrum <- hold.table["Spectrum"]
             
             hover <- input$plot_hovercal_multi
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -7277,6 +7304,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
+            
             predict.frame <- lapply(quantNames(),function(x) data.frame(holdFrameMulti()[[x]][ vals_multi$keeprows[[x]], ]))
             names(predict.frame) <- quantNames()
             
@@ -7287,14 +7315,15 @@ observeEvent(input$actionprocess2_multi, {
            
             
             concentration.table <- do.call("rbind", na.omit(predict.frame))
-
-            #concentration.table <- concentration.table[ unlist(vals_multi$keeprows), , drop = FALSE]
-            #concentration.table <- concentration.table[(randomizeDataMulti()),]
+            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
+            hold.table$Concentration[hold.table$Concentration==""] <- NA
+            hold.table <- hold.table[complete.cases(hold.table), ]
+            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
+            hold.table <- na.omit(hold.table)
+            #hold.table <- as.vector(concentration.table[,"Spectrum"])
             
-            hold.table <- as.vector(concentration.table[,"Spectrum"])
             
-            
-            point.table$Spectrum <- hold.table
+            point.table$Spectrum <- hold.table[,"Spectrum"]
 
             
             
@@ -7302,7 +7331,7 @@ observeEvent(input$actionprocess2_multi, {
             #point.table$Spectrum <- hold.table["Spectrum"]
             
             hover <- input$plot_hovercal_random_multi
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -7413,21 +7442,27 @@ observeEvent(input$actionprocess2_multi, {
         # Float over info
         output$hover_infoval_multi <- renderUI({
             
+            
             point.table <- valFrameMulti()
             concentration.table.rev <- predictFrameRandomMulti()
 
             
             concentration.table <- do.call("rbind", holdFrameMulti())
             
-            hold.table <- as.vector(concentration.table[,"Spectrum"])
+            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
+            hold.table$Concentration[hold.table$Concentration==""] <- NA
+            hold.table <- hold.table[complete.cases(hold.table), ]
+            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
+            hold.table <- na.omit(hold.table)
+            #hold.table <- as.vector(concentration.table[,"Spectrum"])
             
             
-            point.table$Spectrum <- hold.table
+            point.table$Spectrum <- hold.table[,"Spectrum"]
 
             
             
             hover <- input$plot_hoverval_multi
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints(point.table,  coordinfo=hover, xvar="Prediction", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -7465,26 +7500,32 @@ observeEvent(input$actionprocess2_multi, {
             
             point.table <- valFrameRandomizedMulti()
             
-            concentration.table.rev <- predictFrameRandomMulti()
-
             
-            predict.frame <- lapply(quantNames(),function(x) data.frame(holdFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            
+            
+            predict.frame <- lapply(quantNames(),function(x) data.frame(holdFrameMulti()[[x]][ vals_multi$keeprows[[x]], ]))
             names(predict.frame) <- quantNames()
             
             
-            predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][!(randomizeDataMulti()), , drop = FALSE]))
+            predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][(randomizeDataMulti()), ]))
             names(predict.frame) <- quantNames()
             
-
             
-            hold.table <- do.call("rbind", na.omit(predict.frame))
+            
+            concentration.table <- do.call("rbind", na.omit(holdFrameRandomMulti()))
+            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
+            hold.table$Concentration[hold.table$Concentration==""] <- NA
+            hold.table <- hold.table[complete.cases(hold.table), ]
+            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
+            hold.table <- na.omit(hold.table)
+            #hold.table <- as.vector(concentration.table[,"Spectrum"])
             
             
             point.table$Spectrum <- hold.table[,"Spectrum"]
             
             
             hover <- input$plot_hoverval_random_multi
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints(point.table,  coordinfo=hover, xvar="Prediction", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
             
             
