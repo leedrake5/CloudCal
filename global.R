@@ -2069,10 +2069,15 @@ spectra_table_xrf <- function(spectra, concentration){
     data[complete.cases(data),]
 }
 
-spectra_simp_prep_xrf <- function(spectra){
+spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE){
     
-    spectra$Energy <- round(spectra$Energy, 1)
-    spectra <- subset(spectra, !(spectra$Energy < 0.7 | spectra$Energy > 37))
+    if(is.null(energy.min)){energy.min <- 0.7}
+    if(is.null(energy.max)){energy.max <- 37}
+    if(is.null(compress)){compress <- TRUE}
+
+
+    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
 
     
     spectra <- data.table(spectra)
@@ -2086,10 +2091,14 @@ spectra_simp_prep_xrf <- function(spectra){
     
 }
 
-spectra_tc_prep_xrf <- function(spectra){
+spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE){
     
-    spectra$Energy <- round(spectra$Energy, 1)
-    spectra <- subset(spectra, !(spectra$Energy < 0.7 | spectra$Energy > 37))
+    if(is.null(energy.min)){energy.min <- 0.7}
+    if(is.null(energy.max)){energy.max <- 37}
+    if(is.null(compress)){compress <- TRUE}
+    
+    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
@@ -2109,7 +2118,11 @@ spectra_tc_prep_xrf <- function(spectra){
     
 }
 
-spectra_comp_prep_xrf <- function(spectra, norm.min, norm.max){
+spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress=TRUE){
+    
+    if(is.null(energy.min)){energy.min <- 0.7}
+    if(is.null(energy.max)){energy.max <- 37}
+    if(is.null(compress)){compress <- TRUE}
     
     compton.norm <- subset(spectra$CPS, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
     compton.file <- subset(spectra$Spectrum, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
@@ -2118,8 +2131,9 @@ spectra_comp_prep_xrf <- function(spectra, norm.min, norm.max){
     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
-    spectra$Energy <- round(spectra$Energy, 1)
-    spectra <- subset(spectra, !(spectra$Energy < 0.7 | spectra$Energy > 37))
+    
+    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]

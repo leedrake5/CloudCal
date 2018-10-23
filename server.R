@@ -1748,32 +1748,31 @@ shinyServer(function(input, output, session) {
             
             
             if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
-                calConditons[["CalTable"]]["Min"]
+                calConditons[["CalTable"]][["Min"]]
             } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
                 calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$Min
             } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
                 calList[[input$calcurveelement]][[1]]$CalTable$Min
             } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
                 calList[[input$calcurveelement]][[1]]$CalTable$Min
-            }  else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
-                calConditons[["CalTable"]]["Min"]
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["Min"]]
             }
             
         })
         
         normMaxPre <- reactive({
             
-            
             if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
-                calConditons[["CalTable"]]["Max"]
+                calConditons[["CalTable"]][["Max"]]
             } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
                 calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$Max
             } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
                 calList[[input$calcurveelement]][[1]]$CalTable$Max
             } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
                 calList[[input$calcurveelement]][[1]]$CalTable$Max
-            }  else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
-                calConditons[["CalTable"]]["Max"]
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["Max"]]
             }
         })
         
@@ -1859,7 +1858,7 @@ shinyServer(function(input, output, session) {
         
         normhold <- reactiveValues()
         
-        observeEvent(input$c, {
+        observeEvent(input$calcurveelement, {
             normhold$norms <- c(normMinPre(), normMaxPre())
             normhold$normtype <- calNormSelectionpre()
         })
@@ -1889,11 +1888,11 @@ shinyServer(function(input, output, session) {
         
         
         calNormSelectionpre <- reactive({
-
+            
             
             if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
                 calConditons[["CalTable"]][["NormType"]]
-            }else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
                 calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$NormType
             } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
                 calList[[input$calcurveelement]][[1]]$CalTable$NormType
