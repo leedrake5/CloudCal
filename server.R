@@ -1945,6 +1945,8 @@ shinyServer(function(input, output, session) {
                 thanks.for.all.the.fish
                 
             }
+            combos_mod.xrf <- cmpfun(combos_mod.xrf)
+
             
             if(!is.null(likely_intercepts_xrf(input$calcurveelement))){
                 combos_mod.xrf(likely_intercepts_xrf(input$calcurveelement))
@@ -2378,6 +2380,8 @@ shinyServer(function(input, output, session) {
                 thanks.for.all.the.fish
                 
             }
+            combos_mod_xrf <- cmpfun(combos_mod_xrf)
+
             
             fit.lm <- caretSlope()
             
@@ -5225,6 +5229,8 @@ observeEvent(input$actionprocess2_multi, {
                 }
                 
             }
+            calstandardmulticheck <- cmpfun(calstandardmulticheck)
+
             
            cal.list <- quantCals()
            
@@ -7781,6 +7787,31 @@ content = function(file){
     })
     
     
+    output$valfiletypeui <- renderUI({
+        
+        if(is.null(input$calfileinput2)){
+            selectInput("valfiletype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="CSV")
+        } else if(!is.null(input$calfileinput2)){
+            selectInput("valfiletype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected=calFileContents2()[["FileType"]])
+        
+        }
+    
+})
+    
+    calFileContents2 <- reactive({
+        
+        existingCalFile <- input$calfileinput2
+        
+        if (is.null(existingCalFile)) return(NULL)
+        
+        
+        Calibration <- readRDS(existingCalFile$datapath)
+        
+        Calibration
+        
+    })
+    
+    
 
     
     
@@ -8002,18 +8033,7 @@ content = function(file){
         
         
         
-        calFileContents2 <- reactive({
-            
-            existingCalFile <- input$calfileinput2
-            
-            if (is.null(existingCalFile)) return(NULL)
-            
-            
-            Calibration <- readRDS(existingCalFile$datapath)
-            
-            Calibration
-            
-        })
+      
         
         valdata <- myValData()
 
@@ -8221,6 +8241,8 @@ content = function(file){
                                 }
     
         }
+        cal_type <- cmpfun(cal_type)
+
 
             
             

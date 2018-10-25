@@ -573,7 +573,8 @@ tags$hr(),
 
 uiOutput('filevalgrab'),
 
-selectInput("valfiletype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="Spectra"),
+uiOutput('valfiletypeui'),
+
 
 
 tags$hr(),

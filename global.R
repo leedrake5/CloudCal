@@ -13,6 +13,7 @@ get_os <- function(){
     }
     tolower(os)
 }
+
 #options(repos = BiocInstaller::biocinstallRepos())
 #getOption("repos")
 options(download.file.method="libcurl", url.method="libcurl")
@@ -22,7 +23,7 @@ if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools", "gRbase", "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools", "gRbase", "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
@@ -62,8 +63,12 @@ library(gRbase)
 library(reticulate)
 library(Rcpp)
 library(data.table)
+library(compiler)
 
 library(doSNOW)
+
+require(compiler)
+enableJIT(3)
 
 options(digits=4)
 options(warn=-1)
@@ -91,14 +96,19 @@ line_strip <- function(elements){
     elements <- gsub(".L1", "", elements)
     elements
 }
+line_strip <- cmpfun(line_strip)
 
 atomic_order <- function(element){
     subset(fluorescence.lines, Symbol==line_strip(element))$AtomicNumber
 }
+atomic_order <- cmpfun(atomic_order)
+
 
 atomic_order_vector <- function(elements){
     unlist(lapply(elements, atomic_order))
 }
+atomic_order_vector <- cmpfun(atomic_order_vector)
+
 
 
 element_line_pull <- function(element.line){
@@ -107,6 +117,7 @@ element_line_pull <- function(element.line){
     distance <- strsplit(x=element.line, split="\\.")[[1]][3]
     data.frame(ElementLine=element.line, Element=element, Orbital=destination, Line=distance)
 }
+element_line_pull <- cmpfun(element_line_pull)
 
 
 Hodder.v.old <- function(y)
@@ -123,6 +134,7 @@ Hodder.v.old <- function(y)
     
     return(y)
 }
+Hodder.v.old <- cmpfun(Hodder.v.old)
 
 
 Hodder.v <- function(y)
@@ -139,6 +151,7 @@ Hodder.v <- function(y)
     
     return(y)
 }
+Hodder.v <- cmpfun(Hodder.v)
 
 
 int_to_unit <- function (x, adjustment=2^32) {
@@ -147,6 +160,7 @@ int_to_unit <- function (x, adjustment=2^32) {
     x[signs < 0] <- x[signs < 0] + adjustment
     x
 }
+int_to_unit <- cmpfun(int_to_unit)
 
 
 
@@ -155,6 +169,7 @@ recognize_fold <- function(spectrum){
     index[index %in% seq(41, 2040, 1)]
     
 }
+recognize_fold <- cmpfun(recognize_fold)
 
 
 unfold_simple <- function(spectrum){
@@ -165,8 +180,9 @@ unfold_simple <- function(spectrum){
     
     data.frame(Spectrum=spectrum$Spectrum, Energy=spectrum$Energy, CPS=spectrum$CPSNew)
     
-    
 }
+unfold_simple <- cmpfun(unfold_simple)
+
 
 unfold <- function(spectrum){
     
@@ -177,6 +193,7 @@ unfold <- function(spectrum){
     fourth_unfold
     
 }
+unfold <- cmpfun(unfold)
 
 
 
@@ -191,6 +208,7 @@ cal.lmsummary <-function(lm.object){
     names(res)<-c("Call","n", "R2","Adj. R2",
     "F-statistic","numdf","dendf","p-value")
     return(res)}
+cal.lmsummary <- cmpfun(cal.lmsummary)
 
 
 val.lmsummary <-function(lm.object){
@@ -206,6 +224,7 @@ val.lmsummary <-function(lm.object){
     names(res)<-c("Call","Intercept","Slope","n","Slope SE","R2","Adj. R2",
     "F-statistic","numdf","dendf","p-value")
     return(res)}
+val.lmsummary <- cmpfun(val.lmsummary)
 
 
 
@@ -216,6 +235,7 @@ read_csv_filename_x <- function(filename){
     return.energy <- return.chan.counts*return.res
     return(return.energy)
 }
+read_csv_filename_x <- cmpfun(read_csv_filename_x)
 
 read_csv_filename_y <- function(filename){
     ret <- read.csv(file=filename, sep=",", header=FALSE)
@@ -224,12 +244,14 @@ read_csv_filename_y <- function(filename){
     return.cps <- return.counts/return.live.time
     return(return.cps)
 }
+read_csv_filename_y <- cmpfun(read_csv_filename_y)
 
 csvFrame <- function(filepath, filename){
     
     data.frame(Energy=read_csv_filename_x(filepath), CPS=read_csv_filename_y(filepath), Spectrum=rep(filename, length(read_csv_filename_x(filepath))))
-    
 }
+csvFrame <- cmpfun(csvFrame)
+
 
 readTXTData <- function(filepath, filename){
     
@@ -243,6 +265,7 @@ readTXTData <- function(filepath, filename){
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
 }
+readTXTData <- cmpfun(readTXTData)
 
 
 
@@ -263,6 +286,8 @@ read_csv_net <- function(filepath) {
     simple.transpose
     
 }
+read_csv_net <- cmpfun(read_csv_net)
+
 
 readSPTData <- function(filepath, filename){
     filename <- gsub(".spt", "", filename)
@@ -292,6 +317,8 @@ readSPTData <- function(filepath, filename){
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
     return(spectra.frame)
 }
+readSPTData <- cmpfun(readSPTData)
+
 
 
 readMCAData <- function(filepath, filename){
@@ -329,6 +356,8 @@ readMCAData <- function(filepath, filename){
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
     return(spectra.frame)
 }
+readMCAData <- cmpfun(readMCAData)
+
 
 
 readSPXData <- function(filepath, filename){
@@ -353,6 +382,7 @@ readSPXData <- function(filepath, filename){
     return(spectra.frame)
     
 }
+readSPXData <- cmpfun(readSPXData)
 
 
 readPDZ25DataExpiremental <- function(filepath, filename){
@@ -376,6 +406,7 @@ readPDZ25DataExpiremental <- function(filepath, filename){
         unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector))
 
 }
+readPDZ25DataExpiremental <- cmpfun(readPDZ25DataExpiremental)
 
 
 readPDZ24DataExpiremental <- function(filepath, filename){
@@ -398,6 +429,7 @@ readPDZ24DataExpiremental <- function(filepath, filename){
     unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector))
     
 }
+readPDZ24DataExpiremental <- cmpfun(readPDZ24DataExpiremental)
 
 
 #Rcpp::sourceCpp("pdz.cpp")
@@ -421,6 +453,7 @@ readPDZ25Data <- function(filepath, filename){
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
 }
+readPDZ25Data <- cmpfun(readPDZ25Data)
 
 
 readPDZ25DataManual <- function(filepath, filename, binaryshift){
@@ -442,6 +475,7 @@ readPDZ25DataManual <- function(filepath, filename, binaryshift){
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
 }
+readPDZ25DataManual <- cmpfun(readPDZ25DataManual)
 
 
 readPDZ24Data<- function(filepath, filename){
@@ -462,6 +496,7 @@ readPDZ24Data<- function(filepath, filename){
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
 }
+readPDZ24Data <- cmpfun(readPDZ24Data)
 
 
 
@@ -479,6 +514,7 @@ readPDZData <- function(filepath, filename) {
 
     
 }
+readPDZ24Data <- cmpfun(readPDZ24Data)
 
 
 
@@ -493,6 +529,8 @@ file.0 <- function(file) {
         return(levels(file))
     }
 }
+file.0 <- cmpfun(file.0)
+
 
 is.0 <- function(cps, file) {
     file.0 <- function(file) {
@@ -513,6 +551,8 @@ is.0 <- function(cps, file) {
         return(framed)
     }
 }
+is.0 <- cmpfun(is.0)
+
 
 dt_options <- reactive({
     # dynamically create options for `aoColumns` depending on how many columns are selected.
@@ -528,12 +568,16 @@ dt_options <- reactive({
     )
 })
 
+
 ifrm <- function(obj, env = globalenv()) {
     obj <- deparse(substitute(obj))
     if(exists(obj, envir = env)) {
         rm(list = obj, envir = env)
     }
 }
+
+ifrm <- cmpfun(ifrm)
+
 
 lmp <- function (modelobject) {
     if (class(modelobject) != "lm") stop("Not an object of class 'lm' ")
@@ -542,6 +586,8 @@ lmp <- function (modelobject) {
     attributes(p) <- NULL
     return(p)
 }
+lmp <- cmpfun(lmp)
+
 
 lm_eqn.old <- function(df){
     m <- lm(y ~ x, df);
@@ -551,6 +597,8 @@ lm_eqn.old <- function(df){
     r2 = format(summary(m)$r.squared, digits = 3)))
     as.character(as.expression(eq));
 }
+lm_eqn.old <- cmpfun(lm_eqn.old)
+
 
 lm_eqn = function(m) {
     
@@ -563,6 +611,8 @@ lm_eqn = function(m) {
     
     as.character(as.expression(eq));
 }
+lm_eqn <- cmpfun(lm_eqn)
+
 
 lm_eqn_poly = function(m) {
     
@@ -576,6 +626,8 @@ lm_eqn_poly = function(m) {
     
     as.character(as.expression(eq));
 }
+lm_eqn_poly <- cmpfun(lm_eqn_poly)
+
 
 lm_eqn_val = function(m) {
     
@@ -588,6 +640,8 @@ lm_eqn_val = function(m) {
     
     as.character(as.expression(eq));
 }
+lm_eqn_val <- cmpfun(lm_eqn_val)
+
 
 numericInput2<-function (inputId, label, value = "",...)
 {
@@ -595,6 +649,8 @@ numericInput2<-function (inputId, label, value = "",...)
     tags$label(label, `for` = inputId),
     tags$input(id = inputId, type = "text", value = value,...))
 }
+numericInput2 <- cmpfun(numericInput2)
+
 
 numericInputRow<-function (inputId, label, min, max,  value = "")
 {
@@ -602,6 +658,7 @@ numericInputRow<-function (inputId, label, min, max,  value = "")
     tags$label(label, `for` = inputId),
     tags$input(id = inputId, type = "text", value = value, class="input-mini", width='20%'))
 }
+numericInputRow <- cmpfun(numericInputRow)
 
 
 
@@ -641,6 +698,9 @@ diagPlot<-function(model){
     return(list(rvfPlot=p1, qqPlot=p2, sclLocPlot=p3, cdPlot=p4, rvlevPlot=p5, cvlPlot=p6))
 }
 
+diagPlot <- cmpfun(diagPlot)
+
+
 rbind.match.columns <- function(input1, input2) {
     n.input1 <- ncol(input1)
     n.input2 <- ncol(input2)
@@ -655,6 +715,7 @@ rbind.match.columns <- function(input1, input2) {
     
     return(rbind(input1[, column.names], input2[, column.names]))
 }
+rbind.match.columns <- cmpfun(rbind.match.columns)
 
 
 strip_glm <- function(cm) {
@@ -681,6 +742,8 @@ strip_glm <- function(cm) {
     
     cm
 }
+strip_glm <- cmpfun(strip_glm)
+
 
 merge_Sum <- function(.df1, .df2, .id_Columns, .match_Columns){
     merged_Columns <- unique(c(names(.df1),names(.df2)))
@@ -700,6 +763,7 @@ merge_Sum <- function(.df1, .df2, .id_Columns, .match_Columns){
     }
     return(merged_df1)
 }
+merge_Sum <- cmpfun(merge_Sum)
 
 
 GG_save_pdf = function(list, filename) {
@@ -716,6 +780,8 @@ GG_save_pdf = function(list, filename) {
     
     invisible(NULL)
 }
+GG_save_pdf <- cmpfun(GG_save_pdf)
+
 
 ###Train Functions
 
@@ -732,12 +798,14 @@ pull_test <- function(a.vector, a.value.position){
     
     data.frame(Value=a.vector[a.value.position], ZScore=ZScore, pvalue=pvalue, Sig=is.sig)
 }
+pull_test <- cmpfun(pull_test)
 
 
 Z_frame <- function(a.vector){
     
     do.call("rbind", lapply(seq(1, length(a.vector), 1), function(x) pull_test(a.vector, x)))
 }
+Z_frame <- cmpfun(Z_frame)
 
 
 Z_choose <- function(a.vector){
@@ -746,6 +814,7 @@ Z_choose <- function(a.vector){
     full[full$Sig,]
     
 }
+Z_choose <- cmpfun(Z_choose)
 
 variable_select_xrf <- function(intensities, values, analyte){
     
@@ -762,6 +831,7 @@ variable_select_xrf <- function(intensities, values, analyte){
     elements[as.numeric(rownames(Z_choose(importance.frame$Overall)))]
     
 }
+variable_select_xrf <- cmpfun(variable_select_xrf)
 
 
 variable_select_short_xrf <- function(importance){
@@ -769,6 +839,8 @@ variable_select_short_xrf <- function(importance){
     elements <- rownames(importance$importance)
     elements[as.numeric(rownames(Z_choose(importance.frame$Overall)))]
 }
+variable_select_short_xrf <- cmpfun(variable_select_short_xrf)
+
 
 
 black.diamond <- read.csv("data/blackdiamond.csv", header=FALSE, sep=",")
@@ -1568,6 +1640,8 @@ elementGrabKalpha <- function(element, data) {
     hold.ag
     
 }
+elementGrabKalpha <- cmpfun(elementGrabKalpha)
+
 
 elementGrabKbeta <- function(element, data) {
     
@@ -1593,6 +1667,8 @@ elementGrabKbeta <- function(element, data) {
     hold.ag
     
 }
+elementGrabKbeta <- cmpfun(elementGrabKbeta)
+
 
 elementGrabLalpha <- function(element, data) {
     
@@ -1609,6 +1685,8 @@ elementGrabLalpha <- function(element, data) {
     hold.ag
     
 }
+elementGrabLalpha <- cmpfun(elementGrabLalpha)
+
 
 elementGrabLbeta <- function(element, data) {
     
@@ -1626,6 +1704,7 @@ elementGrabLbeta <- function(element, data) {
     hold.ag
     
 }
+elementGrabLbeta <- cmpfun(elementGrabLbeta)
 
 elementGrabMalpha <- function(element, data) {
     
@@ -1642,6 +1721,8 @@ elementGrabMalpha <- function(element, data) {
     hold.ag
     
 }
+elementGrabMalpha <- cmpfun(elementGrabMalpha)
+
 
 elementGrabpre <- function(element.line, data) {
     
@@ -1662,6 +1743,7 @@ elementGrabpre <- function(element.line, data) {
     }
         
 }
+elementGrabpre <- cmpfun(elementGrabpre)
 
 
 
@@ -1673,6 +1755,8 @@ range_subset_xrf <- function(range.frame, data){
     colnames(newer.data) <- c("Spectrum", as.character(range.frame$Name))
     newer.data
 }
+range_subset_xrf <- cmpfun(range_subset_xrf)
+
 
 xrf_parse <- function(range.table, data){
     
@@ -1687,6 +1771,7 @@ xrf_parse <- function(range.table, data){
     
     Reduce(function(...) merge(..., all=T), selected.list)
 }
+xrf_parse <- cmpfun(xrf_parse)
 
 
 
@@ -1702,6 +1787,7 @@ elementGrab <- function(element.line, data, range.table){
 
     
 }
+elementGrab <- cmpfun(elementGrab)
 
 
 elementFrame <- function(data, elements){
@@ -1732,6 +1818,7 @@ elementFrame <- function(data, elements){
     spectra.line.frame
     
 }
+elementFrame <- cmpfun(elementFrame)
 
 
 
@@ -1750,6 +1837,8 @@ element_norm <- function(data, element, min, max) {
     
     
 }
+element_norm <- cmpfun(element_norm)
+
 
 ####Cal Models
 
@@ -1776,6 +1865,8 @@ linear_simp_xrf <- function(concentration.table, spectra.line.table, element.lin
     cal.lm
     
 }
+linear_simp_xrf <- cmpfun(linear_simp_xrf)
+
 
 poly_simp_xrf <- function(concentration.table, spectra.line.table, element.line) {
     
@@ -1800,6 +1891,8 @@ poly_simp_xrf <- function(concentration.table, spectra.line.table, element.line)
     cal.lm.poly
     
 }
+poly_simp_xrf <- cmpfun(poly_simp_xrf)
+
 
 lucas_simp_xrf <- function(concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
@@ -1833,6 +1926,7 @@ lucas_simp_xrf <- function(concentration.table, spectra.line.table, element.line
     
     
 }
+lucas_simp_xrf <- cmpfun(lucas_simp_xrf)
 
 
 linear_tc_xrf <- function(concentration.table, spectra.line.table, element.line) {
@@ -1863,6 +1957,8 @@ linear_tc_xrf <- function(concentration.table, spectra.line.table, element.line)
     cal.lm.tc
     
 }
+linear_tc_xrf <- cmpfun(linear_tc_xrf)
+
 
 poly_tc_xrf <- function(concentration.table, spectra.line.table, element.line) {
     
@@ -1896,6 +1992,7 @@ poly_tc_xrf <- function(concentration.table, spectra.line.table, element.line) {
     
     
 }
+poly_tc_xrf <- cmpfun(poly_tc_xrf)
 
 
 
@@ -1932,6 +2029,7 @@ lucas_tc_xrf <- function(concentration.table, spectra.line.table, element.line, 
     
     
 }
+lucas_tc_xrf <- cmpfun(lucas_tc_xrf)
 
 linear_comp_xrf <- function(data, concentration.table, spectra.line.table, element.line) {
     
@@ -1963,6 +2061,8 @@ linear_comp_xrf <- function(data, concentration.table, spectra.line.table, eleme
     cal.lm.comp
     
 }
+linear_comp_xrf <- cmpfun(linear_comp_xrf)
+
 
 poly_comp_xrf <- function(data, concentration.table, spectra.line.table, element.line) {
     
@@ -1994,6 +2094,8 @@ poly_comp_xrf <- function(data, concentration.table, spectra.line.table, element
     cal.lm.poly.comp
     
 }
+poly_comp_xrf <- cmpfun(poly_comp_xrf)
+
 
 lucas_comp_xrf <- function(data, concentration.table, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
     
@@ -2037,6 +2139,7 @@ lucas_comp_xrf <- function(data, concentration.table, spectra.line.table, elemen
     lucas.lm.comp
     
 }
+lucas_comp_xrf <- cmpfun(lucas_comp_xrf)
 
 
 ###############
@@ -2057,6 +2160,8 @@ spectra_frame_xrf <- function(spectra){
     colnames(data) <- make.names(colnames(data))
     data[complete.cases(data),]
 }
+spectra_frame_xrf <- cmpfun(spectra_frame_xrf)
+
 
 
 spectra_table_xrf <- function(spectra, concentration){
@@ -2068,6 +2173,8 @@ spectra_table_xrf <- function(spectra, concentration){
     colnames(data) <- make.names(colnames(data))
     data[complete.cases(data),]
 }
+spectra_table_xrf <- cmpfun(spectra_table_xrf)
+
 
 spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE){
     
@@ -2090,6 +2197,8 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compre
     do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
     
 }
+spectra_simp_prep_xrf <- cmpfun(spectra_simp_prep_xrf)
+
 
 spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE){
     
@@ -2114,9 +2223,9 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress
     data <- data.frame(Spectrum=data$Spectrum, data[,-1]/total.counts)
     do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
     
-    
-    
 }
+spectra_tc_prep_xrf <- cmpfun(spectra_tc_prep_xrf)
+
 
 spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress=TRUE){
     
@@ -2146,6 +2255,7 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.m
     do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
     
 }
+spectra_comp_prep_xrf <- cmpfun(spectra_comp_prep_xrf)
 
 
 ###############
@@ -2166,6 +2276,8 @@ general_prep_xrf <- function(spectra.line.table, element.line) {
     data.frame(Intensity=spectra.line.table[,element.line])
 
 }
+general_prep_xrf <- cmpfun(general_prep_xrf)
+
 
 simple_tc_prep_xrf <- function(data,spectra.line.table, element.line) {
     
@@ -2181,6 +2293,7 @@ simple_tc_prep_xrf <- function(data,spectra.line.table, element.line) {
     
     predict.frame.tc
 }
+simple_tc_prep_xrf <- cmpfun(simple_tc_prep_xrf)
 
 
 simple_comp_prep_xrf <- function(data, spectra.line.table, element.line, norm.min, norm.max) {
@@ -2205,6 +2318,7 @@ simple_comp_prep_xrf <- function(data, spectra.line.table, element.line, norm.mi
     predict.frame.comp
     
 }
+simple_comp_prep_xrf <- cmpfun(simple_comp_prep_xrf)
 
 
 
@@ -2246,6 +2360,7 @@ lucas_simp_prep_xrf <- function(spectra.line.table, element.line, slope.element.
     
     
 }
+lucas_simp_prep_xrf <- cmpfun(lucas_simp_prep_xrf)
 
 
 lucas_tc_prep_xrf <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
@@ -2285,6 +2400,7 @@ lucas_tc_prep_xrf <- function(data, spectra.line.table, element.line, slope.elem
     
     predict.intensity.luc.tc
 }
+lucas_tc_prep_xrf <- cmpfun(lucas_tc_prep_xrf)
 
 
 
@@ -2333,6 +2449,7 @@ lucas_comp_prep_xrf <- function(data, spectra.line.table, element.line, slope.el
    
     predict.frame.luc.comp
 }
+lucas_comp_prep_xrf <- cmpfun(lucas_comp_prep_xrf)
 
 
 
@@ -2356,6 +2473,8 @@ general_prep_xrf_net <- function(spectra.line.table, element.line) {
     
     predict.frame
 }
+general_prep_xrf_net <- cmpfun(general_prep_xrf_net)
+
 
 simple_tc_prep_xrf_net <- function(data,spectra.line.table, element.line) {
     
@@ -2371,6 +2490,7 @@ simple_tc_prep_xrf_net <- function(data,spectra.line.table, element.line) {
     
     predict.frame.tc
 }
+simple_tc_prep_xrf_net <- cmpfun(simple_tc_prep_xrf_net)
 
 
 simple_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, norm.min, norm.max) {
@@ -2390,6 +2510,7 @@ simple_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, nor
     predict.frame.comp
     
 }
+simple_comp_prep_xrf_net <- cmpfun(simple_comp_prep_xrf_net)
 
 
 
@@ -2434,6 +2555,7 @@ lucas_simp_prep_xrf_net <- function(spectra.line.table, element.line, slope.elem
     
     
 }
+lucas_simp_prep_xrf_net <- cmpfun(lucas_simp_prep_xrf_net)
 
 
 
@@ -2478,6 +2600,7 @@ lucas_tc_prep_xrf_net <- function(data, spectra.line.table, element.line, slope.
     
     predict.intensity.luc.tc
 }
+lucas_tc_prep_xrf_net <- cmpfun(lucas_tc_prep_xrf_net)
 
 
 lucas_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {
@@ -2524,6 +2647,7 @@ lucas_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, slop
     
     predict.frame.luc.comp
 }
+lucas_comp_prep_xrf_net <- cmpfun(lucas_comp_prep_xrf_net)
 
 
 
@@ -2542,6 +2666,8 @@ combos.xrf <- function(a.vector){
     thanks.for.all.the.fish
     
 }
+combos.xrf <- cmpfun(combos.xrf)
+
 
 create.frame.slopes.xrf <- function(element, slopes, values, intensities){
     values <- values[complete.cases(values[,element]),]
@@ -2552,6 +2678,8 @@ create.frame.slopes.xrf <- function(element, slopes, values, intensities){
     intensities[,slopes])
     
 }
+create.frame.slopes.xrf <- cmpfun(create.frame.slopes.xrf)
+
 
 create.frame.intercepts.xrf <- function(element, slopes, values, intensities){
     
@@ -2560,6 +2688,7 @@ create.frame.intercepts.xrf <- function(element, slopes, values, intensities){
     intensities[,slopes])
     
 }
+create.frame.intercepts.xrf <- cmpfun(create.frame.intercepts.xrf)
 
 
 
@@ -2596,6 +2725,8 @@ optimal_r_chain.xrf <- function(element, intensities, values, possible.slopes, k
     
     #best.var
 }
+optimal_r_chain.xrf <- cmpfun(optimal_r_chain.xrf)
+
 
 
 optimal_norm_chain_xrf <- function(data, element, spectra.line.table, values, possible.mins, possible.maxs){
@@ -2610,6 +2741,7 @@ optimal_norm_chain_xrf <- function(data, element, spectra.line.table, values, po
     best
     
 }
+optimal_norm_chain_xrf <- cmpfun(optimal_norm_chain_xrf)
 
 
 optimal_intercept_chain_xrf <- function(element, intensities, values, keep){
@@ -2624,6 +2756,7 @@ optimal_intercept_chain_xrf <- function(element, intensities, values, keep){
     best.var
     
 }
+optimal_intercept_chain_xrf <- cmpfun(optimal_intercept_chain_xrf)
 
 
 likely_intercepts_xrf <- function(element){
@@ -2714,6 +2847,8 @@ likely_intercepts_xrf <- function(element){
         c("Rb.K.alpha", "Sr.K.alpha")
     }
 }
+likely_intercepts_xrf <- cmpfun(likely_intercepts_xrf)
+
 
 peak_threshold_xrf <- function(spectrum){
     
@@ -2722,9 +2857,9 @@ peak_threshold_xrf <- function(spectrum){
     spectrum$isPeak <- ifelse(log(spectrum$Peaks) > 1, TRUE, FALSE)
     ggplot(spectrum) + geom_line(aes(Energy, Peaks)) + theme_light() + scale_y_log10()
     ggplot(spectrum) + geom_line(aes(Energy, CPS)) + theme_light() + geom_point(data=spectrum[spectrum$isPeak,], aes(Energy, CPS), colour="red", alpha=0.5)
-
     
 }
+peak_threshold_xrf <- cmpfun(peak_threshold_xrf)
 
 
 
@@ -2746,6 +2881,7 @@ find_peaks_xrf <- function(spectrum){
     data.frame(Energy=spectrum[spectrum$Peak,]$Energy, CPS=spectrum[spectrum$Peak,]$CPS)
 
 }
+find_peaks_xrf <- cmpfun(find_peaks_xrf)
 
 
 
@@ -2759,6 +2895,8 @@ range_subset <- function(range.frame, data){
     colnames(newer.data) <- c("Spectrum", as.character(range.frame$Name))
     newer.data
 }
+range_subset <- cmpfun(range_subset)
+
 
 xrf_parse <- function(range.table, data){
     
@@ -2773,6 +2911,7 @@ xrf_parse <- function(range.table, data){
     
     Reduce(function(...) merge(..., all=T), selected.list)
 }
+xrf_parse <- cmpfun(xrf_parse)
 
 
 ###Unit Transformation
@@ -2794,3 +2933,4 @@ data_summarize <- function(xrf.table) {
     
     
 }
+data_summarize <- cmpfun(data_summarize)
