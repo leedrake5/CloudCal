@@ -2140,6 +2140,7 @@ shinyServer(function(input, output, session) {
             "(Ca) Calcium" = "Ca",
             "(Sc) Scandium" = "Sc",
             "(Ti) Titanium" = "Ti",
+            "(V) Vanadium" = "V",
             "(Cr) Chromium" = "Cr",
             "(Mn) Manganese" = "Mn",
             "(Fe) Iron" = "Fe",
