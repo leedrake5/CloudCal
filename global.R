@@ -2336,6 +2336,23 @@ simple_comp_prep_xrf <- function(data, spectra.line.table, element.line, norm.mi
 }
 simple_comp_prep_xrf <- cmpfun(simple_comp_prep_xrf)
 
+spectra_summary_apply <- function(spectra.frame, normalization, min, max){
+    
+    new.spectrum <- if(normalization==1){
+        spectra_simp_prep_xrf(spectra=spectra.frame, compress=FALSE)
+    } else if(normalization==2){
+        spectra_tc_prep_xrf(spectra=spectra.frame, compress=FALSE)
+    } else if(normalization==3){
+        spectra_comp_prep_xrf(spectra=spectra.frame, norm.min=min, norm.max=max, compress=FALSE)
+    }
+    
+    newer.spectrum <- melt(new.spectrum, id.var="Spectrum")
+    colnames(newer.spectrum) <- c("Spectrum", "Energy", "CPS")
+    newer.spectrum$Energy <- as.numeric(gsub("X", "", newer.spectrum$Energy))
+    newer.spectrum
+}
+spectra_summary_apply <- cmpfun(spectra_summary_apply)
+
 
 
 ###Prep Data

@@ -604,7 +604,7 @@ shinyServer(function(input, output, session) {
             
             plotInput <- reactive({
                 
-                data <- dataHold()
+                data <- spectra_summary_apply(spectra.frame=dataHold(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra)
                 
                 
                 
@@ -618,14 +618,26 @@ shinyServer(function(input, output, session) {
                 
                 
                 
-                spectral.plot <- qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
+                spectral.plot.labels <- qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
                 theme_light()+
                 theme(legend.position="bottom") +
                 geom_segment(aes(x=element$Line, xend=element$Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
                 scale_colour_discrete("Spectrum") +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y)
                 
-                spectral.plot
+                spectral.plot.no.labels <- qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
+                theme_light()+
+                theme(legend.position="bottom") +
+                geom_segment(aes(x=element$Line, xend=element$Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
+                scale_colour_discrete("Spectrum") +
+                coord_cartesian(xlim = ranges$x, ylim = ranges$y) +
+                guides(colour=FALSE)
+                
+                if(input$showlegend==TRUE){
+                    spectral.plot.labels
+                } else if(input$showlegend==FALSE){
+                    spectral.plot.no.labels
+                }
                 
             })
             
