@@ -23,7 +23,7 @@ if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools", "gRbase", "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools", "gRbase", "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
@@ -64,9 +64,10 @@ library(reticulate)
 library(Rcpp)
 library(data.table)
 library(compiler)
-
+library(itertools)
 library(doSNOW)
-
+library(doParallel)
+library(foreach)
 require(compiler)
 enableJIT(3)
 
@@ -95,11 +96,28 @@ layOut = function(...) {
     }
 }
 
+k.lines.directory <- if(file.exists("data/K Line-Table 1.csv")){
+    "data/K Line-Table 1.csv"
+} else if(!file.exists("data/K Line-Table 1.csv")){
+    "https://raw.githubusercontent.com/leedrake5/CloudCal/master/data/K%20Line-Table%201.csv"
+}
+
+l.lines.directory <- if(file.exists("data/L Line-Table 1.csv")){
+    "data/L Line-Table 1.csv"
+} else if(!file.exists("data/L Line-Table 1.csv")){
+    "https://raw.githubusercontent.com/leedrake5/CloudCal/master/data/L%20Line-Table%201.csv"
+}
+
+fluorescence.lines.directory <- if(file.exists("data/FluorescenceLines.csv")){
+    "data/FluorescenceLines.csv"
+} else if(!file.exists("data/FluorescenceLines.csv")){
+    "https://raw.githubusercontent.com/leedrake5/CloudCal/master/data/FluorescenceLines.csv"
+}
 
 ######Load lines
-k.lines <- read.csv(file="data/K Line-Table 1.csv", sep=",")
-l.lines <- read.csv(file="data/L Line-Table 1.csv", sep=",")
-fluorescence.lines <- read.csv("data/FluorescenceLines.csv")
+k.lines <- read.csv(file=k.lines.directory, sep=",")
+l.lines <- read.csv(file=data/L Line-Table 1.csv, sep=",")
+fluorescence.lines <- read.csv(fluorescence.lines.directory, sep=",")
 
 
 line_strip <- function(elements){
@@ -782,6 +800,43 @@ merge_Sum <- function(.df1, .df2, .id_Columns, .match_Columns){
 merge_Sum <- cmpfun(merge_Sum)
 
 
+
+
+parallel_prediction_stats <-function(object,newdata, ...)
+{
+    
+    cl <- makePSOCKcluster(as.numeric(my.cores))
+    registerDoParallel(cl)
+    num_splits<-as.numeric(my.cores)
+    split_testing<-sort(rank(1:nrow(newdata))%%num_splits)
+    predictions<-foreach(i=unique(split_testing),
+    .combine=c,.packages=c("stats")) %dopar% {
+        as.numeric(predict(object,newdata=newdata[split_testing==i,], ...))
+    }
+    stopCluster(cl)
+    predictions
+}
+parallel_prediction_stats <- cmpfun(parallel_prediction_stats)
+
+
+
+parallel_prediction_caret <-function(object,newdata, ...)
+{
+    
+    cl <- makePSOCKcluster(as.numeric(my.cores))
+    registerDoParallel(cl)
+    num_splits<-as.numeric(my.cores)
+    split_testing<-sort(rank(1:nrow(newdata))%%num_splits)
+    predictions<-foreach(i=unique(split_testing),
+    .combine=c,.packages=c("caret")) %dopar% {
+        as.numeric(predict(object,newdata=newdata[split_testing==i,], ...))
+    }
+    stopCluster(cl)
+    predictions
+}
+parallel_prediction_caret <- cmpfun(parallel_prediction_caret)
+
+
 GG_save_pdf = function(list, filename) {
     #start pdf
     pdf(filename)
@@ -858,9 +913,20 @@ variable_select_short_xrf <- function(importance){
 variable_select_short_xrf <- cmpfun(variable_select_short_xrf)
 
 
+black.diamond.directory <- if(file.exists("data/blackdiamond.csv")){
+    "data/blackdiamond.csv"
+} else if(!file.exists("data/blackdiamond.csv")){
+    "https://raw.githubusercontent.com/leedrake5/CloudCal/master/data/blackdiamond.csv"
+}
 
-black.diamond <- read.csv("data/blackdiamond.csv", header=FALSE, sep=",")
-black.diamond.melt <- read.csv(file="data/blackdiamondmelt.csv")
+black.diamond.melt.directory <- if(file.exists("data/blackdiamondmelt.csv")){
+    "data/blackdiamondmelt.csv"
+} else if(!file.exists("data/blackdiamondmelt.csv")){
+    "https://raw.githubusercontent.com/leedrake5/CloudCal/master/data/blackdiamondmelt.csv"
+}
+
+black.diamond <- read.csv(black.diamond.directory, header=FALSE, sep=",")
+black.diamond.melt <- read.csv(file=black.diamond.melt.directory, sep=",")
 
 
 
@@ -2158,6 +2224,57 @@ lucas_comp_xrf <- function(data, concentration.table, spectra.line.table, elemen
 lucas_comp_xrf <- cmpfun(lucas_comp_xrf)
 
 
+
+###Spectra Manipulaton
+
+james <- function(x) (abs(x)+x)/2
+james.cp <- compiler::cmpfun(james)
+
+spectra_summary_general <- function(spectra.frame, norm.type, norm.min, norm.max, compress){
+    
+    if(norm.type==1){
+        spectra_simp_trans_xrf(spectra=spectra.frame, compress=compress)
+    } else if(norm.type==2){
+        spectra_tc_trans_xrf(spectra=spectra.frame, compress=compress)
+    } else if(norm.type==3){
+        spectra_comp_trans_xrf(spectra=spectra.frame, norm.min=norm.min, norm.max=norm.max, compress=compress)
+    }
+    
+}
+spectra_summary_general <- cmpfun(spectra_summary_general)
+
+
+
+spectra_stats <- function(spectra.frame, norm.type, norm.min, norm.max, compress){
+    
+    
+    data.processed <- spectra_summary_general(spectra.frame=spectra.frame, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, compress=compress)
+    
+    
+    
+    data.sum <- data.frame(
+    Energy = data.processed$Energy,
+    Min = apply(data.processed[,-1], 1, min),
+    Max = apply(data.processed[,-1], 1, max),
+    Mean = apply(data.processed[,-1], 1, mean),
+    Median = apply(data.processed[,-1], 1, median),
+    SD = apply(data.processed[,-1], 1, sd))
+    
+    data.sum$SDMin <- data.sum$Mean - data.sum$SD
+    data.sum$SDMax <- data.sum$Mean + data.sum$SD
+    data.sum$SD2Min <- data.sum$Mean - data.sum$SD*2
+    data.sum$SD2Max <- data.sum$Mean + data.sum$SD*2
+    
+    
+    
+    data.sum <- as.data.frame(apply(data.sum, 2, james.cp))
+    
+    data.sum
+    
+}
+spectra_stats <- cmpfun(spectra_stats)
+
+
 ###############
 ###Prep Data###
 ###############
@@ -2272,6 +2389,123 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.m
     
 }
 spectra_comp_prep_xrf <- cmpfun(spectra_comp_prep_xrf)
+
+
+
+spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compress=TRUE){
+    
+    if(is.null(energy.min)){energy.min <- 0.2}
+    if(is.null(energy.max)){energy.max <- 40}
+    if(is.null(compress)){compress <- TRUE}
+    
+    
+    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    
+    
+    spectra <- data.table(spectra)
+    spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
+    
+    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"))
+    
+    #test <- apply(test, 2, as.numeric)
+    colnames(data) <- make.names(colnames(data))
+    first.pass <- do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
+    first.pass <- data.table(first.pass)
+    
+    
+    
+    first.pass.t <- as.data.frame(data.table::transpose(first.pass))
+    names <- as.vector(unlist(first.pass.t[1,]))
+    first.pass.t.frame <- first.pass.t[-1,]
+    colnames(first.pass.t.frame) <- names
+    first.pass.t.frame <- apply(first.pass.t.frame, 2, as.numeric)
+    
+    
+    data.frame(Energy=as.numeric(gsub("X", "", colnames(data)))[-1], first.pass.t.frame)
+    
+}
+spectra_simp_trans_xrf <- cmpfun(spectra_simp_trans_xrf)
+
+
+spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE){
+    
+    if(is.null(energy.min)){energy.min <- 0.7}
+    if(is.null(energy.max)){energy.max <- 37}
+    if(is.null(compress)){compress <- TRUE}
+    
+    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    
+    spectra <- data.table(spectra)
+    spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
+    
+    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"))
+    
+    #test <- apply(test, 2, as.numeric)
+    colnames(data) <- make.names(colnames(data))
+    data <- data[complete.cases(data),]
+    
+    total.counts <- rowSums(data[,-1], na.rm=TRUE)
+    
+    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/total.counts)
+    first.pass <- do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
+    first.pass <- data.table(first.pass)
+    
+    
+    
+    first.pass.t <- as.data.frame(data.table::transpose(first.pass))
+    names <- as.vector(unlist(first.pass.t[1,]))
+    first.pass.t.frame <- first.pass.t[-1,]
+    colnames(first.pass.t.frame) <- names
+    first.pass.t.frame <- apply(first.pass.t.frame, 2, as.numeric)
+    
+    
+    data.frame(Energy=as.numeric(gsub("X", "", colnames(data)))[-1], first.pass.t.frame)
+}
+spectra_tc_trans_xrf <- cmpfun(spectra_tc_trans_xrf)
+
+
+spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress=TRUE){
+    
+    if(is.null(energy.min)){energy.min <- 0.7}
+    if(is.null(energy.max)){energy.max <- 37}
+    if(is.null(compress)){compress <- TRUE}
+    
+    compton.norm <- subset(spectra$CPS, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
+    compton.file <- subset(spectra$Spectrum, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
+    compton.frame <- data.frame(is.0(compton.norm, compton.file))
+    colnames(compton.frame) <- c("Compton", "Spectrum")
+    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    colnames(compton.frame.ag) <- c("Spectrum", "Compton")
+    
+    
+    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    
+    spectra <- data.table(spectra)
+    spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
+    
+    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"))
+    #test <- apply(test, 2, as.numeric)
+    colnames(data) <- make.names(colnames(data))
+    
+    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/compton.frame.ag$Compton)
+    first.pass <- do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
+    first.pass <- data.table(first.pass)
+    
+    
+    
+    first.pass.t <- as.data.frame(data.table::transpose(first.pass))
+    names <- as.vector(unlist(first.pass.t[1,]))
+    first.pass.t.frame <- first.pass.t[-1,]
+    colnames(first.pass.t.frame) <- names
+    first.pass.t.frame <- apply(first.pass.t.frame, 2, as.numeric)
+    
+    
+    data.frame(Energy=as.numeric(gsub("X", "", colnames(data)))[-1], first.pass.t.frame)
+}
+spectra_comp_trans_xrf <- cmpfun(spectra_comp_trans_xrf)
 
 
 ###############

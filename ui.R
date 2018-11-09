@@ -156,6 +156,7 @@ resetOnNew = TRUE
 tags$hr(),
 actionButton("cropspectra", "Zoom"),
 checkboxInput('showlegend', "Show Legend", value=FALSE),
+uiOutput('variancespectrumui'),
 tags$hr(),
 selectInput("normspectra", label = "Normalization",
 choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3)),
@@ -327,7 +328,9 @@ tabPanel("Cal Curves",
         tags$hr(),
         actionButton("exclude_toggle", "Toggle points"),
         actionButton("exclude_reset", "Reset"),
-        downloadButton('downloadcloudplot', "Plot")
+        downloadButton('downloadcloudplot', "Plot"),
+        selectInput('plotunit', "Unit Display", choices=c("%", "ppm", "ppmv"), selected="%")
+
 
 ),
 
@@ -535,7 +538,9 @@ tabPanel("Cross Validation",
         sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.33),
         checkboxInput('switchmulti', "Use Cross-Validation for Report", value=FALSE),
         checkboxInput('switchrand', "Randomize by Spectrum", value=FALSE),
-        downloadButton("downloadcloudplot_multi_val", "Plot")
+        downloadButton("downloadcloudplot_multi_val", "Plot"),
+        selectInput('plotunitmulti', "Unit Display", choices=c("%", "ppm", "ppmv"), selected="%")
+
 
 
 ),

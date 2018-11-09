@@ -32,9 +32,6 @@ assign("last.warning", NULL, envir = baseenv())
 
 shinyServer(function(input, output, session) {
     
-    
-    
-    
 
     
     output$filegrab <- renderUI({
@@ -63,6 +60,18 @@ shinyServer(function(input, output, session) {
         }
         
     })
+    
+    
+    output$variancespectrumui <- renderUI({
+        
+        if(input$showlegend==FALSE){
+            checkboxInput('variancespectrum', "Variance Spectrum", value=TRUE)
+        } else if(input$showlegend==TRUE){
+            p()
+        }
+        
+    })
+    
     
     
     output$gainshiftui <- renderUI({
@@ -601,11 +610,27 @@ shinyServer(function(input, output, session) {
             ranges <- reactiveValues(x = NULL, y = NULL)
             
             
+            spectraSummary <- reactive({
+                
+                spectra_stats(
+                    spectra.frame=dataHold(),
+                    norm.type=input$normspectra,
+                    norm.min=input$comptonminspectra,
+                    norm.max=input$comptonmaxspectra,
+                    compress=TRUE
+                    )
+
+            })
             
-            plotInput <- reactive({
+            
+            spectraPlotData <- reactive({
+                spectra_summary_apply(spectra.frame=dataHold(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra)
+
+            })
+            
+            spectraWithLabels <- reactive({
                 
-                data <- spectra_summary_apply(spectra.frame=dataHold(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra)
-                
+                data <- spectraPlotData()
                 
                 
                 id.seq <- seq(1, 2048,1)
@@ -617,15 +642,31 @@ shinyServer(function(input, output, session) {
                 intensity.base <- (element$Intensity/max(element$Intensity))
                 
                 
-                
-                spectral.plot.labels <- qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
+                qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
                 theme_light()+
                 theme(legend.position="bottom") +
                 geom_segment(aes(x=element$Line, xend=element$Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
                 scale_colour_discrete("Spectrum") +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y)
+
                 
-                spectral.plot.no.labels <- qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
+            })
+            
+            
+            spectraNoLabels <- reactive({
+                
+                data <- spectraPlotData()
+                
+                
+                id.seq <- seq(1, 2048,1)
+                
+                n <- length(data$Energy)
+                
+                element <- datasetInput()
+                intensity.norm <- (element$Intensity/max(element$Intensity))*max(data$CPS)
+                intensity.base <- (element$Intensity/max(element$Intensity))
+                
+                qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
                 theme_light()+
                 theme(legend.position="bottom") +
                 geom_segment(aes(x=element$Line, xend=element$Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
@@ -633,12 +674,47 @@ shinyServer(function(input, output, session) {
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y) +
                 guides(colour=FALSE)
                 
-                if(input$showlegend==TRUE){
-                    spectral.plot.labels
-                } else if(input$showlegend==FALSE){
-                    spectral.plot.no.labels
-                }
+            })
+            
+            
+            spectraSummaryPlot <- reactive({
                 
+                data <- spectraPlotData()
+                
+                data.summary <- spectraSummary()
+                
+                id.seq <- seq(1, 2048,1)
+                
+                n <- length(data$Energy)
+                
+                element <- datasetInput()
+                intensity.norm <- (element$Intensity/max(element$Intensity))*max(data.summary$Mean)
+                intensity.base <- (element$Intensity/max(element$Intensity))
+                
+                
+                ggplot(data.summary) +
+                geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max), alpha=0.2, fill="red") +
+                geom_line(aes(Energy, Mean), lty=2) +
+                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
+                scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
+                scale_y_continuous("Counts per Second") +
+                coord_cartesian(xlim = ranges$x, ylim = ranges$y) +
+                theme_light()
+
+                
+            })
+            
+            
+            plotInput <- reactive({
+                
+                if(input$showlegend==TRUE){
+                    spectraWithLabels()
+                } else if(input$showlegend==FALSE && input$variancespectrum==FALSE){
+                    spectraNoLabels()
+                } else if(input$showlegend==FALSE && input$variancespectrum==TRUE){
+                    spectraSummaryPlot()
+                }
+
             })
             
             
@@ -1385,7 +1461,7 @@ shinyServer(function(input, output, session) {
             }else if(input$usecalfile==TRUE && colnames(calFileContents()$Values)[1]=="Spectrum"){
                 data.frame(Include=rep(TRUE, length(hotable.data$Spectrum)), hotable.data)
             }else if(input$usecalfile==TRUE && colnames(calFileContents()$Values)[1]=="Include"){
-                data.frame(Include=calFileContents()$Values[,1], hotable.data)
+                data.frame(Include=calFileContents()$Values[,"Include"], hotable.data)
             }
             
             
@@ -3130,8 +3206,8 @@ shinyServer(function(input, output, session) {
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
             norma.tc <- " Valid Counts Normalized"
-            conen <- " (%)"
-            predi <- " Estimate (%)"
+            conen <- paste0(" ", input$plotunit)
+            predi <- paste0(" Estimate ", input$plotunit)
             log <- "Log "
             
             
@@ -3251,8 +3327,8 @@ shinyServer(function(input, output, session) {
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
             norma.tc <- " Valid Counts Normalized"
-            conen <- " (%)"
-            predi <- " Estimate (%)"
+            conen <- paste0(" ", input$plotunit)
+            predi <- paste0(" Estimate ", input$plotunit)
             log <- "Log "
             
             intensity.name <- c(element.name, intens)
@@ -3583,8 +3659,8 @@ shinyServer(function(input, output, session) {
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
             norma.tc <- " Valid Counts Normalized"
-            conen <- " (%)"
-            predi <- " Estimate (%)"
+            conen <- paste0(" ", input$plotunit)
+            predi <- paste0(" Estimate ", input$plotunit)
             
             intensity.name <- c(element.name, intens)
             concentration.name <- c(element.name, conen)
@@ -3701,8 +3777,8 @@ shinyServer(function(input, output, session) {
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
             norma.tc <- " Valid Counts Normalized"
-            conen <- " (%)"
-            predi <- " Estimate (%)"
+            conen <- paste0(" ", input$plotunit)
+            predi <- paste0(" Estimate ", input$plotunit)
             
             intensity.name <- c(element.name, intens)
             concentration.name <- c(element.name, conen)
@@ -6371,8 +6447,8 @@ observeEvent(input$actionprocess2_multi, {
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
             norma.tc <- " Valid Counts Normalized"
-            conen <- " (%)"
-            predi <- " Estimate (%)"
+            conen <- paste0(" ", input$plotunitmulti)
+            predi <- paste0(" Estimate ", input$plotunitmulti)
             log <- "Log "
             
             
@@ -6495,8 +6571,8 @@ observeEvent(input$actionprocess2_multi, {
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
             norma.tc <- " Valid Counts Normalized"
-            conen <- " (%)"
-            predi <- " Estimate (%)"
+            conen <- paste0(" ", input$plotunitmulti)
+            predi <- paste0(" Estimate ", input$plotunitmulti)
             log <- "Log "
             
             intensity.name <- c(element.name, intens)
@@ -7042,8 +7118,8 @@ observeEvent(input$actionprocess2_multi, {
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
             norma.tc <- " Valid Counts Normalized"
-            conen <- " (%)"
-            predi <- " Estimate (%)"
+            conen <- paste0(" ", input$plotunitmulti)
+            predi <- paste0(" Estimate ", input$plotunitmulti)
             
             intensity.name <- c(element.name, intens)
             concentration.name <- c(element.name, conen)
@@ -7198,8 +7274,8 @@ observeEvent(input$actionprocess2_multi, {
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
             norma.tc <- " Valid Counts Normalized"
-            conen <- " (%)"
-            predi <- " Estimate (%)"
+            conen <- paste0(" ", input$plotunitmulti)
+            predi <- paste0(" Estimate ", input$plotunitmulti)
             
             intensity.name <- c(element.name, intens)
             concentration.name <- c(element.name, conen)
