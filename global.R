@@ -116,7 +116,7 @@ fluorescence.lines.directory <- if(file.exists("data/FluorescenceLines.csv")){
 
 ######Load lines
 k.lines <- read.csv(file=k.lines.directory, sep=",")
-l.lines <- read.csv(file=data/L Line-Table 1.csv, sep=",")
+l.lines <- read.csv(file=l.lines.directory, sep=",")
 fluorescence.lines <- read.csv(fluorescence.lines.directory, sep=",")
 
 
