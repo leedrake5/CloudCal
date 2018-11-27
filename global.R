@@ -65,10 +65,15 @@ library(Rcpp)
 library(data.table)
 library(compiler)
 library(itertools)
-library(doSNOW)
-library(doParallel)
 library(foreach)
 require(compiler)
+
+if(get_os()=="windows"){
+    library(doSNOW)
+} else if(get_os()!="windows"){
+    library(doParallel)
+}
+
 enableJIT(3)
 
 options(digits=4)

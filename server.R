@@ -33,6 +33,35 @@ assign("last.warning", NULL, envir = baseenv())
 shinyServer(function(input, output, session) {
     
 
+    calFileContents <- reactive({
+        
+        existingCalFile <- input$calfileinput
+        
+        if (is.null(existingCalFile)) return(NULL)
+        
+        
+        Calibration <- readRDS(existingCalFile$datapath)
+        
+        
+        
+        Calibration[["Values"]]$Spectrum <- gsub(".spx", "", Calibration[["Values"]]$Spectrum)
+        Calibration[["Values"]]$Spectrum <- gsub(".pdz", "", Calibration[["Values"]]$Spectrum)
+        Calibration[["Values"]]$Spectrum <- gsub(".CSV", "", Calibration[["Values"]]$Spectrum)
+        Calibration[["Values"]]$Spectrum <- gsub(".csv", "", Calibration[["Values"]]$Spectrum)
+        Calibration[["Values"]]$Spectrum <- gsub(".spt", "", Calibration[["Values"]]$Spectrum)
+        Calibration[["Values"]]$Spectrum <- gsub(".mca", "", Calibration[["Values"]]$Spectrum)
+        
+        Calibration[["Spectra"]]$Spectrum <- gsub(".spx", "", Calibration[["Spectra"]]$Spectrum)
+        Calibration[["Spectra"]]$Spectrum <- gsub(".pdz", "", Calibration[["Spectra"]]$Spectrum)
+        Calibration[["Spectra"]]$Spectrum <- gsub(".CSV", "", Calibration[["Spectra"]]$Spectrum)
+        Calibration[["Spectra"]]$Spectrum <- gsub(".csv", "", Calibration[["Spectra"]]$Spectrum)
+        Calibration[["Spectra"]]$Spectrum <- gsub(".spt", "", Calibration[["Spectra"]]$Spectrum)
+        Calibration[["Spectra"]]$Spectrum <- gsub(".mca", "", Calibration[["Spectra"]]$Spectrum)
+        
+        Calibration
+        
+    })
+    
     
     output$filegrab <- renderUI({
         
@@ -113,6 +142,18 @@ shinyServer(function(input, output, session) {
             input$gainshift
         } else if(input$advanced==FALSE){
             0
+        }
+        
+    })
+    
+    
+    output$filetypeui <- renderUI({
+        
+        if(is.null(input$calfileinput)){
+            selectInput("filetype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="CSV")
+        } else if(!is.null(input$calfileinput)){
+            selectInput("filetype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected=calFileContents()[["FileType"]])
+            
         }
         
     })
@@ -435,34 +476,6 @@ shinyServer(function(input, output, session) {
         })
         
         
-        calFileContents <- reactive({
-            
-            existingCalFile <- input$calfileinput
-            
-            if (is.null(existingCalFile)) return(NULL)
-            
-            
-            Calibration <- readRDS(existingCalFile$datapath)
-            
-            
-            
-            Calibration[["Values"]]$Spectrum <- gsub(".spx", "", Calibration[["Values"]]$Spectrum)
-            Calibration[["Values"]]$Spectrum <- gsub(".pdz", "", Calibration[["Values"]]$Spectrum)
-            Calibration[["Values"]]$Spectrum <- gsub(".CSV", "", Calibration[["Values"]]$Spectrum)
-            Calibration[["Values"]]$Spectrum <- gsub(".csv", "", Calibration[["Values"]]$Spectrum)
-            Calibration[["Values"]]$Spectrum <- gsub(".spt", "", Calibration[["Values"]]$Spectrum)
-            Calibration[["Values"]]$Spectrum <- gsub(".mca", "", Calibration[["Values"]]$Spectrum)
-            
-            Calibration[["Spectra"]]$Spectrum <- gsub(".spx", "", Calibration[["Spectra"]]$Spectrum)
-            Calibration[["Spectra"]]$Spectrum <- gsub(".pdz", "", Calibration[["Spectra"]]$Spectrum)
-            Calibration[["Spectra"]]$Spectrum <- gsub(".CSV", "", Calibration[["Spectra"]]$Spectrum)
-            Calibration[["Spectra"]]$Spectrum <- gsub(".csv", "", Calibration[["Spectra"]]$Spectrum)
-            Calibration[["Spectra"]]$Spectrum <- gsub(".spt", "", Calibration[["Spectra"]]$Spectrum)
-            Calibration[["Spectra"]]$Spectrum <- gsub(".mca", "", Calibration[["Spectra"]]$Spectrum)
-            
-            Calibration
-            
-        })
         
         dataHold <- reactive({
             data <- if(input$usecalfile==FALSE){

@@ -41,8 +41,7 @@ tags$hr(),
 
 uiOutput('filegrab'),
 
-selectInput("filetype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="Spectra"),
-
+uiOutput("filetypeui"),
 
 tags$hr(),
 
@@ -98,7 +97,7 @@ c("(Ne) Neon" = "Ne.table",
 "(Ce) Cerium" = "Ce.table",
 "(Pr) Praeseodymeum" = "Pr.table",
 "(Nd) Neodymeum" = "Nd.table",
-"(Pr) Promethium" = "Pr.table",
+"(Pm) Promethium" = "Pm.table",
 "(Sm) Samarium" = "Sm.table",
 "(Eu) Europium" = "Eu.table",
 "(Gd) Gadolinium" = "Gd.table",
