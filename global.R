@@ -68,11 +68,8 @@ library(itertools)
 library(foreach)
 require(compiler)
 
-if(get_os()=="windows"){
-    library(doSNOW)
-} else if(get_os()!="windows"){
-    library(doParallel)
-}
+
+library(doParallel)
 
 enableJIT(3)
 
