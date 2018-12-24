@@ -7484,7 +7484,7 @@ observeEvent(input$actionprocess2_multi, {
                 calValFrameMulti()
             }
             
-            res <- nearPoints(predict.frame, input$plot_cal_click_multi, allRows = TRUE)
+            res <- nearPoints(predict.frame, input$plot_cal_click_multi, xvar="Intensity", yvar="Concentration", allRows = TRUE)
             
             temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
             
@@ -7505,7 +7505,7 @@ observeEvent(input$actionprocess2_multi, {
             } else if(calTypeMulti()==5) {
                 calValFrameMulti()
             }
-            res <- brushedPoints(predict.frame, input$plot_cal_brush_multi, allRows = TRUE)
+            res <- brushedPoints(predict.frame, input$plot_cal_brush_multi, xvar="Intensity", yvar="Concentration", allRows = TRUE)
             
             temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
             
@@ -7670,7 +7670,7 @@ observeEvent(input$actionprocess2_multi, {
             
             predict.frame <- calValFrameMulti()
             
-            res <- nearPoints(predict.frame, input$plot_val_click_multi, allRows = TRUE)
+            res <- nearPoints(predict.frame, input$plot_val_click_multi, xvar="Prediction", yvar="Concentration", allRows = TRUE)
             
             temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
             
@@ -7682,7 +7682,7 @@ observeEvent(input$actionprocess2_multi, {
         observeEvent(input$exclude_toggle_multi, {
             predict.frame <- calValFrameMulti()
             
-            res <- brushedPoints(predict.frame, input$plot_val_brush_multi, allRows = TRUE)
+            res <- brushedPoints(predict.frame, input$plot_val_brush_multi, xvar="Prediction", yvar="Concentration",  allRows = TRUE)
             
             temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
             

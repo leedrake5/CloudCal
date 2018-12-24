@@ -67,9 +67,9 @@ library(compiler)
 library(itertools)
 library(foreach)
 require(compiler)
-
-
 library(doParallel)
+library(parallel)
+
 
 enableJIT(3)
 
@@ -82,6 +82,7 @@ my.cores <- if(parallel::detectCores()>=3){
 } else if(parallel::detectCores()<=2){
     "1"
 }
+
 
 layOut = function(...) {
     
