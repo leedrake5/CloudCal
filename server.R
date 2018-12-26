@@ -2737,8 +2737,8 @@ shinyServer(function(input, output, session) {
             registerDoParallel(cl)
             
             rf_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
-            trControl=trainControl(method="cv",number=5),
-            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric="RMSE", na.action=na.omit)
+            trControl=trainControl(method=input$foresttrain,number=5),
+            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=input$forestmetric, na.action=na.omit)
             
             stopCluster(cl)
             rf_model
@@ -2847,9 +2847,9 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            rf_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
-            trControl=trainControl(method="cv",number=5),
-            prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
+            rf_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="rf", type="Regression",
+            trControl=trainControl(method=input$foresttrain,number=5),
+            prox=TRUE,allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE)
             
             
             stopCluster(cl)
@@ -3003,7 +3003,38 @@ shinyServer(function(input, output, session) {
             
         })
         
+        output$forestmetricui <- renderUI({
+            
+            if(input$radiocal==1){
+                NULL
+            } else if(input$radiocal==2){
+                NULL
+            } else if(input$radiocal==3){
+                NULL
+            } else if(input$radiocal==4){
+                selectInput("forestmetric", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected="RMSE")
+            } else if(input$radiocal==5){
+                selectInput("forestmetric", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected="RMSE")
+            }
+            
+        })
         
+        
+        output$foresttrainui <- renderUI({
+            
+            if(input$radiocal==1){
+                NULL
+            } else if(input$radiocal==2){
+                NULL
+            } else if(input$radiocal==3){
+                NULL
+            } else if(input$radiocal==4){
+                selectInput("foresttrain", label="Train Control", choices=c("Bootstrap"="boot", "k-fold Cross Validation"="cv", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected="cv")
+            }  else if(input$radiocal==5){
+                selectInput("foresttrain", label="Train Control", choices=c("Bootstrap"="boot", "k-fold Cross Validation"="cv", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected="cv")
+            }
+            
+        })
         
         
         

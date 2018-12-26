@@ -286,6 +286,10 @@ uiOutput('inVar2'),
 
 uiOutput('calTypeInput'),
 
+uiOutput('forestmetricui'),
+
+uiOutput('foresttrainui'),
+
 uiOutput('normTypeInput'),
 
 uiOutput('comptonMinInput'),
