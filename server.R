@@ -1741,8 +1741,11 @@ shinyServer(function(input, output, session) {
             norm.min <- 18.5
             norm.max <- 19.5
             
-            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max)
-            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max")
+            forestmetric <- "RMSE"
+            foresttrain <- "cv"
+            
+            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain)
+            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC")
             
             slope.corrections <- input$slope_vars
             intercept.corrections <- input$intercept_vars
@@ -3003,6 +3006,71 @@ shinyServer(function(input, output, session) {
             
         })
         
+        
+        ###Machine Learning Parameters
+        
+        calForestMetricSelectionpre <- reactive({
+            
+            
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["ForestMetric"]]
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$ForestMetric
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$ForestMetric
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$ForestMetric
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["ForestMetric"]]
+            }
+            
+        })
+        
+        calForestTCSelectionpre <- reactive({
+            
+            
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["ForestTC"]]
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$ForestTC
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$ForestTC
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$ForestTC
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["ForestTC"]]
+            }
+            
+        })
+        
+        
+        foresthold <- reactiveValues()
+        
+        observeEvent(input$calcurveelement, {
+            foresthold$metric <- calForestMetricSelectionpre()
+            foresthold$train <- calForestTCSelectionpre()
+        })
+        
+        
+        #observeEvent(input$trainslopes, {
+            
+            #    isolate(calhold$caltype <- bestCalType())
+            
+            #})
+        
+        
+        
+        forestMetricSelection <- reactive({
+            foresthold$metric
+        })
+        
+        forestTrainSelection <- reactive({
+            foresthold$train
+        })
+        
+        
+        
+        
         output$forestmetricui <- renderUI({
             
             if(input$radiocal==1){
@@ -3012,9 +3080,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 NULL
             } else if(input$radiocal==4){
-                selectInput("forestmetric", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected="RMSE")
+                selectInput("forestmetric", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
             } else if(input$radiocal==5){
-                selectInput("forestmetric", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected="RMSE")
+                selectInput("forestmetric", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
             }
             
         })
@@ -3029,9 +3097,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 NULL
             } else if(input$radiocal==4){
-                selectInput("foresttrain", label="Train Control", choices=c("Bootstrap"="boot", "k-fold Cross Validation"="cv", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected="cv")
+                selectInput("foresttrain", label="Train Control", choices=c("Bootstrap"="boot", "k-fold Cross Validation"="cv", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
             }  else if(input$radiocal==5){
-                selectInput("foresttrain", label="Train Control", choices=c("Bootstrap"="boot", "k-fold Cross Validation"="cv", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected="cv")
+                selectInput("foresttrain", label="Train Control", choices=c("Bootstrap"="boot", "k-fold Cross Validation"="cv", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
             }
             
         })
@@ -4853,8 +4921,11 @@ shinyServer(function(input, output, session) {
             norm.min <- print(input$comptonmin)
             norm.max <- print(input$comptonmax)
             
-            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max)
-            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max")
+            forestmetric <- input$forestmetric
+            foresttrain <- input$foresttrain
+            
+            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain)
+            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC")
             
             slope.corrections <- input$slope_vars
             intercept.corrections <- input$intercept_vars
