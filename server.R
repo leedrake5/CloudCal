@@ -2729,7 +2729,11 @@ shinyServer(function(input, output, session) {
             
             #randomForest(Concentration~., data=predictFrameForest()[vals$keeprows,, drop=FALSE], na.action=na.omit, ntree=1000, nPerm=100)
             
-            cl <- makePSOCKcluster(as.numeric(my.cores))
+            cl <- if(get_os()=="windows"){
+                makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                makeForkCluster(as.numeric(my.cores))
+            }
             registerDoParallel(cl)
             
             rf_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
@@ -2836,7 +2840,11 @@ shinyServer(function(input, output, session) {
             #randomForest(Concentration~., data=rainforestData(), na.action=na.omit, ntree=1000, nPerm=100)
             
             
-            cl <- makePSOCKcluster(as.numeric(my.cores))
+            cl <- if(get_os()=="windows"){
+                makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                makeForkCluster(as.numeric(my.cores))
+            }
             registerDoParallel(cl)
             
             rf_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
@@ -3474,7 +3482,11 @@ shinyServer(function(input, output, session) {
             }
             
             if (input$radiocal==4){
-                cl <- makePSOCKcluster(as.numeric(my.cores))
+                cl <- if(get_os()=="windows"){
+                    makePSOCKcluster(as.numeric(my.cores))
+                } else if(get_os()!="windows"){
+                    makeForkCluster(as.numeric(my.cores))
+                }
                 registerDoParallel(cl)
                 
                 cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
@@ -3487,7 +3499,11 @@ shinyServer(function(input, output, session) {
             }
             
             if (input$radiocal==5){
-                cl <- makePSOCKcluster(as.numeric(my.cores))
+                cl <- if(get_os()=="windows"){
+                    makePSOCKcluster(as.numeric(my.cores))
+                } else if(get_os()!="windows"){
+                    makeForkCluster(as.numeric(my.cores))
+                }
                 registerDoParallel(cl)
                 
                 cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
@@ -5623,7 +5639,11 @@ observeEvent(input$actionprocess2_multi, {
             
             #randomForest(Concentration~., data=predictFrameForest()[vals$keeprows,, drop=FALSE], na.action=na.omit, ntree=1000, nPerm=100)
             
-            cl <- makePSOCKcluster(as.numeric(my.cores))
+            cl <- if(get_os()=="windows"){
+                makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                makeForkCluster(as.numeric(my.cores))
+            }
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method="cv",number=5),
@@ -5745,7 +5765,11 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            cl <- makePSOCKcluster(as.numeric(my.cores))
+            cl <- if(get_os()=="windows"){
+                makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                makeForkCluster(as.numeric(my.cores))
+            }
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=rainforestDataMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method="cv",number=5),
@@ -5880,7 +5904,11 @@ observeEvent(input$actionprocess2_multi, {
             #cal.table[[i]]$Concentration <- concentration.table[[i]][,input$calcurveelement_multi]
             #}
             
-            cl <- makePSOCKcluster(as.numeric(my.cores))
+            cl <- if(get_os()=="windows"){
+                makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                makeForkCluster(as.numeric(my.cores))
+            }
             registerDoParallel(cl)
             train_model <- lapply(quantNames(), function(x) caret::train(Concentration~., data=cal.table[[x]][,-1], method="rf", metric=metric, trControl=control, allowParallel=TRUE, prox=TRUE, importance=TRUE))
             
@@ -6785,7 +6813,11 @@ observeEvent(input$actionprocess2_multi, {
             
             if (input$radiocal_multi==4){
                 #cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]], na.action=na.omit))
-                cl <- makePSOCKcluster(as.numeric(my.cores))
+                cl <- if(get_os()=="windows"){
+                    makePSOCKcluster(as.numeric(my.cores))
+                } else if(get_os()!="windows"){
+                    makeForkCluster(as.numeric(my.cores))
+                }
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
                 trControl=trainControl(method="cv",number=5),
@@ -6795,7 +6827,11 @@ observeEvent(input$actionprocess2_multi, {
             
             if (input$radiocal_multi==5){
                 #cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]], na.action=na.omit))
-                cl <- makePSOCKcluster(as.numeric(my.cores))
+                cl <- if(get_os()=="windows"){
+                    makePSOCKcluster(as.numeric(my.cores))
+                } else if(get_os()!="windows"){
+                    makeForkCluster(as.numeric(my.cores))
+                }
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
                 trControl=trainControl(method="cv",number=5),
