@@ -1741,8 +1741,8 @@ shinyServer(function(input, output, session) {
             norm.min <- 18.5
             norm.max <- 19.5
             
-            forestmetric <- "RMSE"
-            foresttrain <- "cv"
+            forestmetric <- as.character("RMSE")
+            foresttrain <- as.character("cv")
             
             cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain)
             colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC")
@@ -3097,9 +3097,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 NULL
             } else if(input$radiocal==4){
-                selectInput("foresttrain", label="Train Control", choices=c("Bootstrap"="boot", "k-fold Cross Validation"="cv", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
+                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
             }  else if(input$radiocal==5){
-                selectInput("foresttrain", label="Train Control", choices=c("Bootstrap"="boot", "k-fold Cross Validation"="cv", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
+                selectInput("foresttrain", label="Train Control", choices=c( "k-fold Cross Validation"="cv", "Bootstrap"="boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
             }
             
         })
@@ -4921,8 +4921,8 @@ shinyServer(function(input, output, session) {
             norm.min <- print(input$comptonmin)
             norm.max <- print(input$comptonmax)
             
-            forestmetric <- input$forestmetric
-            foresttrain <- input$foresttrain
+            forestmetric <- as.character(input$forestmetric)
+            foresttrain <- as.character(input$foresttrain)
             
             cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain)
             colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC")
