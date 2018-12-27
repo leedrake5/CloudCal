@@ -292,6 +292,8 @@ uiOutput('foresttrainui'),
 
 uiOutput('forestnumberui'),
 
+uiOutput('foresttreesui'),
+
 uiOutput('normTypeInput'),
 
 uiOutput('comptonMinInput'),
@@ -482,6 +484,8 @@ uiOutput('forestmetricui_multi'),
 uiOutput('foresttrainui_multi'),
 
 uiOutput('forestnumberui_multi'),
+
+uiOutput('foresttreesui_multi'),
 
 uiOutput('normTypeInput_multi'),
 

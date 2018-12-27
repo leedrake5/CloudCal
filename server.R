@@ -25,7 +25,7 @@ library(doParallel)
 pdf(NULL)
 
 
-options(shiny.maxRequestSize=30*1024^2)
+options(shiny.maxRequestSize=30*1024^20)
 
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
@@ -1744,10 +1744,11 @@ shinyServer(function(input, output, session) {
             forestmetric <- as.character("RMSE")
             foresttrain <- as.character("cv")
             forestnumber <- as.numeric(10)
+            foresttrees <- as.numeric(15)
 
             
-            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber)
-            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber")
+            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber, foresttrees)
+            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees")
             
             slope.corrections <- input$slope_vars
             intercept.corrections <- input$intercept_vars
@@ -2742,7 +2743,7 @@ shinyServer(function(input, output, session) {
             registerDoParallel(cl)
             
             rf_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber), ntree=input$foresttrees,
             prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=input$forestmetric, na.action=na.omit)
             
             stopCluster(cl)
@@ -2853,7 +2854,7 @@ shinyServer(function(input, output, session) {
             registerDoParallel(cl)
             
             rf_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="rf", type="Regression",
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber), ntree=input$foresttrees,
             prox=TRUE,allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE)
             
             
@@ -3064,12 +3065,31 @@ shinyServer(function(input, output, session) {
         })
         
         
+        calForestTreeSelectionpre <- reactive({
+            
+            
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["ForestTrees"]]
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$ForestTrees
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$ForestTrees
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$ForestTrees
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["ForestTrees"]]
+            }
+            
+        })
+        
+        
         foresthold <- reactiveValues()
         
         observeEvent(input$calcurveelement, {
             foresthold$metric <- calForestMetricSelectionpre()
             foresthold$train <- calForestTCSelectionpre()
             foresthold$number <- calForestNumberSelectionpre()
+            foresthold$trees <- calForestTreeSelectionpre()
         })
         
         
@@ -3091,6 +3111,10 @@ shinyServer(function(input, output, session) {
         
         forestNumberSelection <- reactive({
             foresthold$number
+        })
+        
+        forestTreeSelection <- reactive({
+            foresthold$trees
         })
         
         
@@ -3138,9 +3162,26 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 NULL
             } else if(input$radiocal==4){
-                sliderInput("forestnumber", label="Iterations", min=5, max=1000, value=forestNumberSelection())
+                sliderInput("forestnumber", label="Iterations", min=5, max=500, value=forestNumberSelection())
             }  else if(input$radiocal==5){
-                sliderInput("forestnumber", label="Iterations", min=5, max=1000, value=forestNumberSelection())
+                sliderInput("forestnumber", label="Iterations", min=5, max=500, value=forestNumberSelection())
+            }
+            
+        })
+        
+        
+        output$foresttreesui <- renderUI({
+            
+            if(input$radiocal==1){
+                NULL
+            } else if(input$radiocal==2){
+                NULL
+            } else if(input$radiocal==3){
+                NULL
+            } else if(input$radiocal==4){
+                sliderInput("foresttrees", label="Trees", min=5, max=500, value=forestTreeSelection())
+            }  else if(input$radiocal==5){
+                sliderInput("foresttrees", label="Trees", min=5, max=500, value=forestTreeSelection())
             }
             
         })
@@ -3630,7 +3671,7 @@ shinyServer(function(input, output, session) {
                 registerDoParallel(cl)
                 
                 cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
-                trControl=trainControl(method=input$foresttrain,  number=input$input$forestnumber), metric=input$forestmetric,
+                trControl=trainControl(method=input$foresttrain,  number=input$input$forestnumber), ntree=input$foresttrees, metric=input$forestmetric,
                 prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
                 
                 
@@ -3646,7 +3687,7 @@ shinyServer(function(input, output, session) {
                 }
                 registerDoParallel(cl)
                 
-                cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression", trControl=trainControl(method=input$foresttrain, number=input$forestnumber), metric=input$forestmetric,
+                cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression", trControl=trainControl(method=input$foresttrain, number=input$forestnumber),  ntree=input$foresttrees, metric=input$forestmetric,
                 prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
                 
                 
@@ -4961,12 +5002,32 @@ shinyServer(function(input, output, session) {
             norm.min <- print(input$comptonmin)
             norm.max <- print(input$comptonmax)
             
-            forestmetric <- as.character(input$forestmetric)
-            foresttrain <- as.character(input$foresttrain)
-            forestnumber <- as.numeric(input$forestnumber)
+            forestmetric <- if(input$radiocal==4 | input$radiocal==5){
+                as.character(input$forestmetric)
+            } else if(input$radiocal!=4 | input$radiocal!=5){
+                "RMSE"
+            }
             
-            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber)
-            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber")
+            foresttrain <- if(input$radiocal==4 | input$radiocal==5){
+                as.character(input$foresttrain)
+            } else if(input$radiocal!=4 | input$radiocal!=5){
+                "cv"
+            }
+            
+            forestnumber <- if(input$radiocal==4 | input$radiocal==5){
+                as.numeric(input$forestnumber)
+            } else if(input$radiocal!=4 | input$radiocal!=5){
+                as.numeric(10)
+            }
+            
+            foresttrees <- if(input$radiocal==4 | input$radiocal==5){
+                as.numeric(input$foresttrees)
+            } else if(input$radiocal!=4 | input$radiocal!=5){
+                as.numeric(15)
+            }
+            
+            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber, foresttrees)
+            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees")
             
             slope.corrections <- input$slope_vars
             intercept.corrections <- input$intercept_vars
@@ -5414,6 +5475,15 @@ shinyServer(function(input, output, session) {
         })
         
         
+        forestTreeSelectionMulti <- reactive({
+            
+            
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable$ForestTrees
+            
+            
+        })
+        
+        
         calNormSelectionMulti <- reactive({
             
             
@@ -5504,6 +5574,24 @@ shinyServer(function(input, output, session) {
                 sliderInput("forestnumber_multi", label="Iterations", min=5, max=1000, value=forestNumberSelectionMulti())
             }  else if(input$radiocal_multi==5){
                 sliderInput("forestnumber_multi", label="Iterations", min=5, max=1000, value=forestNumberSelectionMulti())
+            }
+            
+        })
+        
+        
+        
+        output$foresttreesui_multi <- renderUI({
+            
+            if(input$radiocal_multi==1){
+                NULL
+            } else if(input$radiocal_multi==2){
+                NULL
+            } else if(input$radiocal_multi==3){
+                NULL
+            } else if(input$radiocal_multi==4){
+                sliderInput("foresttrees_multi", label="Trees", min=5, max=1000, value=forestTreeSelectionMulti())
+            }  else if(input$radiocal_multi==5){
+                sliderInput("foresttrees_multi", label="Trees", min=5, max=1000, value=forestTreeSelectionMulti())
             }
             
         })
@@ -5872,7 +5960,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
-            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
             prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE))
             stopCluster(cl)
             names(cal.lm) <- quantNames()
@@ -6004,7 +6092,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=rainforestDataMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
-            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
             prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE))
             stopCluster(cl)
             names(cal.lm) <- quantNames()
@@ -7048,7 +7136,7 @@ observeEvent(input$actionprocess2_multi, {
                 }
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
-                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
                 prox=TRUE, metric=input$forestmetric_multi, allowParallel=TRUE, na.action=na.omit, importance=TRUE))
                 stopCluster
             }
@@ -7068,7 +7156,7 @@ observeEvent(input$actionprocess2_multi, {
                 }
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
-                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
                 prox=TRUE, allowParallel=TRUE, metric=input$forestmetric_multi,  na.action=na.omit, importance=TRUE))
                 stopCluster
             }
@@ -8023,8 +8111,33 @@ observeEvent(input$createcalelement_multi, {
     norm.min <- print(input$comptonmin_multi)
     norm.max <- print(input$comptonmax_multi)
     
-    cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max)
-    colnames(cal.table) <- c("CalType", "NormType", "Min", "Max")
+    forestmetric <- if(input$radiocal_multi==4 | input$radiocal_multi==5){
+        as.character(input$forestmetric_multi)
+    } else if(input$radiocal_multi!=4 | input$radiocal_multi!=5){
+        as.character("RMSE")
+    }
+    
+    foresttrain <- if(input$radiocal_multi==4 | input$radiocal_multi==5){
+        as.character(input$foresttrain_multi)
+    } else if(input$radiocal_multi!=4 | input$radiocal_multi!=5){
+        as.character("cv")
+    }
+    
+    forestnumber <- if(input$radiocal_multi==4 | input$radiocal_multi==5){
+        as.numeric(input$forestnumber_multi)
+    } else if(input$radiocal!=4 | input$radiocal!=5){
+        as.numeric(10)
+    }
+    
+    foresttrees <- if(input$radiocal_multi==4 | input$radiocal_multi==5){
+        as.numeric(input$foresttrees_multi)
+    } else if(input$radiocal_multi!=4 | input$radiocal_multi!=5){
+        as.numeric(15)
+    }
+
+    
+    cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber, foresttrees)
+    colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees")
     
     slope.corrections <- input$slope_vars_multi
     intercept.corrections <- input$intercept_vars_multi
