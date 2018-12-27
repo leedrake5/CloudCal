@@ -1743,9 +1743,11 @@ shinyServer(function(input, output, session) {
             
             forestmetric <- as.character("RMSE")
             foresttrain <- as.character("cv")
+            forestnumber <- as.numeric(5)
+
             
-            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain)
-            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC")
+            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber)
+            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber")
             
             slope.corrections <- input$slope_vars
             intercept.corrections <- input$intercept_vars
@@ -2740,7 +2742,7 @@ shinyServer(function(input, output, session) {
             registerDoParallel(cl)
             
             rf_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
-            trControl=trainControl(method=input$foresttrain,number=5),
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
             prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=input$forestmetric, na.action=na.omit)
             
             stopCluster(cl)
@@ -2851,7 +2853,7 @@ shinyServer(function(input, output, session) {
             registerDoParallel(cl)
             
             rf_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="rf", type="Regression",
-            trControl=trainControl(method=input$foresttrain,number=5),
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
             prox=TRUE,allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE)
             
             
@@ -3044,11 +3046,30 @@ shinyServer(function(input, output, session) {
         })
         
         
+        calForestNumberSelectionpre <- reactive({
+            
+            
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["ForestNumber"]]
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$ForestNumber
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$ForestNumber
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$ForestNumber
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["ForestNumber"]]
+            }
+            
+        })
+        
+        
         foresthold <- reactiveValues()
         
         observeEvent(input$calcurveelement, {
             foresthold$metric <- calForestMetricSelectionpre()
             foresthold$train <- calForestTCSelectionpre()
+            foresthold$number <- calForestNumberSelectionpre()
         })
         
         
@@ -3066,6 +3087,10 @@ shinyServer(function(input, output, session) {
         
         forestTrainSelection <- reactive({
             foresthold$train
+        })
+        
+        forestNumberSelection <- reactive({
+            foresthold$number
         })
         
         
@@ -3100,6 +3125,22 @@ shinyServer(function(input, output, session) {
                 selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
             }  else if(input$radiocal==5){
                 selectInput("foresttrain", label="Train Control", choices=c( "k-fold Cross Validation"="cv", "Bootstrap"="boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
+            }
+            
+        })
+        
+        output$forestnumberui <- renderUI({
+            
+            if(input$radiocal==1){
+                NULL
+            } else if(input$radiocal==2){
+                NULL
+            } else if(input$radiocal==3){
+                NULL
+            } else if(input$radiocal==4){
+                sliderInput("forestnumber", label="Iterations", min=5, max=1000, value=10)
+            }  else if(input$radiocal==5){
+                sliderInput("forestnumber", label="Iterations", min=5, max=1000, value=10)
             }
             
         })
@@ -3589,7 +3630,7 @@ shinyServer(function(input, output, session) {
                 registerDoParallel(cl)
                 
                 cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
-                trControl=trainControl(method="cv",number=5),
+                trControl=trainControl(method=input$foresttrain,  number=input$input$forestnumber), metric=input$forestmetric,
                 prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
                 
                 
@@ -3605,8 +3646,7 @@ shinyServer(function(input, output, session) {
                 }
                 registerDoParallel(cl)
                 
-                cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
-                trControl=trainControl(method="cv",number=5),
+                cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression", trControl=trainControl(method=input$foresttrain, number=input$forestnumber), metric=input$forestmetric,
                 prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
                 
                 
@@ -4923,9 +4963,10 @@ shinyServer(function(input, output, session) {
             
             forestmetric <- as.character(input$forestmetric)
             foresttrain <- as.character(input$foresttrain)
+            forestnumber <- as.numeric(input$forestnumber)
             
-            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain)
-            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC")
+            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber)
+            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber")
             
             slope.corrections <- input$slope_vars
             intercept.corrections <- input$intercept_vars

@@ -290,6 +290,8 @@ uiOutput('forestmetricui'),
 
 uiOutput('foresttrainui'),
 
+uiOutput('forestnumberui'),
+
 uiOutput('normTypeInput'),
 
 uiOutput('comptonMinInput'),
