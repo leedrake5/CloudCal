@@ -3105,9 +3105,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 NULL
             } else if(input$radiocal==4){
-                selectInput("forestmetric", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
+                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
             } else if(input$radiocal==5){
-                selectInput("forestmetric", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
+                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
             }
             
         })
@@ -3122,9 +3122,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 NULL
             } else if(input$radiocal==4){
-                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
+                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
             }  else if(input$radiocal==5){
-                selectInput("foresttrain", label="Train Control", choices=c( "k-fold Cross Validation"="cv", "Bootstrap"="boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
+                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
             }
             
         })
@@ -5468,9 +5468,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal_multi==3){
                 NULL
             } else if(input$radiocal_multi==4){
-                selectInput("forestmetric_multi", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelectionMulti())
+                selectInput("forestmetric_multi", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelectionMulti())
             } else if(input$radiocal_multi==5){
-                selectInput("forestmetric_multi", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelectionMulti())
+                selectInput("forestmetric_multi", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelectionMulti())
             }
             
         })
@@ -5485,9 +5485,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal_multi==3){
                 NULL
             } else if(input$radiocal_multi==4){
-                selectInput("foresttrain_multi", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelectionMulti())
+                selectInput("foresttrain_multi", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelectionMulti())
             }  else if(input$radiocal_multi==5){
-                selectInput("foresttrain_multi", label="Train Control", choices=c( "k-fold Cross Validation"="cv", "Bootstrap"="boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelectionMulti())
+                selectInput("foresttrain_multi", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelectionMulti())
             }
             
         })
