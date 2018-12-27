@@ -1744,7 +1744,7 @@ shinyServer(function(input, output, session) {
             forestmetric <- as.character("RMSE")
             foresttrain <- as.character("cv")
             forestnumber <- as.numeric(10)
-            foresttrees <- as.numeric(15)
+            foresttrees <- as.numeric(100)
 
             
             cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber, foresttrees)
