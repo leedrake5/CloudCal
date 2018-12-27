@@ -477,6 +477,12 @@ uiOutput('inVar2_multi'),
 
 uiOutput('calTypeInput_multi'),
 
+uiOutput('forestmetricui_multi'),
+
+uiOutput('foresttrainui_multi'),
+
+uiOutput('forestnumberui_multi'),
+
 uiOutput('normTypeInput_multi'),
 
 uiOutput('comptonMinInput_multi'),

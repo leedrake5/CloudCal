@@ -1743,7 +1743,7 @@ shinyServer(function(input, output, session) {
             
             forestmetric <- as.character("RMSE")
             foresttrain <- as.character("cv")
-            forestnumber <- as.numeric(5)
+            forestnumber <- as.numeric(10)
 
             
             cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber)
@@ -3138,9 +3138,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 NULL
             } else if(input$radiocal==4){
-                sliderInput("forestnumber", label="Iterations", min=5, max=1000, value=10)
+                sliderInput("forestnumber", label="Iterations", min=5, max=1000, value=forestNumberSelection())
             }  else if(input$radiocal==5){
-                sliderInput("forestnumber", label="Iterations", min=5, max=1000, value=10)
+                sliderInput("forestnumber", label="Iterations", min=5, max=1000, value=forestNumberSelection())
             }
             
         })
@@ -5386,6 +5386,34 @@ shinyServer(function(input, output, session) {
             
         })
         
+        
+        forestMetricSelectionMulti <- reactive({
+            
+            
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable$ForestMetric
+            
+            
+        })
+        
+        
+        forestTrainSelectionMulti <- reactive({
+            
+            
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable$ForestTC
+            
+            
+        })
+        
+        
+        forestNumberSelectionMulti <- reactive({
+            
+            
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable$ForestNumber
+            
+            
+        })
+        
+        
         calNormSelectionMulti <- reactive({
             
             
@@ -5428,6 +5456,55 @@ shinyServer(function(input, output, session) {
             choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3),
             selected = calNormSelectionMulti())
             
+            
+        })
+        
+        output$forestmetricui_multi <- renderUI({
+            
+            if(input$radiocal_multi==1){
+                NULL
+            } else if(input$radiocal_multi==2){
+                NULL
+            } else if(input$radiocal_multi==3){
+                NULL
+            } else if(input$radiocal_multi==4){
+                selectInput("forestmetric_multi", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelectionMulti())
+            } else if(input$radiocal_multi==5){
+                selectInput("forestmetric_multi", label="Metric", choices=c("R2"="RMSE", "Accuracy"="Accuracy", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelectionMulti())
+            }
+            
+        })
+        
+        
+        output$foresttrainui_multi <- renderUI({
+            
+            if(input$radiocal_multi==1){
+                NULL
+            } else if(input$radiocal_multi==2){
+                NULL
+            } else if(input$radiocal_multi==3){
+                NULL
+            } else if(input$radiocal_multi==4){
+                selectInput("foresttrain_multi", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelectionMulti())
+            }  else if(input$radiocal_multi==5){
+                selectInput("foresttrain_multi", label="Train Control", choices=c( "k-fold Cross Validation"="cv", "Bootstrap"="boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelectionMulti())
+            }
+            
+        })
+        
+        output$forestnumberui_multi <- renderUI({
+            
+            if(input$radiocal_multi==1){
+                NULL
+            } else if(input$radiocal_multi==2){
+                NULL
+            } else if(input$radiocal_multi==3){
+                NULL
+            } else if(input$radiocal_multi==4){
+                sliderInput("forestnumber_multi", label="Iterations", min=5, max=1000, value=forestNumberSelectionMulti())
+            }  else if(input$radiocal_multi==5){
+                sliderInput("forestnumber_multi", label="Iterations", min=5, max=1000, value=forestNumberSelectionMulti())
+            }
             
         })
         
@@ -5782,6 +5859,12 @@ observeEvent(input$actionprocess2_multi, {
             
             #randomForest(Concentration~., data=predictFrameForest()[vals$keeprows,, drop=FALSE], na.action=na.omit, ntree=1000, nPerm=100)
             
+            cor.mod <- if(length(quantNames())>as.numeric(my.cores)){
+                as.numeric(my.cores)
+            } else if(length(quantNames())<=as.numeric(my.cores)){
+                length(quantNames())
+            }
+            
             cl <- if(get_os()=="windows"){
                 makePSOCKcluster(as.numeric(my.cores))
             } else if(get_os()!="windows"){
@@ -5789,8 +5872,8 @@ observeEvent(input$actionprocess2_multi, {
             }
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
-            trControl=trainControl(method="cv",number=5),
-            prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE))
+            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+            prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE))
             stopCluster(cl)
             names(cal.lm) <- quantNames()
             cal.lm
@@ -5908,6 +5991,12 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
+            cor.mod <- if(length(quantNames())>as.numeric(my.cores)){
+                as.numeric(my.cores)
+            } else if(length(quantNames())<=as.numeric(my.cores)){
+                length(quantNames())
+            }
+            
             cl <- if(get_os()=="windows"){
                 makePSOCKcluster(as.numeric(my.cores))
             } else if(get_os()!="windows"){
@@ -5915,8 +6004,8 @@ observeEvent(input$actionprocess2_multi, {
             }
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=rainforestDataMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
-            trControl=trainControl(method="cv",number=5),
-            prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE))
+            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+            prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE))
             stopCluster(cl)
             names(cal.lm) <- quantNames()
             cal.lm
@@ -6000,9 +6089,9 @@ observeEvent(input$actionprocess2_multi, {
             element <- input$calcurveelement_multi
             
             # prepare simple test suite
-            control <- trainControl(method="cv", number=5)
+            control <- trainControl(method=input$foresttrain_multi, number=input$forestmetric_multi)
             seed <- 7
-            metric <- "RMSE"
+            metric <- input$forestmetric_multi
             set.seed(seed)
             
             data <- dataNormMulti()
@@ -6024,28 +6113,18 @@ observeEvent(input$actionprocess2_multi, {
             names(data) <- quantNames()
             
             
-            cal.table <- if(dataTypeMulti()=="Spectra"){
-                if(input$normcal_multi==1){
-                    lapply(quantNames(), function(x) data.frame(lucas_simp_prep_xrf(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelemenet_multi, slope.element.lines=colnames(spectra.line.table[[x]][,-1]), intercept.element.lines=input$intercept_vars_multi), Concentration=concentration.table[[x]][,input$calcurveelement_multi]))
-                } else if(input$normcal_multi==2){
-                    lapply(quantNames(), function(x) data.frame(lucas_tc_prep_xrf(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=colnames(spectra.line.table[[x]][,-1]), intercept.element.lines=input$intercept_vars_multi), Concentration=concentration.table[[x]][,input$calcurveelement_multi]))
-                } else if(input$normcal_multi==3){
-                    lapply(quantNames(), function(x) data.frame(lucas_comp_prep_xrf(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=colnames(spectra.line.table[[x]][,-1]), intercept.element.lines=input$intercept_vars_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi), Concentration=concentration.table[[x]][,input$calcurveelement_multi]))
-                }
-            } else if(dataTypeMulti()=="Net"){
-                if(input$normcal_multi==1){
-                    lapply(quantNames(), function(x) data.frame(lucas_simp_prep_xrf_net(spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelemenet_multi,slope.element.lines=colnames(spectra.line.table[[x]][,-1]), intercept.element.lines=input$intercept_vars_multi), Concentration=concentration.table[[x]][,input$calcurveelement_multi]))
-                } else if(input$normcal_multi==2){
-                    lapply(quantNames(), function(x) data.frame(lucas_tc_prep_xrf_net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=colnames(spectra.line.table[[x]][,-1]), intercept.element.lines=input$intercept_vars_multi), Concentration=concentration.table[[x]][,input$calcurveelement_multi]))
-                } else if(input$normcal_multi==3){
-                    lapply(quantNames(), function(x) data.frame(lucas_comp_prep_xrf_net(data=data[[x]], spectra.line.table=spectra.line.table[[x]], element.line=input$calcurveelement_multi, slope.element.lines=colnames(spectra.line.table[[x]][,-1]), intercept.element.lines=input$intercept_vars_multi, norm.min=input$comptonmin_multi, norm.max=input$comptonmax_multi), Concentration=concentration.table[[x]][,input$calcurveelement_multi]))
-                }
-            }
+            cal.table <- predictFrameMulti()
             
             #cal.table <- cal.table[,!colnames(cal.table) %in% "Intensity"]
             #for(i in 1:length(quantNames())){
             #cal.table[[i]]$Concentration <- concentration.table[[i]][,input$calcurveelement_multi]
             #}
+            
+            cor.mod <- if(length(quantNames())>as.numeric(my.cores)){
+                as.numeric(my.cores)
+            } else if(length(quantNames())<=as.numeric(my.cores)){
+                length(quantNames())
+            }
             
             cl <- if(get_os()=="windows"){
                 makePSOCKcluster(as.numeric(my.cores))
@@ -6956,6 +7035,12 @@ observeEvent(input$actionprocess2_multi, {
             
             if (input$radiocal_multi==4){
                 #cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]], na.action=na.omit))
+                cor.mod <- if(length(quantNames())>as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else if(length(quantNames())<=as.numeric(my.cores)){
+                    length(quantNames())
+                }
+                
                 cl <- if(get_os()=="windows"){
                     makePSOCKcluster(as.numeric(my.cores))
                 } else if(get_os()!="windows"){
@@ -6963,13 +7048,19 @@ observeEvent(input$actionprocess2_multi, {
                 }
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
-                trControl=trainControl(method="cv",number=5),
-                prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE))
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                prox=TRUE, metric=input$forestmetric_multi, allowParallel=TRUE, na.action=na.omit, importance=TRUE))
                 stopCluster
             }
             
             if (input$radiocal_multi==5){
                 #cal.lm <- lapply(quantNames(),function(x) randomForest(Concentration~., data=predict.list[[x]], na.action=na.omit))
+                cor.mod <- if(length(quantNames())>as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else if(length(quantNames())<=as.numeric(my.cores)){
+                    length(quantNames())
+                }
+                
                 cl <- if(get_os()=="windows"){
                     makePSOCKcluster(as.numeric(my.cores))
                 } else if(get_os()!="windows"){
@@ -6977,8 +7068,8 @@ observeEvent(input$actionprocess2_multi, {
                 }
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
-                trControl=trainControl(method="cv",number=5),
-                prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE))
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                prox=TRUE, allowParallel=TRUE, metric=input$forestmetric_multi,  na.action=na.omit, importance=TRUE))
                 stopCluster
             }
             
