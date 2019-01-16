@@ -69,7 +69,8 @@ library(foreach)
 require(compiler)
 library(doParallel)
 library(parallel)
-
+library(randomForest)
+library(nnet)
 
 enableJIT(3)
 

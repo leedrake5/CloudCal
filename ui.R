@@ -294,6 +294,12 @@ uiOutput('forestnumberui'),
 
 uiOutput('foresttreesui'),
 
+uiOutput('neuralhiddenlayersui'),
+
+uiOutput('neuralweightdecayui'),
+
+uiOutput('neuralmaxiterationsui'),
+
 uiOutput('normTypeInput'),
 
 uiOutput('comptonMinInput'),

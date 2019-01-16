@@ -25,7 +25,7 @@ library(doParallel)
 pdf(NULL)
 
 
-options(shiny.maxRequestSize=30*1024^20)
+options(shiny.maxRequestSize=30*1024^40)
 
 options(warn=-1)
 assign("last.warning", NULL, envir = baseenv())
@@ -44,6 +44,8 @@ shinyServer(function(input, output, session) {
         
         
         
+        
+        
         Calibration[["Values"]]$Spectrum <- gsub(".spx", "", Calibration[["Values"]]$Spectrum)
         Calibration[["Values"]]$Spectrum <- gsub(".pdz", "", Calibration[["Values"]]$Spectrum)
         Calibration[["Values"]]$Spectrum <- gsub(".CSV", "", Calibration[["Values"]]$Spectrum)
@@ -57,6 +59,8 @@ shinyServer(function(input, output, session) {
         Calibration[["Spectra"]]$Spectrum <- gsub(".csv", "", Calibration[["Spectra"]]$Spectrum)
         Calibration[["Spectra"]]$Spectrum <- gsub(".spt", "", Calibration[["Spectra"]]$Spectrum)
         Calibration[["Spectra"]]$Spectrum <- gsub(".mca", "", Calibration[["Spectra"]]$Spectrum)
+        
+
         
         Calibration
         
@@ -146,14 +150,24 @@ shinyServer(function(input, output, session) {
         
     })
     
+    oldCalCompatibility <- reactive({
+        
+        choice <- if(calFileContents()[["FileType"]]=="Spectra"){
+            "CSV"
+        } else if(calFileContents()[["FileType"]]!="Spectra"){
+            calFileContents()[["FileType"]]
+        }
+        
+        choice
+    })
+    
     
     output$filetypeui <- renderUI({
         
         if(is.null(input$calfileinput)){
             selectInput("filetype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="CSV")
         } else if(!is.null(input$calfileinput)){
-            selectInput("filetype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected=calFileContents()[["FileType"]])
-            
+            selectInput("filetype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected=oldCalCompatibility())
         }
         
     })
@@ -958,13 +972,13 @@ shinyServer(function(input, output, session) {
         
         lineTableInput <- reactive({
             
-            
+
             if(input$usecalfile==FALSE){
                 lineInput()
             } else if(input$usecalfile==TRUE && "Definitions" %in% ls(calFileContents())){
                 lineInputCal()
             } else if(input$usecalfile==TRUE && !"Definitions" %in% ls(calFileContents())){
-                lineInput()
+               lineInput()
             }
             
         })
@@ -1732,6 +1746,7 @@ shinyServer(function(input, output, session) {
             calFileContents()[["calList"]]
         }
         
+        
         observeEvent(input$linecommit, {
             
             
@@ -1745,10 +1760,12 @@ shinyServer(function(input, output, session) {
             foresttrain <- as.character("cv")
             forestnumber <- as.numeric(10)
             foresttrees <- as.numeric(100)
-
+            neuralhiddenlayers <- paste0(1, "-", 2)
+            neuralweightdecay <- paste0(0.1, "-", 0.5)
+            neuralmaxiterations <- as.numeric(1000)
             
-            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber, foresttrees)
-            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees")
+            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber, foresttrees, neuralhiddenlayers, neuralweightdecay, neuralmaxiterations, stringsAsFactors=FALSE)
+            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees", "NeuralHL", "NeuralWD", "NeuralMI")
             
             slope.corrections <- input$slope_vars
             intercept.corrections <- input$intercept_vars
@@ -2600,7 +2617,7 @@ shinyServer(function(input, output, session) {
         
         
         calTypeSelectionPre <- reactive({
-            
+            req(input$calcurveelement)
             
             if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
                 calConditons[["CalTable"]][["CalType"]]
@@ -2735,10 +2752,11 @@ shinyServer(function(input, output, session) {
             
             #randomForest(Concentration~., data=predictFrameForest()[vals$keeprows,, drop=FALSE], na.action=na.omit, ntree=1000, nPerm=100)
             
+            
             cl <- if(get_os()=="windows"){
-                makePSOCKcluster(as.numeric(my.cores))
+                parallel::makePSOCKcluster(as.numeric(my.cores))
             } else if(get_os()!="windows"){
-                makeForkCluster(as.numeric(my.cores))
+                parallel::makeForkCluster(as.numeric(my.cores))
             }
             registerDoParallel(cl)
             
@@ -2847,9 +2865,9 @@ shinyServer(function(input, output, session) {
             
             
             cl <- if(get_os()=="windows"){
-                makePSOCKcluster(as.numeric(my.cores))
+                parallel::makePSOCKcluster(as.numeric(my.cores))
             } else if(get_os()!="windows"){
-                makeForkCluster(as.numeric(my.cores))
+                parallel::makeForkCluster(as.numeric(my.cores))
             }
             registerDoParallel(cl)
             
@@ -2860,6 +2878,48 @@ shinyServer(function(input, output, session) {
             
             stopCluster(cl)
             rf_model
+            
+        })
+        
+        neuralNetworkIntensityModel <- reactive({
+            
+            nn.grid <- expand.grid(.decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1), .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="nnet", linout=1,
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+            
+            
+            stopCluster(cl)
+            nn_model
+            
+        })
+        
+        neuralNetworkSpectraModel <- reactive({
+            
+            nn.grid <- expand.grid(.decay = c(input$neuralweightdecay), .size = c(input$neuralhiddenlayers))
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="nnet", linout=1,
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+            
+            
+            stopCluster(cl)
+            nn_model
             
         })
         
@@ -3003,7 +3063,7 @@ shinyServer(function(input, output, session) {
         output$calTypeInput <- renderUI({
             
             selectInput("radiocal", label = "Calibration Curve",
-            choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3, "Forest" = 4, "Rainforest"=5),
+            choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3, "Forest" = 4, "Rainforest"=5, "Neural Network Intensities"=6, "Neural Network Spectra"=7),
             selected = calTypeSelection())
             
             
@@ -3082,16 +3142,84 @@ shinyServer(function(input, output, session) {
             
         })
         
+        calHiddenUnitsSelectionpre <- reactive({
+            
+            
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHL"]])==TRUE){
+                hold <- calConditons[["CalTable"]][["NeuralHL"]]
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHL"]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHL"]])==FALSE){
+                hold <- calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$NeuralHL
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHL"]])==FALSE){
+                hold <- calList[[input$calcurveelement]][[1]]$CalTable$NeuralHL
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHL"]])==FALSE){
+                hold <- calList[[input$calcurveelement]][[1]]$CalTable$NeuralHL
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHL"]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHL"]])==TRUE){
+                hold <- calConditons[["CalTable"]][["NeuralHL"]]
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            }
+            
+        })
+        
+        calWeightDecaySelectionpre <- reactive({
+            
+            
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralWD"]])==TRUE){
+                hold <- calConditons[["CalTable"]][["NeuralWD"]]
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralWD"]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralWD"]])==FALSE){
+                hold <- calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$NeuralWD
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralWD"]])==FALSE){
+                hold <- calList[[input$calcurveelement]][[1]]$CalTable$NeuralWD
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralWD"]])==FALSE){
+                hold <- calList[[input$calcurveelement]][[1]]$CalTable$NeuralWD
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralWD"]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralWD"]])==TRUE){
+                hold <- calConditons[["CalTable"]][["NeuralWD"]]
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            }
+            
+        })
+        
+        calMaxIterationsSelectionpre <- reactive({
+            
+            
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["NeuralMI"]]
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==FALSE){
+                calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$NeuralMI
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$NeuralMI
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==FALSE){
+                calList[[input$calcurveelement]][[1]]$CalTable$NeuralMI
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]])==TRUE){
+                calConditons[["CalTable"]][["NeuralMI"]]
+            }
+            
+        })
+        
         
         foresthold <- reactiveValues()
+        neuralhold <- reactiveValues()
+
         
         observeEvent(input$calcurveelement, {
             foresthold$metric <- calForestMetricSelectionpre()
             foresthold$train <- calForestTCSelectionpre()
             foresthold$number <- calForestNumberSelectionpre()
             foresthold$trees <- calForestTreeSelectionpre()
+            neuralhold$hiddenlayers <- calHiddenUnitsSelectionpre()
+            neuralhold$weightdecay <- calWeightDecaySelectionpre()
+            neuralhold$maxiterations <- calMaxIterationsSelectionpre()
         })
         
+
+
         
         #observeEvent(input$trainslopes, {
             
@@ -3117,6 +3245,18 @@ shinyServer(function(input, output, session) {
             foresthold$trees
         })
         
+        neuralHiddenLayersSelection <- reactive({
+            neuralhold$hiddenlayers
+        })
+        
+        neuralWeightDecaySelection <- reactive({
+            neuralhold$weightdecay
+        })
+        
+        neuralMaxIterationsSelection <- reactive({
+            neuralhold$maxiterations
+        })
+        
         
         
         
@@ -3129,9 +3269,13 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 NULL
             } else if(input$radiocal==4){
-                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
+                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
             } else if(input$radiocal==5){
-                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
+                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
+            } else if(input$radiocal==6){
+                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
+            } else if(input$radiocal==7){
+                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
             }
             
         })
@@ -3149,6 +3293,10 @@ shinyServer(function(input, output, session) {
                 selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
             }  else if(input$radiocal==5){
                 selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
+            } else if(input$radiocal==6){
+                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
+            } else if(input$radiocal==7){
+                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
             }
             
         })
@@ -3165,6 +3313,10 @@ shinyServer(function(input, output, session) {
                 sliderInput("forestnumber", label="Iterations", min=5, max=500, value=forestNumberSelection())
             }  else if(input$radiocal==5){
                 sliderInput("forestnumber", label="Iterations", min=5, max=500, value=forestNumberSelection())
+            } else if(input$radiocal==6){
+                sliderInput("forestnumber", label="Iterations", min=5, max=500, value=forestNumberSelection())
+            } else if(input$radiocal==7){
+                sliderInput("forestnumber", label="Iterations", min=5, max=500, value=forestNumberSelection())
             }
             
         })
@@ -3179,9 +3331,73 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 NULL
             } else if(input$radiocal==4){
-                sliderInput("foresttrees", label="Trees", min=5, max=500, value=forestTreeSelection())
+                sliderInput("foresttrees", label="Trees", min=50, max=2000, value=forestTreeSelection())
+            } else if(input$radiocal==5){
+                sliderInput("foresttrees", label="Trees", min=50, max=2000, value=forestTreeSelection())
+            } else if(input$radiocal==6){
+                NULL
+            } else if(input$radiocal==7){
+                NULL
+            }
+            
+        })
+        
+        output$neuralhiddenlayersui <- renderUI({
+            
+            if(input$radiocal==1){
+                NULL
+            } else if(input$radiocal==2){
+                NULL
+            } else if(input$radiocal==3){
+                NULL
+            } else if(input$radiocal==4){
+                NULL
             }  else if(input$radiocal==5){
-                sliderInput("foresttrees", label="Trees", min=5, max=500, value=forestTreeSelection())
+                NULL
+            } else if(input$radiocal==6){
+                sliderInput("neuralhiddenlayers", label="Hidden Layers", min=1, max=10, value=neuralHiddenLayersSelection())
+            } else if(input$radiocal==7){
+                sliderInput("neuralhiddenlayers", label="Hidden Layers", min=1, max=10, value=neuralHiddenLayersSelection())
+            }
+            
+        })
+        
+        output$neuralweightdecayui <- renderUI({
+            
+            if(input$radiocal==1){
+                NULL
+            } else if(input$radiocal==2){
+                NULL
+            } else if(input$radiocal==3){
+                NULL
+            } else if(input$radiocal==4){
+                NULL
+            }  else if(input$radiocal==5){
+                NULL
+            } else if(input$radiocal==6){
+                sliderInput("neuralweightdecay", label="Weight Decay", min=0.1, max=0.7, step=0.1, value=neuralWeightDecaySelection())
+            } else if(input$radiocal==7){
+                sliderInput("neuralweightdecay", label="Weight Decay", min=0.1, max=0.7, step=0.1, value=neuralWeightDecaySelection())
+            }
+            
+        })
+        
+        output$neuralmaxiterationsui <- renderUI({
+            
+            if(input$radiocal==1){
+                NULL
+            } else if(input$radiocal==2){
+                NULL
+            } else if(input$radiocal==3){
+                NULL
+            } else if(input$radiocal==4){
+                NULL
+            }  else if(input$radiocal==5){
+                NULL
+            } else if(input$radiocal==6){
+                sliderInput("neuralmaxiterations", label="Max Iterations", min=50, max=2000, value=neuralMaxIterationsSelection())
+            } else if(input$radiocal==7){
+                sliderInput("neuralmaxiterations", label="Max Iterations", min=50, max=2000, value=neuralMaxIterationsSelection())
             }
             
         })
@@ -3218,6 +3434,10 @@ shinyServer(function(input, output, session) {
                 predictIntensityForest()
             } else if(input$radiocal==5){
                 rainforestIntensity()
+            } else if(input$radiocal==6){
+                predictIntensityForest()
+            } else if(input$radiocal==7){
+                rainforestIntensity()
             }
             
             
@@ -3241,6 +3461,10 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==4){
                 predictFrameForest()
             } else if(input$radiocal==5){
+                rainforestData()
+            } else if(input$radiocal==6){
+                predictFrameForest()
+            } else if(input$radiocal==7){
                 rainforestData()
             }
             
@@ -3282,6 +3506,10 @@ shinyServer(function(input, output, session) {
                 forestModel()
             } else if(input$radiocal==5){
                 rainforestModel()
+            } else if(input$radiocal==6){
+                neuralNetworkIntensityModel()
+            } else if(input$radiocal==7){
+                neuralNetworkSpectraModel()
             }
             
             
@@ -3359,6 +3587,36 @@ shinyServer(function(input, output, session) {
             }
             
             
+            if (input$radiocal==6){
+                
+                
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+                #cal.est.conc.luc <- cal.est.conc.tab$fit
+                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+                
+                
+                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
+            }
+            
+            
+            if (input$radiocal==7){
+                
+                
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+                #cal.est.conc.luc <- cal.est.conc.tab$fit
+                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+                
+                
+                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
+            }
+            
+            
             
             
             val.frame
@@ -3383,6 +3641,10 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==4){
                 3
             } else if(input$radiocal==5){
+                5
+            } else if(input$radiocal==6){
+                3
+            } else if(input$radiocal==7){
                 5
             }
             
@@ -3474,6 +3736,32 @@ shinyServer(function(input, output, session) {
             }
             
             if(input$radiocal==5){
+                calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
+                geom_point() +
+                geom_point(aes(Intensity, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
+                
+            }
+            
+            if(input$radiocal==6){
+                calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
+                geom_point() +
+                geom_point(aes(Intensity, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
+                
+            }
+            
+            if(input$radiocal==7){
                 calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
                 theme_light() +
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
@@ -3664,13 +3952,13 @@ shinyServer(function(input, output, session) {
             
             if (input$radiocal==4){
                 cl <- if(get_os()=="windows"){
-                    makePSOCKcluster(as.numeric(my.cores))
+                    parallel::makePSOCKcluster(as.numeric(my.cores))
                 } else if(get_os()!="windows"){
-                    makeForkCluster(as.numeric(my.cores))
+                    parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoParallel(cl)
                 
-                cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
+                cal.lm <- caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
                 trControl=trainControl(method=input$foresttrain,  number=input$input$forestnumber), ntree=input$foresttrees, metric=input$forestmetric,
                 prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
                 
@@ -3681,17 +3969,59 @@ shinyServer(function(input, output, session) {
             
             if (input$radiocal==5){
                 cl <- if(get_os()=="windows"){
-                    makePSOCKcluster(as.numeric(my.cores))
+                    parallel::makePSOCKcluster(as.numeric(my.cores))
                 } else if(get_os()!="windows"){
-                    makeForkCluster(as.numeric(my.cores))
+                    parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoParallel(cl)
                 
-                cal.lm <-caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression", trControl=trainControl(method=input$foresttrain, number=input$forestnumber),  ntree=input$foresttrees, metric=input$forestmetric,
+                cal.lm <- caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression", trControl=trainControl(method=input$foresttrain, number=input$forestnumber),  ntree=input$foresttrees, metric=input$forestmetric,
                 prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
                 
                 
                 stopCluster(cl)
+                
+            }
+            
+            if (input$radiocal==6){
+                
+                nn.grid <- expand.grid(.decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1), .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
+
+                cl <- if(get_os()=="windows"){
+                    parallel::makePSOCKcluster(as.numeric(my.cores))
+                } else if(get_os()!="windows"){
+                    parallel::makeForkCluster(as.numeric(my.cores))
+                }
+                registerDoParallel(cl)
+                
+                cal.lm <- caret::train(Concentration~.,data=predict.frame[vals$keeprows,, drop=FALSE], method="nnet", linout=1,
+                trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+                allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+                
+                
+                stopCluster(cl)
+                cal.lm
+                
+            }
+            
+            if (input$radiocal==7){
+                
+                nn.grid <- expand.grid(.decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1), .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
+
+                cl <- if(get_os()=="windows"){
+                    parallel::makePSOCKcluster(as.numeric(my.cores))
+                } else if(get_os()!="windows"){
+                    parallel::makeForkCluster(as.numeric(my.cores))
+                }
+                registerDoParallel(cl)
+                
+                cal.lm <- caret::train(Concentration~.,data=predict.frame[vals$keeprows,, drop=FALSE], method="nnet", linout=1,
+                trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+                allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+                
+                
+                stopCluster(cl)
+                cal.lm
                 
             }
             
@@ -3770,6 +4100,33 @@ shinyServer(function(input, output, session) {
                 colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
             }
             
+            if (input$radiocal==6){
+                
+                
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+                #cal.est.conc.luc <- cal.est.conc.tab$fit
+                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+                
+                
+                val.frame <- data.frame(na.omit(predict.frame$Concentration), predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction")
+            }
+            
+            if (input$radiocal==7){
+                
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+                #cal.est.conc.luc <- cal.est.conc.tab$fit
+                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+                
+                
+                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
+            }
+            
             
             
             
@@ -3834,6 +4191,28 @@ shinyServer(function(input, output, session) {
             
             if (input$radiocal==5){
 
+                
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, na.action=na.omit)
+                
+                
+                
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
+            }
+            
+            if (input$radiocal==6){
+                
+                
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, na.action=na.omit)
+                
+                
+                
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction")
+            }
+            
+            if (input$radiocal==7){
+                
                 
                 cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, na.action=na.omit)
                 
@@ -3931,6 +4310,34 @@ shinyServer(function(input, output, session) {
             }
             
             if(input$radiocal==5){
+                val.frame <- valFrameRandomizedRev()
+                
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
+                geom_point() +
+                geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+            }
+            
+            if(input$radiocal==6){
+                val.frame <- valFrameRandomizedRev()
+                
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
+                geom_point() +
+                geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+            }
+            
+            if(input$radiocal==7){
                 val.frame <- valFrameRandomizedRev()
                 
                 calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
@@ -4436,6 +4843,10 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==4){
                 forestLM()
             } else if(input$radiocal==5){
+                forestLM()
+            } else if(input$radiocal==6){
+                forestLM()
+            } else if(input$radiocal==7){
                 forestLM()
             }
             
@@ -5026,8 +5437,26 @@ shinyServer(function(input, output, session) {
                 as.numeric(15)
             }
             
-            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber, foresttrees)
-            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees")
+            neuralhiddenlayers <- if(input$radiocal==6 | input$radiocal==7){
+                paste0(input$neuralhiddenlayers[[1]], "-", input$neuralhiddenlayers[[2]])
+            } else if(input$radiocal!=6 | input$radiocal!=7){
+                paste0(3, "-", 5)
+            }
+            
+            neuralweightdecay <- if(input$radiocal==6 | input$radiocal==7){
+                paste0(input$neuralweightdecay[[1]], "-", input$neuralweightdecay[[2]])
+            } else if(input$radiocal!=6 | input$radiocal!=7){
+                paste0(0.1, "-", 0.5)
+            }
+            
+            neuralmaxiterations <- if(input$radiocal==6 | input$radiocal==7){
+                as.numeric(input$neuralmaxiterations)
+            } else if(input$radiocal!=6 | input$radiocal!=7){
+                1000
+            }
+            
+            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber, foresttrees, neuralhiddenlayers, neuralweightdecay, neuralmaxiterations, stringsAsFactors=FALSE)
+            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees", "NeuralHL", "NeuralWD", "NeuralMI")
             
             slope.corrections <- input$slope_vars
             intercept.corrections <- input$intercept_vars
@@ -5954,9 +6383,9 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             cl <- if(get_os()=="windows"){
-                makePSOCKcluster(as.numeric(my.cores))
+                parallel::makePSOCKcluster(as.numeric(my.cores))
             } else if(get_os()!="windows"){
-                makeForkCluster(as.numeric(my.cores))
+                parallel::makeForkCluster(as.numeric(my.cores))
             }
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
@@ -6086,9 +6515,9 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             cl <- if(get_os()=="windows"){
-                makePSOCKcluster(as.numeric(my.cores))
+                parallel::makePSOCKcluster(as.numeric(my.cores))
             } else if(get_os()!="windows"){
-                makeForkCluster(as.numeric(my.cores))
+                parallel::makeForkCluster(as.numeric(my.cores))
             }
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=rainforestDataMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
@@ -6215,9 +6644,9 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             cl <- if(get_os()=="windows"){
-                makePSOCKcluster(as.numeric(my.cores))
+                parallel::makePSOCKcluster(as.numeric(my.cores))
             } else if(get_os()!="windows"){
-                makeForkCluster(as.numeric(my.cores))
+                parallel::makeForkCluster(as.numeric(my.cores))
             }
             registerDoParallel(cl)
             train_model <- lapply(quantNames(), function(x) caret::train(Concentration~., data=cal.table[[x]][,-1], method="rf", metric=metric, trControl=control, allowParallel=TRUE, prox=TRUE, importance=TRUE))
@@ -7130,9 +7559,9 @@ observeEvent(input$actionprocess2_multi, {
                 }
                 
                 cl <- if(get_os()=="windows"){
-                    makePSOCKcluster(as.numeric(my.cores))
+                    parallel::makePSOCKcluster(as.numeric(my.cores))
                 } else if(get_os()!="windows"){
-                    makeForkCluster(as.numeric(my.cores))
+                    parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
@@ -7150,9 +7579,9 @@ observeEvent(input$actionprocess2_multi, {
                 }
                 
                 cl <- if(get_os()=="windows"){
-                    makePSOCKcluster(as.numeric(my.cores))
+                    parallel::makePSOCKcluster(as.numeric(my.cores))
                 } else if(get_os()!="windows"){
-                    makeForkCluster(as.numeric(my.cores))
+                    parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
@@ -8723,7 +9152,11 @@ content = function(file){
                                 4
                             } else if(the.cal[[element]][[1]]$CalTable$CalType==5){
                                 5
-                                }
+                                } else if(the.cal[[element]][[1]]$CalTable$CalType==6){
+                                        6
+                                        }  else if(the.cal[[element]][[1]]$CalTable$CalType==7){
+                                            7
+                                            }
     
         }
         cal_type <- cmpfun(cal_type)
@@ -8874,6 +9307,69 @@ content = function(file){
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max)[,-1],
                     na.action=na.pass
                 )
+            } else if(valDataType()=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    na.action=na.pass
+                )
+            } else if(valDataType()=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    na.action=na.pass
+                )
+            } else if(valDataType()=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    ),
+                    na.action=na.pass
+                )
+            } else if(valDataType()=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=spectra_simp_prep_xrf(valdata)[,-1],
+                    na.action=na.pass
+                )
+            } else if(valDataType()=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(valdata)[,-1],
+                na.action=na.pass
+                )
+            } else if(valDataType()=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(valdata,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max)[,-1],
+                    na.action=na.pass
+                )
             } else if(valDataType()=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==1){
                 predict(
                     object=the.cal[[x]][[2]],
@@ -8981,6 +9477,49 @@ content = function(file){
                         na.action=na.pass
             )
         } else if(valDataType()=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf_net(
+                data=valdata,
+                    spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    ),
+                    na.action=na.pass
+            )
+        }  else if(valDataType()=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf_net(
+                    spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    na.action=na.pass
+            )
+        } else if(valDataType()=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_tc_prep_xrf_net(
+                    data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        na.action=na.pass
+            )
+        } else if(valDataType()=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==3){
             predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_comp_prep_xrf_net(
