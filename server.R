@@ -3946,7 +3946,7 @@ shinyServer(function(input, output, session) {
                 registerDoParallel(cl)
                 
                 cal.lm <- caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
-                trControl=trainControl(method=input$foresttrain,  number=input$input$forestnumber), ntree=input$foresttrees, metric=input$forestmetric,
+                trControl=trainControl(method=input$foresttrain,  number=input$forestnumber), ntree=input$foresttrees, metric=input$forestmetric,
                 prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
                 
                 

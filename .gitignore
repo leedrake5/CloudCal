@@ -2,3 +2,4 @@
 *.history
 
 *.dcf
+.DS_Store
