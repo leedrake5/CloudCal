@@ -1760,7 +1760,7 @@ shinyServer(function(input, output, session) {
             foresttrain <- as.character("cv")
             forestnumber <- as.numeric(10)
             foresttrees <- as.numeric(100)
-            neuralhiddenlayers <- paste0(1, "-", 2)
+            neuralhiddenlayers <- paste0(1, "-", 4)
             neuralweightdecay <- paste0(0.1, "-", 0.5)
             neuralmaxiterations <- as.numeric(1000)
             
@@ -3294,9 +3294,9 @@ shinyServer(function(input, output, session) {
             }  else if(input$radiocal==5){
                 selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
             } else if(input$radiocal==6){
-                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
+                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
             } else if(input$radiocal==7){
-                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
+                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
             }
             
         })
@@ -3750,13 +3750,13 @@ shinyServer(function(input, output, session) {
             
             if(input$radiocal==6){
 
-                calcurve.plot <- plot.nnet(element.model,nid=T)
+                calcurve.plot <- grobTree(plot.nnet(element.model,nid=T))
                 
             }
             
             if(input$radiocal==7){
 
-                calcurve.plot <- plot.nnet(element.model,nid=T)
+                calcurve.plot <- grobTree(plot.nnet(element.model,nid=T))
 
                 
             }

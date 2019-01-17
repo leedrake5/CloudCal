@@ -376,3 +376,5 @@ plot.nnet <- function(mod.in,nid=T,all.out=T,all.in=T,bias=T,wts.only=F,rel.rsc=
   if(bias) bias.points(bias.x,bias.y,'B')
   
 }
+
+
