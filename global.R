@@ -42,6 +42,8 @@ if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 
 library(rPDZ)
 
+source("nnet.R")
+
 ###update packages
 #update.packages(repos='http://cran.rstudio.com/', ask=FALSE)
 

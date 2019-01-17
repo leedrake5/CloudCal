@@ -3749,28 +3749,15 @@ shinyServer(function(input, output, session) {
             }
             
             if(input$radiocal==6){
-                calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                geom_point(aes(Intensity, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
+
+                calcurve.plot <- plot.nnet(element.model,nid=T)
                 
             }
             
             if(input$radiocal==7){
-                calcurve.plot <- ggplot(data=val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                geom_point(aes(Intensity, Concentration), data = val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE)
+
+                calcurve.plot <- plot.nnet(element.model,nid=T)
+
                 
             }
             
