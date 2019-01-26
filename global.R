@@ -2648,9 +2648,6 @@ lucas_tc_prep_xrf <- function(data, spectra.line.table, element.line, slope.elem
     lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
     colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
-    
-    
-    
     slope.none <- rep(1, length(spectra.line.table[,1]))
     lucas.slope.table <- data.frame(spectra.line.table, slope.none)
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
@@ -2696,9 +2693,6 @@ lucas_comp_prep_xrf <- function(data, spectra.line.table, element.line, slope.el
     intercept.none <- rep(0, length(spectra.line.table[,1]))
     lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
     colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
-    
-    
-    
     
     slope.none <- rep(1, length(spectra.line.table[,1]))
     lucas.slope.table <- data.frame(spectra.line.table, slope.none)

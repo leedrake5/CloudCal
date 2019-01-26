@@ -292,6 +292,8 @@ uiOutput('foresttrainui'),
 
 uiOutput('forestnumberui'),
 
+uiOutput('foresttryui'),
+
 uiOutput('foresttreesui'),
 
 uiOutput('neuralhiddenlayersui'),
