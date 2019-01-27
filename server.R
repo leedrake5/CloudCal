@@ -2890,8 +2890,7 @@ shinyServer(function(input, output, session) {
             
             nn.grid <- expand.grid(
                 .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-                .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1),
-                .mtry = input$foresttry)
+                .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
             
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -2914,8 +2913,7 @@ shinyServer(function(input, output, session) {
             
             nn.grid <- expand.grid(
             .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-            .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1),
-            .mtry = input$foresttry)
+            .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
             
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -3321,9 +3319,9 @@ shinyServer(function(input, output, session) {
             }  else if(input$radiocal==5){
                 sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
             } else if(input$radiocal==6){
-                sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
+                NULL
             } else if(input$radiocal==7){
-                sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
+                NULL
             }
             
         })
@@ -4049,8 +4047,7 @@ shinyServer(function(input, output, session) {
                 
                 nn.grid <- expand.grid(
                 .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-                .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1),
-                .mtry = input$foresttry)
+                .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
                 
                 cl <- if(get_os()=="windows"){
                     parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -4073,8 +4070,7 @@ shinyServer(function(input, output, session) {
                 
                 nn.grid <- expand.grid(
                 .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-                .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1),
-                .mtry = input$foresttry)
+                .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
                 
                 cl <- if(get_os()=="windows"){
                     parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -5481,9 +5477,9 @@ shinyServer(function(input, output, session) {
             norm.min <- print(input$comptonmin)
             norm.max <- print(input$comptonmax)
             
-            foresttry <- if(input$radiocal==4 | input$radiocal==5 | input$radiocal==6 | input$radiocal==7){
+            foresttry <- if(input$radiocal==4 | input$radiocal==5){
                 as.numeric(input$foresttry)
-            } else if(input$radiocal!=4 | input$radiocal!=5 | input$radiocal!=6 | input$radiocal!=7){
+            } else if(input$radiocal!=4 | input$radiocal!=5){
                 as.numeric(7)
             }
             
