@@ -4126,111 +4126,196 @@ shinyServer(function(input, output, session) {
         })
         
         
-        elementModelRandom <- reactive({
-            
+        linearModelRandom <- reactive({
             predict.frame <- calCurveFrameRandomized()
+            cal.lm <- lm(Concentration~Intensity, data=predict.frame)
+            cal.lm
+        })
+        
+        nonLinearModelRandom <- reactive({
+            predict.frame <- calCurveFrameRandomized()
+            cal.lm <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame)
+            cal.lm
+        })
+        
+        lucasToothModelRandom <- reactive({
+            predict.frame <- calCurveFrameRandomized()
+            cal.lm <- lm(Concentration~., data=predict.frame)
+            cal.lm
+        })
+        
+        forestModelRandom <- reactive({
+            predict.frame <- calCurveFrameRandomized()
+            rf.grid = expand.grid(.mtry = input$foresttry)
             
-            
-            if (input$radiocal==1){
-                cal.lm <- lm(Concentration~Intensity, data=predict.frame)
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
             }
+            registerDoParallel(cl)
             
+            cal.lm <- caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
+            trControl=trainControl(method=input$foresttrain,  number=input$forestnumber), ntree=input$foresttrees, metric=input$forestmetric, tuneGrid=rf.grid,
+            prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
             
-            if (input$radiocal==2){
-                cal.lm <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame)
-            }
-            
-            if (input$radiocal==3){
-                cal.lm <- lm(Concentration~., data=predict.frame)
-            }
-            
-            if (input$radiocal==4){
-                
-                rf.grid = expand.grid(.mtry = input$foresttry)
-                
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
-                }
-                registerDoParallel(cl)
-                
-                cal.lm <- caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
-                trControl=trainControl(method=input$foresttrain,  number=input$forestnumber), ntree=input$foresttrees, metric=input$forestmetric, tuneGrid=rf.grid,
-                prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
-                
-                
-                stopCluster(cl)
-                
-            }
-            
-            if (input$radiocal==5){
-                
-                rf.grid = expand.grid(.mtry = input$foresttry)
-                
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
-                }
-                registerDoParallel(cl)
-                
-                cal.lm <- caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression", trControl=trainControl(method=input$foresttrain, number=input$forestnumber),  ntree=input$foresttrees, metric=input$forestmetric, tuneGrid=rf.grid,
-                prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
-                
-                
-                stopCluster(cl)
-                
-            }
-            
-            if (input$radiocal==6){
-                
-                nn.grid <- expand.grid(
-                .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-                .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
-                
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
-                }
-                registerDoParallel(cl)
-                
-                cal.lm <- caret::train(Concentration~.,data=predict.frame[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE,
-                trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-                allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
-                
-                
-                stopCluster(cl)
-                cal.lm
-                
-            }
-            
-            if (input$radiocal==7){
-                
-                nn.grid <- expand.grid(
-                .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-                .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
-                
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
-                }
-                registerDoParallel(cl)
-                
-                cal.lm <- caret::train(Concentration~.,data=predict.frame[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE,
-                trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-                allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
-                
-                
-                stopCluster(cl)
-                cal.lm
-                
-            }
+            stopCluster(cl)
             
             cal.lm
+        })
+        
+        rainforestModelRandom <- reactive({
+            predict.frame <- calCurveFrameRandomized()
+            rf.grid = expand.grid(.mtry = input$foresttry)
             
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            cal.lm <- caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression", trControl=trainControl(method=input$foresttrain, number=input$forestnumber),  ntree=input$foresttrees, metric=input$forestmetric, tuneGrid=rf.grid,
+            prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
+            
+            stopCluster(cl)
+            
+            cal.lm
+        })
+        
+        neuralNetworkIntensitiesShallowRandom <- reactive({
+            predict.frame <- calCurveFrameRandomized()
+            
+            nn.grid <- expand.grid(
+            .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
+            .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            cal.lm <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE,
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+            
+            
+            stopCluster(cl)
+            cal.lm
+        })
+        
+        neuralNetworkIntensitiesDeepRandom <- reactive({
+            predict.frame <- calCurveFrameRandomized()
+            
+            nn.grid <- if(input$neuralhiddenlayers == 2){
+                expand.grid(
+                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer3 = c(0)
+                )
+            } else if(input$neuralhiddenlayers == 3){
+                expand.grid(
+                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer3 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1)
+                )
+            }
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            cal.lm<-caret::train(Concentration~.,data=predict.frame, method="neuralnet",
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            metric=input$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
+            
+            
+            stopCluster(cl)
+            cal.lm
+        })
+        
+        neuralNetworkSpectraShallowRandom <- reactive({
+            predict.frame <- calCurveFrameRandomized()
+            
+            nn.grid <- expand.grid(
+            .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
+            .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            cal.lm <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE,
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+            
+            
+            stopCluster(cl)
+            cal.lm
+        })
+        
+        neuralNetworkSpectraShallowRandom <- reactive({
+            predict.frame <- calCurveFrameRandomized()
+            
+            nn.grid <- if(input$neuralhiddenlayers == 2){
+                expand.grid(
+                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer3 = c(0)
+                )
+            } else if(input$neuralhiddenlayers == 3){
+                expand.grid(
+                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer3 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1)
+                )
+            }
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            cal.lm <- caret::train(Concentration~.,data=predict.frame, method="neuralnet",
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            metric=input$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
+            
+            stopCluster(cl)
+            cal.lm
+        })
+        
+        elementModelRandom <- reactive({
+
+            if(input$radiocal==1){
+                linearModelRandom()
+            } else if(input$radiocal==2){
+                nonLinearModelRandom()
+            } else if(input$radiocal==3){
+                lucasToothModelRandom()
+            } else if(input$radiocal==4){
+                forestModelRandom()
+            } else if(input$radiocal==5){
+                rainforestModelRandom()
+            } else if(input$radiocal==6 && input$neuralhiddenlayers==1){
+                neuralNetworkIntensitiesShallowRandom()
+            } else if(input$radiocal==6 && input$neuralhiddenlayers>1){
+                neuralNetworkIntensitiesDeepRandom()
+            } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                neuralNetworkSpectraShallowRandom()
+            } else if(input$radiocal==7 && input$neuralhiddenlayers>1){
+                neuralNetworkSpectraShallowRandom()
+            }
+
         })
         
         
