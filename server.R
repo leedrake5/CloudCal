@@ -1761,12 +1761,13 @@ shinyServer(function(input, output, session) {
             foresttrain <- as.character("cv")
             forestnumber <- as.numeric(10)
             foresttrees <- as.numeric(100)
-            neuralhiddenlayers <- paste0(1, "-", 4)
+            neuralhiddenlayers <- as.numeric(1)
+            neuralhiddenunits <- paste0(1, "-", 4)
             neuralweightdecay <- paste0(0.1, "-", 0.5)
             neuralmaxiterations <- as.numeric(1000)
             
-            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, foresttry, forestmetric, foresttrain, forestnumber, foresttrees, neuralhiddenlayers, neuralweightdecay, neuralmaxiterations, stringsAsFactors=FALSE)
-            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestTry", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees", "NeuralHL", "NeuralWD", "NeuralMI")
+            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, foresttry, forestmetric, foresttrain, forestnumber, foresttrees, neuralhiddenlayers, neuralhiddenunits, neuralweightdecay, neuralmaxiterations, stringsAsFactors=FALSE)
+            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestTry", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees", "NeuralHL", "NeuralHU", "NeuralWD", "NeuralMI")
             
             slope.corrections <- input$slope_vars
             intercept.corrections <- input$intercept_vars
@@ -2886,11 +2887,11 @@ shinyServer(function(input, output, session) {
             
         })
         
-        neuralNetworkIntensityModel <- reactive({
+        neuralNetworkIntensityShallow <- reactive({
             
             nn.grid <- expand.grid(
                 .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-                .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
+                .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
             
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -2899,9 +2900,108 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="nnet", linout=1,
+            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE,
             trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
             allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+            
+            
+            stopCluster(cl)
+            nn_model
+            
+        })
+        
+        neuralNetworkIntensityDeep <- reactive({
+            
+            nn.grid <- if(input$neuralhiddenlayers == 2){
+                expand.grid(
+                    .layer1 = c(input$neuralhiddenunits[1]),
+                    .layer2 = c(input$neuralhiddenunits[2]),
+                    .layer3 = c(0)
+                )
+            } else if(input$neuralhiddenlayers == 3){
+                expand.grid(
+                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer3 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1)
+                )
+            }
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="neuralnet",
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            metric=input$forestmetric, na.action=na.omit,  tuneGrid=nn.grid)
+            
+            
+            stopCluster(cl)
+            nn_model
+            
+        })
+        
+        neuralNetworkIntensityModel <- reactive({
+            
+            if(input$neuralhiddenlayers == 1){
+                neuralNetworkIntensityShallow()
+            } else if(input$neuralhiddenlayers > 1){
+                neuralNetworkIntensityDeep()
+            }
+            
+        })
+        
+        neuralNetworkSpectraShallow <- reactive({
+            
+            nn.grid <- expand.grid(
+            .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
+            .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE,
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+            
+            
+            stopCluster(cl)
+            nn_model
+            
+        })
+        
+        neuralNetworkSpectraDeep<- reactive({
+            
+            nn.grid <- if(input$neuralhiddenlayers == 2){
+                expand.grid(
+                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer3 = c(0)
+                )
+            } else if(input$neuralhiddenlayers == 3){
+                expand.grid(
+                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer3 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1)
+                )
+            }
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="neuralnet",
+            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
+            metric=input$forestmetric, na.action=na.omit, tuneGrid=nn.grid)
             
             
             stopCluster(cl)
@@ -2911,28 +3011,13 @@ shinyServer(function(input, output, session) {
         
         neuralNetworkSpectraModel <- reactive({
             
-            nn.grid <- expand.grid(
-            .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-            .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
-            
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            if(input$neuralhiddenlayers == 1){
+                neuralNetworkSpectraShallow()
+            } else if(input$neuralhiddenlayers > 1){
+                neuralNetworkSpectraDeep()
             }
-            registerDoParallel(cl)
-            
-            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="nnet", linout=1,
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
-            
-            
-            stopCluster(cl)
-            nn_model
             
         })
-        
-        
         
         
         
@@ -3182,7 +3267,7 @@ shinyServer(function(input, output, session) {
             
         })
         
-        calHiddenUnitsSelectionpre <- reactive({
+        calHiddenLayersSelectionpre <- reactive({
             
             
             if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHL"]])==TRUE){
@@ -3199,6 +3284,28 @@ shinyServer(function(input, output, session) {
                 as.numeric(unlist(strsplit(as.character(hold), "-")))
             } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHL"]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHL"]])==TRUE){
                 hold <- calConditons[["CalTable"]][["NeuralHL"]]
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            }
+            
+        })
+        
+        calHiddenUnitsSelectionpre <- reactive({
+            
+            
+            if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHU"]])==TRUE){
+                hold <- calConditons[["CalTable"]][["NeuralHU"]]
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHU"]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHU"]])==FALSE){
+                hold <- calFileContents()$calList[[input$calcurveelement]][[1]]$CalTable$NeuralHU
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==FALSE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHU"]])==FALSE){
+                hold <- calList[[input$calcurveelement]][[1]]$CalTable$NeuralHU
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHU"]])==FALSE){
+                hold <- calList[[input$calcurveelement]][[1]]$CalTable$NeuralHU
+                as.numeric(unlist(strsplit(as.character(hold), "-")))
+            } else if(input$usecalfile==TRUE && is.null(calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHU"]])==TRUE && is.null(calFileContents()$calList[[input$calcurveelement]][[1]][["CalTable"]][["NeuralHU"]])==TRUE){
+                hold <- calConditons[["CalTable"]][["NeuralHU"]]
                 as.numeric(unlist(strsplit(as.character(hold), "-")))
             }
             
@@ -3254,7 +3361,8 @@ shinyServer(function(input, output, session) {
             foresthold$train <- calForestTCSelectionpre()
             foresthold$number <- calForestNumberSelectionpre()
             foresthold$trees <- calForestTreeSelectionpre()
-            neuralhold$hiddenlayers <- calHiddenUnitsSelectionpre()
+            neuralhold$hiddenlayers <- calHiddenLayersSelectionpre()
+            neuralhold$hiddenunits <- calHiddenUnitsSelectionpre()
             neuralhold$weightdecay <- calWeightDecaySelectionpre()
             neuralhold$maxiterations <- calMaxIterationsSelectionpre()
         })
@@ -3291,6 +3399,10 @@ shinyServer(function(input, output, session) {
         
         neuralHiddenLayersSelection <- reactive({
             neuralhold$hiddenlayers
+        })
+        
+        neuralHiddenUnitsSelection <- reactive({
+            neuralhold$hiddenunits
         })
         
         neuralWeightDecaySelection <- reactive({
@@ -3336,7 +3448,7 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 NULL
             } else if(input$radiocal==4){
-                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
+                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Kappa"="Kappa", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
             } else if(input$radiocal==5){
                 selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
             } else if(input$radiocal==6){
@@ -3422,9 +3534,29 @@ shinyServer(function(input, output, session) {
             }  else if(input$radiocal==5){
                 NULL
             } else if(input$radiocal==6){
-                sliderInput("neuralhiddenlayers", label="Hidden Layers", min=1, max=10, value=neuralHiddenLayersSelection())
+                sliderInput("neuralhiddenlayers", label="Hidden Layers", min=1, max=3, value=neuralHiddenLayersSelection())
             } else if(input$radiocal==7){
-                sliderInput("neuralhiddenlayers", label="Hidden Layers", min=1, max=10, value=neuralHiddenLayersSelection())
+                sliderInput("neuralhiddenlayers", label="Hidden Layers", min=1, max=3, value=neuralHiddenLayersSelection())
+            }
+            
+        })
+        
+        output$neuralhiddenunitsui <- renderUI({
+            
+            if(input$radiocal==1){
+                NULL
+            } else if(input$radiocal==2){
+                NULL
+            } else if(input$radiocal==3){
+                NULL
+            } else if(input$radiocal==4){
+                NULL
+            }  else if(input$radiocal==5){
+                NULL
+            } else if(input$radiocal==6){
+                sliderInput("neuralhiddenunits", label="Hidden Units", min=1, max=10, value=neuralHiddenUnitsSelection())
+            } else if(input$radiocal==7){
+                sliderInput("neuralhiddenunits", label="Hidden Units", min=1, max=10, value=neuralHiddenUnitsSelection())
             }
             
         })
@@ -3441,10 +3573,14 @@ shinyServer(function(input, output, session) {
                 NULL
             }  else if(input$radiocal==5){
                 NULL
-            } else if(input$radiocal==6){
+            } else if(input$radiocal==6 && input$neuralhiddenlayers == 1){
                 sliderInput("neuralweightdecay", label="Weight Decay", min=0.1, max=0.7, step=0.1, value=neuralWeightDecaySelection())
-            } else if(input$radiocal==7){
+            } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
+                NULL
+            } else if(input$radiocal==7 && input$neuralhiddenlayers == 1){
                 sliderInput("neuralweightdecay", label="Weight Decay", min=0.1, max=0.7, step=0.1, value=neuralWeightDecaySelection())
+            } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                NULL
             }
             
         })
@@ -3461,10 +3597,14 @@ shinyServer(function(input, output, session) {
                 NULL
             }  else if(input$radiocal==5){
                 NULL
-            } else if(input$radiocal==6){
+            } else if(input$radiocal==6 && input$neuralhiddenlayers == 1){
                 sliderInput("neuralmaxiterations", label="Max Iterations", min=50, max=2000, value=neuralMaxIterationsSelection())
-            } else if(input$radiocal==7){
+            } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
+                NULL
+            } else if(input$radiocal==7 && input$neuralhiddenlayers == 1){
                 sliderInput("neuralmaxiterations", label="Max Iterations", min=50, max=2000, value=neuralMaxIterationsSelection())
+            } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                NULL
             }
             
         })
@@ -4047,7 +4187,7 @@ shinyServer(function(input, output, session) {
                 
                 nn.grid <- expand.grid(
                 .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-                .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
+                .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
                 
                 cl <- if(get_os()=="windows"){
                     parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -4056,7 +4196,7 @@ shinyServer(function(input, output, session) {
                 }
                 registerDoParallel(cl)
                 
-                cal.lm <- caret::train(Concentration~.,data=predict.frame[vals$keeprows,, drop=FALSE], method="nnet", linout=1,
+                cal.lm <- caret::train(Concentration~.,data=predict.frame[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE,
                 trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
                 allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
                 
@@ -4070,7 +4210,7 @@ shinyServer(function(input, output, session) {
                 
                 nn.grid <- expand.grid(
                 .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-                .size = seq(input$neuralhiddenlayers[1], input$neuralhiddenlayers[2], 1))
+                .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
                 
                 cl <- if(get_os()=="windows"){
                     parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -4079,7 +4219,7 @@ shinyServer(function(input, output, session) {
                 }
                 registerDoParallel(cl)
                 
-                cal.lm <- caret::train(Concentration~.,data=predict.frame[vals$keeprows,, drop=FALSE], method="nnet", linout=1,
+                cal.lm <- caret::train(Concentration~.,data=predict.frame[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE,
                 trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
                 allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
                 
@@ -5508,9 +5648,15 @@ shinyServer(function(input, output, session) {
             }
             
             neuralhiddenlayers <- if(input$radiocal==6 | input$radiocal==7){
-                paste0(input$neuralhiddenlayers[[1]], "-", input$neuralhiddenlayers[[2]])
+                as.numeric(input$neuralhiddenlayers)
             } else if(input$radiocal!=6 | input$radiocal!=7){
-                paste0(3, "-", 5)
+                as.numeric(1)
+            }
+            
+            neuralhiddenunits <- if(input$radiocal==6 | input$radiocal==7){
+                paste0(input$neuralhiddenunits[[1]], "-", input$neuralhiddenunits[[2]])
+            } else if(input$radiocal!=6 | input$radiocal!=7){
+                paste0(1, "-", 3)
             }
             
             neuralweightdecay <- if(input$radiocal==6 | input$radiocal==7){
@@ -5522,11 +5668,11 @@ shinyServer(function(input, output, session) {
             neuralmaxiterations <- if(input$radiocal==6 | input$radiocal==7){
                 as.numeric(input$neuralmaxiterations)
             } else if(input$radiocal!=6 | input$radiocal!=7){
-                1000
+                as.numeric(1000)
             }
             
-            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, foresttry, forestmetric, foresttrain, forestnumber, foresttrees, neuralhiddenlayers, neuralweightdecay, neuralmaxiterations, stringsAsFactors=FALSE)
-            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestTry", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees", "NeuralHL", "NeuralWD", "NeuralMI")
+            cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, foresttry, forestmetric, foresttrain, forestnumber, foresttrees, neuralhiddenlayers, neuralhiddenunits, neuralweightdecay, neuralmaxiterations, stringsAsFactors=FALSE)
+            colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestTry", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees", "NeuralHL", "NeuralHU", "NeuralWD", "NeuralMI")
             
             slope.corrections <- input$slope_vars
             intercept.corrections <- input$intercept_vars

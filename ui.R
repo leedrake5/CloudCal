@@ -298,6 +298,8 @@ uiOutput('foresttreesui'),
 
 uiOutput('neuralhiddenlayersui'),
 
+uiOutput('neuralhiddenunitsui'),
+
 uiOutput('neuralweightdecayui'),
 
 uiOutput('neuralmaxiterationsui'),

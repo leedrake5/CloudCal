@@ -23,7 +23,7 @@ if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools", "gRbase", "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools", "gRbase", "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
@@ -71,6 +71,7 @@ library(doParallel)
 library(parallel)
 library(randomForest)
 library(nnet)
+library(neuralnet)
 
 enableJIT(3)
 
@@ -3201,9 +3202,11 @@ data_summarize <- function(xrf.table) {
 data_summarize <- cmpfun(data_summarize)
 
 
-plot.nnet <- function(mod.in,nid=T,all.out=T,all.in=T,bias=T,wts.only=F,rel.rsc=5,circle.cex=5,
-node.labs=T,var.labs=T,x.lab=NULL,y.lab=NULL,line.stag=NULL,struct=NULL,cex.val=1,
-alpha.val=1,circle.col='lightblue',pos.col='black',neg.col='grey', max.sp = F, ...){
+plot.nnet<-function(mod.in,nid=T,all.out=T,all.in=T,bias=T,wts.only=F,rel.rsc=5,
+circle.cex=5,node.labs=T,var.labs=T,x.lab=NULL,y.lab=NULL,
+line.stag=NULL,struct=NULL,cex.val=1,alpha.val=1,
+circle.col='lightblue',pos.col='black',neg.col='grey',
+bord.col='lightblue', max.sp = F,...){
     
     require(scales)
     
@@ -3218,6 +3221,10 @@ alpha.val=1,circle.col='lightblue',pos.col='black',neg.col='grey', max.sp = F, .
         if('nnet' %in% class(mod.in$finalModel)){
             mod.in<-mod.in$finalModel
             warning('Using best nnet model from train output')
+        } else if('nn' %in% class(mod.in$finalModel)){
+            mod.o <- mod.in
+            mod.in<-mod.in$finalModel
+            warning('Using best nn model from train output')
         }
         else stop('Only nnet method can be used with train object')
     }
@@ -3308,8 +3315,7 @@ alpha.val=1,circle.col='lightblue',pos.col='black',neg.col='grey', max.sp = F, .
     if(is.list(circle.col)){
         circle.col.inp<-circle.col[[1]]
         circle.col<-circle.col[[2]]
-    }
-    else circle.col.inp<-circle.col
+    } else circle.col.inp<-circle.col
     
     #initiate plotting
     x.range<-c(0,100)
@@ -3338,7 +3344,12 @@ alpha.val=1,circle.col='lightblue',pos.col='black',neg.col='grey', max.sp = F, .
     }
     if('xNames' %in% names(mod.in)){
         x.names<-mod.in$xNames
-        y.names<-attr(terms(mod.in),'factor')
+        y.names<-if('nn' %in% class(mod.in)){
+            attr(terms(mod.o),'factor')
+        } else {
+            attr(terms(mod.in),'factor')
+        }
+        
         y.names<-row.names(y.names)[!row.names(y.names) %in% x.names]
     }
     if(!'xNames' %in% names(mod.in) & 'nnet' %in% class(mod.in)){
@@ -3388,7 +3399,7 @@ alpha.val=1,circle.col='lightblue',pos.col='black',neg.col='grey', max.sp = F, .
     layer.points<-function(layer,x.loc,layer.name,cex=cex.val){
         x<-rep(x.loc*diff(x.range),layer)
         y<-get.ys(layer)
-        points(x,y,pch=21,cex=circle.cex,col=in.col,bg=bord.col)
+        points(x,y,pch=21,cex=circle.cex,col=bord.col,bg=in.col)
         if(node.labs) text(x,y,paste(layer.name,1:layer,sep=''),cex=cex.val)
         if(layer.name=='I' & var.labs) text(x-line.stag*diff(x.range),y,x.names,pos=2,cex=cex.val)
         if(layer.name=='O' & var.labs) text(x+line.stag*diff(x.range),y,y.names,pos=4,cex=cex.val)
@@ -3403,7 +3414,7 @@ alpha.val=1,circle.col='lightblue',pos.col='black',neg.col='grey', max.sp = F, .
             points(
             diff(x.range)*bias.x[val],
             bias.y*diff(y.range),
-            pch=21,col=in.col,bg=bord.col,cex=circle.cex
+            pch=21,col=bord.col,bg=in.col,cex=circle.cex
             )
             if(node.labs)
             text(
@@ -3569,9 +3580,9 @@ alpha.val=1,circle.col='lightblue',pos.col='black',neg.col='grey', max.sp = F, .
     
     #use functions to plot nodes
     for(i in 1:length(struct)){
-        in.col<-bord.col<-circle.col
+        in.col<-circle.col
         layer.name<-'H'
-        if(i==1) { layer.name<-'I'; in.col<-bord.col<-circle.col.inp}
+        if(i==1) { layer.name<-'I'; in.col<-circle.col.inp}
         if(i==length(struct)) layer.name<-'O'
         layer.points(struct[i],layer.x[i],layer.name)
     }
