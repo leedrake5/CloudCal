@@ -2914,8 +2914,8 @@ shinyServer(function(input, output, session) {
             
             nn.grid <- if(input$neuralhiddenlayers == 2){
                 expand.grid(
-                    .layer1 = c(input$neuralhiddenunits[1]),
-                    .layer2 = c(input$neuralhiddenunits[2]),
+                    .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                    .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
                     .layer3 = c(0)
                 )
             } else if(input$neuralhiddenlayers == 3){
@@ -2935,7 +2935,7 @@ shinyServer(function(input, output, session) {
             
             nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="neuralnet",
             trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            metric=input$forestmetric, na.action=na.omit,  tuneGrid=nn.grid)
+            metric=input$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
             
             
             stopCluster(cl)
@@ -3001,7 +3001,7 @@ shinyServer(function(input, output, session) {
             
             nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="neuralnet",
             trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            metric=input$forestmetric, na.action=na.omit, tuneGrid=nn.grid)
+            metric=input$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
             
             
             stopCluster(cl)
