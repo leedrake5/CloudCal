@@ -2802,11 +2802,20 @@ shinyServer(function(input, output, session) {
             
         })
         
+        forestParameters <- reactiveValues()
+        observeEvent(input$mclrun, {
+            forestParameters$foresttry <- input$foresttry
+            forestParameters$forestmetric <- input$forestmetric
+            forestParameters$foresttrain <- input$foresttrain
+            forestParameters$forestnumber <- input$forestnumber
+            forestParameters$foresttrees <- input$foresttrees
+        })
+        
+        
         forestModel <- reactive({
-            
             #randomForest(Concentration~., data=predictFrameForest()[vals$keeprows,, drop=FALSE], na.action=na.omit, ntree=1000, nPerm=100)
             
-            rf.grid <- expand.grid(.mtry=input$foresttry)
+            rf.grid <- expand.grid(.mtry=forestParameters$foresttry)
 
             
             cl <- if(get_os()=="windows"){
@@ -2817,8 +2826,8 @@ shinyServer(function(input, output, session) {
             registerDoParallel(cl)
             
             rf_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber), ntree=input$foresttrees,
-            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=input$forestmetric, tuneGrid=rf.grid, na.action=na.omit)
+            trControl=trainControl(method=forestParameters$foresttrain, number=forestParameters$forestnumber), ntree=forestParameters$foresttrees,
+            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=forestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit)
             
             stopCluster(cl)
             rf_model
@@ -2914,12 +2923,20 @@ shinyServer(function(input, output, session) {
             
         })
         
+        rainforestParameters <- reactiveValues()
+        observeEvent(input$mclrun, {
+            rainforestParameters$foresttry <- input$foresttry
+            rainforestParameters$forestmetric <- input$forestmetric
+            rainforestParameters$foresttrain <- input$foresttrain
+            rainforestParameters$forestnumber <- input$forestnumber
+            rainforestParameters$foresttrees <- input$foresttrees
+        })
         
         rainforestModel <- reactive({
             
             #randomForest(Concentration~., data=rainforestData(), na.action=na.omit, ntree=1000, nPerm=100)
             
-            rf.grid <- expand.grid(.mtry=input$foresttry)
+            rf.grid <- expand.grid(.mtry=rainforestParameters$foresttry)
             
             
             cl <- if(get_os()=="windows"){
@@ -2930,8 +2947,8 @@ shinyServer(function(input, output, session) {
             registerDoParallel(cl)
             
             rf_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="rf", type="Regression",
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber), ntree=input$foresttrees,
-            prox=TRUE,allowParallel=TRUE, metric=input$forestmetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE)
+            trControl=trainControl(method=rainforestParameters$foresttrain, number=rainforestParameters$forestnumber), ntree=rainforestParameters$foresttrees,
+            prox=TRUE,allowParallel=TRUE, metric=rainforestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE)
             
             
             stopCluster(cl)
@@ -2939,11 +2956,21 @@ shinyServer(function(input, output, session) {
             
         })
         
+        neuralNetworkIntensityShallowParameters <- reactiveValues()
+        observeEvent(input$mclrun, {
+            neuralNetworkIntensityShallowParameters$forestmetric <- input$forestmetric
+            neuralNetworkIntensityShallowParameters$foresttrain <- input$foresttrain
+            neuralNetworkIntensityShallowParameters$forestnumber <- input$forestnumber
+            neuralNetworkIntensityShallowParameters$neuralweightdecay <- input$neuralweightdecay
+            neuralNetworkIntensityShallowParameters$neuralhiddenunits <- input$neuralhiddenunits
+            neuralNetworkIntensityShallowParameters$neuralmaxiterations <- input$neuralmaxiterations
+        })
+        
         neuralNetworkIntensityShallow <- reactive({
             
             nn.grid <- expand.grid(
-                .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-                .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
+                .decay = seq(neuralNetworkIntensityShallowParameters$neuralweightdecay[1], neuralNetworkIntensityShallowParameters$neuralweightdecay[2], 0.1),
+                .size = seq(neuralNetworkIntensityShallowParameters$neuralhiddenunits[1], neuralNetworkIntensityShallowParameters$neuralhiddenunits[2], 1))
             
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -2952,9 +2979,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE,
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkIntensityShallowParameters$foresttrain, number=neuralNetworkIntensityShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkIntensityShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkIntensityShallowParameters$neuralmaxiterations, trace=F)
             
             
             stopCluster(cl)
@@ -2962,19 +2987,29 @@ shinyServer(function(input, output, session) {
             
         })
         
+        neuralNetworkIntensityDeepParameters <- reactiveValues()
+        observeEvent(input$mclrun, {
+            neuralNetworkIntensityDeepParameters$foresttry <- input$foresttry
+            neuralNetworkIntensityDeepParameters$forestmetric <- input$forestmetric
+            neuralNetworkIntensityDeepParameters$foresttrain <- input$foresttrain
+            neuralNetworkIntensityDeepParameters$forestnumber <- input$forestnumber
+            neuralNetworkIntensityDeepParameters$neuralhiddenlayers <- input$neuralhiddenlayers
+            neuralNetworkIntensityDeepParameters$neuralhiddenunits <- input$neuralhiddenunits
+        })
+        
         neuralNetworkIntensityDeep <- reactive({
             
-            nn.grid <- if(input$neuralhiddenlayers == 2){
+            nn.grid <- if(neuralNetworkIntensityDeepParameters$neuralhiddenlayers == 2){
                 expand.grid(
-                    .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                    .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                    .layer1 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1),
+                    .layer2 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1),
                     .layer3 = c(0)
                 )
-            } else if(input$neuralhiddenlayers == 3){
+            } else if(neuralNetworkIntensityDeepParameters$neuralhiddenlayers == 3){
                 expand.grid(
-                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer3 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1)
+                .layer1 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1),
+                .layer2 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1),
+                .layer3 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1)
                 )
             }
             
@@ -2985,9 +3020,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=input$foresttry,
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            metric=input$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
+            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=neuralNetworkIntensityDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkIntensityDeepParameters$foresttrain, number=neuralNetworkIntensityDeepParameters$forestnumber), metric=neuralNetworkIntensityDeepParameters$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
             
             
             stopCluster(cl)
@@ -3005,11 +3038,22 @@ shinyServer(function(input, output, session) {
             
         })
         
+        
+        neuralNetworkSpectraShallowParameters <- reactiveValues()
+        observeEvent(input$mclrun, {
+            neuralNetworkSpectraShallowParameters$forestmetric <- input$forestmetric
+            neuralNetworkSpectraShallowParameters$foresttrain <- input$foresttrain
+            neuralNetworkSpectraShallowParameters$forestnumber <- input$forestnumber
+            neuralNetworkSpectraShallowParameters$neuralweightdecay <- input$neuralweightdecay
+            neuralNetworkSpectraShallowParameters$neuralhiddenunits <- input$neuralhiddenunits
+            neuralNetworkSpectraShallowParameters$neuralmaxiterations <- input$neuralmaxiterations
+        })
+        
         neuralNetworkSpectraShallow <- reactive({
             
             nn.grid <- expand.grid(
-            .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-            .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
+            .decay = seq(neuralNetworkSpectraShallowParameters$neuralweightdecay[1], neuralNetworkSpectraShallowParameters$neuralweightdecay[2], 0.1),
+            .size = seq(neuralNetworkSpectraShallowParameters$neuralhiddenunits[1], neuralNetworkSpectraShallowParameters$neuralhiddenunits[2], 1))
             
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -3018,9 +3062,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE,
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkSpectraShallowParameters$foresttrain, number=neuralNetworkSpectraShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkSpectraShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkSpectraShallowParameters$neuralmaxiterations, trace=F)
             
             
             stopCluster(cl)
@@ -3028,19 +3070,30 @@ shinyServer(function(input, output, session) {
             
         })
         
+        
+        neuralNetworkSpectraDeepParameters <- reactiveValues()
+        observeEvent(input$mclrun, {
+            neuralNetworkSpectraDeepParameters$foresttry <- input$foresttry
+            neuralNetworkSpectraDeepParameters$forestmetric <- input$forestmetric
+            neuralNetworkSpectraDeepParameters$foresttrain <- input$foresttrain
+            neuralNetworkSpectraDeepParameters$forestnumber <- input$forestnumber
+            neuralNetworkSpectraDeepParameters$neuralhiddenlayers <- input$neuralhiddenlayers
+            neuralNetworkSpectraDeepParameters$neuralhiddenunits <- input$neuralhiddenunits
+        })
+        
         neuralNetworkSpectraDeep<- reactive({
             
-            nn.grid <- if(input$neuralhiddenlayers == 2){
+            nn.grid <- if(neuralNetworkSpectraDeepParameters$neuralhiddenlayers == 2){
                 expand.grid(
-                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer1 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1),
+                .layer2 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1),
                 .layer3 = c(0)
                 )
-            } else if(input$neuralhiddenlayers == 3){
+            } else if(neuralNetworkSpectraDeepParameters$neuralhiddenlayers == 3){
                 expand.grid(
-                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer3 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1)
+                .layer1 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1),
+                .layer2 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1),
+                .layer3 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1)
                 )
             }
             
@@ -3051,9 +3104,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=input$foresttry,
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            metric=input$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
+            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=neuralNetworkSpectraDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkSpectraDeepParameters$foresttrain, number=neuralNetworkSpectraDeepParameters$forestnumber), metric=neuralNetworkSpectraDeepParameters$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
             
             
             stopCluster(cl)
@@ -3468,7 +3519,25 @@ shinyServer(function(input, output, session) {
         
 
         
-        
+        output$mclrunui <- renderUI({
+            
+            if(input$radiocal==1){
+                NULL
+            } else if(input$radiocal==2){
+                NULL
+            } else if(input$radiocal==3){
+                NULL
+            } else if(input$radiocal==4){
+                actionButton("mclrun", "Run Model")
+            }  else if(input$radiocal==5){
+                actionButton("mclrun", "Run Model")
+            } else if(input$radiocal==6){
+                actionButton("mclrun", "Run Model")
+            } else if(input$radiocal==7){
+                actionButton("mclrun", "Run Model")
+            }
+            
+        })
         
         output$foresttryui <- renderUI({
             
@@ -4202,7 +4271,8 @@ shinyServer(function(input, output, session) {
         
         forestModelRandom <- reactive({
             predict.frame <- calCurveFrameRandomized()
-            rf.grid = expand.grid(.mtry = input$foresttry)
+            rf.grid <- expand.grid(.mtry=forestParameters$foresttry)
+            
             
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -4211,18 +4281,18 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            cal.lm <- caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
-            trControl=trainControl(method=input$foresttrain,  number=input$forestnumber), ntree=input$foresttrees, metric=input$forestmetric, tuneGrid=rf.grid,
-            prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
+            rf_model<-caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression",
+            trControl=trainControl(method=forestParameters$foresttrain, number=forestParameters$forestnumber), ntree=forestParameters$foresttrees,
+            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=forestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit)
             
             stopCluster(cl)
-            
-            cal.lm
+            rf_model
         })
         
         rainforestModelRandom <- reactive({
             predict.frame <- calCurveFrameRandomized()
-            rf.grid = expand.grid(.mtry = input$foresttry)
+            rf.grid <- expand.grid(.mtry=rainforestParameters$foresttry)
+            
             
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -4231,20 +4301,21 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            cal.lm <- caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression", trControl=trainControl(method=input$foresttrain, number=input$forestnumber),  ntree=input$foresttrees, metric=input$forestmetric, tuneGrid=rf.grid,
-            prox=TRUE,allowParallel=TRUE, na.action=na.omit, importance=TRUE)
+            rf_model<-caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression",
+            trControl=trainControl(method=rainforestParameters$foresttrain, number=rainforestParameters$forestnumber), ntree=rainforestParameters$foresttrees,
+            prox=TRUE,allowParallel=TRUE, metric=rainforestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE)
+            
             
             stopCluster(cl)
-            
-            cal.lm
+            rf_model
         })
         
         neuralNetworkIntensitiesShallowRandom <- reactive({
             predict.frame <- calCurveFrameRandomized()
             
             nn.grid <- expand.grid(
-            .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-            .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
+            .decay = seq(neuralNetworkIntensityShallowParameters$neuralweightdecay[1], neuralNetworkIntensityShallowParameters$neuralweightdecay[2], 0.1),
+            .size = seq(neuralNetworkIntensityShallowParameters$neuralhiddenunits[1], neuralNetworkIntensityShallowParameters$neuralhiddenunits[2], 1))
             
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -4253,29 +4324,27 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            cal.lm <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE,
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+            nn_model<-caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkIntensityShallowParameters$foresttrain, number=neuralNetworkIntensityShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkIntensityShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkIntensityShallowParameters$neuralmaxiterations, trace=F)
             
             
             stopCluster(cl)
-            cal.lm
+            nn_model
         })
         
         neuralNetworkIntensitiesDeepRandom <- reactive({
             predict.frame <- calCurveFrameRandomized()
             
-            nn.grid <- if(input$neuralhiddenlayers == 2){
+            nn.grid <- if(neuralNetworkIntensityDeepParameters$neuralhiddenlayers == 2){
                 expand.grid(
-                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer1 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1),
+                .layer2 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1),
                 .layer3 = c(0)
                 )
-            } else if(input$neuralhiddenlayers == 3){
+            } else if(neuralNetworkIntensityDeepParameters$neuralhiddenlayers == 3){
                 expand.grid(
-                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer3 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1)
+                .layer1 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1),
+                .layer2 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1),
+                .layer3 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1)
                 )
             }
             
@@ -4286,21 +4355,19 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            cal.lm<-caret::train(Concentration~.,data=predict.frame, method="neuralnet",
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            metric=input$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
+            nn_model<-caret::train(Concentration~.,data=predict.frame, method="neuralnet", rep=neuralNetworkIntensityDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkIntensityDeepParameters$foresttrain, number=neuralNetworkIntensityDeepParameters$forestnumber), metric=neuralNetworkIntensityDeepParameters$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
             
             
             stopCluster(cl)
-            cal.lm
+            nn_model
         })
         
         neuralNetworkSpectraShallowRandom <- reactive({
             predict.frame <- calCurveFrameRandomized()
             
             nn.grid <- expand.grid(
-            .decay = seq(input$neuralweightdecay[1], input$neuralweightdecay[2], 0.1),
-            .size = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1))
+            .decay = seq(neuralNetworkSpectraShallowParameters$neuralweightdecay[1], neuralNetworkSpectraShallowParameters$neuralweightdecay[2], 0.1),
+            .size = seq(neuralNetworkSpectraShallowParameters$neuralhiddenunits[1], neuralNetworkSpectraShallowParameters$neuralhiddenunits[2], 1))
             
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
@@ -4309,29 +4376,27 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            cal.lm <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE,
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            allowParallel=TRUE, metric=input$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=input$neuralmaxiterations, trace=F)
+            nn_model<-caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkSpectraShallowParameters$foresttrain, number=neuralNetworkSpectraShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkSpectraShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkSpectraShallowParameters$neuralmaxiterations, trace=F)
             
             
             stopCluster(cl)
-            cal.lm
+            nn_model
         })
         
-        neuralNetworkSpectraShallowRandom <- reactive({
+        neuralNetworkSpectraDeepRandom <- reactive({
             predict.frame <- calCurveFrameRandomized()
             
-            nn.grid <- if(input$neuralhiddenlayers == 2){
+            nn.grid <- if(neuralNetworkSpectraDeepParameters$neuralhiddenlayers == 2){
                 expand.grid(
-                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
+                .layer1 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1),
+                .layer2 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1),
                 .layer3 = c(0)
                 )
-            } else if(input$neuralhiddenlayers == 3){
+            } else if(neuralNetworkSpectraDeepParameters$neuralhiddenlayers == 3){
                 expand.grid(
-                .layer1 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer2 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1),
-                .layer3 = seq(input$neuralhiddenunits[1], input$neuralhiddenunits[2], 1)
+                .layer1 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1),
+                .layer2 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1),
+                .layer3 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1)
                 )
             }
             
@@ -4342,12 +4407,11 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            cal.lm <- caret::train(Concentration~.,data=predict.frame, method="neuralnet",
-            trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
-            metric=input$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
+            nn_model<-caret::train(Concentration~.,data=predict.frame, method="neuralnet", rep=neuralNetworkSpectraDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkSpectraDeepParameters$foresttrain, number=neuralNetworkSpectraDeepParameters$forestnumber), metric=neuralNetworkSpectraDeepParameters$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
+            
             
             stopCluster(cl)
-            cal.lm
+            nn_model
         })
         
         elementModelRandom <- reactive({

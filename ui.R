@@ -263,7 +263,7 @@ fluidRow(
 sidebarLayout(
 sidebarPanel(width=3,
 
-
+uiOutput('mclrunui'),
 actionButton('createcalelement', "Update"),
 actionButton('createcal', "Save"),
 
