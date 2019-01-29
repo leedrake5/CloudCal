@@ -1787,6 +1787,58 @@ shinyServer(function(input, output, session) {
             
         })
         
+        observeEvent(input$radiocal, {
+            calConditons[["CalTable"]]$CalType <- as.numeric(input$radiocal)
+        })
+        
+        observeEvent(input$normtype, {
+            calConditons[["CalTable"]]$NormType <- as.numeric(input$normcal)
+        })
+        
+        observeEvent(input$comptonmin, {
+            calConditons[["CalTable"]]$Min <- as.numeric(input$comptonmin)
+        })
+        
+        observeEvent(input$comptonmax, {
+            calConditons[["CalTable"]]$Max <- as.numeric(input$comptonmax)
+        })
+        
+        observeEvent(input$foresttry, {
+            calConditons[["CalTable"]]$ForestTry <- as.numeric(input$foresttry)
+        })
+        
+        observeEvent(input$forestmetric, {
+            calConditons[["CalTable"]]$ForestMetric <- as.character(input$forestmetric)
+        })
+        
+        observeEvent(input$foresttrain, {
+            calConditons[["CalTable"]]$ForestTC <- as.character(input$foresttrain)
+        })
+        
+        observeEvent(input$forestnumber, {
+            calConditons[["CalTable"]]$ForestNumber <- as.numeric(input$forestnumber)
+        })
+        
+        observeEvent(input$foresttrees, {
+            calConditons[["CalTable"]]$ForestTrees <- as.numeric(input$foresttrees)
+        })
+        
+        observeEvent(input$neuralhiddenlayers, {
+            calConditons[["CalTable"]]$NeuralHL <- as.numeric(input$neuralhiddenlayers)
+        })
+        
+        observeEvent(input$neuralhiddenunits, {
+            calConditons[["CalTable"]]$NeuralHU <- paste0(input$neuralhiddenunits[[1]], "-", input$neuralhiddenunits[[2]])
+        })
+        
+        observeEvent(input$neuralweightdecay, {
+            calConditons[["CalTable"]]$NeuralWD <- paste0(input$neuralweightdecay[[1]], "-", input$neuralweightdecay[[2]])
+        })
+        
+        observeEvent(input$neuralmaxiterations, {
+            calConditons[["CalTable"]]$NeuralMI <- as.numeric(input$neuralmaxiterations)
+        })
+        
         
         calFileStandards <- reactive({
             
@@ -2933,7 +2985,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="neuralnet",
+            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=input$foresttry,
             trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
             metric=input$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
             
@@ -2999,7 +3051,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="neuralnet",
+            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=input$foresttry,
             trControl=trainControl(method=input$foresttrain, number=input$forestnumber),
             metric=input$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
             
@@ -3430,10 +3482,14 @@ shinyServer(function(input, output, session) {
                 sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
             }  else if(input$radiocal==5){
                 sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
-            } else if(input$radiocal==6){
+            } else if(input$radiocal==6 && input$neuralhiddenlayers == 1){
                 NULL
-            } else if(input$radiocal==7){
+            } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
+                sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
+            } else if(input$radiocal==7 && input$neuralhiddenlayers == 1){
                 NULL
+            } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
             }
             
         })
