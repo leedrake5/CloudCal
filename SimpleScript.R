@@ -1,3 +1,4 @@
+
 get_os <- function(){
     sysinf <- Sys.info()
     if (!is.null(sysinf)){
@@ -14,69 +15,25 @@ get_os <- function(){
     tolower(os)
 }
 
-#options(repos = BiocInstaller::biocinstallRepos())
-#getOption("repos")
-options(download.file.method="libcurl", url.method="libcurl")
-list.of.bioconductor <- c("graph", "RBGL", "Rgraphviz")
-new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.packages()[,"Package"])]
-if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
-if(length(new.bioconductor)) biocLite(new.bioconductor)
-
-
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "Cairo", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools", "gRbase", "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
-
-
-#if(packageVersion("ggplot2")!="2.2.1") devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
-
-
-
-if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    install.packages("http://www.xrf.guru/packages/rPDZ_1.0.zip", repos=NULL, type="win.binary")
-} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tgz", repos=NULL)
-} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tar.gz", repos=NULL)
-}
-
-library(rPDZ)
-
-
-###update packages
-#update.packages(repos='http://cran.rstudio.com/', ask=FALSE)
-
-###Old ggplot2
-#devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
-
-
-#sudo su - -c "R -e \"install.packages(c('shiny', 'pbapply', 'reshape2', 'TTR', 'dplyr', 'ggtern', 'ggplot2', 'shiny', 'rhandsontable', 'random', 'data.table', 'DT', 'shinythemes', 'Cairo', 'broom', 'shinyjs', 'gridExtra', 'dtplyr', 'formattable', 'XML', 'corrplot', 'scales', 'rmarkdown', 'markdown', 'randomForest', 'doMC', 'caret'), repos='http://cran.rstudio.com/')\""
-
-library(grid)
-library(shiny)
-library(ggplot2)
 library(pbapply)
 library(reshape2)
 library(dplyr)
 library(DT)
 library(XML)
-library(gRbase)
-library(reticulate)
 library(Rcpp)
 library(data.table)
 library(compiler)
 library(itertools)
-library(foreach)
 require(compiler)
 library(doParallel)
 library(parallel)
 library(randomForest)
 library(nnet)
-library(neuralnet)
 
-enableJIT(3)
+
 
 options(digits=4)
+options(warn=-1)
 
 my.cores <- if(parallel::detectCores()>=3){
     paste0(parallel::detectCores()-2)
@@ -154,7 +111,7 @@ element_line_pull <- function(element.line){
     element <- strsplit(x=element.line, split="\\.")[[1]][1]
     destination <- strsplit(x=element.line, split="\\.")[[1]][2]
     distance <- strsplit(x=element.line, split="\\.")[[1]][3]
-    data.frame(ElementLine=element.line, Element=element, Orbital=destination, Line=distance, stringsAsFactors=FALSE)
+    data.frame(ElementLine=element.line, Element=element, Orbital=destination, Line=distance)
 }
 element_line_pull <- cmpfun(element_line_pull)
 
@@ -217,7 +174,7 @@ unfold_simple <- function(spectrum){
     
     spectrum$CPSNew <- ifelse(as.numeric(rownames(spectrum)) %in% index.seq, spectrum$CPS+211, spectrum$CPS)
     
-    data.frame(Spectrum=spectrum$Spectrum, Energy=spectrum$Energy, CPS=spectrum$CPSNew, stringsAsFactors=FALSE)
+    data.frame(Spectrum=spectrum$Spectrum, Energy=spectrum$Energy, CPS=spectrum$CPSNew)
     
 }
 unfold_simple <- cmpfun(unfold_simple)
@@ -286,7 +243,7 @@ read_csv_filename_y <- cmpfun(read_csv_filename_y)
 
 csvFrame <- function(filepath, filename){
     
-    data.frame(Energy=read_csv_filename_x(filepath), CPS=read_csv_filename_y(filepath), Spectrum=rep(filename, length(read_csv_filename_x(filepath))), stringsAsFactors=FALSE)
+    data.frame(Energy=read_csv_filename_x(filepath), CPS=read_csv_filename_y(filepath), Spectrum=rep(filename, length(read_csv_filename_x(filepath))))
 }
 csvFrame <- cmpfun(csvFrame)
 
@@ -297,10 +254,10 @@ readTXTData <- function(filepath, filename){
     channels <- seq(1, length(text$V1)-4, 1)
     counts <- as.numeric(as.character(text$V1[5:length(text$V1)]))
     filename.vector <- rep(filename, length(text$V1)-4)
-
+    
     energy <- channels*as.numeric(substr(gsub("Elin=", "", as.character(text$V1[2])), 1, 4))
     
-    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
 }
 readTXTData <- cmpfun(readTXTData)
@@ -316,9 +273,9 @@ read_csv_net <- function(filepath) {
     background <- ret$Backgr.
     eline <- paste(element, line, sep="-")
     
-    simple.table <- data.frame(net, stringsAsFactors=FALSE)
+    simple.table <- data.frame(net)
     colnames(simple.table) <- NULL
-    simple.transpose <- as.data.frame(t(simple.table), stringsAsFactors=FALSE)
+    simple.transpose <- as.data.frame(t(simple.table))
     colnames(simple.transpose) <- eline
     
     simple.transpose
@@ -347,11 +304,11 @@ readSPTData <- function(filepath, filename){
     
     raw <- read.table(filepath, skip=16)
     cps <- raw[,1]/time
-    newdata <- as.data.frame(seq(1, 4096, 1), stringsAsFactors=FALSE)
+    newdata <- as.data.frame(seq(1, 4096, 1))
     colnames(newdata) <- "channels"
     energy <- as.vector(predict.lm(energy.cal, newdata=newdata))
     energy2 <- newdata[,1]*summary(energy.cal)$coef[2]
-    spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
+    spectra.frame <- data.frame(energy, cps, filename.vector)
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
     return(spectra.frame)
 }
@@ -369,7 +326,7 @@ readMCAData <- function(filepath, filename){
     chan.1.b.pre <- as.numeric(full[13,2])
     chan.2.a.pre <- as.numeric(unlist(strsplit(gsub("# Calibration2: ", "", full[14,1]), " ")))
     chan.2.b.pre <- as.numeric(full[14,2])
-
+    
     
     chan.1 <- chan.1.a.pre[1]
     energy.1 <- chan.1.a.pre[2] + chan.1.b.pre/(10^nchar(chan.1.b.pre))
@@ -386,11 +343,11 @@ readMCAData <- function(filepath, filename){
     time <- time.1 + time.2/(10^nchar(time.2))
     
     cps <- as.numeric(full[17:4112, 1])/time
-    newdata <- as.data.frame(seq(1, 4096, 1), stringsAsFactors=FALSE)
+    newdata <- as.data.frame(seq(1, 4096, 1))
     colnames(newdata) <- "channels"
     energy <- as.vector(predict.lm(energy.cal, newdata=newdata))
     energy2 <- newdata[,1]*summary(energy.cal)$coef[2]
-    spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
+    spectra.frame <- data.frame(energy, cps, filename.vector)
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
     return(spectra.frame)
 }
@@ -407,7 +364,7 @@ readSPXData <- function(filepath, filename){
     xmllist <- xmlToList(xmlfile)
     channels.pre <- xmllist[["ClassInstance"]][["Channels"]][[1]]
     counts <- as.numeric(strsplit(channels.pre, ",", )[[1]])
-    newdata <- as.data.frame(seq(1, 4096, 1), stringsAsFactors=FALSE)
+    newdata <- as.data.frame(seq(1, 4096, 1))
     intercept <- as.numeric(xmllist[["ClassInstance"]][["ClassInstance"]][["CalibAbs"]])
     slope <- as.numeric(xmllist[["ClassInstance"]][["ClassInstance"]][["CalibLin"]])
     time <- as.numeric(xmllist[[2]][["TRTHeaderedClass"]][[3]][["LifeTime"]])/1000
@@ -415,7 +372,7 @@ readSPXData <- function(filepath, filename){
     cps <- counts/time
     energy <- newdata[,1]*slope+intercept
     
-    spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
+    spectra.frame <- data.frame(energy, cps, filename.vector)
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
     return(spectra.frame)
     
@@ -432,17 +389,17 @@ readPDZ25DataExpiremental <- function(filepath, filename){
     integers <- int_to_unit(readBin(con=filepath, what= "int", n=3000, endian="little"))
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
     integer.sub <- integers[124:2171]
-
+    
     sequence <- seq(1, length(integer.sub), 1)
-
+    
     time.est <- integers[144]/10
-
-        channels <- sequence
-        energy <- sequence*.02
-        counts <- integer.sub/(integers[144]/10)
-        
-        unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE))
-
+    
+    channels <- sequence
+    energy <- sequence*.02
+    counts <- integer.sub/(integers[144]/10)
+    
+    unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector))
+    
 }
 readPDZ25DataExpiremental <- cmpfun(readPDZ25DataExpiremental)
 
@@ -464,7 +421,7 @@ readPDZ24DataExpiremental <- function(filepath, filename){
     energy <- sequence*.02
     counts <- integer.sub/(integer.sub[21]/10)
     
-    unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE))
+    unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector))
     
 }
 readPDZ24DataExpiremental <- cmpfun(readPDZ24DataExpiremental)
@@ -483,12 +440,12 @@ readPDZ25Data <- function(filepath, filename){
     sequence <- seq(1, length(integers), 1)
     
     time.est <- integers[21]
-
+    
     channels <- sequence
     energy <- sequence*.02
     counts <- integers/(integers[144]/10)
     
-    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
 }
 readPDZ25Data <- cmpfun(readPDZ25Data)
@@ -510,7 +467,7 @@ readPDZ25DataManual <- function(filepath, filename, binaryshift){
     energy <- sequence*.02
     counts <- integers/(integers[144]/10)
     
-    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
 }
 readPDZ25DataManual <- cmpfun(readPDZ25DataManual)
@@ -531,7 +488,7 @@ readPDZ24Data<- function(filepath, filename){
     energy <- sequence*.02
     counts <- integers/(integers[21]/10)
     
-    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector)
     
 }
 readPDZ24Data <- cmpfun(readPDZ24Data)
@@ -540,7 +497,7 @@ readPDZ24Data <- cmpfun(readPDZ24Data)
 
 readPDZData <- function(filepath, filename) {
     nbrOfRecords <- 10000
-
+    
     
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
     
@@ -549,7 +506,7 @@ readPDZData <- function(filepath, filename) {
     }else {
         readPDZ24Data(filepath, filename)
     }
-
+    
     
 }
 readPDZ24Data <- cmpfun(readPDZ24Data)
@@ -562,7 +519,7 @@ readPDZ24Data <- cmpfun(readPDZ24Data)
 file.0 <- function(file) {
     if (length(file) > 0)
     {
-    return(file)
+        return(file)
     }else{
         return(levels(file))
     }
@@ -592,19 +549,6 @@ is.0 <- function(cps, file) {
 is.0 <- cmpfun(is.0)
 
 
-dt_options <- reactive({
-    # dynamically create options for `aoColumns` depending on how many columns are selected.
-    toggles <- lapply(1:length(input$show_vars), function(x) list(bSearchable = F))
-    # for `species` columns
-    toggles[[length(toggles) + 1]] <- list(bSearchable = T)
-    
-    list(
-    aoColumns = toggles,
-    bFilter = 1, bSortClasses = 1,
-    aLengthMenu = list(c(10,25,50, -1), list('10','25', '50', 'Todas')),
-    iDisplayLength = 10
-    )
-})
 
 
 ifrm <- function(obj, env = globalenv()) {
@@ -644,8 +588,8 @@ lm_eqn = function(m) {
     b = as.numeric(format(abs(coef(m)[2]), digits = 2)),
     r2 = format(summary(m)$r.squared, digits = 3));
     
-        eq <- substitute(italic(C)[i] == a + b %.% italic(I)[i]*","~~italic(r)^2~"="~r2,l)
-  
+    eq <- substitute(italic(C)[i] == a + b %.% italic(I)[i]*","~~italic(r)^2~"="~r2,l)
+    
     
     as.character(as.expression(eq));
 }
@@ -659,8 +603,8 @@ lm_eqn_poly = function(m) {
     c = as.numeric(format(abs(coef(m)[3]), digits = 2)),
     r2 = format(summary(m)$r.squared, digits = 3));
     
-        eq <- substitute(italic(C)[i] == a + c %.% italic(I)[i]^2 + b %.% italic(I)[i]*","~~italic(r)^2~"="~r2,l)
-   
+    eq <- substitute(italic(C)[i] == a + c %.% italic(I)[i]^2 + b %.% italic(I)[i]*","~~italic(r)^2~"="~r2,l)
+    
     
     as.character(as.expression(eq));
 }
@@ -673,8 +617,8 @@ lm_eqn_val = function(m) {
     b = as.numeric(format(abs(coef(m)[2]), digits = 2)),
     r2 = format(summary(m)$r.squared, digits = 3));
     
-        eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,l)
-   
+    eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,l)
+    
     
     as.character(as.expression(eq));
 }
@@ -785,7 +729,7 @@ strip_glm <- cmpfun(strip_glm)
 
 merge_Sum <- function(.df1, .df2, .id_Columns, .match_Columns){
     merged_Columns <- unique(c(names(.df1),names(.df2)))
-    merged_df1 <- data.frame(matrix(nrow=nrow(.df1), ncol=length(merged_Columns)), stringsAsFactors=FALSE)
+    merged_df1 <- data.frame(matrix(nrow=nrow(.df1), ncol=length(merged_Columns)))
     names(merged_df1) <- merged_Columns
     for (column in merged_Columns){
         if(column %in% .id_Columns | !column %in% names(.df2)){
@@ -871,7 +815,7 @@ pull_test <- function(a.vector, a.value.position){
     pvalue <- pnorm(-abs(ZScore))
     is.sig <- pvalue < 0.05
     
-    data.frame(Value=a.vector[a.value.position], ZScore=ZScore, pvalue=pvalue, Sig=is.sig, stringsAsFactors=FALSE)
+    data.frame(Value=a.vector[a.value.position], ZScore=ZScore, pvalue=pvalue, Sig=is.sig)
 }
 pull_test <- cmpfun(pull_test)
 
@@ -898,10 +842,10 @@ variable_select_xrf <- function(intensities, values, analyte){
     metric <- "RMSE"
     set.seed(seed)
     
-    cal.table <- data.frame(intensities, Concentration=values[,analyte], stringsAsFactors=FALSE)
+    cal.table <- data.frame(intensities, Concentration=values[,analyte])
     fit.lm <- train(Concentration~., data=cal.table, method="lm", metric=metric, preProc=c("center", "scale"), trControl=control)
     importance <- varImp(fit.lm, scale=FALSE)
-    importance.frame <- as.data.frame(importance$importance, stringsAsFactors=FALSE)
+    importance.frame <- as.data.frame(importance$importance)
     elements <- rownames(importance$importance)
     elements[as.numeric(rownames(Z_choose(importance.frame$Overall)))]
     
@@ -910,7 +854,7 @@ variable_select_xrf <- cmpfun(variable_select_xrf)
 
 
 variable_select_short_xrf <- function(importance){
-    importance.frame <- as.data.frame(importance$importance, stringsAsFactors=FALSE)
+    importance.frame <- as.data.frame(importance$importance)
     elements <- rownames(importance$importance)
     elements[as.numeric(rownames(Z_choose(importance.frame$Overall)))]
 }
@@ -937,285 +881,285 @@ black.diamond.melt <- read.csv(file=black.diamond.melt.directory, sep=",")
 #k.lines[k.lines < 0.01] <- 1
 #l.lines[l.lines < 0.01] <- 1
 
-lines <- data.frame(k.lines, l.lines, stringsAsFactors=FALSE)
+lines <- data.frame(k.lines, l.lines)
 
-H.lines <- data.frame(lines$Ka1[1], lines$Ka2[1], lines$Kb1[1], lines$Kb2[1], lines$Kb3[1], lines$La1[1], lines$La2[1], lines$Lb1[1], lines$Lb2[1], lines$Lb3[1], lines$Lb4[1], lines$Lg1[1], lines$Lg2[1], lines$Lg3[1], lines$Ll[1], stringsAsFactors=FALSE)
+H.lines <- data.frame(lines$Ka1[1], lines$Ka2[1], lines$Kb1[1], lines$Kb2[1], lines$Kb3[1], lines$La1[1], lines$La2[1], lines$Lb1[1], lines$Lb2[1], lines$Lb3[1], lines$Lb4[1], lines$Lg1[1], lines$Lg2[1], lines$Lg3[1], lines$Ll[1])
 colnames(H.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-He.lines <- data.frame(lines$Ka1[2], lines$Ka2[2], lines$Kb1[2], lines$Kb2[2], lines$Kb3[2], lines$La1[2], lines$La2[2], lines$Lb1[2], lines$Lb2[2], lines$Lb3[2], lines$Lb4[2], lines$Lg1[2], lines$Lg2[2], lines$Lg3[2], lines$Ll[2], stringsAsFactors=FALSE)
+He.lines <- data.frame(lines$Ka1[2], lines$Ka2[2], lines$Kb1[2], lines$Kb2[2], lines$Kb3[2], lines$La1[2], lines$La2[2], lines$Lb1[2], lines$Lb2[2], lines$Lb3[2], lines$Lb4[2], lines$Lg1[2], lines$Lg2[2], lines$Lg3[2], lines$Ll[2])
 colnames(He.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Li.lines <- data.frame(lines$Ka1[3], lines$Ka2[3], lines$Kb1[3], lines$Kb2[3], lines$Kb3[3], lines$La1[3], lines$La2[3], lines$Lb1[3], lines$Lb2[3], lines$Lb3[3], lines$Lb4[3], lines$Lg1[3], lines$Lg2[3], lines$Lg3[3], lines$Ll[3], stringsAsFactors=FALSE)
+Li.lines <- data.frame(lines$Ka1[3], lines$Ka2[3], lines$Kb1[3], lines$Kb2[3], lines$Kb3[3], lines$La1[3], lines$La2[3], lines$Lb1[3], lines$Lb2[3], lines$Lb3[3], lines$Lb4[3], lines$Lg1[3], lines$Lg2[3], lines$Lg3[3], lines$Ll[3])
 colnames(Li.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Be.lines <- data.frame(lines$Ka1[4], lines$Ka2[4], lines$Kb1[4], lines$Kb2[4], lines$Kb3[4], lines$La1[4], lines$La2[4], lines$Lb1[4], lines$Lb2[4], lines$Lb3[4], lines$Lb4[4], lines$Lg1[4], lines$Lg2[4], lines$Lg3[4], lines$Ll[4], stringsAsFactors=FALSE)
+Be.lines <- data.frame(lines$Ka1[4], lines$Ka2[4], lines$Kb1[4], lines$Kb2[4], lines$Kb3[4], lines$La1[4], lines$La2[4], lines$Lb1[4], lines$Lb2[4], lines$Lb3[4], lines$Lb4[4], lines$Lg1[4], lines$Lg2[4], lines$Lg3[4], lines$Ll[4])
 colnames(Be.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-B.lines <- data.frame(lines$Ka1[5], lines$Ka2[5], lines$Kb1[5], lines$Kb2[5], lines$Kb3[5], lines$La1[5], lines$La2[5], lines$Lb1[5], lines$Lb2[5], lines$Lb3[5], lines$Lb4[5], lines$Lg1[5], lines$Lg2[5], lines$Lg3[5], lines$Ll[5], stringsAsFactors=FALSE)
+B.lines <- data.frame(lines$Ka1[5], lines$Ka2[5], lines$Kb1[5], lines$Kb2[5], lines$Kb3[5], lines$La1[5], lines$La2[5], lines$Lb1[5], lines$Lb2[5], lines$Lb3[5], lines$Lb4[5], lines$Lg1[5], lines$Lg2[5], lines$Lg3[5], lines$Ll[5])
 colnames(B.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-C.lines <- data.frame(lines$Ka1[6], lines$Ka2[6], lines$Kb1[6], lines$Kb2[6], lines$Kb3[6], lines$La1[6], lines$La2[6], lines$Lb1[6], lines$Lb2[6], lines$Lb3[6], lines$Lb4[6], lines$Lg1[6], lines$Lg2[6], lines$Lg3[6], lines$Ll[6], stringsAsFactors=FALSE)
+C.lines <- data.frame(lines$Ka1[6], lines$Ka2[6], lines$Kb1[6], lines$Kb2[6], lines$Kb3[6], lines$La1[6], lines$La2[6], lines$Lb1[6], lines$Lb2[6], lines$Lb3[6], lines$Lb4[6], lines$Lg1[6], lines$Lg2[6], lines$Lg3[6], lines$Ll[6])
 colnames(C.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-N.lines <- data.frame(lines$Ka1[7], lines$Ka2[7], lines$Kb1[7], lines$Kb2[7], lines$Kb3[7], lines$La1[7], lines$La2[7], lines$Lb1[7], lines$Lb2[7], lines$Lb3[7], lines$Lb4[7], lines$Lg1[7], lines$Lg2[7], lines$Lg3[7], lines$Ll[7], stringsAsFactors=FALSE)
+N.lines <- data.frame(lines$Ka1[7], lines$Ka2[7], lines$Kb1[7], lines$Kb2[7], lines$Kb3[7], lines$La1[7], lines$La2[7], lines$Lb1[7], lines$Lb2[7], lines$Lb3[7], lines$Lb4[7], lines$Lg1[7], lines$Lg2[7], lines$Lg3[7], lines$Ll[7])
 colnames(N.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-O.lines <- data.frame(lines$Ka1[8], lines$Ka2[8], lines$Kb1[8], lines$Kb2[8], lines$Kb3[8], lines$La1[8], lines$La2[8], lines$Lb1[8], lines$Lb2[8], lines$Lb3[8], lines$Lb4[8], lines$Lg1[8], lines$Lg2[8], lines$Lg3[8], lines$Ll[8], stringsAsFactors=FALSE)
+O.lines <- data.frame(lines$Ka1[8], lines$Ka2[8], lines$Kb1[8], lines$Kb2[8], lines$Kb3[8], lines$La1[8], lines$La2[8], lines$Lb1[8], lines$Lb2[8], lines$Lb3[8], lines$Lb4[8], lines$Lg1[8], lines$Lg2[8], lines$Lg3[8], lines$Ll[8])
 colnames(O.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-F.lines <- data.frame(lines$Ka1[9], lines$Ka2[9], lines$Kb1[9], lines$Kb2[9], lines$Kb3[9], lines$La1[9], lines$La2[9], lines$Lb1[9], lines$Lb2[9], lines$Lb3[9], lines$Lb4[9], lines$Lg1[9], lines$Lg2[9], lines$Lg3[9], lines$Ll[9], stringsAsFactors=FALSE)
+F.lines <- data.frame(lines$Ka1[9], lines$Ka2[9], lines$Kb1[9], lines$Kb2[9], lines$Kb3[9], lines$La1[9], lines$La2[9], lines$Lb1[9], lines$Lb2[9], lines$Lb3[9], lines$Lb4[9], lines$Lg1[9], lines$Lg2[9], lines$Lg3[9], lines$Ll[9])
 colnames(F.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ne.lines <- data.frame(lines$Ka1[10], lines$Ka2[10], lines$Kb1[10], lines$Kb2[10], lines$Kb3[10], lines$La1[10], lines$La2[10], lines$Lb1[10], lines$Lb2[10], lines$Lb3[10], lines$Lb4[10], lines$Lg1[10], lines$Lg2[10], lines$Lg3[10], lines$Ll[10], stringsAsFactors=FALSE)
+Ne.lines <- data.frame(lines$Ka1[10], lines$Ka2[10], lines$Kb1[10], lines$Kb2[10], lines$Kb3[10], lines$La1[10], lines$La2[10], lines$Lb1[10], lines$Lb2[10], lines$Lb3[10], lines$Lb4[10], lines$Lg1[10], lines$Lg2[10], lines$Lg3[10], lines$Ll[10])
 colnames(Ne.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Na.lines <- data.frame(lines$Ka1[11], lines$Ka2[11], lines$Kb1[11], lines$Kb2[11], lines$Kb3[11], lines$La1[11], lines$La2[11], lines$Lb1[11], lines$Lb2[11], lines$Lb3[11], lines$Lb4[11], lines$Lg1[11], lines$Lg2[11], lines$Lg3[11], lines$Ll[11], stringsAsFactors=FALSE)
+Na.lines <- data.frame(lines$Ka1[11], lines$Ka2[11], lines$Kb1[11], lines$Kb2[11], lines$Kb3[11], lines$La1[11], lines$La2[11], lines$Lb1[11], lines$Lb2[11], lines$Lb3[11], lines$Lb4[11], lines$Lg1[11], lines$Lg2[11], lines$Lg3[11], lines$Ll[11])
 colnames(Na.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Mg.lines <- data.frame(lines$Ka1[12], lines$Ka2[12], lines$Kb1[12], lines$Kb2[12], lines$Kb3[12], lines$La1[12], lines$La2[12], lines$Lb1[12], lines$Lb2[12], lines$Lb3[12], lines$Lb4[12], lines$Lg1[12], lines$Lg2[12], lines$Lg3[12], lines$Ll[12], stringsAsFactors=FALSE)
+Mg.lines <- data.frame(lines$Ka1[12], lines$Ka2[12], lines$Kb1[12], lines$Kb2[12], lines$Kb3[12], lines$La1[12], lines$La2[12], lines$Lb1[12], lines$Lb2[12], lines$Lb3[12], lines$Lb4[12], lines$Lg1[12], lines$Lg2[12], lines$Lg3[12], lines$Ll[12])
 colnames(Mg.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Al.lines <- data.frame(lines$Ka1[13], lines$Ka2[13], lines$Kb1[13], lines$Kb2[13], lines$Kb3[13], lines$La1[13], lines$La2[13], lines$Lb1[13], lines$Lb2[13], lines$Lb3[13], lines$Lb4[13], lines$Lg1[13], lines$Lg2[13], lines$Lg3[13], lines$Ll[13], stringsAsFactors=FALSE)
+Al.lines <- data.frame(lines$Ka1[13], lines$Ka2[13], lines$Kb1[13], lines$Kb2[13], lines$Kb3[13], lines$La1[13], lines$La2[13], lines$Lb1[13], lines$Lb2[13], lines$Lb3[13], lines$Lb4[13], lines$Lg1[13], lines$Lg2[13], lines$Lg3[13], lines$Ll[13])
 colnames(Al.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Si.lines <- data.frame(lines$Ka1[14], lines$Ka2[14], lines$Kb1[14], lines$Kb2[14], lines$Kb3[14], lines$La1[14], lines$La2[14], lines$Lb1[14], lines$Lb2[14], lines$Lb3[14], lines$Lb4[14], lines$Lg1[14], lines$Lg2[14], lines$Lg3[14], lines$Ll[14], stringsAsFactors=FALSE)
+Si.lines <- data.frame(lines$Ka1[14], lines$Ka2[14], lines$Kb1[14], lines$Kb2[14], lines$Kb3[14], lines$La1[14], lines$La2[14], lines$Lb1[14], lines$Lb2[14], lines$Lb3[14], lines$Lb4[14], lines$Lg1[14], lines$Lg2[14], lines$Lg3[14], lines$Ll[14])
 colnames(Si.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-P.lines <- data.frame(lines$Ka1[15], lines$Ka2[15], lines$Kb1[15], lines$Kb2[15], lines$Kb3[15], lines$La1[15], lines$La2[15], lines$Lb1[15], lines$Lb2[15], lines$Lb3[15], lines$Lb4[15], lines$Lg1[15], lines$Lg2[15], lines$Lg3[15], lines$Ll[15], stringsAsFactors=FALSE)
+P.lines <- data.frame(lines$Ka1[15], lines$Ka2[15], lines$Kb1[15], lines$Kb2[15], lines$Kb3[15], lines$La1[15], lines$La2[15], lines$Lb1[15], lines$Lb2[15], lines$Lb3[15], lines$Lb4[15], lines$Lg1[15], lines$Lg2[15], lines$Lg3[15], lines$Ll[15])
 colnames(P.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-S.lines <- data.frame(lines$Ka1[16], lines$Ka2[16], lines$Kb1[16], lines$Kb2[16], lines$Kb3[16], lines$La1[16], lines$La2[16], lines$Lb1[16], lines$Lb2[16], lines$Lb3[16], lines$Lb4[16], lines$Lg1[16], lines$Lg2[16], lines$Lg3[16], lines$Ll[16], stringsAsFactors=FALSE)
+S.lines <- data.frame(lines$Ka1[16], lines$Ka2[16], lines$Kb1[16], lines$Kb2[16], lines$Kb3[16], lines$La1[16], lines$La2[16], lines$Lb1[16], lines$Lb2[16], lines$Lb3[16], lines$Lb4[16], lines$Lg1[16], lines$Lg2[16], lines$Lg3[16], lines$Ll[16])
 colnames(S.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Cl.lines <- data.frame(lines$Ka1[17], lines$Ka2[17], lines$Kb1[17], lines$Kb2[17], lines$Kb3[17], lines$La1[17], lines$La2[17], lines$Lb1[17], lines$Lb2[17], lines$Lb3[17], lines$Lb4[17], lines$Lg1[17], lines$Lg2[17], lines$Lg3[17], lines$Ll[17], stringsAsFactors=FALSE)
+Cl.lines <- data.frame(lines$Ka1[17], lines$Ka2[17], lines$Kb1[17], lines$Kb2[17], lines$Kb3[17], lines$La1[17], lines$La2[17], lines$Lb1[17], lines$Lb2[17], lines$Lb3[17], lines$Lb4[17], lines$Lg1[17], lines$Lg2[17], lines$Lg3[17], lines$Ll[17])
 colnames(Cl.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ar.lines <- data.frame(lines$Ka1[18], lines$Ka2[18], lines$Kb1[18], lines$Kb2[18], lines$Kb3[18], lines$La1[18], lines$La2[18], lines$Lb1[18], lines$Lb2[18], lines$Lb3[18], lines$Lb4[18], lines$Lg1[18], lines$Lg2[18], lines$Lg3[18], lines$Ll[18], stringsAsFactors=FALSE)
+Ar.lines <- data.frame(lines$Ka1[18], lines$Ka2[18], lines$Kb1[18], lines$Kb2[18], lines$Kb3[18], lines$La1[18], lines$La2[18], lines$Lb1[18], lines$Lb2[18], lines$Lb3[18], lines$Lb4[18], lines$Lg1[18], lines$Lg2[18], lines$Lg3[18], lines$Ll[18])
 colnames(Ar.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-K.lines <- data.frame(lines$Ka1[19], lines$Ka2[19], lines$Kb1[19], lines$Kb2[19], lines$Kb3[19], lines$La1[19], lines$La2[19], lines$Lb1[19], lines$Lb2[19], lines$Lb3[19], lines$Lb4[19], lines$Lg1[19], lines$Lg2[19], lines$Lg3[19], lines$Ll[19], stringsAsFactors=FALSE)
+K.lines <- data.frame(lines$Ka1[19], lines$Ka2[19], lines$Kb1[19], lines$Kb2[19], lines$Kb3[19], lines$La1[19], lines$La2[19], lines$Lb1[19], lines$Lb2[19], lines$Lb3[19], lines$Lb4[19], lines$Lg1[19], lines$Lg2[19], lines$Lg3[19], lines$Ll[19])
 colnames(K.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ca.lines <- data.frame(lines$Ka1[20], lines$Ka2[20], lines$Kb1[20], lines$Kb2[20], lines$Kb3[20], lines$La1[20], lines$La2[20], lines$Lb1[20], lines$Lb2[20], lines$Lb3[20], lines$Lb4[20], lines$Lg1[20], lines$Lg2[20], lines$Lg3[20], lines$Ll[20], stringsAsFactors=FALSE)
+Ca.lines <- data.frame(lines$Ka1[20], lines$Ka2[20], lines$Kb1[20], lines$Kb2[20], lines$Kb3[20], lines$La1[20], lines$La2[20], lines$Lb1[20], lines$Lb2[20], lines$Lb3[20], lines$Lb4[20], lines$Lg1[20], lines$Lg2[20], lines$Lg3[20], lines$Ll[20])
 colnames(Ca.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Sc.lines <- data.frame(lines$Ka1[21], lines$Ka2[21], lines$Kb1[21], lines$Kb2[21], lines$Kb3[21], lines$La1[21], lines$La2[21], lines$Lb1[21], lines$Lb2[21], lines$Lb3[21], lines$Lb4[21], lines$Lg1[21], lines$Lg2[21], lines$Lg3[21], lines$Ll[21], stringsAsFactors=FALSE)
+Sc.lines <- data.frame(lines$Ka1[21], lines$Ka2[21], lines$Kb1[21], lines$Kb2[21], lines$Kb3[21], lines$La1[21], lines$La2[21], lines$Lb1[21], lines$Lb2[21], lines$Lb3[21], lines$Lb4[21], lines$Lg1[21], lines$Lg2[21], lines$Lg3[21], lines$Ll[21])
 colnames(Sc.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ti.lines <- data.frame(lines$Ka1[22], lines$Ka2[22], lines$Kb1[22], lines$Kb2[22], lines$Kb3[22], lines$La1[22], lines$La2[22], lines$Lb1[22], lines$Lb2[22], lines$Lb3[22], lines$Lb4[22], lines$Lg1[22], lines$Lg2[22], lines$Lg3[22], lines$Ll[22], stringsAsFactors=FALSE)
+Ti.lines <- data.frame(lines$Ka1[22], lines$Ka2[22], lines$Kb1[22], lines$Kb2[22], lines$Kb3[22], lines$La1[22], lines$La2[22], lines$Lb1[22], lines$Lb2[22], lines$Lb3[22], lines$Lb4[22], lines$Lg1[22], lines$Lg2[22], lines$Lg3[22], lines$Ll[22])
 colnames(Ti.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-V.lines <- data.frame(lines$Ka1[23], lines$Ka2[23], lines$Kb1[23], lines$Kb2[23], lines$Kb3[23], lines$La1[23], lines$La2[23], lines$Lb1[23], lines$Lb2[23], lines$Lb3[23], lines$Lb4[23], lines$Lg1[23], lines$Lg2[23], lines$Lg3[23], lines$Ll[23], stringsAsFactors=FALSE)
+V.lines <- data.frame(lines$Ka1[23], lines$Ka2[23], lines$Kb1[23], lines$Kb2[23], lines$Kb3[23], lines$La1[23], lines$La2[23], lines$Lb1[23], lines$Lb2[23], lines$Lb3[23], lines$Lb4[23], lines$Lg1[23], lines$Lg2[23], lines$Lg3[23], lines$Ll[23])
 colnames(V.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Cr.lines <- data.frame(lines$Ka1[24], lines$Ka2[24], lines$Kb1[24], lines$Kb2[24], lines$Kb3[24], lines$La1[24], lines$La2[24], lines$Lb1[24], lines$Lb2[24], lines$Lb3[24], lines$Lb4[24], lines$Lg1[24], lines$Lg2[24], lines$Lg3[24], lines$Ll[24], stringsAsFactors=FALSE)
+Cr.lines <- data.frame(lines$Ka1[24], lines$Ka2[24], lines$Kb1[24], lines$Kb2[24], lines$Kb3[24], lines$La1[24], lines$La2[24], lines$Lb1[24], lines$Lb2[24], lines$Lb3[24], lines$Lb4[24], lines$Lg1[24], lines$Lg2[24], lines$Lg3[24], lines$Ll[24])
 colnames(Cr.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Mn.lines <- data.frame(lines$Ka1[25], lines$Ka2[25], lines$Kb1[25], lines$Kb2[25], lines$Kb3[25], lines$La1[25], lines$La2[25], lines$Lb1[25], lines$Lb2[25], lines$Lb3[25], lines$Lb4[25], lines$Lg1[25], lines$Lg2[25], lines$Lg3[25], lines$Ll[25], stringsAsFactors=FALSE)
+Mn.lines <- data.frame(lines$Ka1[25], lines$Ka2[25], lines$Kb1[25], lines$Kb2[25], lines$Kb3[25], lines$La1[25], lines$La2[25], lines$Lb1[25], lines$Lb2[25], lines$Lb3[25], lines$Lb4[25], lines$Lg1[25], lines$Lg2[25], lines$Lg3[25], lines$Ll[25])
 colnames(Mn.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Fe.lines <- data.frame(lines$Ka1[26], lines$Ka2[26], lines$Kb1[26], lines$Kb2[26], lines$Kb3[26], lines$La1[26], lines$La2[26], lines$Lb1[26], lines$Lb2[26], lines$Lb3[26], lines$Lb4[26], lines$Lg1[26], lines$Lg2[26], lines$Lg3[26], lines$Ll[26], stringsAsFactors=FALSE)
+Fe.lines <- data.frame(lines$Ka1[26], lines$Ka2[26], lines$Kb1[26], lines$Kb2[26], lines$Kb3[26], lines$La1[26], lines$La2[26], lines$Lb1[26], lines$Lb2[26], lines$Lb3[26], lines$Lb4[26], lines$Lg1[26], lines$Lg2[26], lines$Lg3[26], lines$Ll[26])
 colnames(Fe.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Co.lines <- data.frame(lines$Ka1[27], lines$Ka2[27], lines$Kb1[27], lines$Kb2[27], lines$Kb3[27], lines$La1[27], lines$La2[27], lines$Lb1[27], lines$Lb2[27], lines$Lb3[27], lines$Lb4[27], lines$Lg1[27], lines$Lg2[27], lines$Lg3[27], lines$Ll[27], stringsAsFactors=FALSE)
+Co.lines <- data.frame(lines$Ka1[27], lines$Ka2[27], lines$Kb1[27], lines$Kb2[27], lines$Kb3[27], lines$La1[27], lines$La2[27], lines$Lb1[27], lines$Lb2[27], lines$Lb3[27], lines$Lb4[27], lines$Lg1[27], lines$Lg2[27], lines$Lg3[27], lines$Ll[27])
 colnames(Co.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ni.lines <- data.frame(lines$Ka1[28], lines$Ka2[28], lines$Kb1[28], lines$Kb2[28], lines$Kb3[28], lines$La1[28], lines$La2[28], lines$Lb1[28], lines$Lb2[28], lines$Lb3[28], lines$Lb4[28], lines$Lg1[28], lines$Lg2[28], lines$Lg3[28], lines$Ll[28], stringsAsFactors=FALSE)
+Ni.lines <- data.frame(lines$Ka1[28], lines$Ka2[28], lines$Kb1[28], lines$Kb2[28], lines$Kb3[28], lines$La1[28], lines$La2[28], lines$Lb1[28], lines$Lb2[28], lines$Lb3[28], lines$Lb4[28], lines$Lg1[28], lines$Lg2[28], lines$Lg3[28], lines$Ll[28])
 colnames(Ni.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Cu.lines <- data.frame(lines$Ka1[29], lines$Ka2[29], lines$Kb1[29], lines$Kb2[29], lines$Kb3[29], lines$La1[29], lines$La2[29], lines$Lb1[29], lines$Lb2[29], lines$Lb3[29], lines$Lb4[29], lines$Lg1[29], lines$Lg2[29], lines$Lg3[29], lines$Ll[29], stringsAsFactors=FALSE)
+Cu.lines <- data.frame(lines$Ka1[29], lines$Ka2[29], lines$Kb1[29], lines$Kb2[29], lines$Kb3[29], lines$La1[29], lines$La2[29], lines$Lb1[29], lines$Lb2[29], lines$Lb3[29], lines$Lb4[29], lines$Lg1[29], lines$Lg2[29], lines$Lg3[29], lines$Ll[29])
 colnames(Cu.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Zn.lines <- data.frame(lines$Ka1[30], lines$Ka2[30], lines$Kb1[30], lines$Kb2[30], lines$Kb3[30], lines$La1[30], lines$La2[30], lines$Lb1[30], lines$Lb2[30], lines$Lb3[30], lines$Lb4[30], lines$Lg1[30], lines$Lg2[30], lines$Lg3[30], lines$Ll[30], stringsAsFactors=FALSE)
+Zn.lines <- data.frame(lines$Ka1[30], lines$Ka2[30], lines$Kb1[30], lines$Kb2[30], lines$Kb3[30], lines$La1[30], lines$La2[30], lines$Lb1[30], lines$Lb2[30], lines$Lb3[30], lines$Lb4[30], lines$Lg1[30], lines$Lg2[30], lines$Lg3[30], lines$Ll[30])
 colnames(Zn.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ga.lines <- data.frame(lines$Ka1[31], lines$Ka2[31], lines$Kb1[31], lines$Kb2[31], lines$Kb3[31], lines$La1[31], lines$La2[31], lines$Lb1[31], lines$Lb2[31], lines$Lb3[31], lines$Lb4[31], lines$Lg1[31], lines$Lg2[31], lines$Lg3[31], lines$Ll[31], stringsAsFactors=FALSE)
+Ga.lines <- data.frame(lines$Ka1[31], lines$Ka2[31], lines$Kb1[31], lines$Kb2[31], lines$Kb3[31], lines$La1[31], lines$La2[31], lines$Lb1[31], lines$Lb2[31], lines$Lb3[31], lines$Lb4[31], lines$Lg1[31], lines$Lg2[31], lines$Lg3[31], lines$Ll[31])
 colnames(Ga.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ge.lines <- data.frame(lines$Ka1[32], lines$Ka2[32], lines$Kb1[32], lines$Kb2[32], lines$Kb3[32], lines$La1[32], lines$La2[32], lines$Lb1[32], lines$Lb2[32], lines$Lb3[32], lines$Lb4[32], lines$Lg1[32], lines$Lg2[32], lines$Lg3[32], lines$Ll[32], stringsAsFactors=FALSE)
+Ge.lines <- data.frame(lines$Ka1[32], lines$Ka2[32], lines$Kb1[32], lines$Kb2[32], lines$Kb3[32], lines$La1[32], lines$La2[32], lines$Lb1[32], lines$Lb2[32], lines$Lb3[32], lines$Lb4[32], lines$Lg1[32], lines$Lg2[32], lines$Lg3[32], lines$Ll[32])
 colnames(Ge.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-As.lines <- data.frame(lines$Ka1[33], lines$Ka2[33], lines$Kb1[33], lines$Kb2[33], lines$Kb3[33], lines$La1[33], lines$La2[33], lines$Lb1[33], lines$Lb2[33], lines$Lb3[33], lines$Lb4[33], lines$Lg1[33], lines$Lg2[33], lines$Lg3[33], lines$Ll[33], stringsAsFactors=FALSE)
+As.lines <- data.frame(lines$Ka1[33], lines$Ka2[33], lines$Kb1[33], lines$Kb2[33], lines$Kb3[33], lines$La1[33], lines$La2[33], lines$Lb1[33], lines$Lb2[33], lines$Lb3[33], lines$Lb4[33], lines$Lg1[33], lines$Lg2[33], lines$Lg3[33], lines$Ll[33])
 colnames(As.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Se.lines <- data.frame(lines$Ka1[34], lines$Ka2[34], lines$Kb1[34], lines$Kb2[34], lines$Kb3[34], lines$La1[34], lines$La2[34], lines$Lb1[34], lines$Lb2[34], lines$Lb3[34], lines$Lb4[34], lines$Lg1[34], lines$Lg2[34], lines$Lg3[34], lines$Ll[34], stringsAsFactors=FALSE)
+Se.lines <- data.frame(lines$Ka1[34], lines$Ka2[34], lines$Kb1[34], lines$Kb2[34], lines$Kb3[34], lines$La1[34], lines$La2[34], lines$Lb1[34], lines$Lb2[34], lines$Lb3[34], lines$Lb4[34], lines$Lg1[34], lines$Lg2[34], lines$Lg3[34], lines$Ll[34])
 colnames(Se.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Br.lines <- data.frame(lines$Ka1[35], lines$Ka2[35], lines$Kb1[35], lines$Kb2[35], lines$Kb3[35], lines$La1[35], lines$La2[35], lines$Lb1[35], lines$Lb2[35], lines$Lb3[35], lines$Lb4[35], lines$Lg1[35], lines$Lg2[35], lines$Lg3[35], lines$Ll[35], stringsAsFactors=FALSE)
+Br.lines <- data.frame(lines$Ka1[35], lines$Ka2[35], lines$Kb1[35], lines$Kb2[35], lines$Kb3[35], lines$La1[35], lines$La2[35], lines$Lb1[35], lines$Lb2[35], lines$Lb3[35], lines$Lb4[35], lines$Lg1[35], lines$Lg2[35], lines$Lg3[35], lines$Ll[35])
 colnames(Br.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Kr.lines <- data.frame(lines$Ka1[36], lines$Ka2[36], lines$Kb1[36], lines$Kb2[36], lines$Kb3[36], lines$La1[36], lines$La2[36], lines$Lb1[36], lines$Lb2[36], lines$Lb3[36], lines$Lb4[36], lines$Lg1[36], lines$Lg2[36], lines$Lg3[36], lines$Ll[36], stringsAsFactors=FALSE)
+Kr.lines <- data.frame(lines$Ka1[36], lines$Ka2[36], lines$Kb1[36], lines$Kb2[36], lines$Kb3[36], lines$La1[36], lines$La2[36], lines$Lb1[36], lines$Lb2[36], lines$Lb3[36], lines$Lb4[36], lines$Lg1[36], lines$Lg2[36], lines$Lg3[36], lines$Ll[36])
 colnames(Kr.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Rb.lines <- data.frame(lines$Ka1[37], lines$Ka2[37], lines$Kb1[37], lines$Kb2[37], lines$Kb3[37], lines$La1[37], lines$La2[37], lines$Lb1[37], lines$Lb2[37], lines$Lb3[37], lines$Lb4[37], lines$Lg1[37], lines$Lg2[37], lines$Lg3[37], lines$Ll[37], stringsAsFactors=FALSE)
+Rb.lines <- data.frame(lines$Ka1[37], lines$Ka2[37], lines$Kb1[37], lines$Kb2[37], lines$Kb3[37], lines$La1[37], lines$La2[37], lines$Lb1[37], lines$Lb2[37], lines$Lb3[37], lines$Lb4[37], lines$Lg1[37], lines$Lg2[37], lines$Lg3[37], lines$Ll[37])
 colnames(Rb.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Sr.lines <- data.frame(lines$Ka1[38], lines$Ka2[38], lines$Kb1[38], lines$Kb2[38], lines$Kb3[38], lines$La1[38], lines$La2[38], lines$Lb1[38], lines$Lb2[38], lines$Lb3[38], lines$Lb4[38], lines$Lg1[38], lines$Lg2[38], lines$Lg3[38], lines$Ll[38], stringsAsFactors=FALSE)
+Sr.lines <- data.frame(lines$Ka1[38], lines$Ka2[38], lines$Kb1[38], lines$Kb2[38], lines$Kb3[38], lines$La1[38], lines$La2[38], lines$Lb1[38], lines$Lb2[38], lines$Lb3[38], lines$Lb4[38], lines$Lg1[38], lines$Lg2[38], lines$Lg3[38], lines$Ll[38])
 colnames(Sr.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Y.lines <- data.frame(lines$Ka1[39], lines$Ka2[39], lines$Kb1[39], lines$Kb2[39], lines$Kb3[39], lines$La1[39], lines$La2[39], lines$Lb1[39], lines$Lb2[39], lines$Lb3[39], lines$Lb4[39], lines$Lg1[39], lines$Lg2[39], lines$Lg3[39], lines$Ll[39], stringsAsFactors=FALSE)
+Y.lines <- data.frame(lines$Ka1[39], lines$Ka2[39], lines$Kb1[39], lines$Kb2[39], lines$Kb3[39], lines$La1[39], lines$La2[39], lines$Lb1[39], lines$Lb2[39], lines$Lb3[39], lines$Lb4[39], lines$Lg1[39], lines$Lg2[39], lines$Lg3[39], lines$Ll[39])
 colnames(Y.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Zr.lines <- data.frame(lines$Ka1[40], lines$Ka2[40], lines$Kb1[40], lines$Kb2[40], lines$Kb3[40], lines$La1[40], lines$La2[40], lines$Lb1[40], lines$Lb2[40], lines$Lb3[40], lines$Lb4[40], lines$Lg1[40], lines$Lg2[40], lines$Lg3[40], lines$Ll[40], stringsAsFactors=FALSE)
+Zr.lines <- data.frame(lines$Ka1[40], lines$Ka2[40], lines$Kb1[40], lines$Kb2[40], lines$Kb3[40], lines$La1[40], lines$La2[40], lines$Lb1[40], lines$Lb2[40], lines$Lb3[40], lines$Lb4[40], lines$Lg1[40], lines$Lg2[40], lines$Lg3[40], lines$Ll[40])
 colnames(Zr.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Nb.lines <- data.frame(lines$Ka1[41], lines$Ka2[41], lines$Kb1[41], lines$Kb2[41], lines$Kb3[41], lines$La1[41], lines$La2[41], lines$Lb1[41], lines$Lb2[41], lines$Lb3[41], lines$Lb4[41], lines$Lg1[41], lines$Lg2[41], lines$Lg3[41], lines$Ll[41], stringsAsFactors=FALSE)
+Nb.lines <- data.frame(lines$Ka1[41], lines$Ka2[41], lines$Kb1[41], lines$Kb2[41], lines$Kb3[41], lines$La1[41], lines$La2[41], lines$Lb1[41], lines$Lb2[41], lines$Lb3[41], lines$Lb4[41], lines$Lg1[41], lines$Lg2[41], lines$Lg3[41], lines$Ll[41])
 colnames(Nb.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Mo.lines <- data.frame(lines$Ka1[42], lines$Ka2[42], lines$Kb1[42], lines$Kb2[42], lines$Kb3[42], lines$La1[42], lines$La2[42], lines$Lb1[42], lines$Lb2[42], lines$Lb3[42], lines$Lb4[42], lines$Lg1[42], lines$Lg2[42], lines$Lg3[42], lines$Ll[42], stringsAsFactors=FALSE)
+Mo.lines <- data.frame(lines$Ka1[42], lines$Ka2[42], lines$Kb1[42], lines$Kb2[42], lines$Kb3[42], lines$La1[42], lines$La2[42], lines$Lb1[42], lines$Lb2[42], lines$Lb3[42], lines$Lb4[42], lines$Lg1[42], lines$Lg2[42], lines$Lg3[42], lines$Ll[42])
 colnames(Mo.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Tc.lines <- data.frame(lines$Ka1[43], lines$Ka2[43], lines$Kb1[43], lines$Kb2[43], lines$Kb3[43], lines$La1[43], lines$La2[43], lines$Lb1[43], lines$Lb2[43], lines$Lb3[43], lines$Lb4[43], lines$Lg1[43], lines$Lg2[43], lines$Lg3[43], lines$Ll[43], stringsAsFactors=FALSE)
+Tc.lines <- data.frame(lines$Ka1[43], lines$Ka2[43], lines$Kb1[43], lines$Kb2[43], lines$Kb3[43], lines$La1[43], lines$La2[43], lines$Lb1[43], lines$Lb2[43], lines$Lb3[43], lines$Lb4[43], lines$Lg1[43], lines$Lg2[43], lines$Lg3[43], lines$Ll[43])
 colnames(Tc.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ru.lines <- data.frame(lines$Ka1[44], lines$Ka2[44], lines$Kb1[44], lines$Kb2[44], lines$Kb3[44], lines$La1[44], lines$La2[44], lines$Lb1[44], lines$Lb2[44], lines$Lb3[44], lines$Lb4[44], lines$Lg1[44], lines$Lg2[44], lines$Lg3[44], lines$Ll[44], stringsAsFactors=FALSE)
+Ru.lines <- data.frame(lines$Ka1[44], lines$Ka2[44], lines$Kb1[44], lines$Kb2[44], lines$Kb3[44], lines$La1[44], lines$La2[44], lines$Lb1[44], lines$Lb2[44], lines$Lb3[44], lines$Lb4[44], lines$Lg1[44], lines$Lg2[44], lines$Lg3[44], lines$Ll[44])
 colnames(Ru.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Rh.lines <- data.frame(lines$Ka1[45], lines$Ka2[45], lines$Kb1[45], lines$Kb2[45], lines$Kb3[45], lines$La1[45], lines$La2[45], lines$Lb1[45], lines$Lb2[45], lines$Lb3[45], lines$Lb4[45], lines$Lg1[45], lines$Lg2[45], lines$Lg3[45], lines$Ll[45], stringsAsFactors=FALSE)
+Rh.lines <- data.frame(lines$Ka1[45], lines$Ka2[45], lines$Kb1[45], lines$Kb2[45], lines$Kb3[45], lines$La1[45], lines$La2[45], lines$Lb1[45], lines$Lb2[45], lines$Lb3[45], lines$Lb4[45], lines$Lg1[45], lines$Lg2[45], lines$Lg3[45], lines$Ll[45])
 colnames(Rh.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Pd.lines <- data.frame(lines$Ka1[46], lines$Ka2[46], lines$Kb1[46], lines$Kb2[46], lines$Kb3[46], lines$La1[46], lines$La2[46], lines$Lb1[46], lines$Lb2[46], lines$Lb3[46], lines$Lb4[46], lines$Lg1[46], lines$Lg2[46], lines$Lg3[46], lines$Ll[46], stringsAsFactors=FALSE)
+Pd.lines <- data.frame(lines$Ka1[46], lines$Ka2[46], lines$Kb1[46], lines$Kb2[46], lines$Kb3[46], lines$La1[46], lines$La2[46], lines$Lb1[46], lines$Lb2[46], lines$Lb3[46], lines$Lb4[46], lines$Lg1[46], lines$Lg2[46], lines$Lg3[46], lines$Ll[46])
 colnames(Pd.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ag.lines <- data.frame(lines$Ka1[47], lines$Ka2[47], lines$Kb1[47], lines$Kb2[47], lines$Kb3[47], lines$La1[47], lines$La2[47], lines$Lb1[47], lines$Lb2[47], lines$Lb3[47], lines$Lb4[47], lines$Lg1[47], lines$Lg2[47], lines$Lg3[47], lines$Ll[47], stringsAsFactors=FALSE)
+Ag.lines <- data.frame(lines$Ka1[47], lines$Ka2[47], lines$Kb1[47], lines$Kb2[47], lines$Kb3[47], lines$La1[47], lines$La2[47], lines$Lb1[47], lines$Lb2[47], lines$Lb3[47], lines$Lb4[47], lines$Lg1[47], lines$Lg2[47], lines$Lg3[47], lines$Ll[47])
 colnames(Ag.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Cd.lines <- data.frame(lines$Ka1[48], lines$Ka2[48], lines$Kb1[48], lines$Kb2[48], lines$Kb3[48], lines$La1[48], lines$La2[48], lines$Lb1[48], lines$Lb2[48], lines$Lb3[48], lines$Lb4[48], lines$Lg1[48], lines$Lg2[48], lines$Lg3[48], lines$Ll[48], stringsAsFactors=FALSE)
+Cd.lines <- data.frame(lines$Ka1[48], lines$Ka2[48], lines$Kb1[48], lines$Kb2[48], lines$Kb3[48], lines$La1[48], lines$La2[48], lines$Lb1[48], lines$Lb2[48], lines$Lb3[48], lines$Lb4[48], lines$Lg1[48], lines$Lg2[48], lines$Lg3[48], lines$Ll[48])
 colnames(Cd.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-In.lines <- data.frame(lines$Ka1[49], lines$Ka2[49], lines$Kb1[49], lines$Kb2[49], lines$Kb3[49], lines$La1[49], lines$La2[49], lines$Lb1[49], lines$Lb2[49], lines$Lb3[49], lines$Lb4[49], lines$Lg1[49], lines$Lg2[49], lines$Lg3[49], lines$Ll[49], stringsAsFactors=FALSE)
+In.lines <- data.frame(lines$Ka1[49], lines$Ka2[49], lines$Kb1[49], lines$Kb2[49], lines$Kb3[49], lines$La1[49], lines$La2[49], lines$Lb1[49], lines$Lb2[49], lines$Lb3[49], lines$Lb4[49], lines$Lg1[49], lines$Lg2[49], lines$Lg3[49], lines$Ll[49])
 colnames(In.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Sn.lines <- data.frame(lines$Ka1[50], lines$Ka2[50], lines$Kb1[50], lines$Kb2[50], lines$Kb3[50], lines$La1[50], lines$La2[50], lines$Lb1[50], lines$Lb2[50], lines$Lb3[50], lines$Lb4[50], lines$Lg1[50], lines$Lg2[50], lines$Lg3[50], lines$Ll[50], stringsAsFactors=FALSE)
+Sn.lines <- data.frame(lines$Ka1[50], lines$Ka2[50], lines$Kb1[50], lines$Kb2[50], lines$Kb3[50], lines$La1[50], lines$La2[50], lines$Lb1[50], lines$Lb2[50], lines$Lb3[50], lines$Lb4[50], lines$Lg1[50], lines$Lg2[50], lines$Lg3[50], lines$Ll[50])
 colnames(Sn.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Sb.lines <- data.frame(lines$Ka1[51], lines$Ka2[51], lines$Kb1[51], lines$Kb2[51], lines$Kb3[51], lines$La1[51], lines$La2[51], lines$Lb1[51], lines$Lb2[51], lines$Lb3[51], lines$Lb4[51], lines$Lg1[51], lines$Lg2[51], lines$Lg3[51], lines$Ll[51], stringsAsFactors=FALSE)
+Sb.lines <- data.frame(lines$Ka1[51], lines$Ka2[51], lines$Kb1[51], lines$Kb2[51], lines$Kb3[51], lines$La1[51], lines$La2[51], lines$Lb1[51], lines$Lb2[51], lines$Lb3[51], lines$Lb4[51], lines$Lg1[51], lines$Lg2[51], lines$Lg3[51], lines$Ll[51])
 colnames(Sb.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Te.lines <- data.frame(lines$Ka1[52], lines$Ka2[52], lines$Kb1[52], lines$Kb2[52], lines$Kb3[52], lines$La1[52], lines$La2[52], lines$Lb1[52], lines$Lb2[52], lines$Lb3[52], lines$Lb4[52], lines$Lg1[52], lines$Lg2[52], lines$Lg3[52], lines$Ll[52], stringsAsFactors=FALSE)
+Te.lines <- data.frame(lines$Ka1[52], lines$Ka2[52], lines$Kb1[52], lines$Kb2[52], lines$Kb3[52], lines$La1[52], lines$La2[52], lines$Lb1[52], lines$Lb2[52], lines$Lb3[52], lines$Lb4[52], lines$Lg1[52], lines$Lg2[52], lines$Lg3[52], lines$Ll[52])
 colnames(Te.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-I.lines <- data.frame(lines$Ka1[53], lines$Ka2[53], lines$Kb1[53], lines$Kb2[53], lines$Kb3[53], lines$La1[53], lines$La2[53], lines$Lb1[53], lines$Lb2[53], lines$Lb3[53], lines$Lb4[53], lines$Lg1[53], lines$Lg2[53], lines$Lg3[53], lines$Ll[53], stringsAsFactors=FALSE)
+I.lines <- data.frame(lines$Ka1[53], lines$Ka2[53], lines$Kb1[53], lines$Kb2[53], lines$Kb3[53], lines$La1[53], lines$La2[53], lines$Lb1[53], lines$Lb2[53], lines$Lb3[53], lines$Lb4[53], lines$Lg1[53], lines$Lg2[53], lines$Lg3[53], lines$Ll[53])
 colnames(I.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Xe.lines <- data.frame(lines$Ka1[54], lines$Ka2[54], lines$Kb1[54], lines$Kb2[54], lines$Kb3[54], lines$La1[54], lines$La2[54], lines$Lb1[54], lines$Lb2[54], lines$Lb3[54], lines$Lb4[54], lines$Lg1[54], lines$Lg2[54], lines$Lg3[54], lines$Ll[54], stringsAsFactors=FALSE)
+Xe.lines <- data.frame(lines$Ka1[54], lines$Ka2[54], lines$Kb1[54], lines$Kb2[54], lines$Kb3[54], lines$La1[54], lines$La2[54], lines$Lb1[54], lines$Lb2[54], lines$Lb3[54], lines$Lb4[54], lines$Lg1[54], lines$Lg2[54], lines$Lg3[54], lines$Ll[54])
 colnames(Xe.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Cs.lines <- data.frame(lines$Ka1[55], lines$Ka2[55], lines$Kb1[55], lines$Kb2[55], lines$Kb3[55], lines$La1[55], lines$La2[55], lines$Lb1[55], lines$Lb2[55], lines$Lb3[55], lines$Lb4[55], lines$Lg1[55], lines$Lg2[55], lines$Lg3[55], lines$Ll[55], stringsAsFactors=FALSE)
+Cs.lines <- data.frame(lines$Ka1[55], lines$Ka2[55], lines$Kb1[55], lines$Kb2[55], lines$Kb3[55], lines$La1[55], lines$La2[55], lines$Lb1[55], lines$Lb2[55], lines$Lb3[55], lines$Lb4[55], lines$Lg1[55], lines$Lg2[55], lines$Lg3[55], lines$Ll[55])
 colnames(Cs.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ba.lines <- data.frame(lines$Ka1[56], lines$Ka2[56], lines$Kb1[56], lines$Kb2[56], lines$Kb3[56], lines$La1[56], lines$La2[56], lines$Lb1[56], lines$Lb2[56], lines$Lb3[56], lines$Lb4[56], lines$Lg1[56], lines$Lg2[56], lines$Lg3[56], lines$Ll[56], stringsAsFactors=FALSE)
+Ba.lines <- data.frame(lines$Ka1[56], lines$Ka2[56], lines$Kb1[56], lines$Kb2[56], lines$Kb3[56], lines$La1[56], lines$La2[56], lines$Lb1[56], lines$Lb2[56], lines$Lb3[56], lines$Lb4[56], lines$Lg1[56], lines$Lg2[56], lines$Lg3[56], lines$Ll[56])
 colnames(Ba.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-La.lines <- data.frame(lines$Ka1[57], lines$Ka2[57], lines$Kb1[57], lines$Kb2[57], lines$Kb3[57], lines$La1[57], lines$La2[57], lines$Lb1[57], lines$Lb2[57], lines$Lb3[57], lines$Lb4[57], lines$Lg1[57], lines$Lg2[57], lines$Lg3[57], lines$Ll[57], stringsAsFactors=FALSE)
+La.lines <- data.frame(lines$Ka1[57], lines$Ka2[57], lines$Kb1[57], lines$Kb2[57], lines$Kb3[57], lines$La1[57], lines$La2[57], lines$Lb1[57], lines$Lb2[57], lines$Lb3[57], lines$Lb4[57], lines$Lg1[57], lines$Lg2[57], lines$Lg3[57], lines$Ll[57])
 colnames(La.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ce.lines <- data.frame(lines$Ka1[58], lines$Ka2[58], lines$Kb1[58], lines$Kb2[58], lines$Kb3[58], lines$La1[58], lines$La2[58], lines$Lb1[58], lines$Lb2[58], lines$Lb3[58], lines$Lb4[58], lines$Lg1[58], lines$Lg2[58], lines$Lg3[58], lines$Ll[58], stringsAsFactors=FALSE)
+Ce.lines <- data.frame(lines$Ka1[58], lines$Ka2[58], lines$Kb1[58], lines$Kb2[58], lines$Kb3[58], lines$La1[58], lines$La2[58], lines$Lb1[58], lines$Lb2[58], lines$Lb3[58], lines$Lb4[58], lines$Lg1[58], lines$Lg2[58], lines$Lg3[58], lines$Ll[58])
 colnames(Ce.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Pr.lines <- data.frame(lines$Ka1[59], lines$Ka2[59], lines$Kb1[59], lines$Kb2[59], lines$Kb3[59], lines$La1[59], lines$La2[59], lines$Lb1[59], lines$Lb2[59], lines$Lb3[59], lines$Lb4[59], lines$Lg1[59], lines$Lg2[59], lines$Lg3[59], lines$Ll[59], stringsAsFactors=FALSE)
+Pr.lines <- data.frame(lines$Ka1[59], lines$Ka2[59], lines$Kb1[59], lines$Kb2[59], lines$Kb3[59], lines$La1[59], lines$La2[59], lines$Lb1[59], lines$Lb2[59], lines$Lb3[59], lines$Lb4[59], lines$Lg1[59], lines$Lg2[59], lines$Lg3[59], lines$Ll[59])
 colnames(Pr.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Nd.lines <- data.frame(lines$Ka1[60], lines$Ka2[60], lines$Kb1[60], lines$Kb2[60], lines$Kb3[60], lines$La1[60], lines$La2[60], lines$Lb1[60], lines$Lb2[60], lines$Lb3[60], lines$Lb4[60], lines$Lg1[60], lines$Lg2[60], lines$Lg3[60], lines$Ll[60], stringsAsFactors=FALSE)
+Nd.lines <- data.frame(lines$Ka1[60], lines$Ka2[60], lines$Kb1[60], lines$Kb2[60], lines$Kb3[60], lines$La1[60], lines$La2[60], lines$Lb1[60], lines$Lb2[60], lines$Lb3[60], lines$Lb4[60], lines$Lg1[60], lines$Lg2[60], lines$Lg3[60], lines$Ll[60])
 colnames(Nd.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Pm.lines <- data.frame(lines$Ka1[61], lines$Ka2[61], lines$Kb1[61], lines$Kb2[61], lines$Kb3[61], lines$La1[61], lines$La2[61], lines$Lb1[61], lines$Lb2[61], lines$Lb3[61], lines$Lb4[61], lines$Lg1[61], lines$Lg2[61], lines$Lg3[61], lines$Ll[61], stringsAsFactors=FALSE)
+Pm.lines <- data.frame(lines$Ka1[61], lines$Ka2[61], lines$Kb1[61], lines$Kb2[61], lines$Kb3[61], lines$La1[61], lines$La2[61], lines$Lb1[61], lines$Lb2[61], lines$Lb3[61], lines$Lb4[61], lines$Lg1[61], lines$Lg2[61], lines$Lg3[61], lines$Ll[61])
 colnames(Pm.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Sm.lines <- data.frame(lines$Ka1[62], lines$Ka2[62], lines$Kb1[62], lines$Kb2[62], lines$Kb3[62], lines$La1[62], lines$La2[62], lines$Lb1[62], lines$Lb2[62], lines$Lb3[62], lines$Lb4[62], lines$Lg1[62], lines$Lg2[62], lines$Lg3[62], lines$Ll[62], stringsAsFactors=FALSE)
+Sm.lines <- data.frame(lines$Ka1[62], lines$Ka2[62], lines$Kb1[62], lines$Kb2[62], lines$Kb3[62], lines$La1[62], lines$La2[62], lines$Lb1[62], lines$Lb2[62], lines$Lb3[62], lines$Lb4[62], lines$Lg1[62], lines$Lg2[62], lines$Lg3[62], lines$Ll[62])
 colnames(Sm.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Eu.lines <- data.frame(lines$Ka1[63], lines$Ka2[63], lines$Kb1[63], lines$Kb2[63], lines$Kb3[63], lines$La1[63], lines$La2[63], lines$Lb1[63], lines$Lb2[63], lines$Lb3[63], lines$Lb4[63], lines$Lg1[63], lines$Lg2[63], lines$Lg3[63], lines$Ll[63], stringsAsFactors=FALSE)
+Eu.lines <- data.frame(lines$Ka1[63], lines$Ka2[63], lines$Kb1[63], lines$Kb2[63], lines$Kb3[63], lines$La1[63], lines$La2[63], lines$Lb1[63], lines$Lb2[63], lines$Lb3[63], lines$Lb4[63], lines$Lg1[63], lines$Lg2[63], lines$Lg3[63], lines$Ll[63])
 colnames(Eu.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Gd.lines <- data.frame(lines$Ka1[64], lines$Ka2[64], lines$Kb1[64], lines$Kb2[64], lines$Kb3[64], lines$La1[64], lines$La2[64], lines$Lb1[64], lines$Lb2[64], lines$Lb3[64], lines$Lb4[64], lines$Lg1[64], lines$Lg2[64], lines$Lg3[64], lines$Ll[64], stringsAsFactors=FALSE)
+Gd.lines <- data.frame(lines$Ka1[64], lines$Ka2[64], lines$Kb1[64], lines$Kb2[64], lines$Kb3[64], lines$La1[64], lines$La2[64], lines$Lb1[64], lines$Lb2[64], lines$Lb3[64], lines$Lb4[64], lines$Lg1[64], lines$Lg2[64], lines$Lg3[64], lines$Ll[64])
 colnames(Gd.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Tb.lines <- data.frame(lines$Ka1[65], lines$Ka2[65], lines$Kb1[65], lines$Kb2[65], lines$Kb3[65], lines$La1[65], lines$La2[65], lines$Lb1[65], lines$Lb2[65], lines$Lb3[65], lines$Lb4[65], lines$Lg1[65], lines$Lg2[65], lines$Lg3[65], lines$Ll[65], stringsAsFactors=FALSE)
+Tb.lines <- data.frame(lines$Ka1[65], lines$Ka2[65], lines$Kb1[65], lines$Kb2[65], lines$Kb3[65], lines$La1[65], lines$La2[65], lines$Lb1[65], lines$Lb2[65], lines$Lb3[65], lines$Lb4[65], lines$Lg1[65], lines$Lg2[65], lines$Lg3[65], lines$Ll[65])
 colnames(Tb.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Dy.lines <- data.frame(lines$Ka1[66], lines$Ka2[66], lines$Kb1[66], lines$Kb2[66], lines$Kb3[66], lines$La1[66], lines$La2[66], lines$Lb1[66], lines$Lb2[66], lines$Lb3[66], lines$Lb4[66], lines$Lg1[66], lines$Lg2[66], lines$Lg3[66], lines$Ll[66], stringsAsFactors=FALSE)
+Dy.lines <- data.frame(lines$Ka1[66], lines$Ka2[66], lines$Kb1[66], lines$Kb2[66], lines$Kb3[66], lines$La1[66], lines$La2[66], lines$Lb1[66], lines$Lb2[66], lines$Lb3[66], lines$Lb4[66], lines$Lg1[66], lines$Lg2[66], lines$Lg3[66], lines$Ll[66])
 colnames(Dy.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ho.lines <- data.frame(lines$Ka1[67], lines$Ka2[67], lines$Kb1[67], lines$Kb2[67], lines$Kb3[67], lines$La1[67], lines$La2[67], lines$Lb1[67], lines$Lb2[67], lines$Lb3[67], lines$Lb4[67], lines$Lg1[67], lines$Lg2[67], lines$Lg3[67], lines$Ll[67], stringsAsFactors=FALSE)
+Ho.lines <- data.frame(lines$Ka1[67], lines$Ka2[67], lines$Kb1[67], lines$Kb2[67], lines$Kb3[67], lines$La1[67], lines$La2[67], lines$Lb1[67], lines$Lb2[67], lines$Lb3[67], lines$Lb4[67], lines$Lg1[67], lines$Lg2[67], lines$Lg3[67], lines$Ll[67])
 colnames(Ho.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Er.lines <- data.frame(lines$Ka1[68], lines$Ka2[68], lines$Kb1[68], lines$Kb2[68], lines$Kb3[68], lines$La1[68], lines$La2[68], lines$Lb1[68], lines$Lb2[68], lines$Lb3[68], lines$Lb4[68], lines$Lg1[68], lines$Lg2[68], lines$Lg3[68], lines$Ll[68], stringsAsFactors=FALSE)
+Er.lines <- data.frame(lines$Ka1[68], lines$Ka2[68], lines$Kb1[68], lines$Kb2[68], lines$Kb3[68], lines$La1[68], lines$La2[68], lines$Lb1[68], lines$Lb2[68], lines$Lb3[68], lines$Lb4[68], lines$Lg1[68], lines$Lg2[68], lines$Lg3[68], lines$Ll[68])
 colnames(Er.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Tm.lines <- data.frame(lines$Ka1[69], lines$Ka2[69], lines$Kb1[69], lines$Kb2[69], lines$Kb3[69], lines$La1[69], lines$La2[69], lines$Lb1[69], lines$Lb2[69], lines$Lb3[69], lines$Lb4[69], lines$Lg1[69], lines$Lg2[69], lines$Lg3[69], lines$Ll[69], stringsAsFactors=FALSE)
+Tm.lines <- data.frame(lines$Ka1[69], lines$Ka2[69], lines$Kb1[69], lines$Kb2[69], lines$Kb3[69], lines$La1[69], lines$La2[69], lines$Lb1[69], lines$Lb2[69], lines$Lb3[69], lines$Lb4[69], lines$Lg1[69], lines$Lg2[69], lines$Lg3[69], lines$Ll[69])
 colnames(Tm.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Yb.lines <- data.frame(lines$Ka1[70], lines$Ka2[70], lines$Kb1[70], lines$Kb2[70], lines$Kb3[70], lines$La1[70], lines$La2[70], lines$Lb1[70], lines$Lb2[70], lines$Lb3[70], lines$Lb4[70], lines$Lg1[70], lines$Lg2[70], lines$Lg3[70], lines$Ll[70], stringsAsFactors=FALSE)
+Yb.lines <- data.frame(lines$Ka1[70], lines$Ka2[70], lines$Kb1[70], lines$Kb2[70], lines$Kb3[70], lines$La1[70], lines$La2[70], lines$Lb1[70], lines$Lb2[70], lines$Lb3[70], lines$Lb4[70], lines$Lg1[70], lines$Lg2[70], lines$Lg3[70], lines$Ll[70])
 colnames(Yb.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Lu.lines <- data.frame(lines$Ka1[71], lines$Ka2[71], lines$Kb1[71], lines$Kb2[71], lines$Kb3[71], lines$La1[71], lines$La2[71], lines$Lb1[71], lines$Lb2[71], lines$Lb3[71], lines$Lb4[71], lines$Lg1[71], lines$Lg2[71], lines$Lg3[71], lines$Ll[71], stringsAsFactors=FALSE)
+Lu.lines <- data.frame(lines$Ka1[71], lines$Ka2[71], lines$Kb1[71], lines$Kb2[71], lines$Kb3[71], lines$La1[71], lines$La2[71], lines$Lb1[71], lines$Lb2[71], lines$Lb3[71], lines$Lb4[71], lines$Lg1[71], lines$Lg2[71], lines$Lg3[71], lines$Ll[71])
 colnames(Lu.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Hf.lines <- data.frame(lines$Ka1[72], lines$Ka2[72], lines$Kb1[72], lines$Kb2[72], lines$Kb3[72], lines$La1[72], lines$La2[72], lines$Lb1[72], lines$Lb2[72], lines$Lb3[72], lines$Lb4[72], lines$Lg1[72], lines$Lg2[72], lines$Lg3[72], lines$Ll[72], stringsAsFactors=FALSE)
+Hf.lines <- data.frame(lines$Ka1[72], lines$Ka2[72], lines$Kb1[72], lines$Kb2[72], lines$Kb3[72], lines$La1[72], lines$La2[72], lines$Lb1[72], lines$Lb2[72], lines$Lb3[72], lines$Lb4[72], lines$Lg1[72], lines$Lg2[72], lines$Lg3[72], lines$Ll[72])
 colnames(Hf.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ta.lines <- data.frame(lines$Ka1[73], lines$Ka2[73], lines$Kb1[73], lines$Kb2[73], lines$Kb3[73], lines$La1[73], lines$La2[73], lines$Lb1[73], lines$Lb2[73], lines$Lb3[73], lines$Lb4[73], lines$Lg1[73], lines$Lg2[73], lines$Lg3[73], lines$Ll[73], stringsAsFactors=FALSE)
+Ta.lines <- data.frame(lines$Ka1[73], lines$Ka2[73], lines$Kb1[73], lines$Kb2[73], lines$Kb3[73], lines$La1[73], lines$La2[73], lines$Lb1[73], lines$Lb2[73], lines$Lb3[73], lines$Lb4[73], lines$Lg1[73], lines$Lg2[73], lines$Lg3[73], lines$Ll[73])
 colnames(Ta.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-W.lines <- data.frame(lines$Ka1[74], lines$Ka2[74], lines$Kb1[74], lines$Kb2[74], lines$Kb3[74], lines$La1[74], lines$La2[74], lines$Lb1[74], lines$Lb2[74], lines$Lb3[74], lines$Lb4[74], lines$Lg1[74], lines$Lg2[74], lines$Lg3[74], lines$Ll[74], stringsAsFactors=FALSE)
+W.lines <- data.frame(lines$Ka1[74], lines$Ka2[74], lines$Kb1[74], lines$Kb2[74], lines$Kb3[74], lines$La1[74], lines$La2[74], lines$Lb1[74], lines$Lb2[74], lines$Lb3[74], lines$Lb4[74], lines$Lg1[74], lines$Lg2[74], lines$Lg3[74], lines$Ll[74])
 colnames(W.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Re.lines <- data.frame(lines$Ka1[75], lines$Ka2[75], lines$Kb1[75], lines$Kb2[75], lines$Kb3[75], lines$La1[75], lines$La2[75], lines$Lb1[75], lines$Lb2[75], lines$Lb3[75], lines$Lb4[75], lines$Lg1[75], lines$Lg2[75], lines$Lg3[75], lines$Ll[75], stringsAsFactors=FALSE)
+Re.lines <- data.frame(lines$Ka1[75], lines$Ka2[75], lines$Kb1[75], lines$Kb2[75], lines$Kb3[75], lines$La1[75], lines$La2[75], lines$Lb1[75], lines$Lb2[75], lines$Lb3[75], lines$Lb4[75], lines$Lg1[75], lines$Lg2[75], lines$Lg3[75], lines$Ll[75])
 colnames(Re.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Os.lines <- data.frame(lines$Ka1[76], lines$Ka2[76], lines$Kb1[76], lines$Kb2[76], lines$Kb3[76], lines$La1[76], lines$La2[76], lines$Lb1[76], lines$Lb2[76], lines$Lb3[76], lines$Lb4[76], lines$Lg1[76], lines$Lg2[76], lines$Lg3[76], lines$Ll[76], stringsAsFactors=FALSE)
+Os.lines <- data.frame(lines$Ka1[76], lines$Ka2[76], lines$Kb1[76], lines$Kb2[76], lines$Kb3[76], lines$La1[76], lines$La2[76], lines$Lb1[76], lines$Lb2[76], lines$Lb3[76], lines$Lb4[76], lines$Lg1[76], lines$Lg2[76], lines$Lg3[76], lines$Ll[76])
 colnames(Os.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ir.lines <- data.frame(lines$Ka1[77], lines$Ka2[77], lines$Kb1[77], lines$Kb2[77], lines$Kb3[77], lines$La1[77], lines$La2[77], lines$Lb1[77], lines$Lb2[77], lines$Lb3[77], lines$Lb4[77], lines$Lg1[77], lines$Lg2[77], lines$Lg3[77], lines$Ll[77], stringsAsFactors=FALSE)
+Ir.lines <- data.frame(lines$Ka1[77], lines$Ka2[77], lines$Kb1[77], lines$Kb2[77], lines$Kb3[77], lines$La1[77], lines$La2[77], lines$Lb1[77], lines$Lb2[77], lines$Lb3[77], lines$Lb4[77], lines$Lg1[77], lines$Lg2[77], lines$Lg3[77], lines$Ll[77])
 colnames(Ir.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Pt.lines <- data.frame(lines$Ka1[78], lines$Ka2[78], lines$Kb1[78], lines$Kb2[78], lines$Kb3[78], lines$La1[78], lines$La2[78], lines$Lb1[78], lines$Lb2[78], lines$Lb3[78], lines$Lb4[78], lines$Lg1[78], lines$Lg2[78], lines$Lg3[78], lines$Ll[78], stringsAsFactors=FALSE)
+Pt.lines <- data.frame(lines$Ka1[78], lines$Ka2[78], lines$Kb1[78], lines$Kb2[78], lines$Kb3[78], lines$La1[78], lines$La2[78], lines$Lb1[78], lines$Lb2[78], lines$Lb3[78], lines$Lb4[78], lines$Lg1[78], lines$Lg2[78], lines$Lg3[78], lines$Ll[78])
 colnames(Pt.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Au.lines <- data.frame(lines$Ka1[79], lines$Ka2[79], lines$Kb1[79], lines$Kb2[79], lines$Kb3[79], lines$La1[79], lines$La2[79], lines$Lb1[79], lines$Lb2[79], lines$Lb3[79], lines$Lb4[79], lines$Lg1[79], lines$Lg2[79], lines$Lg3[79], lines$Ll[79], stringsAsFactors=FALSE)
+Au.lines <- data.frame(lines$Ka1[79], lines$Ka2[79], lines$Kb1[79], lines$Kb2[79], lines$Kb3[79], lines$La1[79], lines$La2[79], lines$Lb1[79], lines$Lb2[79], lines$Lb3[79], lines$Lb4[79], lines$Lg1[79], lines$Lg2[79], lines$Lg3[79], lines$Ll[79])
 colnames(Au.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Hg.lines <- data.frame(lines$Ka1[80], lines$Ka2[80], lines$Kb1[80], lines$Kb2[80], lines$Kb3[80], lines$La1[80], lines$La2[80], lines$Lb1[80], lines$Lb2[80], lines$Lb3[80], lines$Lb4[80], lines$Lg1[80], lines$Lg2[80], lines$Lg3[80], lines$Ll[80], stringsAsFactors=FALSE)
+Hg.lines <- data.frame(lines$Ka1[80], lines$Ka2[80], lines$Kb1[80], lines$Kb2[80], lines$Kb3[80], lines$La1[80], lines$La2[80], lines$Lb1[80], lines$Lb2[80], lines$Lb3[80], lines$Lb4[80], lines$Lg1[80], lines$Lg2[80], lines$Lg3[80], lines$Ll[80])
 colnames(Hg.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Tl.lines <- data.frame(lines$Ka1[81], lines$Ka2[81], lines$Kb1[81], lines$Kb2[81], lines$Kb3[81], lines$La1[81], lines$La2[81], lines$Lb1[81], lines$Lb2[81], lines$Lb3[81], lines$Lb4[81], lines$Lg1[81], lines$Lg2[81], lines$Lg3[81], lines$Ll[81], stringsAsFactors=FALSE)
+Tl.lines <- data.frame(lines$Ka1[81], lines$Ka2[81], lines$Kb1[81], lines$Kb2[81], lines$Kb3[81], lines$La1[81], lines$La2[81], lines$Lb1[81], lines$Lb2[81], lines$Lb3[81], lines$Lb4[81], lines$Lg1[81], lines$Lg2[81], lines$Lg3[81], lines$Ll[81])
 colnames(Tl.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Pb.lines <- data.frame(lines$Ka1[82], lines$Ka2[82], lines$Kb1[82], lines$Kb2[82], lines$Kb3[82], lines$La1[82], lines$La2[82], lines$Lb1[82], lines$Lb2[82], lines$Lb3[82], lines$Lb4[82], lines$Lg1[82], lines$Lg2[82], lines$Lg3[82], lines$Ll[82], stringsAsFactors=FALSE)
+Pb.lines <- data.frame(lines$Ka1[82], lines$Ka2[82], lines$Kb1[82], lines$Kb2[82], lines$Kb3[82], lines$La1[82], lines$La2[82], lines$Lb1[82], lines$Lb2[82], lines$Lb3[82], lines$Lb4[82], lines$Lg1[82], lines$Lg2[82], lines$Lg3[82], lines$Ll[82])
 colnames(Pb.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Bi.lines <- data.frame(lines$Ka1[83], lines$Ka2[83], lines$Kb1[83], lines$Kb2[83], lines$Kb3[83], lines$La1[83], lines$La2[83], lines$Lb1[83], lines$Lb2[83], lines$Lb3[83], lines$Lb4[83], lines$Lg1[83], lines$Lg2[83], lines$Lg3[83], lines$Ll[83], stringsAsFactors=FALSE)
+Bi.lines <- data.frame(lines$Ka1[83], lines$Ka2[83], lines$Kb1[83], lines$Kb2[83], lines$Kb3[83], lines$La1[83], lines$La2[83], lines$Lb1[83], lines$Lb2[83], lines$Lb3[83], lines$Lb4[83], lines$Lg1[83], lines$Lg2[83], lines$Lg3[83], lines$Ll[83])
 colnames(Bi.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Po.lines <- data.frame(lines$Ka1[84], lines$Ka2[84], lines$Kb1[84], lines$Kb2[84], lines$Kb3[84], lines$La1[84], lines$La2[84], lines$Lb1[84], lines$Lb2[84], lines$Lb3[84], lines$Lb4[84], lines$Lg1[84], lines$Lg2[84], lines$Lg3[84], lines$Ll[84], stringsAsFactors=FALSE)
+Po.lines <- data.frame(lines$Ka1[84], lines$Ka2[84], lines$Kb1[84], lines$Kb2[84], lines$Kb3[84], lines$La1[84], lines$La2[84], lines$Lb1[84], lines$Lb2[84], lines$Lb3[84], lines$Lb4[84], lines$Lg1[84], lines$Lg2[84], lines$Lg3[84], lines$Ll[84])
 colnames(Po.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-At.lines <- data.frame(lines$Ka1[85], lines$Ka2[85], lines$Kb1[85], lines$Kb2[85], lines$Kb3[85], lines$La1[85], lines$La2[85], lines$Lb1[85], lines$Lb2[85], lines$Lb3[85], lines$Lb4[85], lines$Lg1[85], lines$Lg2[85], lines$Lg3[85], lines$Ll[85], stringsAsFactors=FALSE)
+At.lines <- data.frame(lines$Ka1[85], lines$Ka2[85], lines$Kb1[85], lines$Kb2[85], lines$Kb3[85], lines$La1[85], lines$La2[85], lines$Lb1[85], lines$Lb2[85], lines$Lb3[85], lines$Lb4[85], lines$Lg1[85], lines$Lg2[85], lines$Lg3[85], lines$Ll[85])
 colnames(At.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Rn.lines <- data.frame(lines$Ka1[86], lines$Ka2[86], lines$Kb1[86], lines$Kb2[86], lines$Kb3[86], lines$La1[86], lines$La2[86], lines$Lb1[86], lines$Lb2[86], lines$Lb3[86], lines$Lb4[86], lines$Lg1[86], lines$Lg2[86], lines$Lg3[86], lines$Ll[86], stringsAsFactors=FALSE)
+Rn.lines <- data.frame(lines$Ka1[86], lines$Ka2[86], lines$Kb1[86], lines$Kb2[86], lines$Kb3[86], lines$La1[86], lines$La2[86], lines$Lb1[86], lines$Lb2[86], lines$Lb3[86], lines$Lb4[86], lines$Lg1[86], lines$Lg2[86], lines$Lg3[86], lines$Ll[86])
 colnames(Rn.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Fr.lines <- data.frame(lines$Ka1[87], lines$Ka2[87], lines$Kb1[87], lines$Kb2[87], lines$Kb3[87], lines$La1[87], lines$La2[87], lines$Lb1[87], lines$Lb2[87], lines$Lb3[87], lines$Lb4[87], lines$Lg1[87], lines$Lg2[87], lines$Lg3[87], lines$Ll[87], stringsAsFactors=FALSE)
+Fr.lines <- data.frame(lines$Ka1[87], lines$Ka2[87], lines$Kb1[87], lines$Kb2[87], lines$Kb3[87], lines$La1[87], lines$La2[87], lines$Lb1[87], lines$Lb2[87], lines$Lb3[87], lines$Lb4[87], lines$Lg1[87], lines$Lg2[87], lines$Lg3[87], lines$Ll[87])
 colnames(Fr.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ra.lines <- data.frame(lines$Ka1[88], lines$Ka2[88], lines$Kb1[88], lines$Kb2[88], lines$Kb3[88], lines$La1[88], lines$La2[88], lines$Lb1[88], lines$Lb2[88], lines$Lb3[88], lines$Lb4[88], lines$Lg1[88], lines$Lg2[88], lines$Lg3[88], lines$Ll[88], stringsAsFactors=FALSE)
+Ra.lines <- data.frame(lines$Ka1[88], lines$Ka2[88], lines$Kb1[88], lines$Kb2[88], lines$Kb3[88], lines$La1[88], lines$La2[88], lines$Lb1[88], lines$Lb2[88], lines$Lb3[88], lines$Lb4[88], lines$Lg1[88], lines$Lg2[88], lines$Lg3[88], lines$Ll[88])
 colnames(Ra.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Ac.lines <- data.frame(lines$Ka1[89], lines$Ka2[89], lines$Kb1[89], lines$Kb2[89], lines$Kb3[89], lines$La1[89], lines$La2[89], lines$Lb1[89], lines$Lb2[89], lines$Lb3[89], lines$Lb4[89], lines$Lg1[89], lines$Lg2[89], lines$Lg3[89], lines$Ll[89], stringsAsFactors=FALSE)
+Ac.lines <- data.frame(lines$Ka1[89], lines$Ka2[89], lines$Kb1[89], lines$Kb2[89], lines$Kb3[89], lines$La1[89], lines$La2[89], lines$Lb1[89], lines$Lb2[89], lines$Lb3[89], lines$Lb4[89], lines$Lg1[89], lines$Lg2[89], lines$Lg3[89], lines$Ll[89])
 colnames(Ac.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Th.lines <- data.frame(lines$Ka1[90], lines$Ka2[90], lines$Kb1[90], lines$Kb2[90], lines$Kb3[90], lines$La1[90], lines$La2[90], lines$Lb1[90], lines$Lb2[90], lines$Lb3[90], lines$Lb4[90], lines$Lg1[90], lines$Lg2[90], lines$Lg3[90], lines$Ll[90], stringsAsFactors=FALSE)
+Th.lines <- data.frame(lines$Ka1[90], lines$Ka2[90], lines$Kb1[90], lines$Kb2[90], lines$Kb3[90], lines$La1[90], lines$La2[90], lines$Lb1[90], lines$Lb2[90], lines$Lb3[90], lines$Lb4[90], lines$Lg1[90], lines$Lg2[90], lines$Lg3[90], lines$Ll[90])
 colnames(Th.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Pa.lines <- data.frame(lines$Ka1[91], lines$Ka2[91], lines$Kb1[91], lines$Kb2[91], lines$Kb3[91], lines$La1[91], lines$La2[91], lines$Lb1[91], lines$Lb2[91], lines$Lb3[91], lines$Lb4[91], lines$Lg1[91], lines$Lg2[91], lines$Lg3[91], lines$Ll[91], stringsAsFactors=FALSE)
+Pa.lines <- data.frame(lines$Ka1[91], lines$Ka2[91], lines$Kb1[91], lines$Kb2[91], lines$Kb3[91], lines$La1[91], lines$La2[91], lines$Lb1[91], lines$Lb2[91], lines$Lb3[91], lines$Lb4[91], lines$Lg1[91], lines$Lg2[91], lines$Lg3[91], lines$Ll[91])
 colnames(Pa.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-U.lines <- data.frame(lines$Ka1[92], lines$Ka2[92], lines$Kb1[92], lines$Kb2[92], lines$Kb3[92], lines$La1[92], lines$La2[92], lines$Lb1[92], lines$Lb2[92], lines$Lb3[92], lines$Lb4[92], lines$Lg1[92], lines$Lg2[92], lines$Lg3[92], lines$Ll[92], stringsAsFactors=FALSE)
+U.lines <- data.frame(lines$Ka1[92], lines$Ka2[92], lines$Kb1[92], lines$Kb2[92], lines$Kb3[92], lines$La1[92], lines$La2[92], lines$Lb1[92], lines$Lb2[92], lines$Lb3[92], lines$Lb4[92], lines$Lg1[92], lines$Lg2[92], lines$Lg3[92], lines$Ll[92])
 colnames(U.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
-Pu.lines <- data.frame(lines$Ka1[94], lines$Ka2[94], lines$Kb1[94], lines$Kb2[94], lines$Kb3[94], lines$La1[94], lines$La2[94], lines$Lb1[94], lines$Lb2[94], lines$Lb3[94], lines$Lb4[94], lines$Lg1[94], lines$Lg2[94], lines$Lg3[94], lines$Ll[94], stringsAsFactors=FALSE)
+Pu.lines <- data.frame(lines$Ka1[94], lines$Ka2[94], lines$Kb1[94], lines$Kb2[94], lines$Kb3[94], lines$La1[94], lines$La2[94], lines$Lb1[94], lines$Lb2[94], lines$Lb3[94], lines$Lb4[94], lines$Lg1[94], lines$Lg2[94], lines$Lg3[94], lines$Ll[94])
 colnames(Pu.lines) <- c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll")
 
 H.K <- c(H.lines$Ka1, H.lines$Ka2, H.lines$Kb1, H.lines$Kb2, H.lines$Kb3)
@@ -1412,286 +1356,286 @@ K.intensity <- c(56, 29, 9, 2, 5)
 L.intensity <- c(68, 8, 78, 17, 40, 34, 17, 11, 15, 4)
 Intensity <- c(K.intensity, L.intensity)
 
-H.table <- data.frame(as.vector(t(H.lines)), Intensity, stringsAsFactors=FALSE)
+H.table <- data.frame(as.vector(t(H.lines)), Intensity)
 colnames(H.table) <- c("Line", "Intensity")
 
-He.table <- data.frame(as.vector(t(He.lines)), Intensity, stringsAsFactors=FALSE)
+He.table <- data.frame(as.vector(t(He.lines)), Intensity)
 colnames(He.table) <- c("Line", "Intensity")
 
-Li.table <- data.frame(as.vector(t(Li.lines)), Intensity, stringsAsFactors=FALSE)
+Li.table <- data.frame(as.vector(t(Li.lines)), Intensity)
 colnames(Li.table) <- c("Line", "Intensity")
 
-Be.table <- data.frame(as.vector(t(Be.lines)), Intensity, stringsAsFactors=FALSE)
+Be.table <- data.frame(as.vector(t(Be.lines)), Intensity)
 colnames(Be.table) <- c("Line", "Intensity")
 
-B.table <- data.frame(as.vector(t(B.lines)), Intensity, stringsAsFactors=FALSE)
+B.table <- data.frame(as.vector(t(B.lines)), Intensity)
 colnames(B.table) <- c("Line", "Intensity")
 
-C.table <- data.frame(as.vector(t(C.lines)), Intensity, stringsAsFactors=FALSE)
+C.table <- data.frame(as.vector(t(C.lines)), Intensity)
 colnames(C.table) <- c("Line", "Intensity")
 
-N.table <- data.frame(as.vector(t(N.lines)), Intensity, stringsAsFactors=FALSE)
+N.table <- data.frame(as.vector(t(N.lines)), Intensity)
 colnames(N.table) <- c("Line", "Intensity")
 
-O.table <- data.frame(as.vector(t(O.lines)), Intensity, stringsAsFactors=FALSE)
+O.table <- data.frame(as.vector(t(O.lines)), Intensity)
 colnames(O.table) <- c("Line", "Intensity")
 
-F.table <- data.frame(as.vector(t(F.lines)), Intensity, stringsAsFactors=FALSE)
+F.table <- data.frame(as.vector(t(F.lines)), Intensity)
 colnames(F.table) <- c("Line", "Intensity")
 
-Ne.table <- data.frame(as.vector(t(Ne.lines)), Intensity, stringsAsFactors=FALSE)
+Ne.table <- data.frame(as.vector(t(Ne.lines)), Intensity)
 colnames(Ne.table) <- c("Line", "Intensity")
 
-Na.table <- data.frame(as.vector(t(Na.lines)), Intensity, stringsAsFactors=FALSE)
+Na.table <- data.frame(as.vector(t(Na.lines)), Intensity)
 colnames(Na.table) <- c("Line", "Intensity")
 
-Na.table <- data.frame(as.vector(t(Na.lines)), Intensity, stringsAsFactors=FALSE)
+Na.table <- data.frame(as.vector(t(Na.lines)), Intensity)
 colnames(Na.table) <- c("Line", "Intensity")
 
-Mg.table <- data.frame(as.vector(t(Mg.lines)), Intensity, stringsAsFactors=FALSE)
+Mg.table <- data.frame(as.vector(t(Mg.lines)), Intensity)
 colnames(Mg.table) <- c("Line", "Intensity")
 
-Al.table <- data.frame(as.vector(t(Al.lines)), Intensity, stringsAsFactors=FALSE)
+Al.table <- data.frame(as.vector(t(Al.lines)), Intensity)
 colnames(Al.table) <- c("Line", "Intensity")
 
-Si.table <- data.frame(as.vector(t(Si.lines)), Intensity, stringsAsFactors=FALSE)
+Si.table <- data.frame(as.vector(t(Si.lines)), Intensity)
 colnames(Si.table) <- c("Line", "Intensity")
 
-P.table <- data.frame(as.vector(t(P.lines)), Intensity, stringsAsFactors=FALSE)
+P.table <- data.frame(as.vector(t(P.lines)), Intensity)
 colnames(P.table) <- c("Line", "Intensity")
 
-S.table <- data.frame(as.vector(t(S.lines)), Intensity, stringsAsFactors=FALSE)
+S.table <- data.frame(as.vector(t(S.lines)), Intensity)
 colnames(S.table) <- c("Line", "Intensity")
 
-Cl.table <- data.frame(as.vector(t(Cl.lines)), Intensity, stringsAsFactors=FALSE)
+Cl.table <- data.frame(as.vector(t(Cl.lines)), Intensity)
 colnames(Cl.table) <- c("Line", "Intensity")
 
-Ar.table <- data.frame(as.vector(t(Ar.lines)), Intensity, stringsAsFactors=FALSE)
+Ar.table <- data.frame(as.vector(t(Ar.lines)), Intensity)
 colnames(Ar.table) <- c("Line", "Intensity")
 
-K.table <- data.frame(as.vector(t(K.lines)), Intensity, stringsAsFactors=FALSE)
+K.table <- data.frame(as.vector(t(K.lines)), Intensity)
 colnames(K.table) <- c("Line", "Intensity")
 
-Ca.table <- data.frame(as.vector(t(Ca.lines)), Intensity, stringsAsFactors=FALSE)
+Ca.table <- data.frame(as.vector(t(Ca.lines)), Intensity)
 colnames(Ca.table) <- c("Line", "Intensity")
 
-Sc.table <- data.frame(as.vector(t(Sc.lines)), Intensity, stringsAsFactors=FALSE)
+Sc.table <- data.frame(as.vector(t(Sc.lines)), Intensity)
 colnames(Sc.table) <- c("Line", "Intensity")
 
-Ti.table <- data.frame(as.vector(t(Ti.lines)), Intensity, stringsAsFactors=FALSE)
+Ti.table <- data.frame(as.vector(t(Ti.lines)), Intensity)
 colnames(Ti.table) <- c("Line", "Intensity")
 
-V.table <- data.frame(as.vector(t(V.lines)), Intensity, stringsAsFactors=FALSE)
+V.table <- data.frame(as.vector(t(V.lines)), Intensity)
 colnames(V.table) <- c("Line", "Intensity")
 
-Cr.table <- data.frame(as.vector(t(Cr.lines)), Intensity, stringsAsFactors=FALSE)
+Cr.table <- data.frame(as.vector(t(Cr.lines)), Intensity)
 colnames(Cr.table) <- c("Line", "Intensity")
 
-Mn.table <- data.frame(as.vector(t(Mn.lines)), Intensity, stringsAsFactors=FALSE)
+Mn.table <- data.frame(as.vector(t(Mn.lines)), Intensity)
 colnames(Mn.table) <- c("Line", "Intensity")
 
-Fe.table <- data.frame(as.vector(t(Fe.lines)), Intensity, stringsAsFactors=FALSE)
+Fe.table <- data.frame(as.vector(t(Fe.lines)), Intensity)
 colnames(Fe.table) <- c("Line", "Intensity")
 
-Co.table <- data.frame(as.vector(t(Co.lines)), Intensity, stringsAsFactors=FALSE)
+Co.table <- data.frame(as.vector(t(Co.lines)), Intensity)
 colnames(Co.table) <- c("Line", "Intensity")
 
-Ni.table <- data.frame(as.vector(t(Ni.lines)), Intensity, stringsAsFactors=FALSE)
+Ni.table <- data.frame(as.vector(t(Ni.lines)), Intensity)
 colnames(Ni.table) <- c("Line", "Intensity")
 
-Cu.table <- data.frame(as.vector(t(Cu.lines)), Intensity, stringsAsFactors=FALSE)
+Cu.table <- data.frame(as.vector(t(Cu.lines)), Intensity)
 colnames(Cu.table) <- c("Line", "Intensity")
 
-Zn.table <- data.frame(as.vector(t(Zn.lines)), Intensity, stringsAsFactors=FALSE)
+Zn.table <- data.frame(as.vector(t(Zn.lines)), Intensity)
 colnames(Zn.table) <- c("Line", "Intensity")
 
-Ga.table <- data.frame(as.vector(t(Ga.lines)), Intensity, stringsAsFactors=FALSE)
+Ga.table <- data.frame(as.vector(t(Ga.lines)), Intensity)
 colnames(Ga.table) <- c("Line", "Intensity")
 
-Ge.table <- data.frame(as.vector(t(Ge.lines)), Intensity, stringsAsFactors=FALSE)
+Ge.table <- data.frame(as.vector(t(Ge.lines)), Intensity)
 colnames(Ge.table) <- c("Line", "Intensity")
 
-As.table <- data.frame(as.vector(t(As.lines)), Intensity, stringsAsFactors=FALSE)
+As.table <- data.frame(as.vector(t(As.lines)), Intensity)
 colnames(As.table) <- c("Line", "Intensity")
 
-Se.table <- data.frame(as.vector(t(Se.lines)), Intensity, stringsAsFactors=FALSE)
+Se.table <- data.frame(as.vector(t(Se.lines)), Intensity)
 colnames(Se.table) <- c("Line", "Intensity")
 
-Br.table <- data.frame(as.vector(t(Br.lines)), Intensity, stringsAsFactors=FALSE)
+Br.table <- data.frame(as.vector(t(Br.lines)), Intensity)
 colnames(Br.table) <- c("Line", "Intensity")
 
-Kr.table <- data.frame(as.vector(t(Kr.lines)), Intensity, stringsAsFactors=FALSE)
+Kr.table <- data.frame(as.vector(t(Kr.lines)), Intensity)
 colnames(Kr.table) <- c("Line", "Intensity")
 
-Rb.table <- data.frame(as.vector(t(Rb.lines)), Intensity, stringsAsFactors=FALSE)
+Rb.table <- data.frame(as.vector(t(Rb.lines)), Intensity)
 colnames(Rb.table) <- c("Line", "Intensity")
 
-Sr.table <- data.frame(as.vector(t(Sr.lines)), Intensity, stringsAsFactors=FALSE)
+Sr.table <- data.frame(as.vector(t(Sr.lines)), Intensity)
 colnames(Sr.table) <- c("Line", "Intensity")
 
-Y.table <- data.frame(as.vector(t(Y.lines)), Intensity, stringsAsFactors=FALSE)
+Y.table <- data.frame(as.vector(t(Y.lines)), Intensity)
 colnames(Y.table) <- c("Line", "Intensity")
 
-Zr.table <- data.frame(as.vector(t(Zr.lines)), Intensity, stringsAsFactors=FALSE)
+Zr.table <- data.frame(as.vector(t(Zr.lines)), Intensity)
 colnames(Zr.table) <- c("Line", "Intensity")
 
-Nb.table <- data.frame(as.vector(t(Nb.lines)), Intensity, stringsAsFactors=FALSE)
+Nb.table <- data.frame(as.vector(t(Nb.lines)), Intensity)
 colnames(Nb.table) <- c("Line", "Intensity")
 
-Mo.table <- data.frame(as.vector(t(Mo.lines)), Intensity, stringsAsFactors=FALSE)
+Mo.table <- data.frame(as.vector(t(Mo.lines)), Intensity)
 colnames(Mo.table) <- c("Line", "Intensity")
 
-Tc.table <- data.frame(as.vector(t(Tc.lines)), Intensity, stringsAsFactors=FALSE)
+Tc.table <- data.frame(as.vector(t(Tc.lines)), Intensity)
 colnames(Tc.table) <- c("Line", "Intensity")
 
-Ru.table <- data.frame(as.vector(t(Ru.lines)), Intensity, stringsAsFactors=FALSE)
+Ru.table <- data.frame(as.vector(t(Ru.lines)), Intensity)
 colnames(Ru.table) <- c("Line", "Intensity")
 
-Rh.table <- data.frame(as.vector(t(Rh.lines)), Intensity, stringsAsFactors=FALSE)
+Rh.table <- data.frame(as.vector(t(Rh.lines)), Intensity)
 colnames(Rh.table) <- c("Line", "Intensity")
 
-Pd.table <- data.frame(as.vector(t(Pd.lines)), Intensity, stringsAsFactors=FALSE)
+Pd.table <- data.frame(as.vector(t(Pd.lines)), Intensity)
 colnames(Pd.table) <- c("Line", "Intensity")
 
-Ag.table <- data.frame(as.vector(t(Ag.lines)), Intensity, stringsAsFactors=FALSE)
+Ag.table <- data.frame(as.vector(t(Ag.lines)), Intensity)
 colnames(Ag.table) <- c("Line", "Intensity")
 
-Cd.table <- data.frame(as.vector(t(Cd.lines)), Intensity, stringsAsFactors=FALSE)
+Cd.table <- data.frame(as.vector(t(Cd.lines)), Intensity)
 colnames(Cd.table) <- c("Line", "Intensity")
 
-In.table <- data.frame(as.vector(t(In.lines)), Intensity, stringsAsFactors=FALSE)
+In.table <- data.frame(as.vector(t(In.lines)), Intensity)
 colnames(In.table) <- c("Line", "Intensity")
 
-Sn.table <- data.frame(as.vector(t(Sn.lines)), Intensity, stringsAsFactors=FALSE)
+Sn.table <- data.frame(as.vector(t(Sn.lines)), Intensity)
 colnames(Sn.table) <- c("Line", "Intensity")
 
-Sb.table <- data.frame(as.vector(t(Sb.lines)), Intensity, stringsAsFactors=FALSE)
+Sb.table <- data.frame(as.vector(t(Sb.lines)), Intensity)
 colnames(Sb.table) <- c("Line", "Intensity")
 
-Te.table <- data.frame(as.vector(t(Te.lines)), Intensity, stringsAsFactors=FALSE)
+Te.table <- data.frame(as.vector(t(Te.lines)), Intensity)
 colnames(Te.table) <- c("Line", "Intensity")
 
-I.table <- data.frame(as.vector(t(I.lines)), Intensity, stringsAsFactors=FALSE)
+I.table <- data.frame(as.vector(t(I.lines)), Intensity)
 colnames(I.table) <- c("Line", "Intensity")
 
-Xe.table <- data.frame(as.vector(t(Xe.lines)), Intensity, stringsAsFactors=FALSE)
+Xe.table <- data.frame(as.vector(t(Xe.lines)), Intensity)
 colnames(Xe.table) <- c("Line", "Intensity")
 
-Cs.table <- data.frame(as.vector(t(Cs.lines)), Intensity, stringsAsFactors=FALSE)
+Cs.table <- data.frame(as.vector(t(Cs.lines)), Intensity)
 colnames(Cs.table) <- c("Line", "Intensity")
 
-Ba.table <- data.frame(as.vector(t(Ba.lines)), Intensity, stringsAsFactors=FALSE)
+Ba.table <- data.frame(as.vector(t(Ba.lines)), Intensity)
 colnames(Ba.table) <- c("Line", "Intensity")
 
-La.table <- data.frame(as.vector(t(La.lines)), Intensity, stringsAsFactors=FALSE)
+La.table <- data.frame(as.vector(t(La.lines)), Intensity)
 colnames(La.table) <- c("Line", "Intensity")
 
-Ce.table <- data.frame(as.vector(t(Ce.lines)), Intensity, stringsAsFactors=FALSE)
+Ce.table <- data.frame(as.vector(t(Ce.lines)), Intensity)
 colnames(Ce.table) <- c("Line", "Intensity")
 
-Pr.table <- data.frame(as.vector(t(Pr.lines)), Intensity, stringsAsFactors=FALSE)
+Pr.table <- data.frame(as.vector(t(Pr.lines)), Intensity)
 colnames(Pr.table) <- c("Line", "Intensity")
 
-Nd.table <- data.frame(as.vector(t(Nd.lines)), Intensity, stringsAsFactors=FALSE)
+Nd.table <- data.frame(as.vector(t(Nd.lines)), Intensity)
 colnames(Nd.table) <- c("Line", "Intensity")
 
-Pm.table <- data.frame(as.vector(t(Pm.lines)), Intensity, stringsAsFactors=FALSE)
+Pm.table <- data.frame(as.vector(t(Pm.lines)), Intensity)
 colnames(Pm.table) <- c("Line", "Intensity")
 
-Sm.table <- data.frame(as.vector(t(Sm.lines)), Intensity, stringsAsFactors=FALSE)
+Sm.table <- data.frame(as.vector(t(Sm.lines)), Intensity)
 colnames(Sm.table) <- c("Line", "Intensity")
 
-Eu.table <- data.frame(as.vector(t(Eu.lines)), Intensity, stringsAsFactors=FALSE)
+Eu.table <- data.frame(as.vector(t(Eu.lines)), Intensity)
 colnames(Eu.table) <- c("Line", "Intensity")
 
-Gd.table <- data.frame(as.vector(t(Gd.lines)), Intensity, stringsAsFactors=FALSE)
+Gd.table <- data.frame(as.vector(t(Gd.lines)), Intensity)
 colnames(Gd.table) <- c("Line", "Intensity")
 
-Tb.table <- data.frame(as.vector(t(Tb.lines)), Intensity, stringsAsFactors=FALSE)
+Tb.table <- data.frame(as.vector(t(Tb.lines)), Intensity)
 colnames(Tb.table) <- c("Line", "Intensity")
 
-Dy.table <- data.frame(as.vector(t(Dy.lines)), Intensity, stringsAsFactors=FALSE)
+Dy.table <- data.frame(as.vector(t(Dy.lines)), Intensity)
 colnames(Dy.table) <- c("Line", "Intensity")
 
-Ho.table <- data.frame(as.vector(t(Ho.lines)), Intensity, stringsAsFactors=FALSE)
+Ho.table <- data.frame(as.vector(t(Ho.lines)), Intensity)
 colnames(Ho.table) <- c("Line", "Intensity")
 
-Er.table <- data.frame(as.vector(t(Er.lines)), Intensity, stringsAsFactors=FALSE)
+Er.table <- data.frame(as.vector(t(Er.lines)), Intensity)
 colnames(Er.table) <- c("Line", "Intensity")
 
-Tm.table <- data.frame(as.vector(t(Tm.lines)), Intensity, stringsAsFactors=FALSE)
+Tm.table <- data.frame(as.vector(t(Tm.lines)), Intensity)
 colnames(Tm.table) <- c("Line", "Intensity")
 
-Yb.table <- data.frame(as.vector(t(Yb.lines)), Intensity, stringsAsFactors=FALSE)
+Yb.table <- data.frame(as.vector(t(Yb.lines)), Intensity)
 colnames(Yb.table) <- c("Line", "Intensity")
 
-Lu.table <- data.frame(as.vector(t(Lu.lines)), Intensity, stringsAsFactors=FALSE)
+Lu.table <- data.frame(as.vector(t(Lu.lines)), Intensity)
 colnames(Lu.table) <- c("Line", "Intensity")
 
-Hf.table <- data.frame(as.vector(t(Hf.lines)), Intensity, stringsAsFactors=FALSE)
+Hf.table <- data.frame(as.vector(t(Hf.lines)), Intensity)
 colnames(Hf.table) <- c("Line", "Intensity")
 
-Ta.table <- data.frame(as.vector(t(Ta.lines)), Intensity, stringsAsFactors=FALSE)
+Ta.table <- data.frame(as.vector(t(Ta.lines)), Intensity)
 colnames(Ta.table) <- c("Line", "Intensity")
 
-W.table <- data.frame(as.vector(t(W.lines)), Intensity, stringsAsFactors=FALSE)
+W.table <- data.frame(as.vector(t(W.lines)), Intensity)
 colnames(W.table) <- c("Line", "Intensity")
 
-Re.table <- data.frame(as.vector(t(Re.lines)), Intensity, stringsAsFactors=FALSE)
+Re.table <- data.frame(as.vector(t(Re.lines)), Intensity)
 colnames(Re.table) <- c("Line", "Intensity")
 
-Os.table <- data.frame(as.vector(t(Os.lines)), Intensity, stringsAsFactors=FALSE)
+Os.table <- data.frame(as.vector(t(Os.lines)), Intensity)
 colnames(Os.table) <- c("Line", "Intensity")
 
-Ir.table <- data.frame(as.vector(t(Ir.lines)), Intensity, stringsAsFactors=FALSE)
+Ir.table <- data.frame(as.vector(t(Ir.lines)), Intensity)
 colnames(Ir.table) <- c("Line", "Intensity")
 
-Pt.table <- data.frame(as.vector(t(Pt.lines)), Intensity, stringsAsFactors=FALSE)
+Pt.table <- data.frame(as.vector(t(Pt.lines)), Intensity)
 colnames(Pt.table) <- c("Line", "Intensity")
 
-Au.table <- data.frame(as.vector(t(Au.lines)), Intensity, stringsAsFactors=FALSE)
+Au.table <- data.frame(as.vector(t(Au.lines)), Intensity)
 colnames(Au.table) <- c("Line", "Intensity")
 
-Hg.table <- data.frame(as.vector(t(Hg.lines)), Intensity, stringsAsFactors=FALSE)
+Hg.table <- data.frame(as.vector(t(Hg.lines)), Intensity)
 colnames(Hg.table) <- c("Line", "Intensity")
 
-Tl.table <- data.frame(as.vector(t(Tl.lines)), Intensity, stringsAsFactors=FALSE)
+Tl.table <- data.frame(as.vector(t(Tl.lines)), Intensity)
 colnames(Tl.table) <- c("Line", "Intensity")
 
-Pb.table <- data.frame(as.vector(t(Pb.lines)), Intensity, stringsAsFactors=FALSE)
+Pb.table <- data.frame(as.vector(t(Pb.lines)), Intensity)
 colnames(Pb.table) <- c("Line", "Intensity")
 
-Bi.table <- data.frame(as.vector(t(Bi.lines)), Intensity, stringsAsFactors=FALSE)
+Bi.table <- data.frame(as.vector(t(Bi.lines)), Intensity)
 colnames(Bi.table) <- c("Line", "Intensity")
 
-Po.table <- data.frame(as.vector(t(Po.lines)), Intensity, stringsAsFactors=FALSE)
+Po.table <- data.frame(as.vector(t(Po.lines)), Intensity)
 colnames(Pb.table) <- c("Line", "Intensity")
 
-At.table <- data.frame(as.vector(t(At.lines)), Intensity, stringsAsFactors=FALSE)
+At.table <- data.frame(as.vector(t(At.lines)), Intensity)
 colnames(At.table) <- c("Line", "Intensity")
 
-Rn.table <- data.frame(as.vector(t(Rn.lines)), Intensity, stringsAsFactors=FALSE)
+Rn.table <- data.frame(as.vector(t(Rn.lines)), Intensity)
 colnames(Rn.table) <- c("Line", "Intensity")
 
-Fr.table <- data.frame(as.vector(t(Fr.lines)), Intensity, stringsAsFactors=FALSE)
+Fr.table <- data.frame(as.vector(t(Fr.lines)), Intensity)
 colnames(Fr.table) <- c("Line", "Intensity")
 
-Ra.table <- data.frame(as.vector(t(Ra.lines)), Intensity, stringsAsFactors=FALSE)
+Ra.table <- data.frame(as.vector(t(Ra.lines)), Intensity)
 colnames(Ra.table) <- c("Line", "Intensity")
 
-Ac.table <- data.frame(as.vector(t(Ac.lines)), Intensity, stringsAsFactors=FALSE)
+Ac.table <- data.frame(as.vector(t(Ac.lines)), Intensity)
 colnames(Ac.table) <- c("Line", "Intensity")
 
-Th.table <- data.frame(as.vector(t(Th.lines)), Intensity, stringsAsFactors=FALSE)
+Th.table <- data.frame(as.vector(t(Th.lines)), Intensity)
 colnames(Th.table) <- c("Line", "Intensity")
 
-Pa.table <- data.frame(as.vector(t(Pa.lines)), Intensity, stringsAsFactors=FALSE)
+Pa.table <- data.frame(as.vector(t(Pa.lines)), Intensity)
 colnames(Pa.table) <- c("Line", "Intensity")
 
-U.table <- data.frame(as.vector(t(U.lines)), Intensity, stringsAsFactors=FALSE)
+U.table <- data.frame(as.vector(t(U.lines)), Intensity)
 colnames(U.table) <- c("Line", "Intensity")
 
-Pu.table <- data.frame(as.vector(t(Pu.lines)), Intensity, stringsAsFactors=FALSE)
+Pu.table <- data.frame(as.vector(t(Pu.lines)), Intensity)
 colnames(Pu.table) <- c("Line", "Intensity")
 
 
@@ -1718,7 +1662,7 @@ elementGrabKalpha <- function(element, data) {
     
     hold.cps <- subset(data$CPS, !(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02))
     hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02))
-    hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
+    hold.frame <- data.frame(is.0(hold.cps, hold.file))
     colnames(hold.frame) <- c("Counts", "Spectrum")
     hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
@@ -1743,9 +1687,9 @@ elementGrabKbeta <- function(element, data) {
     hold.file <- if(elementLine[8][1,]!=0){
         subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))
     } else if(elementLine[8][1,]==0){
-            subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[7][1,]+0.02))
+        subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[7][1,]+0.02))
     }
-    hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
+    hold.frame <- data.frame(is.0(hold.cps, hold.file))
     colnames(hold.frame) <- c("Counts", "Spectrum")
     hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
@@ -1763,7 +1707,7 @@ elementGrabLalpha <- function(element, data) {
     
     hold.cps <- subset(data$CPS, !(data$Energy < elementLine[11][1,]-0.02 | data$Energy > elementLine[10][1,]+0.02))
     hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[11][1,]-0.02 | data$Energy > elementLine[10][,1]+0.02))
-    hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
+    hold.frame <- data.frame(is.0(hold.cps, hold.file))
     colnames(hold.frame) <- c("Counts", "Spectrum")
     hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
@@ -1781,8 +1725,8 @@ elementGrabLbeta <- function(element, data) {
     
     hold.cps <- subset(data$CPS, !(data$Energy < elementLine[12][1,]-0.02 | data$Energy > elementLine[14][1,]+0.02))
     hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[12][1,]-0.02 | data$Energy > elementLine[14][1,]+0.02))
-
-    hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
+    
+    hold.frame <- data.frame(is.0(hold.cps, hold.file))
     colnames(hold.frame) <- c("Counts", "Spectrum")
     hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
@@ -1799,7 +1743,7 @@ elementGrabMalpha <- function(element, data) {
     
     hold.cps <- subset(data$CPS, !(data$Energy < elementLine[20][1,]-0.02 | data$Energy > elementLine[22][1,]+0.02))
     hold.file <- subset(data$Spectrum, !(data$Energy < elementLine[20][1,]-0.02 | data$Energy > elementLine[22][,1]+0.02))
-    hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
+    hold.frame <- data.frame(is.0(hold.cps, hold.file))
     colnames(hold.frame) <- c("Counts", "Spectrum")
     hold.ag <- aggregate(list(hold.frame$Counts), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
@@ -1827,7 +1771,7 @@ elementGrabpre <- function(element.line, data) {
     } else if (destination=="M" && distance=="line"){
         elementGrabMalpha(element, data)
     }
-        
+    
 }
 elementGrabpre <- cmpfun(elementGrabpre)
 
@@ -1870,7 +1814,7 @@ elementGrab <- function(element.line, data, range.table){
     } else if(is.element==FALSE){
         xrf_parse(range.table, data)
     }
-
+    
     
 }
 elementGrab <- cmpfun(elementGrab)
@@ -1885,11 +1829,11 @@ elementFrame <- function(data, elements){
     
     dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
     
-    spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector, stringsAsFactors=FALSE)
+    spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)
     
     colnames(spectra.line.frame) <- c("Spectrum", elements)
     
-    spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
+    spectra.line.frame <- as.data.frame(spectra.line.frame)
     
     spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]
     
@@ -1938,12 +1882,12 @@ linear_simp_xrf <- function(concentration.table, spectra.line.table, element.lin
     intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
     
     
-    predict.frame <- data.frame(concentration, intensit, stringsAsFactors=FALSE)
+    predict.frame <- data.frame(concentration, intensity)
     colnames(predict.frame) <- c("Concentration", "Intensity")
     
     
     
-    predict.intensity <- data.frame(predict.frame$Intensity, stringsAsFactors=FALSE)
+    predict.intensity <- data.frame(predict.frame$Intensity)
     colnames(predict.intensity) <- c("Intensity")
     
     cal.lm <- lm(predict.frame$Concentration~predict.frame$Intensity)
@@ -1964,12 +1908,12 @@ poly_simp_xrf <- function(concentration.table, spectra.line.table, element.line)
     intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
     
     
-    predict.frame <- data.frame(concentration, intensity, stringsAsFactors=FALSE)
+    predict.frame <- data.frame(concentration, intensity)
     colnames(predict.frame) <- c("Concentration", "Intensity")
     
     
     
-    predict.intensity <- data.frame(predict.frame$Intensity, stringsAsFactors=FALSE)
+    predict.intensity <- data.frame(predict.frame$Intensity)
     colnames(predict.intensity) <- c("Intensity")
     
     cal.lm.poly <- lm(predict.frame$Concentration~poly(predict.frame$Intensity, 2))
@@ -1988,22 +1932,22 @@ lucas_simp_xrf <- function(concentration.table, spectra.line.table, element.line
     
     intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
     
-    lucas.intercept.table <- data.frame(rowSums(lucas.intercept.table.x[intercept.element.lines]), stringsAsFactors=FALSE)
+    lucas.intercept.table <- data.frame(rowSums(lucas.intercept.table.x[intercept.element.lines]))
     colnames(lucas.intercept.table) <- c("first")
     
     
     
     lucas.intercept <- lucas.intercept.table$first
-    lucas.slope <- data.frame(lucas.slope.table[slope.element.lines], stringsAsFactors=FALSE)
+    lucas.slope <- data.frame(lucas.slope.table[slope.element.lines])
     
     
     
-    predict.frame.luk <- data.frame(concentration, ((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope, stringsAsFactors=FALSE)
+    predict.frame.luk <- data.frame(concentration, ((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope)
     colnames(predict.frame.luk) <- c("Concentration", "Intensity", names(lucas.slope))
     
     
     
-    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lucas.slope, stringsAsFactors=FALSE)
+    predict.intensity.luk <- data.frame(predict.frame.luk$Intensity, lucas.slope)
     colnames(predict.intensity.luk) <- c("Intensity", names(lucas.slope))
     
     lucas.lm <- lm(Concentration~., data=predict.frame.luk)
@@ -2030,12 +1974,12 @@ linear_tc_xrf <- function(concentration.table, spectra.line.table, element.line)
     
     
     
-    predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS, stringsAsFactors=FALSE)
+    predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS)
     colnames(predict.frame.tc) <- c("Concentration", "Intensity")
     
     
     
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity, stringsAsFactors=FALSE)
+    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)
     colnames(predict.intensity.tc) <- c("Intensity")
     
     cal.lm.tc <- lm(predict.frame.tc$Concentration~predict.frame.tc$Intensity)
@@ -2063,12 +2007,12 @@ poly_tc_xrf <- function(concentration.table, spectra.line.table, element.line) {
     
     
     
-    predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS, stringsAsFactors=FALSE)
+    predict.frame.tc <- data.frame(concentration, intensity/total.counts$CPS)
     colnames(predict.frame.tc) <- c("Concentration", "Intensity")
     
     
     
-    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity, stringsAsFactors=FALSE)
+    predict.intensity.tc <- data.frame(predict.frame.tc$Intensity)
     colnames(predict.intensity.tc) <- c("Intensity")
     
     cal.lm.poly.tc <- lm(predict.frame.tc$Concentration~poly(predict.frame.tc$Intensity, 2))
@@ -2091,22 +2035,22 @@ lucas_tc_xrf <- function(concentration.table, spectra.line.table, element.line, 
     
     intensity <- na.omit(as.vector(as.numeric(unlist(spectra.line.table[element.line]))))
     
-    lucas.intercept.table.tc <- data.frame(rowSums(lucas.intercept.table.x[intercept.element.lines]), stringsAsFactors=FALSE)/total.counts$CPS
+    lucas.intercept.table.tc <- data.frame(rowSums(lucas.intercept.table.x[intercept.element.lines]))/total.counts$CPS
     colnames(lucas.intercept.table.tc) <- c("first")
     
     
     
     lucas.intercept.tc <- lucas.intercept.table.tc$first
-    lucas.slope.tc <- data.frame(lucas.slope.table[slope.element.lines], stringsAsFactors=FALSE)/total.counts$CPS
+    lucas.slope.tc <- data.frame(lucas.slope.table[slope.element.lines])/total.counts$CPS
     
     
     
-    predict.frame.luc.tc <- data.frame(concentration, ((intensity/total.counts$CPS-lucas.intercept.tc)/(intensity/total.counts$CPS+lucas.intercept.tc)),lucas.slope.tc, stringsAsFactors=FALSE)
+    predict.frame.luc.tc <- data.frame(concentration, ((intensity/total.counts$CPS-lucas.intercept.tc)/(intensity/total.counts$CPS+lucas.intercept.tc)),lucas.slope.tc)
     colnames(predict.frame.luc.tc) <- c("Concentration", "Intensity", names(lucas.slope.tc))
     
     
     
-    predict.intensity.luc.tc <- data.frame(predict.frame.luc.tc$Intensity, lucas.slope.tc, stringsAsFactors=FALSE)
+    predict.intensity.luc.tc <- data.frame(predict.frame.luc.tc$Intensity, lucas.slope.tc)
     colnames(predict.intensity.luc.tc) <- c("Intensity", names(lucas.slope.tc))
     
     lucas.lm.tc <- lm(Concentration~., data=predict.frame.luc.tc)
@@ -2134,12 +2078,12 @@ linear_comp_xrf <- function(data, concentration.table, spectra.line.table, eleme
     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
-    predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton, stringsAsFactors=FALSE)
+    predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton)
     colnames(predict.frame.comp) <- c("Concentration", "Intensity")
     
     
     
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity, stringsAsFactors=FALSE)
+    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)
     colnames(predict.intensity.comp) <- c("Intensity")
     
     cal.lm.comp <- lm(predict.frame.comp$Concentration~predict.frame.comp$Intensity)
@@ -2167,12 +2111,12 @@ poly_comp_xrf <- function(data, concentration.table, spectra.line.table, element
     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
-    predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton, stringsAsFactors=FALSE)
+    predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton)
     colnames(predict.frame.comp) <- c("Concentration", "Intensity")
     
     
     
-    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity, stringsAsFactors=FALSE)
+    predict.intensity.comp <- data.frame(predict.frame.comp$Intensity)
     colnames(predict.intensity.comp) <- c("Intensity")
     
     cal.lm.poly.comp <- lm(predict.frame.comp$Concentration~poly(predict.frame.comp$Intensity, 2))
@@ -2201,23 +2145,23 @@ lucas_comp_xrf <- function(data, concentration.table, spectra.line.table, elemen
     
     
     
-    lucas.intercept.table.comp <- data.frame(rowSums(lucas.intercept.table.x[intercept.element.lines]), stringsAsFactors=FALSE)/compton.frame.ag$Compton
+    lucas.intercept.table.comp <- data.frame(rowSums(lucas.intercept.table.x[intercept.element.lines]))/compton.frame.ag$Compton
     colnames(lucas.intercept.table.comp) <- c("first")
     
     
     
     lucas.intercept.comp <- lucas.intercept.table.comp$first
-    lucas.slope.comp <- data.frame(lucas.slope.table[slope.element.lines], stringsAsFactors=FALSE)/compton.frame.ag$Compton
+    lucas.slope.comp <- data.frame(lucas.slope.table[slope.element.lines])/compton.frame.ag$Compton
     
     
     
     
-    predict.frame.luc.comp <- data.frame(concentration, ((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)-lucas.intercept.comp/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)),lucas.slope.comp, stringsAsFactors=FALSE)
+    predict.frame.luc.comp <- data.frame(concentration, ((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)-lucas.intercept.comp/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)),lucas.slope.comp)
     colnames(predict.frame.luc.comp) <- c("Concentration", "Intensity", names(lucas.slope.comp))
     
     
     
-    predict.intensity.luc.comp <- data.frame(predict.frame.luc.comp$Intensity, lucas.slope.comp, stringsAsFactors=FALSE)
+    predict.intensity.luc.comp <- data.frame(predict.frame.luc.comp$Intensity, lucas.slope.comp)
     colnames(predict.intensity.luc.comp) <- c("Intensity", names(lucas.slope.comp))
     
     lucas.lm.comp <- lm(Concentration~., data=predict.frame.luc.comp)
@@ -2262,7 +2206,7 @@ spectra_stats <- function(spectra.frame, norm.type, norm.min, norm.max, compress
     Max = apply(data.processed[,-1], 1, max),
     Mean = apply(data.processed[,-1], 1, mean),
     Median = apply(data.processed[,-1], 1, median),
-    SD = apply(data.processed[,-1], 1, sd), stringsAsFactors=FALSE)
+    SD = apply(data.processed[,-1], 1, sd))
     
     data.sum$SDMin <- data.sum$Mean - data.sum$SD
     data.sum$SDMax <- data.sum$Mean + data.sum$SD
@@ -2271,7 +2215,7 @@ spectra_stats <- function(spectra.frame, norm.type, norm.min, norm.max, compress
     
     
     
-    data.sum <- as.data.frame(apply(data.sum, 2, james.cp), stringsAsFactors=FALSE)
+    data.sum <- as.data.frame(apply(data.sum, 2, james.cp))
     
     data.sum
     
@@ -2318,16 +2262,16 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compre
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
     if(is.null(compress)){compress <- TRUE}
-
-
+    
+    
     if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
     if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
-
+    
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
     
-    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
+    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"))
     
     #test <- apply(test, 2, as.numeric)
     colnames(data) <- make.names(colnames(data))
@@ -2349,7 +2293,7 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
     
-    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
+    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"))
     
     #test <- apply(test, 2, as.numeric)
     colnames(data) <- make.names(colnames(data))
@@ -2357,7 +2301,7 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress
     
     total.counts <- rowSums(data[,-1], na.rm=TRUE)
     
-    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/total.counts, stringsAsFactors=FALSE)
+    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/total.counts)
     do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
     
 }
@@ -2384,11 +2328,11 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.m
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
     
-    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
+    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"))
     #test <- apply(test, 2, as.numeric)
     colnames(data) <- make.names(colnames(data))
     
-    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/compton.frame.ag$Compton, stringsAsFactors=FALSE)
+    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/compton.frame.ag$Compton)
     do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
     
 }
@@ -2410,7 +2354,7 @@ spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compr
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
     
-    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
+    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"))
     
     #test <- apply(test, 2, as.numeric)
     colnames(data) <- make.names(colnames(data))
@@ -2419,14 +2363,14 @@ spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compr
     
     
     
-    first.pass.t <- as.data.frame(data.table::transpose(first.pass), stringsAsFactors=FALSE)
+    first.pass.t <- as.data.frame(data.table::transpose(first.pass))
     names <- as.vector(unlist(first.pass.t[1,]))
     first.pass.t.frame <- first.pass.t[-1,]
     colnames(first.pass.t.frame) <- names
     first.pass.t.frame <- apply(first.pass.t.frame, 2, as.numeric)
     
     
-    data.frame(Energy=as.numeric(gsub("X", "", colnames(data)))[-1], first.pass.t.frame, stringsAsFactors=FALSE)
+    data.frame(Energy=as.numeric(gsub("X", "", colnames(data)))[-1], first.pass.t.frame)
     
 }
 spectra_simp_trans_xrf <- cmpfun(spectra_simp_trans_xrf)
@@ -2444,7 +2388,7 @@ spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compres
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
     
-    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
+    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"))
     
     #test <- apply(test, 2, as.numeric)
     colnames(data) <- make.names(colnames(data))
@@ -2452,20 +2396,20 @@ spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compres
     
     total.counts <- rowSums(data[,-1], na.rm=TRUE)
     
-    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/total.counts, stringsAsFactors=FALSE)
+    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/total.counts)
     first.pass <- do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
     first.pass <- data.table(first.pass)
     
     
     
-    first.pass.t <- as.data.frame(data.table::transpose(first.pass), stringsAsFactors=FALSE)
+    first.pass.t <- as.data.frame(data.table::transpose(first.pass))
     names <- as.vector(unlist(first.pass.t[1,]))
     first.pass.t.frame <- first.pass.t[-1,]
     colnames(first.pass.t.frame) <- names
     first.pass.t.frame <- apply(first.pass.t.frame, 2, as.numeric)
     
     
-    data.frame(Energy=as.numeric(gsub("X", "", colnames(data)))[-1], first.pass.t.frame, stringsAsFactors=FALSE)
+    data.frame(Energy=as.numeric(gsub("X", "", colnames(data)))[-1], first.pass.t.frame)
 }
 spectra_tc_trans_xrf <- cmpfun(spectra_tc_trans_xrf)
 
@@ -2490,24 +2434,24 @@ spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
     
-    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
+    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"))
     #test <- apply(test, 2, as.numeric)
     colnames(data) <- make.names(colnames(data))
     
-    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/compton.frame.ag$Compton, stringsAsFactors=FALSE)
+    data <- data.frame(Spectrum=data$Spectrum, data[,-1]/compton.frame.ag$Compton)
     first.pass <- do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
     first.pass <- data.table(first.pass)
     
     
     
-    first.pass.t <- as.data.frame(data.table::transpose(first.pass), stringsAsFactors=FALSE)
+    first.pass.t <- as.data.frame(data.table::transpose(first.pass))
     names <- as.vector(unlist(first.pass.t[1,]))
     first.pass.t.frame <- first.pass.t[-1,]
     colnames(first.pass.t.frame) <- names
     first.pass.t.frame <- apply(first.pass.t.frame, 2, as.numeric)
     
     
-    data.frame(Energy=as.numeric(gsub("X", "", colnames(data)))[-1], first.pass.t.frame, stringsAsFactors=FALSE)
+    data.frame(Energy=as.numeric(gsub("X", "", colnames(data)))[-1], first.pass.t.frame)
 }
 spectra_comp_trans_xrf <- cmpfun(spectra_comp_trans_xrf)
 
@@ -2527,8 +2471,8 @@ general_prep_xrf <- function(spectra.line.table, element.line) {
     intensity <- spectra.line.table[,element.line]
     
     
-    data.frame(Intensity=spectra.line.table[,element.line], stringsAsFactors=FALSE)
-
+    data.frame(Intensity=spectra.line.table[,element.line])
+    
 }
 general_prep_xrf <- cmpfun(general_prep_xrf)
 
@@ -2543,7 +2487,7 @@ simple_tc_prep_xrf <- function(data,spectra.line.table, element.line) {
     
     
     
-    predict.frame.tc <- data.frame(Intensity=intensity/total.counts$CPS, stringsAsFactors=FALSE)
+    predict.frame.tc <- data.frame(Intensity=intensity/total.counts$CPS)
     
     predict.frame.tc
 }
@@ -2565,9 +2509,9 @@ simple_comp_prep_xrf <- function(data, spectra.line.table, element.line, norm.mi
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     compton.frame.ag[compton.frame.ag ==0 ] <- 1
-
     
-    predict.frame.comp <- data.frame(Intensity=intensity/compton.frame.ag$Compton, stringsAsFactors=FALSE)
+    
+    predict.frame.comp <- data.frame(Intensity=intensity/compton.frame.ag$Compton)
     
     predict.frame.comp
     
@@ -2604,28 +2548,28 @@ lucas_simp_prep_xrf <- function(spectra.line.table, element.line, slope.element.
     
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
+    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
     colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     
     
     
     slope.none <- rep(1, length(spectra.line.table[,1]))
-    lucas.slope.table <- data.frame(spectra.line.table, slope.none, stringsAsFactors=FALSE)
+    lucas.slope.table <- data.frame(spectra.line.table, slope.none)
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
     
     
-    lucas.intercept.table <- data.frame(first=rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]), stringsAsFactors=FALSE)
+    lucas.intercept.table <- data.frame(first=rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))
     
     
     
     lucas.intercept <- lucas.intercept.table$first
-    lucas.slope <- data.frame(lucas.slope.table[,slope.element.lines], stringsAsFactors=FALSE)
+    lucas.slope <- data.frame(lucas.slope.table[,slope.element.lines])
     colnames(lucas.slope) <- slope.element.lines
     
     
     
-    predict.frame.luk <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope, stringsAsFactors=FALSE)
+    predict.frame.luk <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope)
     
     predict.frame.luk
     
@@ -2645,26 +2589,26 @@ lucas_tc_prep_xrf <- function(data, spectra.line.table, element.line, slope.elem
     
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
+    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
     colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     slope.none <- rep(1, length(spectra.line.table[,1]))
-    lucas.slope.table <- data.frame(spectra.line.table, slope.none, stringsAsFactors=FALSE)
+    lucas.slope.table <- data.frame(spectra.line.table, slope.none)
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
     
     
-    lucas.intercept.table.tc <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]), stringsAsFactors=FALSE)/total.counts$CPS
+    lucas.intercept.table.tc <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))/total.counts$CPS
     colnames(lucas.intercept.table.tc) <- c("first")
     
     
     
     lucas.intercept.tc <- lucas.intercept.table.tc$first
-    lucas.slope.tc <- data.frame(lucas.slope.table[,slope.element.lines], stringsAsFactors=FALSE)/total.counts$CPS
+    lucas.slope.tc <- data.frame(lucas.slope.table[,slope.element.lines])/total.counts$CPS
     colnames(lucas.slope.tc) <- slope.element.lines
     
     
     
-    predict.intensity.luc.tc <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept.tc)-lucas.intercept.tc/(intensity+lucas.intercept.tc))),lucas.slope.tc, stringsAsFactors=FALSE)
+    predict.intensity.luc.tc <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept.tc)-lucas.intercept.tc/(intensity+lucas.intercept.tc))),lucas.slope.tc)
     
     predict.intensity.luc.tc
 }
@@ -2688,30 +2632,30 @@ lucas_comp_prep_xrf <- function(data, spectra.line.table, element.line, slope.el
     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     compton.frame.ag[compton.frame.ag ==0 ] <- 1
-
+    
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
+    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
     colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     slope.none <- rep(1, length(spectra.line.table[,1]))
-    lucas.slope.table <- data.frame(spectra.line.table, slope.none, stringsAsFactors=FALSE)
+    lucas.slope.table <- data.frame(spectra.line.table, slope.none)
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
     
     
     
-    lucas.intercept.table.comp <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")])/compton.frame.ag$Compton, stringsAsFactors=FALSE)
+    lucas.intercept.table.comp <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")])/compton.frame.ag$Compton)
     colnames(lucas.intercept.table.comp) <- c("first")
     
     
     
     lucas.intercept.comp <- lucas.intercept.table.comp$first
-    lucas.slope.comp <- data.frame(lucas.slope.table[,slope.element.lines]/compton.frame.ag$Compton, stringsAsFactors=FALSE)
+    lucas.slope.comp <- data.frame(lucas.slope.table[,slope.element.lines]/compton.frame.ag$Compton)
     colnames(lucas.slope.comp) <- slope.element.lines
     
     
-    predict.frame.luc.comp <- data.frame(Intensity=((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)-lucas.intercept.comp/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)),lucas.slope.comp, stringsAsFactors=FALSE)
-   
+    predict.frame.luc.comp <- data.frame(Intensity=((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)-lucas.intercept.comp/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)),lucas.slope.comp)
+    
     predict.frame.luc.comp
 }
 lucas_comp_prep_xrf <- cmpfun(lucas_comp_prep_xrf)
@@ -2734,7 +2678,7 @@ general_prep_xrf_net <- function(spectra.line.table, element.line) {
     intensity <- spectra.line.table[,element.line]
     
     
-    predict.frame <- data.frame(Intensity=intensity, stringsAsFactors=FALSE)
+    predict.frame <- data.frame(Intensity=intensity)
     
     predict.frame
 }
@@ -2746,12 +2690,12 @@ simple_tc_prep_xrf_net <- function(data,spectra.line.table, element.line) {
     intensity <- spectra.line.table[,element.line]
     
     total.counts.net <- rowSums(spectra.line.table[,-1])
-    total.counts <- data.frame(data$Spectrum, total.counts.net, stringsAsFactors=FALSE)
+    total.counts <- data.frame(data$Spectrum, total.counts.net)
     colnames(total.counts) <- c("Spectrum", "CPS")
     
     
     
-    predict.frame.tc <- data.frame(Intensity=intensity/total.counts$CPS, stringsAsFactors=FALSE)
+    predict.frame.tc <- data.frame(Intensity=intensity/total.counts$CPS)
     
     predict.frame.tc
 }
@@ -2767,11 +2711,11 @@ simple_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, nor
     
     compton.ag.fake.Spectrum <- data$Spectrum
     compton.ag.fake.Compton <- rep(1, length(data$Spectrum))
-    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton, stringsAsFactors=FALSE)
+    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
     colnames(compton.ag.fake) <- c("Spectrum", "Compton")
     
-    predict.frame.comp <- data.frame(Intensity=intensity/compton.ag.fake$Compton, stringsAsFactors=FALSE)
-
+    predict.frame.comp <- data.frame(Intensity=intensity/compton.ag.fake$Compton)
+    
     predict.frame.comp
     
 }
@@ -2789,29 +2733,29 @@ lucas_simp_prep_xrf_net <- function(spectra.line.table, element.line, slope.elem
     intensity <- spectra.line.table[,element.line]
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
+    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
     colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     
     
     
     slope.none <- rep(1, length(spectra.line.table[,1]))
-    lucas.slope.table <- data.frame(spectra.line.table, slope.none, stringsAsFactors=FALSE)
+    lucas.slope.table <- data.frame(spectra.line.table, slope.none)
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
     
     
-    lucas.intercept.table <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]), stringsAsFactors=FALSE)
+    lucas.intercept.table <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))
     colnames(lucas.intercept.table) <- c("first")
     
     
     
     lucas.intercept <- lucas.intercept.table$first
-    lucas.slope <- data.frame(lucas.slope.table[,slope.element.lines], stringsAsFactors=FALSE)
+    lucas.slope <- data.frame(lucas.slope.table[,slope.element.lines])
     colnames(lucas.slope) <- slope.element.lines
     
     
     
-    predict.frame.luk <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope, stringsAsFactors=FALSE)
+    predict.frame.luk <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope)
     
     
     
@@ -2831,37 +2775,37 @@ lucas_tc_prep_xrf_net <- function(data, spectra.line.table, element.line, slope.
     
     
     total.counts.net <- rowSums(spectra.line.table[,-1])
-    total.counts <- data.frame(data$Spectrum, total.counts.net, stringsAsFactors=FALSE)
+    total.counts <- data.frame(data$Spectrum, total.counts.net)
     colnames(total.counts) <- c("Spectrum", "CPS")
     
     
     
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
+    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
     colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     
     
     
     slope.none <- rep(1, length(spectra.line.table[,1]))
-    lucas.slope.table <- data.frame(spectra.line.table, slope.none, stringsAsFactors=FALSE)
+    lucas.slope.table <- data.frame(spectra.line.table, slope.none)
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
     
     
     
-    lucas.intercept.table.tc <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]), stringsAsFactors=FALSE)/total.counts$CPS
+    lucas.intercept.table.tc <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))/total.counts$CPS
     colnames(lucas.intercept.table.tc) <- c("first")
     
     
     
     
     lucas.intercept.tc <- lucas.intercept.table.tc$first
-    lucas.slope.tc <- data.frame(lucas.slope.table[,slope.element.lines], stringsAsFactors=FALSE)/total.counts$CPS
+    lucas.slope.tc <- data.frame(lucas.slope.table[,slope.element.lines])/total.counts$CPS
     colnames(lucas.slope.tc) <- slope.element.lines
     
     
-    predict.intensity.luc.tc <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept.tc)-lucas.intercept.tc/(intensity+lucas.intercept.tc))),lucas.slope.tc, stringsAsFactors=FALSE)
+    predict.intensity.luc.tc <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept.tc)-lucas.intercept.tc/(intensity+lucas.intercept.tc))),lucas.slope.tc)
     
     predict.intensity.luc.tc
 }
@@ -2878,36 +2822,36 @@ lucas_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, slop
     
     compton.ag.fake.Spectrum <- data$Spectrum
     compton.ag.fake.Compton <- rep(1, length(data$Spectrum))
-    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton, stringsAsFactors=FALSE)
+    compton.ag.fake <- data.frame(compton.ag.fake.Spectrum,compton.ag.fake.Compton)
     colnames(compton.ag.fake) <- c("Spectrum", "Compton")
     
     
     intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
+    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none)
     colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
     
     
     
     
     slope.none <- rep(1, length(spectra.line.table[,1]))
-    lucas.slope.table <- data.frame(spectra.line.table, slope.none, stringsAsFactors=FALSE)
+    lucas.slope.table <- data.frame(spectra.line.table, slope.none)
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
     
     
     
-    lucas.intercept.table.comp <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]), stringsAsFactors=FALSE)/compton.ag.fake$Compton
+    lucas.intercept.table.comp <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]))/compton.ag.fake$Compton
     colnames(lucas.intercept.table.comp) <- c("first")
     
     
     
     
     lucas.intercept.comp <- lucas.intercept.table.comp$first
-    lucas.slope.comp <- data.frame(lucas.slope.table[,slope.element.lines], stringsAsFactors=FALSE)/compton.ag.fake$Compton
+    lucas.slope.comp <- data.frame(lucas.slope.table[,slope.element.lines])/compton.ag.fake$Compton
     colnames(lucas.slope.comp) <- slope.element.lines
     
     
-
-    predict.frame.luc.comp <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept.comp)-lucas.intercept.comp/(intensity+lucas.intercept.comp))),lucas.slope.comp, stringsAsFactors=FALSE)
+    
+    predict.frame.luc.comp <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept.comp)-lucas.intercept.comp/(intensity+lucas.intercept.comp))),lucas.slope.comp)
     
     
     predict.frame.luc.comp
@@ -2916,7 +2860,7 @@ lucas_comp_prep_xrf_net <- cmpfun(lucas_comp_prep_xrf_net)
 
 
 
-blank.data.frame <- data.frame(rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), stringsAsFactors=FALSE)
+blank.data.frame <- data.frame(rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)))
 colnames(blank.data.frame) <- standard
 
 
@@ -2940,7 +2884,7 @@ create.frame.slopes.xrf <- function(element, slopes, values, intensities){
     
     data.frame(Value=values[,element],
     Intensity=intensities[,"Intensity"],
-    intensities[,slopes], stringsAsFactors=FALSE)
+    intensities[,slopes])
     
 }
 create.frame.slopes.xrf <- cmpfun(create.frame.slopes.xrf)
@@ -2950,7 +2894,7 @@ create.frame.intercepts.xrf <- function(element, slopes, values, intensities){
     
     data.frame(Value=values[,element],
     Intensity=intensities[,"Intensity"],
-    intensities[,slopes], stringsAsFactors=FALSE)
+    intensities[,slopes])
     
 }
 create.frame.intercepts.xrf <- cmpfun(create.frame.intercepts.xrf)
@@ -2974,7 +2918,7 @@ optimal_r_chain.xrf <- function(element, intensities, values, possible.slopes, k
     best.aic <- unlist(aic)[which.min(unlist(aic))]
     #r.adj <- lapply(chain.lm, function(x) summary(x)$adj.r.squared)
     #best <- chain.lm[[which.max(unlist(r.adj))]]
-    coef <- data.frame(best$coefficients, stringsAsFactors=FALSE)
+    coef <- data.frame(best$coefficients)
     best.var <- rownames(coef)[3:length(rownames(coef))]
     
     simple.lm <- lm(Value~Intensity, data=create.frame.slopes(element=element, slopes=element, values=values, intensities=intensities)[keep,])
@@ -2983,10 +2927,10 @@ optimal_r_chain.xrf <- function(element, intensities, values, possible.slopes, k
     simple.aic <- extractAIC(simple.lm, k=log(length(1)))[2]
     
     if(simple.aic <= best.aic){
-           element
-        } else if(best.aic < simple.aic){
-           best.var
-       }
+        element
+    } else if(best.aic < simple.aic){
+        best.var
+    }
     
     #best.var
 }
@@ -3001,7 +2945,7 @@ optimal_norm_chain_xrf <- function(data, element, spectra.line.table, values, po
     chain.lm <- pbapply::pblapply(index, function(x) lm(values[,element]~simple_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=possible.mins[x], norm.max=possible.maxs[x])$Intensity, na.action=na.exclude))
     aic <- lapply(chain.lm, function(x) extractAIC(x, k=log(length(1)))[2])
     best <- index[[which.min(unlist(aic))]]
-
+    
     
     best
     
@@ -3015,7 +2959,7 @@ optimal_intercept_chain_xrf <- function(element, intensities, values, keep){
     chain.lm <- pbapply::pblapply(intensities, function(x) lm(values[,element]~Intensity, data=x[keep,]))
     aic <- lapply(chain.lm, function(x) extractAIC(x, k=log(1))[2])
     best <- chain.lm[[which.min(unlist(aic))]]
-    coef <- data.frame(best$coefficients, stringsAsFactors=FALSE)
+    coef <- data.frame(best$coefficients)
     best.var <- rownames(coef)[3:length(rownames(coef))]
     
     best.var
@@ -3136,15 +3080,15 @@ find_peaks_xrf <- function(spectrum){
     
     #spectrum$Hodder2 <- Hodder.v(spectrum$Hodder)
     #ggplot(spectrum) + geom_line(aes(Energy, Hodder2)) + theme_light()
-
+    
     #spectrum$Peak <- ifelse(spectrum$Hodder2 < (-1), TRUE, FALSE)
     #ggplot(spectrum) + geom_line(aes(Energy, Hodder2)) + theme_light() + geom_point(data=spectrum[spectrum$Peak,], aes(Energy, Hodder2), colour="red", alpha=0.5)
-
-
+    
+    
     spectrum$Hodder <- Hodder.v(Hodder.v(spectrum$CPS))
     spectrum$Peak <- ifelse(spectrum$Hodder < (-1), TRUE, FALSE)
-    data.frame(Energy=spectrum[spectrum$Peak,]$Energy, CPS=spectrum[spectrum$Peak,]$CPS, stringsAsFactors=FALSE)
-
+    data.frame(Energy=spectrum[spectrum$Peak,]$Energy, CPS=spectrum[spectrum$Peak,]$CPS)
+    
 }
 find_peaks_xrf <- cmpfun(find_peaks_xrf)
 
@@ -3192,8 +3136,8 @@ data_summarize <- function(xrf.table) {
     ###Neds work
     xrf.table.aggregate <- xrf.table[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Depth)]
     
-    data <- as.data.frame(dcast.data.table(xrf.table.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
-
+    data <- as.data.frame(dcast.data.table(xrf.table.aggregate, Spectrum~Energy, value.var="CPS"))
+    
     data
     
     
@@ -3296,7 +3240,7 @@ bord.col='lightblue', max.sp = F,...){
         row.nms,
         rep(paste('out',seq(1:struct.out[length(struct.out)])),each=1+struct.out[length(struct.out)-1])
         )
-        out.ls<-data.frame(wts,row.nms, stringsAsFactors=FALSE)
+        out.ls<-data.frame(wts,row.nms)
         out.ls$row.nms<-factor(row.nms,levels=unique(row.nms),labels=unique(row.nms))
         out.ls<-split(out.ls$wts,f=out.ls$row.nms)
         

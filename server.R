@@ -27,9 +27,6 @@ pdf(NULL)
 
 options(shiny.maxRequestSize=30*1024^40)
 
-options(warn=-1)
-assign("last.warning", NULL, envir = baseenv())
-
 shinyServer(function(input, output, session) {
     
 
@@ -666,13 +663,14 @@ shinyServer(function(input, output, session) {
                 
                 element <- datasetInput()
                 intensity.norm <- (element$Intensity/max(element$Intensity))*max(data$CPS)
+                element$Intensity <- intensity.norm
                 intensity.base <- (element$Intensity/max(element$Intensity))
                 
                 
                 qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
                 theme_light()+
                 theme(legend.position="bottom") +
-                geom_segment(aes(x=element$Line, xend=element$Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
+                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
                 scale_colour_discrete("Spectrum") +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y)
 
@@ -691,12 +689,13 @@ shinyServer(function(input, output, session) {
                 
                 element <- datasetInput()
                 intensity.norm <- (element$Intensity/max(element$Intensity))*max(data$CPS)
+                element$Intensity <- intensity.norm
                 intensity.base <- (element$Intensity/max(element$Intensity))
                 
                 qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
                 theme_light()+
                 theme(legend.position="bottom") +
-                geom_segment(aes(x=element$Line, xend=element$Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
+                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
                 scale_colour_discrete("Spectrum") +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y) +
                 guides(colour=FALSE)
@@ -716,13 +715,14 @@ shinyServer(function(input, output, session) {
                 
                 element <- datasetInput()
                 intensity.norm <- (element$Intensity/max(element$Intensity))*max(data.summary$Mean)
+                element$Intensity <- intensity.norm
                 intensity.base <- (element$Intensity/max(element$Intensity))
                 
                 
                 ggplot(data.summary) +
                 geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max), alpha=0.2, fill="red") +
                 geom_line(aes(Energy, Mean), lty=2) +
-                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
+                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
                 scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
                 scale_y_continuous("Counts per Second") +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y) +

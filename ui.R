@@ -7,8 +7,6 @@ library(rhandsontable)
 library(Cairo)
 
 
-options(warn=-1)
-assign("last.warning", NULL, envir = baseenv())
 
 ui=list(
 tagList(
