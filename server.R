@@ -2116,7 +2116,7 @@ shinyServer(function(input, output, session) {
                 
                 so <- seq(from=1, to=length(a.vector), by=1)
                 
-                long <- pblapply(so, function(x) gRbase::combnPrim(x=a.vector, m=x), cl=6L)
+                #long <- pblapply(so, function(x) gRbase::combnPrim(x=a.vector, m=x), cl=6L)
                 and <- pblapply(long, function(x) plyr::alply(x, 2), cl=6L)
                 thanks.for.all.the.fish <- do.call(list, unlist(and, recursive=FALSE))
                 
@@ -2551,7 +2551,7 @@ shinyServer(function(input, output, session) {
                 
                 so <- seq(from=2, to=input$nvariables, by=1)
                 
-                long <- pblapply(so, function(x) gRbase::combnPrim(x=a.vector, m=x), cl=6L)
+                #long <- pblapply(so, function(x) gRbase::combnPrim(x=a.vector, m=x), cl=6L)
                 and <- pblapply(long, function(x) plyr::alply(x, 2), cl=6L)
                 thanks.for.all.the.fish <- do.call(list, unlist(and, recursive=FALSE))
                 thanks.for.all.the.fish <- pblapply(thanks.for.all.the.fish, function(x) c(input$calcurveelement, x))
