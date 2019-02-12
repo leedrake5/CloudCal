@@ -285,14 +285,14 @@ read_csv_filename_y <- function(filename){
 read_csv_filename_y <- cmpfun(read_csv_filename_y)
 
 csvFrame <- function(filepath, filename){
-    
+    filename <- gsub(".csv", "", filename, ignore.case=TRUE)
     data.frame(Energy=read_csv_filename_x(filepath), CPS=read_csv_filename_y(filepath), Spectrum=rep(filename, length(read_csv_filename_x(filepath))), stringsAsFactors=FALSE)
 }
 csvFrame <- cmpfun(csvFrame)
 
 
 readTXTData <- function(filepath, filename){
-    
+    filename <- gsub(".txt", "", filename, ignore.case=TRUE)
     text <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
     channels <- seq(1, length(text$V1)-4, 1)
     counts <- as.numeric(as.character(text$V1[5:length(text$V1)]))
