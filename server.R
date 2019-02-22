@@ -1535,7 +1535,7 @@ shinyServer(function(input, output, session) {
             
             
             if (!is.null(DF))
-            rhandsontable(DF) %>% hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
+            rhandsontable(DF, digits=9) %>% hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
             
             
         })
@@ -2375,6 +2375,7 @@ shinyServer(function(input, output, session) {
             "(Ir) Irridium" = "Ir",
             "(Pt) Platinum" = "Pt",
             "(Au) Gold" = "Au",
+            "(Hg) Mercury" = "Hg",
             "(Tl) Thallium" = "Tl",
             "(Pb) Lead" = "Pb",
             "(Bi) Bismuth" = "Bi",
