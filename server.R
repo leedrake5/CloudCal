@@ -3082,7 +3082,7 @@ shinyServer(function(input, output, session) {
             neuralNetworkSpectraDeepParameters$neuralhiddenunits <- input$neuralhiddenunits
         })
         
-        neuralNetworkSpectraDeep<- reactive({
+        neuralNetworkSpectraDeep <- reactive({
             
             nn.grid <- if(neuralNetworkSpectraDeepParameters$neuralhiddenlayers == 2){
                 expand.grid(
@@ -3113,12 +3113,46 @@ shinyServer(function(input, output, session) {
             
         })
         
+        
+        neuralNetworkSpectraDeepKeras <- reactive({
+            
+            x_train <- as.matrix(rainforestIntensity())[vals$keeprows,]
+            y_train <- rainforestData()$Concentration[vals$keeprows]
+            
+            channels <- length(x_train)/length(y_train)
+
+            model <- keras_model_sequential() %>%
+            k_set_value(model$optimizer$lr = 1e-5) %>%
+            layer_dense(channels, kernel_initializer='normal', activation='relu') %>%
+            layer_dropout(0.2) %>%
+            layer_dense(channels, activation='relu') %>%
+            layer_dropout(0.2) %>%
+            layer_dense(channels, kernel_initializer='normal', activation='relu') %>%
+            layer_dropout(0.2) %>%
+            layer_dense(channels, activation='relu') %>%
+            layer_dropout(0.2) %>%
+            layer_dense(1, activation='linear')
+            
+            model %>% compile(loss='mse', optimizer='adam', metrics=list('mse','mae'))
+            
+            result <- model %>% fit(
+            x_train, y_train,
+            batch_size = 100,
+            epochs = 2000,
+            validation_split = 0.2,
+            verbose=0
+            )
+            
+            model
+            
+        })
+        
         neuralNetworkSpectraModel <- reactive({
             
             if(input$neuralhiddenlayers == 1){
                 neuralNetworkSpectraShallow()
             } else if(input$neuralhiddenlayers > 1){
-                neuralNetworkSpectraDeep()
+                neuralNetworkSpectraDeepCPU()
             }
             
         })

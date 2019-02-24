@@ -2322,6 +2322,9 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compre
 
     if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
     if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    
+    if(compress==FALSE){spectra$Energy <- round(spectra$Energy, 2)}
+    if(compress==FALSE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
 
     
     spectra <- data.table(spectra)
@@ -2345,6 +2348,9 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress
     
     if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
     if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    
+    if(compress==FALSE){spectra$Energy <- round(spectra$Energy, 2)}
+    if(compress==FALSE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
@@ -2380,6 +2386,9 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.m
     
     if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
     if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    
+    if(compress==FALSE){spectra$Energy <- round(spectra$Energy, 2)}
+    if(compress==FALSE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
