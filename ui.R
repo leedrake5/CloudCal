@@ -4,7 +4,6 @@ library(dplyr)
 library(shinythemes)
 library(dtplyr)
 library(rhandsontable)
-library(Cairo)
 
 
 

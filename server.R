@@ -6,7 +6,6 @@ library(dplyr)
 library(DT)
 library(gridExtra)
 library(rhandsontable)
-library(Cairo)
 library(broom)
 library(shinyjs)
 library(formattable)
@@ -1290,7 +1289,7 @@ shinyServer(function(input, output, session) {
         output$download_covarlines <- downloadHandler(
         filename = function() { paste(paste(c(input$calname, "Line_Correlations"), collapse=''), '.tiff',  sep='') },
         content = function(file) {
-            ggsave(file,covarPlotLine(), device="tiff", compression="lzw", type="cairo", dpi=300, width=18, height=7)
+            ggsave(file,covarPlotLine(), device="tiff", compression="lzw",  dpi=300, width=18, height=7)
         }
         )
         
@@ -1568,7 +1567,7 @@ shinyServer(function(input, output, session) {
         output$download_covarvalues <- downloadHandler(
         filename = function() { paste(paste(c(input$calname, "_Value_Correlations"), collapse=''), '.tiff',  sep='') },
         content = function(file) {
-            tiff(file, compression="lzw", type="cairo", width=18, height=18)
+            tiff(file, compression="lzw",  width=18, height=18)
             covarPlotValues()
             dev.off()
         }
@@ -2538,7 +2537,7 @@ shinyServer(function(input, output, session) {
         output$variablePlot <- downloadHandler(
         filename = function() { paste0(input$calname, "_", input$calcurveelemenet , '_Variables', '.tiff', sep='') },
         content = function(file) {
-            ggsave(file,variablesPlot(), width=14, height=8, device="tiff", compression="lzw", type="cairo", dpi=300)
+            ggsave(file,variablesPlot(), width=14, height=8, device="tiff", compression="lzw",  dpi=300)
         }
         )
         
@@ -3122,7 +3121,6 @@ shinyServer(function(input, output, session) {
             channels <- length(x_train)/length(y_train)
 
             model <- keras_model_sequential() %>%
-            k_set_value(model$optimizer$lr = 1e-5) %>%
             layer_dense(channels, kernel_initializer='normal', activation='relu') %>%
             layer_dropout(0.2) %>%
             layer_dense(channels, activation='relu') %>%
@@ -4231,7 +4229,7 @@ shinyServer(function(input, output, session) {
         output$downloadcloudplot <- downloadHandler(
         filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement), collapse=''), '.tiff',  sep='') },
         content = function(file) {
-            ggsave(file,calPlotDownload(), device="tiff", compression="lzw", type="cairo", dpi=300, width=12, height=7)
+            ggsave(file,calPlotDownload(), device="tiff", compression="lzw",  dpi=300, width=12, height=7)
         }
         )
         
@@ -5467,7 +5465,7 @@ shinyServer(function(input, output, session) {
         output$diagplots <- downloadHandler(
         filename = function() { paste(input$calname, "_", input$calcurveelement, "_diag", ".tiff", sep='') },
         content = function(file) {
-            ggsave(file,diagPlotDownload(), width=10, height=10, device="tiff", compression="lzw", type="cairo", dpi=300, )
+            ggsave(file,diagPlotDownload(), width=10, height=10, device="tiff", compression="lzw",  dpi=300, )
         }
         )
         
@@ -7467,7 +7465,7 @@ observeEvent(input$actionprocess2_multi, {
         output$variablePlot_multi <- downloadHandler(
         filename = function() { paste0(input$calname_multi, "_", input$calcurveelemenet_multi , '_Variables', '.tiff', sep='') },
         content = function(file) {
-            ggsave(file,variablesPlotMulti(), width=14, height=8, device="tiff", compression="lzw", type="cairo", dpi=300)
+            ggsave(file,variablesPlotMulti(), width=14, height=8, device="tiff", compression="lzw",  dpi=300)
         }
         )
         
@@ -8957,7 +8955,7 @@ observeEvent(input$actionprocess2_multi, {
         output$downloadcloudplot_multi <- downloadHandler(
         filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement_multi), collapse=''), '.tiff',  sep='') },
         content = function(file) {
-            ggsave(file,calPlotDownloadMulti(), device="tiff", compression="lzw", type="cairo", dpi=300, width=18, height=7)
+            ggsave(file,calPlotDownloadMulti(), device="tiff", compression="lzw",  dpi=300, width=18, height=7)
         }
         )
         
@@ -8976,7 +8974,7 @@ observeEvent(input$actionprocess2_multi, {
         output$downloadcloudplot_multi_val <- downloadHandler(
         filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement_multi), collapse=''), '.tiff',  sep='') },
         content = function(file) {
-            ggsave(file,calPlotDownloadMulti_val(), device="tiff", compression="lzw", type="cairo", dpi=300, width=18, height=7)
+            ggsave(file,calPlotDownloadMulti_val(), device="tiff", compression="lzw",  dpi=300, width=18, height=7)
         }
         )
         
