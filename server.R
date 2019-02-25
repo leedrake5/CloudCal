@@ -1757,7 +1757,7 @@ shinyServer(function(input, output, session) {
             
             foresttry <- as.numeric(7)
             forestmetric <- as.character("RMSE")
-            foresttrain <- as.character("cv")
+            foresttrain <- as.character("repeatedcv")
             forestnumber <- as.numeric(10)
             foresttrees <- as.numeric(100)
             neuralhiddenlayers <- as.numeric(1)
@@ -3573,198 +3573,43 @@ shinyServer(function(input, output, session) {
         })
         
         output$foresttryui <- renderUI({
-            
-            if(input$radiocal==1){
-                NULL
-            } else if(input$radiocal==2){
-                NULL
-            } else if(input$radiocal==3){
-                NULL
-            } else if(input$radiocal==4){
-                sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
-            }  else if(input$radiocal==5){
-                sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
-            } else if(input$radiocal==6 && input$neuralhiddenlayers == 1){
-                NULL
-            } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
-                sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
-            } else if(input$radiocal==7 && input$neuralhiddenlayers == 1){
-                NULL
-            } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
-                sliderInput("foresttry", label="Sampling", min=2, max=maxSample()-2, value=forestTrySelection())
-            }
-            
+            forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=input$neuralhiddenlayers, selection=forestTrySelection(), maxsample=maxSample())
         })
         
         
         output$forestmetricui <- renderUI({
-            
-            if(input$radiocal==1){
-                NULL
-            } else if(input$radiocal==2){
-                NULL
-            } else if(input$radiocal==3){
-                NULL
-            } else if(input$radiocal==4){
-                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Kappa"="Kappa", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
-            } else if(input$radiocal==5){
-                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
-            } else if(input$radiocal==6){
-                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
-            } else if(input$radiocal==7){
-                selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=forestMetricSelection())
-            }
-            
+            forestMetricUI(radiocal=input$radiocal, selection=forestMetricSelection())
         })
         
         
         output$foresttrainui <- renderUI({
-            
-            if(input$radiocal==1){
-                NULL
-            } else if(input$radiocal==2){
-                NULL
-            } else if(input$radiocal==3){
-                NULL
-            } else if(input$radiocal==4){
-                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
-            }  else if(input$radiocal==5){
-                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelection())
-            } else if(input$radiocal==6){
-                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
-            } else if(input$radiocal==7){
-                selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=forestTrainSelection())
-            }
-            
+            forestTrainUI(radiocal=input$radiocal, selection=forestTrainSelection())
         })
         
         output$forestnumberui <- renderUI({
-            
-            if(input$radiocal==1){
-                NULL
-            } else if(input$radiocal==2){
-                NULL
-            } else if(input$radiocal==3){
-                NULL
-            } else if(input$radiocal==4){
-                sliderInput("forestnumber", label="Iterations", min=5, max=500, value=forestNumberSelection())
-            }  else if(input$radiocal==5){
-                sliderInput("forestnumber", label="Iterations", min=5, max=500, value=forestNumberSelection())
-            } else if(input$radiocal==6){
-                sliderInput("forestnumber", label="Iterations", min=5, max=500, value=forestNumberSelection())
-            } else if(input$radiocal==7){
-                sliderInput("forestnumber", label="Iterations", min=5, max=500, value=forestNumberSelection())
-            }
-            
+            forestNumberUI(radiocal=input$radiocal, selection=forestNumberSelection())
         })
         
         
         output$foresttreesui <- renderUI({
-            
-            if(input$radiocal==1){
-                NULL
-            } else if(input$radiocal==2){
-                NULL
-            } else if(input$radiocal==3){
-                NULL
-            } else if(input$radiocal==4){
-                sliderInput("foresttrees", label="Trees", min=50, max=2000, value=forestTreeSelection())
-            } else if(input$radiocal==5){
-                sliderInput("foresttrees", label="Trees", min=50, max=2000, value=forestTreeSelection())
-            } else if(input$radiocal==6){
-                NULL
-            } else if(input$radiocal==7){
-                NULL
-            }
-            
+            forestTreesUI(radiocal=input$radiocal, selection=forestTreeSelection())
         })
         
         output$neuralhiddenlayersui <- renderUI({
-            
-            if(input$radiocal==1){
-                NULL
-            } else if(input$radiocal==2){
-                NULL
-            } else if(input$radiocal==3){
-                NULL
-            } else if(input$radiocal==4){
-                NULL
-            }  else if(input$radiocal==5){
-                NULL
-            } else if(input$radiocal==6){
-                sliderInput("neuralhiddenlayers", label="Hidden Layers", min=1, max=3, value=neuralHiddenLayersSelection())
-            } else if(input$radiocal==7){
-                sliderInput("neuralhiddenlayers", label="Hidden Layers", min=1, max=3, value=neuralHiddenLayersSelection())
-            }
-            
+            neuralHiddenLayersUI(radiocal=input$radiocal, selection=neuralHiddenLayersSelection())
         })
         
         output$neuralhiddenunitsui <- renderUI({
-            
-            if(input$radiocal==1){
-                NULL
-            } else if(input$radiocal==2){
-                NULL
-            } else if(input$radiocal==3){
-                NULL
-            } else if(input$radiocal==4){
-                NULL
-            }  else if(input$radiocal==5){
-                NULL
-            } else if(input$radiocal==6){
-                sliderInput("neuralhiddenunits", label="Hidden Units", min=1, max=10, value=neuralHiddenUnitsSelection())
-            } else if(input$radiocal==7){
-                sliderInput("neuralhiddenunits", label="Hidden Units", min=1, max=10, value=neuralHiddenUnitsSelection())
-            }
-            
+            neuralHiddenUnitsUi(radiocal=input$radiocal, selection=neuralHiddenUnitsSelection())
         })
         
         output$neuralweightdecayui <- renderUI({
-            
-            if(input$radiocal==1){
-                NULL
-            } else if(input$radiocal==2){
-                NULL
-            } else if(input$radiocal==3){
-                NULL
-            } else if(input$radiocal==4){
-                NULL
-            }  else if(input$radiocal==5){
-                NULL
-            } else if(input$radiocal==6 && input$neuralhiddenlayers == 1){
-                sliderInput("neuralweightdecay", label="Weight Decay", min=0.1, max=0.7, step=0.1, value=neuralWeightDecaySelection())
-            } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
-                NULL
-            } else if(input$radiocal==7 && input$neuralhiddenlayers == 1){
-                sliderInput("neuralweightdecay", label="Weight Decay", min=0.1, max=0.7, step=0.1, value=neuralWeightDecaySelection())
-            } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
-                NULL
-            }
-            
+            neuralWeightDecayUI(radiocal=input$radiocal, selection=neuralWeightDecaySelection(), neuralhiddenlayers=input$neuralhiddenlayers)
         })
         
         output$neuralmaxiterationsui <- renderUI({
-            
-            if(input$radiocal==1){
-                NULL
-            } else if(input$radiocal==2){
-                NULL
-            } else if(input$radiocal==3){
-                NULL
-            } else if(input$radiocal==4){
-                NULL
-            }  else if(input$radiocal==5){
-                NULL
-            } else if(input$radiocal==6 && input$neuralhiddenlayers == 1){
-                sliderInput("neuralmaxiterations", label="Max Iterations", min=50, max=2000, value=neuralMaxIterationsSelection())
-            } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
-                NULL
-            } else if(input$radiocal==7 && input$neuralhiddenlayers == 1){
-                sliderInput("neuralmaxiterations", label="Max Iterations", min=50, max=2000, value=neuralMaxIterationsSelection())
-            } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
-                NULL
-            }
-            
+            neuralMaxIterationsUI(radiocal=input$radiocal, selection=neuralMaxIterationsSelection(), neuralhiddenlayers=input$neuralhiddenlayers)
+
         })
         
         
