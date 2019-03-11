@@ -73,6 +73,7 @@ library(parallel)
 library(randomForest)
 library(nnet)
 library(neuralnet)
+library(gridExtra)
 
 enableJIT(3)
 
@@ -3774,4 +3775,508 @@ neuralMaxIterationsUI <- function(radiocal, selection, neuralhiddenlayers){
     } else if(radiocal==7 && neuralhiddenlayers > 1){
         NULL
     }
+}
+
+lineSubset <- function(spectra, definitions){
+    xrf_parse(range.table=definitions, data=spectra)
+}
+
+spectraData <- function(spectra, element.lines.to.use, definitions){
+    
+    line.data <- elementFrame(data=spectra, elements=element.lines.to.use)
+    
+    table <- definitions
+    table <- table[complete.cases(table),]
+    
+    line.subset <- lineSubset(spectra=spectra, definitions=definitions)
+    
+    result <- if(length(table[,1])==0){
+        line.data
+    } else if(length(table[,1])!=0){
+        merge(line.data, line.subset, by="Spectrum")
+    }
+    
+    return(result)
+}
+
+netData <- function(spectra, element.lines.to.use){
+    
+    net.data <- spectra
+    
+    elements <- element.lines.to.use
+    
+    
+    net.data.partial <- net.data[,elements]
+    net.data <- data.frame(net.data$Spectrum ,net.data.partial)
+    colnames(net.data) <- c("Spectrum", elements)
+    net.data <- net.data[order(as.character(net.data$Spectrum)),]
+    
+    net.data$Spectrum <- gsub(".csv", "", net.data$Spectrum)
+    net.data$Spectrum <- gsub(".CSV", "", net.data$Spectrum)
+    
+    return(net.data)
+    
+}
+
+holdFrame <- function(intensities, values, element){
+    spectra.line.table <- intensities
+    concentration.table <- values
+    spectra.line.table$Spectrum <- concentration.table$Spectrum
+    
+    concentration.table <- concentration.table[concentration.table$Spectrum %in% spectra.line.table$Spectrum,]
+    spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum,]
+    
+    concentration <- as.vector(as.numeric(unlist(concentration.table[,element])))
+    
+    hold.frame <- data.frame(spectra.line.table, Concentration=concentration)
+    
+    return(hold.frame[complete.cases(hold.frame),])
+}
+
+spectrumSelect <- function(spectra, hold.frame){
+    data <- spectra
+    return(data[data$Spectrum %in% hold.frame$Spectrum, ])
+}
+
+predictIntensitySimpPre <- function(spectra, hold.frame, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    
+    data <- spectra
+    spectra.line.table <- holdFrame()
+    
+    if(inorm.type==1){
+        if(data.type=="Spectra"){
+            general_prep_xrf(spectra.line.table=spectra.line.table, element.line=element)
+        } else if(data.type=="Net"){
+            general_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=element)
+        }
+    } else if(norm.type==2){
+        predict.intensity <- if(data.type=="Spectra"){
+            simple_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element)
+        } else if(data.type=="Net"){
+            simple_tc_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=element)
+        }
+    } else if(norm.type==3){
+        predict.intensity <- if(data.type=="Spectra"){
+            simple_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=norm.min, norm.max=norm.max)
+        } else if(data.type=="Net"){
+            simple_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=norm.min, norm.max=norm.max)
+        }
+    }
+    
+    return(predict.intensity)
+}
+
+
+predictFrameSimp <- function(spectra, hold.frame, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    
+    data <- spectra
+    spectra.line.table <- hold.frame
+    
+    predict.intensity.simp <- predictIntensitySimpPre(spectra=spectra, hold.frame=hold.frame, element=element, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    
+    predict.frame.simp <- data.frame(predict.intensity.simp, spectra.line.table[,"Concentration"])
+    colnames(predict.frame.simp) <- c(names(predict.intensity.simp), "Concentration")
+    predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp$Concentration),]
+    
+    predict.frame.simp
+    
+}
+
+predictIntensitySimp <- function(predict.frame){
+    predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
+}
+
+predictIntensityForestPre <- function(spectra, hold.frame, element, intercepts, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    
+    data <- spectra
+    spectra.line.table <- hold.frame
+    element.lines.to.use <- names(hold.frame)[!names(hold.frame) %in% c("Spectrum", "Concentration")]
+    
+    
+    if(norm.type==1){
+        if(data.type=="Spectra"){
+            lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
+        } else if(data.type=="Net"){
+            lucas_simp_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
+        }
+    } else if(norm.type==2){
+        predict.intensity <- if(data.type=="Spectra"){
+            lucas_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
+        } else if(data.type=="Net"){
+            lucas_tc_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
+        }
+    } else if(norm.type==3){
+        predict.intensity <- if(data.type=="Spectra"){
+            lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts, norm.min=norm.min, norm.max=nom.max)
+        } else if(data.type=="Net"){
+            lucas_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts, norm.min=norm.min, norm.max=norm.max)
+        }
+    }
+    
+    return(predict.intensity)
+}
+
+
+predictFrameForest <- function(spectra, hold.frame, element, intercepts, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    
+    spectra.line.table <- hold.frame
+    
+    
+    predict.intensity.forest <- predictIntensityForestPre(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    
+    predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=spectra.line.table[,"Concentration"])
+    predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
+    
+    return(predict.frame.forest)
+    
+}
+
+predictIntensityForest <- function(predict.frame){
+    predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
+}
+
+predictIntensityLucPre <- function(spectra, hold.frame, element, intercepts, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    
+    predict.intensity.forest <- predictIntensityForestPre(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+
+    predict.intensity.forest[,c("Intensity", slopes)]
+    
+}
+
+predictFrameLuc <- function(spectra, hold.frame, element, intercepts, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    
+    data <- spectra
+    spectra.line.table <- hold.frame
+    
+    
+    predict.intensity.luc <- predictIntensityLucPre(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, slopes=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    
+    predict.frame.luc <- data.frame(predict.intensity.luc, spectra.line.table[,"Concentration"])
+    predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc),]
+    colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
+    predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc$Concentration),]
+    
+    return(predict.frame.luc)
+}
+
+predictIntensityLuc <- function(predict.frame){
+    predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
+}
+
+rainforestIntensityPre <- function(spectra, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    data <- spectra
+    
+    spectra.data <- if(norm.type==1){
+        if(data.type=="Spectra"){
+            spectra_simp_prep_xrf(spectra=data)[,-1]
+        } else if(data.type=="Net"){
+            NULL
+        }
+    } else if(norm.type==2){
+        if(data.type=="Spectra"){
+            spectra_tc_prep_xrf(spectra=data)[,-1]
+        } else if(data.type=="Net"){
+            NULL
+        }
+    } else if(norm.type==3){
+        if(data.type=="Spectra"){
+            spectra_comp_prep_xrf(spectra=data, norm.min=norm.min, norm.max=norm.max)[,-1]
+        } else if(data.type=="Net"){
+            NULL
+        }
+    }
+    
+    
+    return(spectra.data)
+}
+
+
+rainforestData <- function(spectra, hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    
+    spectra.line.table <- hold.frame
+    
+    spectra.data <- rainforestIntensityPre(spectra=spectra, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    
+    
+    
+    spectra.data$Concentration <- spectra.line.table[complete.cases(spectra.line.table[,"Concentration"]),]$Concentration
+    spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
+    
+    return(spectra.data)
+}
+
+rainforestIntensity <- function(rainforest.data){
+    rainforest.data[,!(colnames(rainforest.data) %in% "Concentration")]
+}
+
+
+predictFrame <- function(cal.type, spectra){
+    if (input$radiocal==1){
+        predictFrameSimp()
+    } else if(input$radiocal==2){
+        predictFrameSimp()
+    } else if(input$radiocal==3){
+        predictFrameLuc()
+    } else if(input$radiocal==4){
+        predictFrameForest()
+    } else if(input$radiocal==5){
+        rainforestData()
+    } else if(input$radiocal==6){
+        predictFrameForest()
+    } else if(input$radiocal==7){
+        rainforestData()
+    }
+}
+
+
+valFrame <- function(predict.intensity, predict.frame, element.model.list, cal.type){
+    element.model <- element.model.list[[2]]
+    
+    
+    if (cal.type==1){
+        cal.est.conc.pred <- predict(object=element.model, newdata=predict.intensity, interval='confidence')
+        cal.est.conc.tab <- data.frame(cal.est.conc.pred)
+        cal.est.conc <- cal.est.conc.tab$fit
+        
+        val.frame <- data.frame(na.omit(predict.frame$Concentration), cal.est.conc)
+        colnames(val.frame) <- c("Concentration", "Prediction")
+    }
+    
+    if (cal.type==2){
+        cal.est.conc.pred <- predict(object=element.model, newdata=predict.intensity, interval='confidence')
+        cal.est.conc.tab <- data.frame(cal.est.conc.pred)
+        cal.est.conc <- cal.est.conc.tab$fit
+        
+        val.frame <- data.frame(na.omit(predict.frame$Concentration), cal.est.conc)
+        colnames(val.frame) <- c("Concentration", "Prediction")
+    }
+    
+    if (cal.type==3){
+        
+        
+        cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, interval='confidence')
+        cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+        cal.est.conc.luc <- cal.est.conc.tab$fit
+        cal.est.conc.luc.up <- cal.est.conc.tab$upr
+        cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+        
+        
+        val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, cal.est.conc.luc, cal.est.conc.luc, cal.est.conc.luc.up, cal.est.conc.luc.low)
+        colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction", "Upper", "Lower")
+    }
+    
+    if (cal.type==4){
+        
+        
+        
+        cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+        #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+        #cal.est.conc.luc <- cal.est.conc.tab$fit
+        #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+        #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+        
+        
+        val.frame <- data.frame(predict.frame$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+        colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction")
+    }
+    
+    
+    if (cal.type==5){
+        
+        
+        cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+        #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+        #cal.est.conc.luc <- cal.est.conc.tab$fit
+        #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+        #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+        
+        
+        val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+        colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
+    }
+    
+    
+    if (cal.type==6){
+        
+        
+        cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+        #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+        #cal.est.conc.luc <- cal.est.conc.tab$fit
+        #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+        #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+        
+        
+        val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+        colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
+    }
+    
+    
+    if (cal.type==7){
+        
+        
+        cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+        #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+        #cal.est.conc.luc <- cal.est.conc.tab$fit
+        #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+        #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+        
+        
+        val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+        colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
+    }
+    
+    
+    
+    
+    return(val.frame)
+}
+
+calCurvePlot <- function(predict.frame, element.model.list, val.frame, element, cal.type, unit="%"){
+    
+    element.name <- if(element %in% spectralLines){
+        gsub("[.]", "", substr(element, 1, 2))
+    } else {
+        element
+    }
+    
+    intens <- " Counts per Second"
+    norma <- " Normalized"
+    norma.comp <- " Compton Normalized"
+    norma.tc <- " Valid Counts Normalized"
+    conen <- paste0(" ", unit)
+    predi <- paste0(" Estimate ", unit)
+    log <- "Log "
+    
+    
+    intensity.name <- c(element.name, intens)
+    concentration.name <- c(element.name, conen)
+    prediction.name <- c(element.name, predi)
+    
+    use.standards <- element.model.list[[1]]$StandardsUsed
+    element.model <- element.model.list[[2]]
+    
+    
+    
+    
+    if(cal.type==1){
+        calcurve.plot <- ggplot(data=predict.frame[use.standards, , drop = FALSE], aes(Intensity, Concentration)) +
+        theme_light() +
+        annotate("text", label=lm_eqn(lm(Concentration~Intensity, predict.frame[use.standards, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        stat_smooth(method="lm", fullrange = TRUE) +
+        geom_point() +
+        geom_point(data = predict.frame[!use.standards, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+        scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+        scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+        coord_cartesian(expand = TRUE)
+        
+    }
+    
+    if(cal.type==2){
+        calcurve.plot <- ggplot(data=predict.frame[use.standards, , drop = FALSE], aes(Intensity, Concentration)) +
+        theme_light() +
+        annotate("text", label=lm_eqn_poly(lm(Concentration~Intensity + I(Intensity^2), predict.frame[use.standards, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        stat_smooth(method="lm", formula=y~poly(x,2)) +
+        geom_point() +
+        geom_point(data = predict.frame[!use.standards, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+        scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+        scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+        coord_cartesian(expand = TRUE)
+        
+    }
+    
+    if(cal.type==3){
+        calcurve.plot <- ggplot(data=val.frame[use.standards, , drop = FALSE], aes(Intensity, Concentration)) +
+        theme_light() +
+        annotate("text", label=lm_eqn(lm(Concentration~., val.frame[use.standards, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper)) +
+        geom_point() +
+        geom_point(aes(Intensity, Concentration), data = val.frame[!use.standards, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+        scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+        scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+        coord_cartesian(expand = TRUE)
+        
+    }
+    
+    if(cal.type==4){
+        calcurve.plot <- ggplot(data=val.frame[use.standards, , drop = FALSE], aes(Intensity, Concentration)) +
+        theme_light() +
+        annotate("text", label=lm_eqn(lm(Concentration~., val.frame[use.standards, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_smooth() +
+        geom_point() +
+        geom_point(aes(Intensity, Concentration), data = val.frame[!use.standards, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+        scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+        scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+        coord_cartesian(expand = TRUE)
+        
+    }
+    
+    if(cal.type==5){
+        calcurve.plot <- ggplot(data=val.frame[use.standards, , drop = FALSE], aes(Intensity, Concentration)) +
+        theme_light() +
+        annotate("text", label=lm_eqn(lm(Concentration~., val.frame[use.standards, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_smooth() +
+        geom_point() +
+        geom_point(aes(Intensity, Concentration), data = val.frame[!use.standards, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+        scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+        scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+        coord_cartesian(expand = TRUE)
+        
+    }
+    
+    if(cal.type==6){
+        
+        calcurve.plot <- grobTree(plot.nnet(element.model,nid=T))
+        
+    }
+    
+    if(cal.type==7){
+        
+        calcurve.plot <- grobTree(plot.nnet(element.model,nid=T))
+        
+        
+    }
+    
+    return(calcurve.plot)
+}
+
+valCurvePlot <- function(val.frame, element, element.model.list, unit){
+    element.model <- elementModel()
+    
+    
+    
+    element.name <- if(element %in% spectralLines){
+        gsub("[.]", "", substr(element, 1, 2))
+    } else {
+        element
+    }
+    
+    intens <- " Counts per Second"
+    norma <- " Normalized"
+    norma.comp <- " Compton Normalized"
+    norma.tc <- " Valid Counts Normalized"
+    conen <- paste0(" ", unit)
+    predi <- paste0(" Estimate ", unit)
+    log <- "Log "
+    
+    intensity.name <- c(element.name, intens)
+    concentration.name <- c(element.name, conen)
+    prediction.name <- c(element.name, predi)
+    val.frame <- valFrame()
+    
+    use.standards <- element.model.list[[1]]$StandardsUsed
+
+
+    valcurve.plot <- ggplot(data=val.frame[use.standards, , drop = FALSE], aes(Prediction, Concentration)) +
+    theme_bw() +
+    annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[use.standards, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+    geom_abline(intercept=0, slope=1, lty=2) +
+    stat_smooth(method="lm") +
+    geom_point() +
+    geom_point(aes(Prediction, Concentration),  data = val.frame[!use.standards, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+    scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
+    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+    coord_cartesian(expand = TRUE)
+    
+
+    return(valcurve.plot)
 }
