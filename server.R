@@ -2827,7 +2827,7 @@ shinyServer(function(input, output, session) {
             
             rf_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE],method="rf", type="Regression",
             trControl=trainControl(method=forestParameters$foresttrain, number=forestParameters$forestnumber), ntree=forestParameters$foresttrees,
-            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=forestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit)
+            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=forestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
             
             stopCluster(cl)
             rf_model
@@ -2948,7 +2948,7 @@ shinyServer(function(input, output, session) {
             
             rf_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method=rainforestParameters$foresttrain, number=rainforestParameters$forestnumber), ntree=rainforestParameters$foresttrees,
-            prox=TRUE,allowParallel=TRUE, metric=rainforestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE)
+            prox=TRUE,allowParallel=TRUE, metric=rainforestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
             
             
             stopCluster(cl)
@@ -2979,7 +2979,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkIntensityShallowParameters$foresttrain, number=neuralNetworkIntensityShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkIntensityShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkIntensityShallowParameters$neuralmaxiterations, trace=F)
+            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkIntensityShallowParameters$foresttrain, number=neuralNetworkIntensityShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkIntensityShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkIntensityShallowParameters$neuralmaxiterations, trace=F, trim=TRUE)
             
             
             stopCluster(cl)
@@ -3020,7 +3020,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=neuralNetworkIntensityDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkIntensityDeepParameters$foresttrain, number=neuralNetworkIntensityDeepParameters$forestnumber), metric=neuralNetworkIntensityDeepParameters$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
+            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=neuralNetworkIntensityDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkIntensityDeepParameters$foresttrain, number=neuralNetworkIntensityDeepParameters$forestnumber), metric=neuralNetworkIntensityDeepParameters$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE, trim=TRUE)
             
             
             stopCluster(cl)
@@ -3062,7 +3062,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkSpectraShallowParameters$foresttrain, number=neuralNetworkSpectraShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkSpectraShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkSpectraShallowParameters$neuralmaxiterations, trace=F)
+            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkSpectraShallowParameters$foresttrain, number=neuralNetworkSpectraShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkSpectraShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkSpectraShallowParameters$neuralmaxiterations, trace=F, trim=TRUE)
             
             
             stopCluster(cl)
@@ -3104,7 +3104,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=neuralNetworkSpectraDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkSpectraDeepParameters$foresttrain, number=neuralNetworkSpectraDeepParameters$forestnumber), metric=neuralNetworkSpectraDeepParameters$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
+            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=neuralNetworkSpectraDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkSpectraDeepParameters$foresttrain, number=neuralNetworkSpectraDeepParameters$forestnumber), metric=neuralNetworkSpectraDeepParameters$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE, trim=TRUE)
             
             
             stopCluster(cl)
@@ -4161,7 +4161,7 @@ shinyServer(function(input, output, session) {
             
             rf_model<-caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression",
             trControl=trainControl(method=forestParameters$foresttrain, number=forestParameters$forestnumber), ntree=forestParameters$foresttrees,
-            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=forestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit)
+            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=forestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
             
             stopCluster(cl)
             rf_model
@@ -4181,7 +4181,7 @@ shinyServer(function(input, output, session) {
             
             rf_model<-caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression",
             trControl=trainControl(method=rainforestParameters$foresttrain, number=rainforestParameters$forestnumber), ntree=rainforestParameters$foresttrees,
-            prox=TRUE,allowParallel=TRUE, metric=rainforestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE)
+            prox=TRUE,allowParallel=TRUE, metric=rainforestParameters$forestmetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
             
             
             stopCluster(cl)
@@ -4202,7 +4202,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkIntensityShallowParameters$foresttrain, number=neuralNetworkIntensityShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkIntensityShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkIntensityShallowParameters$neuralmaxiterations, trace=F)
+            nn_model<-caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkIntensityShallowParameters$foresttrain, number=neuralNetworkIntensityShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkIntensityShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkIntensityShallowParameters$neuralmaxiterations, trace=F, trim=TRUE)
             
             
             stopCluster(cl)
@@ -4233,7 +4233,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predict.frame, method="neuralnet", rep=neuralNetworkIntensityDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkIntensityDeepParameters$foresttrain, number=neuralNetworkIntensityDeepParameters$forestnumber), metric=neuralNetworkIntensityDeepParameters$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
+            nn_model<-caret::train(Concentration~.,data=predict.frame, method="neuralnet", rep=neuralNetworkIntensityDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkIntensityDeepParameters$foresttrain, number=neuralNetworkIntensityDeepParameters$forestnumber), metric=neuralNetworkIntensityDeepParameters$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE, trim=TRUE)
             
             
             stopCluster(cl)
@@ -4254,7 +4254,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkSpectraShallowParameters$foresttrain, number=neuralNetworkSpectraShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkSpectraShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkSpectraShallowParameters$neuralmaxiterations, trace=F)
+            nn_model<-caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=trainControl(method=neuralNetworkSpectraShallowParameters$foresttrain, number=neuralNetworkSpectraShallowParameters$forestnumber), allowParallel=TRUE, metric=neuralNetworkSpectraShallowParameters$forestmetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=neuralNetworkSpectraShallowParameters$neuralmaxiterations, trace=F, trim=TRUE)
             
             
             stopCluster(cl)
@@ -4285,7 +4285,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predict.frame, method="neuralnet", rep=neuralNetworkSpectraDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkSpectraDeepParameters$foresttrain, number=neuralNetworkSpectraDeepParameters$forestnumber), metric=neuralNetworkSpectraDeepParameters$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
+            nn_model<-caret::train(Concentration~.,data=predict.frame, method="neuralnet", rep=neuralNetworkSpectraDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkSpectraDeepParameters$foresttrain, number=neuralNetworkSpectraDeepParameters$forestnumber), metric=neuralNetworkSpectraDeepParameters$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE, trim=TRUE)
             
             
             stopCluster(cl)
@@ -6689,7 +6689,7 @@ observeEvent(input$actionprocess2_multi, {
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
-            prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE))
+            prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE, trim=TRUE))
             stopCluster(cl)
             names(cal.lm) <- quantNames()
             cal.lm
@@ -6821,7 +6821,7 @@ observeEvent(input$actionprocess2_multi, {
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=rainforestDataMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
-            prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE))
+            prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE, trim=TRUE))
             stopCluster(cl)
             names(cal.lm) <- quantNames()
             cal.lm
@@ -6948,7 +6948,7 @@ observeEvent(input$actionprocess2_multi, {
                 parallel::makeForkCluster(as.numeric(my.cores))
             }
             registerDoParallel(cl)
-            train_model <- lapply(quantNames(), function(x) caret::train(Concentration~., data=cal.table[[x]][,-1], method="rf", metric=metric, trControl=control, allowParallel=TRUE, prox=TRUE, importance=TRUE))
+            train_model <- lapply(quantNames(), function(x) caret::train(Concentration~., data=cal.table[[x]][,-1], method="rf", metric=metric, trControl=control, allowParallel=TRUE, prox=TRUE, importance=TRUE, trim=TRUE))
             
             stopCluster(cl)
             names(train_model) <- quantNames()
@@ -7865,7 +7865,7 @@ observeEvent(input$actionprocess2_multi, {
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
                 trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
-                prox=TRUE, metric=input$forestmetric_multi, allowParallel=TRUE, na.action=na.omit, importance=TRUE))
+                prox=TRUE, metric=input$forestmetric_multi, allowParallel=TRUE, na.action=na.omit, importance=TRUE, trim=TRUE))
                 stopCluster
             }
             
@@ -7885,7 +7885,7 @@ observeEvent(input$actionprocess2_multi, {
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
                 trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
-                prox=TRUE, allowParallel=TRUE, metric=input$forestmetric_multi,  na.action=na.omit, importance=TRUE))
+                prox=TRUE, allowParallel=TRUE, metric=input$forestmetric_multi,  na.action=na.omit, importance=TRUE, trim=TRUE))
                 stopCluster
             }
             

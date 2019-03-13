@@ -269,7 +269,6 @@ tags$hr(),
 downloadButton('downloadModel', "Model"),
 downloadButton('downloadReport', "Report"),
 
-
 tags$hr(),
 
 actionButton('trainslopes', "Train"),
