@@ -4280,3 +4280,38 @@ valCurvePlot <- function(val.frame, element, element.model.list, unit){
 
     return(valcurve.plot)
 }
+
+modelSummary <- function(element.model, element.name){
+    
+    model.class <- if(element.model[[1]][["CalTable"]]$CalType==1){
+        "Regression"
+    } else if(element.model[[1]][["CalTable"]]$CalType==2){
+        "Regression"
+    } else if(element.model[[1]][["CalTable"]]$CalType==3){
+        "Regression"
+    } else if(element.model[[1]][["CalTable"]]$CalType==4){
+        "Caret"
+    } else if(element.model[[1]][["CalTable"]]$CalType==5){
+        "Caret"
+    } else if(element.model[[1]][["CalTable"]]$CalType==6){
+        "Caret"
+    } else if(element.model[[1]][["CalTable"]]$CalType==7){
+        "Caret"
+    }
+    
+    r2 <- if(model.class=="Regression"){
+        summary(element.model[[2]])$r.squared
+    } else if(model.class=="Caret"){
+        element.model[[2]][["results"]]$Rsquared
+    }
+    
+    data.frame(Element=element.name, R2=round(r2, 2))
+}
+
+calProgressSummary <- function(calList){
+    element.names <- names(calList)
+    
+    cal.results.list <- lapply(element.names, function(x) modelSummary(element.model=calList[[x]], element.name=x))
+    
+    rbindlist(cal.results.list)
+}

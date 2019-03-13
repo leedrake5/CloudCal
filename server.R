@@ -2537,7 +2537,7 @@ shinyServer(function(input, output, session) {
         output$variablePlot <- downloadHandler(
         filename = function() { paste0(input$calname, "_", input$calcurveelemenet , '_Variables', '.tiff', sep='') },
         content = function(file) {
-            ggsave(file,variablesPlot(), width=14, height=8, device="tiff", compression="lzw",  dpi=300)
+            ggsave(file,variablesPlot(), width=plotDimensions()[1], height=plotDimensions()[2], device="tiff", compression="lzw",  dpi=300)
         }
         )
         
@@ -3702,10 +3702,7 @@ shinyServer(function(input, output, session) {
         })
         
         
-        elementModel <- reactive({
-            
-            
-            
+        elementModelGen <- reactive({
             if(input$radiocal==1){
                 simpleLinearModel()
             } else if(input$radiocal==2){
@@ -3721,8 +3718,35 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==7){
                 neuralNetworkSpectraModel()
             }
+        })
+        
+        output$usecalsep <- renderUI({
+            if(input$usecalfile==TRUE){
+                tags$hr()
+            } else if(input$usecalfile==FALSE){
+                NULL
+            }
+        })
+        
+        output$usecalui <- renderUI({
+            if(input$usecalfile==TRUE){
+                selectInput('usecalfilecal', "Operation", choices=c("Use Saved Model", "Generate New Model"), selected="Use Saved Model")
+            } else if(input$usecalfile==FALSE){
+                NULL
+            }
+        })
+        
+        elementModel <- reactive({
             
-            
+            if(input$usecalfile==TRUE){
+                if(input$usecalfilecal=="Use Saved Model"){
+                    calFileContents()[["calList"]][[input$calcurveelement]][[2]]
+                } else if(input$usecalfilecal=="Generate New Model"){
+                    elementModelGen()
+                }
+            } else if(input$usecalfile==FALSE){
+                elementModelGen()
+            }
             
         })
         
@@ -4069,12 +4093,23 @@ shinyServer(function(input, output, session) {
             grid.arrange(calCurvePlot(), valCurvePlot(), ncol=2)
             
         })
+
+        
+        plotDimensions <- reactive({
+            
+            if(input$imagesize=="Small"){
+                c(7, 4)
+            } else if(input$imagesize=="Large"){
+                c(14, 8)
+            }
+            
+        })
         
         
         output$downloadcloudplot <- downloadHandler(
         filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement), collapse=''), '.tiff',  sep='') },
         content = function(file) {
-            ggsave(file,calPlotDownload(), device="tiff", compression="lzw",  dpi=300, width=12, height=7)
+            ggsave(file,calPlotDownload(), device="tiff", compression="lzw",  dpi=300, width=plotDimensions()[1], height=plotDimensions()[2])
         }
         )
         
@@ -5802,6 +5837,17 @@ shinyServer(function(input, output, session) {
         
         #})
         
+        
+        calibrationProgressSoFar <- reactive({
+            
+            calProgressSummary(calList)
+            
+        })
+        
+        output$caliibrationprogresstable <- renderDataTable({
+            calibrationProgressSoFar()
+        })
+        
         Calibration <- reactiveValues()
         observeEvent(input$createcal, {
             
@@ -5867,7 +5913,7 @@ shinyServer(function(input, output, session) {
         function() { paste(paste(c(input$calname), collapse=''), '.pdf',  sep='') },
         content = function(file){
             ml = marrangeGrob(grobs=CalibrationPlots$calCurves, nrow=1, ncol=1)
-            ggsave(file, ml, device="pdf", dpi=300, width=12, height=7)
+            ggsave(file, ml, device="pdf", dpi=300, width=plotDimensions()[1], height=plotDimensions()[2])
             
             dev.off()
         })
@@ -7310,7 +7356,7 @@ observeEvent(input$actionprocess2_multi, {
         output$variablePlot_multi <- downloadHandler(
         filename = function() { paste0(input$calname_multi, "_", input$calcurveelemenet_multi , '_Variables', '.tiff', sep='') },
         content = function(file) {
-            ggsave(file,variablesPlotMulti(), width=14, height=8, device="tiff", compression="lzw",  dpi=300)
+            ggsave(file,variablesPlotMulti(), width=plotDimensions()[1], height=plotDimensions()[2], device="tiff", compression="lzw",  dpi=300)
         }
         )
         
@@ -8796,11 +8842,21 @@ observeEvent(input$actionprocess2_multi, {
             
         })
         
+        plotDimensionsMulti <- reactive({
+            
+            if(input$imagesize=="Small"){
+                c(7, 4)
+            } else if(input$imagesize=="Large"){
+                c(14, 8)
+            }
+            
+        })
+        
         
         output$downloadcloudplot_multi <- downloadHandler(
         filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement_multi), collapse=''), '.tiff',  sep='') },
         content = function(file) {
-            ggsave(file,calPlotDownloadMulti(), device="tiff", compression="lzw",  dpi=300, width=18, height=7)
+            ggsave(file,calPlotDownloadMulti(), device="tiff", compression="lzw",  dpi=300, width=plotDimensionsMulti()[1], height=plotDimensionsMulti()[2])
         }
         )
         
@@ -8819,7 +8875,7 @@ observeEvent(input$actionprocess2_multi, {
         output$downloadcloudplot_multi_val <- downloadHandler(
         filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement_multi), collapse=''), '.tiff',  sep='') },
         content = function(file) {
-            ggsave(file,calPlotDownloadMulti_val(), device="tiff", compression="lzw",  dpi=300, width=18, height=7)
+            ggsave(file,calPlotDownloadMulti_val(), device="tiff", compression="lzw",  dpi=300, width=plotDimensionsMulti()[1], height=plotDimensionsMulti()[2])
         }
         )
         
@@ -8954,7 +9010,7 @@ output$downloadReport_multi <- downloadHandler(
 function() { paste("summarycurves", '.pdf',  sep='') },
 content = function(file){
     ml = marrangeGrob(grobs=CalibrationPlotsMulti$calCurves, nrow=1, ncol=1)
-    ggsave(file, ml, device="pdf", dpi=300, width=16, height=7)
+    ggsave(file, ml, device="pdf", dpi=300, width=plotDimensionsMulti()[1], height=plotDimensionsMulti()[2])
     
     dev.off()
 })

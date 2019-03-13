@@ -268,6 +268,8 @@ tags$hr(),
 
 downloadButton('downloadModel', "Model"),
 downloadButton('downloadReport', "Report"),
+uiOutput('usecalsep'),
+uiOutput('usecalui'),
 
 tags$hr(),
 
@@ -342,6 +344,7 @@ tabPanel("Cal Curves",
         actionButton("exclude_toggle", "Toggle points"),
         actionButton("exclude_reset", "Reset"),
         downloadButton('downloadcloudplot', "Plot"),
+        selectInput('imagesize', "Image Size", choices=c("Small", "Large"), selected="Large"),
         selectInput('plotunit', "Unit Display", choices=c("%", "ppm", "ppmv"), selected="%")
 
 
@@ -441,7 +444,10 @@ tabPanel("Variables",
 tabPanel("Standards",
 tabsetPanel(
 tabPanel("Validation", dataTableOutput("standardsperformance")),
-tabPanel("Used", rHandsontableOutput("whichrowstokeep"))))
+tabPanel("Used", rHandsontableOutput("whichrowstokeep")))),
+
+tabPanel("Calibration Progress",
+dataTableOutput('caliibrationprogresstable'))
 
 ))
 
