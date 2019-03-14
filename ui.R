@@ -373,7 +373,10 @@ tabPanel("Cross Validation",
         actionButton("cropvalrandom", "Zoom")
 )),
         tags$hr(),
-        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.33)
+        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.33),
+        tags$hr(),
+        downloadButton('downloadcloudplotrandom', "Plot"),
+        selectInput('imagesizerandom', "Image Size", choices=c("Small", "Large"), selected="Large")
 
 ),
 

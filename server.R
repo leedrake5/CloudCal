@@ -4085,9 +4085,6 @@ shinyServer(function(input, output, session) {
         })
         
         
-        
-        
-        
         calPlotDownload <- reactive({
             
             grid.arrange(calCurvePlot(), valCurvePlot(), ncol=2)
@@ -4583,7 +4580,6 @@ shinyServer(function(input, output, session) {
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 stat_smooth(method="lm", fullrange = TRUE) +
                 geom_point() +
-                geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -4597,7 +4593,6 @@ shinyServer(function(input, output, session) {
                 annotate("text", label=lm_eqn_poly(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 stat_smooth(method="lm", formula=y~poly(x,2)) +
                 geom_point() +
-                geom_point(data = predict.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -4611,7 +4606,6 @@ shinyServer(function(input, output, session) {
                 annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper)) +
                 geom_point() +
-                geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -4625,7 +4619,6 @@ shinyServer(function(input, output, session) {
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth() +
                 geom_point() +
-                geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -4639,7 +4632,6 @@ shinyServer(function(input, output, session) {
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth() +
                 geom_point() +
-                geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -4653,7 +4645,6 @@ shinyServer(function(input, output, session) {
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth() +
                 geom_point() +
-                geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -4667,7 +4658,6 @@ shinyServer(function(input, output, session) {
                 annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth() +
                 geom_point() +
-                geom_point(aes(Intensity, Concentration), data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
@@ -4730,7 +4720,6 @@ shinyServer(function(input, output, session) {
             geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm") +
             geom_point() +
-            geom_point(aes(Prediction, Concentration),  data = val.frame, shape = 21, fill = "red", color = "black", alpha = 0.25) +
             scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
             scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
             coord_cartesian(xlim = rangesvalcurverandom$x, ylim = rangesvalcurverandom$y, expand = TRUE)
@@ -4754,6 +4743,32 @@ shinyServer(function(input, output, session) {
         output$valcurveplotsrandom <- renderPlot({
             valCurvePlotRandom()
         })
+        
+        
+        calPlotRandomDownload <- reactive({
+            
+            grid.arrange(calCurvePlotRandom(), valCurvePlotRandom(), ncol=2)
+            
+        })
+        
+        
+        plotDimensionsRandom <- reactive({
+            
+            if(input$imagesizerandom=="Small"){
+                c(7, 4)
+            } else if(input$imagesizerandom=="Large"){
+                c(14, 8)
+            }
+            
+        })
+        
+        
+        output$downloadcloudplotrandom <- downloadHandler(
+        filename = function() { paste(paste(c(input$calname, "_", input$calcurveelement), collapse=''), '.tiff',  sep='') },
+        content = function(file) {
+            ggsave(file,calPlotRandomDownload(), device="tiff", compression="lzw",  dpi=300, width=plotDimensionsRandom()[1], height=plotDimensionsRandom()[2])
+        }
+        )
         
         bad <- reactive({
             
