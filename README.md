@@ -79,14 +79,8 @@ No reason not to - I started with the Tracer because it was the easiest to work 
 ## How to cite this software
 You can cite this Github page: 
 
-v2.0
+v3.0
 Drake, B.L. 2018. CloudCal v2.0. GitHub. https://github.com/leedrake5/CloudCal. doi:10.5281/zenodo.1319818
-
-[![DOI](https://zenodo.org/badge/78561304.svg)](https://zenodo.org/badge/latestdoi/78561304)
-
-v1.0
-Drake, B.L. 2018. CloudCal v1.0. GitHub. https://github.com/leedrake5/CloudCal. doi:10.5281/zenodo.1251965
-
 [![DOI](https://zenodo.org/badge/78561304.svg)](https://zenodo.org/badge/latestdoi/78561304)
 
 ## References
