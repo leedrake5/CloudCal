@@ -80,13 +80,16 @@ No reason not to - I started with the Tracer because it was the easiest to work 
 You can cite this Github page: 
 
 v3.0
-Drake, B.L. 2018. CloudCal v2.0. GitHub. https://github.com/leedrake5/CloudCal. doi:10.5281/zenodo.1319818
+Drake, B.L. 2018. CloudCal v3.0. GitHub. https://github.com/leedrake5/CloudCal. doi: 10.5281/zenodo.2596154
 [![DOI](https://zenodo.org/badge/78561304.svg)](https://zenodo.org/badge/latestdoi/78561304)
 
 ## References
-Lucas-Tooth, H.J., Price, B.J. 1961. A Mathematical Method for the Investigation of Interelement Effects in X-Ray Fluorescence Analysis Metallurgia 64, 149–152.
 
-
+Kuhn, M. 2008. Building predictive models ni R usnig the caret package. Journal of Statsitical Software. Journal of Statistical Software 28(5): 1-26
+Liaw, A.,  Wiener, M. 2002. Classification and Regression by randomForest. R News 2(3): 18--22
+Lucas-Tooth, H.J., Price, B.J. 1961. A Mathematical Method for the Investigation of Interelement Effects in X-Ray Fluorescence Analysis Metallurgia 64: 149–152
 Speakman, R.J., Shackley, M.S. 2013. Silo science and portable XRF in archaeology: a response to Frahm. Journal of Archaeological Science 40: 1435-1443
+Venables, W. N.,  Ripley, B. D. 2002. Modern Applied Statistics with S. Fourth Edition. Springer, New York. ISBN 0-387-95457-0
+
 
 
