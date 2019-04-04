@@ -1862,7 +1862,7 @@ xrf_parse <- cmpfun(xrf_parse)
 
 
 
-elementGrab <- function(element.line, data, range.table){
+elementGrab <- function(element.line, data, range.table=NULL){
     
     is.element <- element.line %in% spectralLines
     
