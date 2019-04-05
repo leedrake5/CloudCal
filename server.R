@@ -2789,7 +2789,9 @@ shinyServer(function(input, output, session) {
             predict.intensity.forest <- predictIntensityForestPre()
             
             predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=spectra.line.table[,"Concentration"])
-            predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
+            predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest),]
+            
+            predict.frame.forest[] <- lapply(predict.frame.forest, function(x) as.numeric(as.character(x)))
             
             predict.frame.forest
             
@@ -2911,7 +2913,9 @@ shinyServer(function(input, output, session) {
 
             
             spectra.data$Concentration <- spectra.line.table[complete.cases(spectra.line.table[,"Concentration"]),]$Concentration
-            spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
+            spectra.data <- spectra.data[complete.cases(spectra.data),]
+            
+            spectra.data[] <- lapply(spectra.data, function(x) as.numeric(as.character(x)))
             
             spectra.data
             
@@ -2999,6 +3003,8 @@ shinyServer(function(input, output, session) {
         
         neuralNetworkIntensityDeep <- reactive({
             
+            data <- predictFrameForest()
+            
             nn.grid <- if(neuralNetworkIntensityDeepParameters$neuralhiddenlayers == 2){
                 expand.grid(
                     .layer1 = seq(neuralNetworkIntensityDeepParameters$neuralhiddenunits[1], neuralNetworkIntensityDeepParameters$neuralhiddenunits[2], 1),
@@ -3020,7 +3026,9 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=predictFrameForest()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=neuralNetworkIntensityDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkIntensityDeepParameters$foresttrain, number=neuralNetworkIntensityDeepParameters$forestnumber), metric=neuralNetworkIntensityDeepParameters$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE, trim=TRUE)
+            f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
+
+            nn_model<-caret::train(f,data=data[vals$keeprows,, drop=FALSE], method="neuralnet", rep=neuralNetworkIntensityDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkIntensityDeepParameters$foresttrain, number=neuralNetworkIntensityDeepParameters$forestnumber), metric=neuralNetworkIntensityDeepParameters$forestmetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
             
             
             stopCluster(cl)
@@ -3083,6 +3091,8 @@ shinyServer(function(input, output, session) {
         
         neuralNetworkSpectraDeep <- reactive({
             
+            data <- rainforestData()
+            
             nn.grid <- if(neuralNetworkSpectraDeepParameters$neuralhiddenlayers == 2){
                 expand.grid(
                 .layer1 = seq(neuralNetworkSpectraDeepParameters$neuralhiddenunits[1], neuralNetworkSpectraDeepParameters$neuralhiddenunits[2], 1),
@@ -3104,7 +3114,8 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=rainforestData()[vals$keeprows,, drop=FALSE], method="neuralnet", rep=neuralNetworkSpectraDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkSpectraDeepParameters$foresttrain, number=neuralNetworkSpectraDeepParameters$forestnumber), metric=neuralNetworkSpectraDeepParameters$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE, trim=TRUE)
+                f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
+            nn_model<-caret::train(f,data=data[vals$keeprows,, drop=FALSE], method="neuralnet", rep=neuralNetworkSpectraDeepParameters$foresttry, trControl=trainControl(method=neuralNetworkSpectraDeepParameters$foresttrain, number=neuralNetworkSpectraDeepParameters$forestnumber), metric=neuralNetworkSpectraDeepParameters$forestmetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
             
             
             stopCluster(cl)
@@ -3150,7 +3161,7 @@ shinyServer(function(input, output, session) {
             if(input$neuralhiddenlayers == 1){
                 neuralNetworkSpectraShallow()
             } else if(input$neuralhiddenlayers > 1){
-                neuralNetworkSpectraDeepCPU()
+                neuralNetworkSpectraDeep()
             }
             
         })
