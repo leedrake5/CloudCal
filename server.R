@@ -4106,9 +4106,9 @@ shinyServer(function(input, output, session) {
         plotDimensions <- reactive({
             
             if(input$imagesize=="Small"){
-                c(7, 4)
+                c(14, 4)
             } else if(input$imagesize=="Large"){
-                c(14, 8)
+                c(20, 8)
             }
             
         })
