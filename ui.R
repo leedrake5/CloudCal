@@ -541,7 +541,9 @@ tabPanel("Cal Curves",
     tags$hr(),
         actionButton("exclude_toggle_multi", "Toggle points"),
         actionButton("exclude_reset_multi", "Reset"),
-        downloadButton("downloadcloudplot_multi", "Plot")
+        downloadButton("downloadcloudplot_multi", "Plot"),
+        selectInput('imagesize_multi', "Image Size", choices=c("Small", "Large"), selected="Large")
+
     ),
 tabPanel("Cross Validation",
     splitLayout(cellWidths = c("50%", "50%"),

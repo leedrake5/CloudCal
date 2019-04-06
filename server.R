@@ -8870,10 +8870,10 @@ observeEvent(input$actionprocess2_multi, {
         
         plotDimensionsMulti <- reactive({
             
-            if(input$imagesize=="Small"){
-                c(7, 4)
-            } else if(input$imagesize=="Large"){
-                c(14, 8)
+            if(input$imagesize_multi=="Small"){
+                c(10, 4)
+            } else if(input$imagesize_multi=="Large"){
+                c(20, 8)
             }
             
         })
