@@ -1487,7 +1487,7 @@ shinyServer(function(input, output, session) {
             }else if(input$usecalfile==TRUE && colnames(calFileContents()$Values)[1]=="Spectrum"){
                 data.frame(Include=rep(TRUE, length(hotable.data$Spectrum)), hotable.data)
             }else if(input$usecalfile==TRUE && colnames(calFileContents()$Values)[1]=="Include"){
-                data.frame(Include=calFileContents()$Values[,"Include"], hotable.data)
+                data.frame(calFileContents()$Values)
             }
             
             
@@ -4025,6 +4025,21 @@ shinyServer(function(input, output, session) {
             }
         })
         
+        observeEvent(input$zerocal, {
+            predict.frame <- if(calType()==1){
+                predictFrame()
+            } else if(calType()==2){
+                predictFrame()
+            } else if(calType()==3) {
+                valFrame()
+            } else if(calType()==5) {
+                valFrame()
+            }
+
+                rangescalcurve$x <- c(0, max(predict.frame$Intensity))
+                rangescalcurve$y <- c(0, max(predict.frame$Concentration))
+        })
+        
         output$calcurveplots <- renderPlot({
             calCurvePlot()
         })
@@ -4088,6 +4103,13 @@ shinyServer(function(input, output, session) {
                 rangesvalcurve$x <- NULL
                 rangesvalcurve$y <- NULL
             }
+        })
+        
+        observeEvent(input$zeroval, {
+            predict.frame <- valFrame()
+            
+            rangesvalcurve$x <- c(0, max(predict.frame$Prediction))
+            rangesvalcurve$y <- c(0, max(predict.frame$Concentration))
         })
         
         
@@ -4691,6 +4713,21 @@ shinyServer(function(input, output, session) {
             }
         })
         
+        observeEvent(input$zerocalrandom, {
+            predict.frame <- if(calType()==1){
+                calCurveFrameRandomized()
+            } else if(calType()==2){
+                calCurveFrameRandomized()
+            } else if(calType()==3) {
+                valFrameRandomizedRev()
+            } else if(calType()==5) {
+                valFrameRandomizedRev()
+            }
+            
+            rangescalcurverandom$x <- c(0, max(predict.frame$Intensity))
+            rangescalcurverandom$y <- c(0, max(predict.frame$Concentration))
+        })
+        
         
         
         output$calcurveplotsrandom <- renderPlot({
@@ -4750,6 +4787,15 @@ shinyServer(function(input, output, session) {
                 rangesvalcurverandom$y <- NULL
             }
         })
+        
+        observeEvent(input$zerovalrandom, {
+            predict.frame <- calValFrame()
+            
+            
+            rangesvalcurverandom$x <- c(0, max(predict.frame$Prediction))
+            rangesvalcurverandom$y <- c(0, max(predict.frame$Concentration))
+        })
+        
         
         output$valcurveplotsrandom <- renderPlot({
             valCurvePlotRandom()
@@ -7696,6 +7742,23 @@ observeEvent(input$actionprocess2_multi, {
             }
         })
         
+        observeEvent(input$zerocalmulti, {
+            
+            predict.frame <- if(calTypeMulti()==1){
+                calCurveFrameMulti()
+            } else if(calTypeMulti()==2){
+                calCurveFrameMulti()
+            } else if(calTypeMulti()==3) {
+                valFrameMulti()
+            } else if(calTypeMulti()==5) {
+                valFrameMulti()
+            }
+
+            rangescalcurve_multi$x <- c(0, max(predict.frame$Intensity))
+            rangescalcurve_multi$y <- c(0, max(predict.frame$Concentration))
+        })
+        
+        
         output$calcurveplots_multi <- renderPlot({
             calCurvePlotMulti()
         })
@@ -7762,6 +7825,15 @@ observeEvent(input$actionprocess2_multi, {
                 rangesvalcurve_multi$x <- NULL
                 rangesvalcurve_multi$y <- NULL
             }
+        })
+        
+        observeEvent(input$zerovalmulti, {
+            
+            predict.frame <- valFrameMulti()
+            
+            
+            rangesvalcurve_multi$x <- c(0, max(predict.frame$Prediction))
+            rangesvalcurve_multi$y <- c(0, max(predict.frame$Concentration))
         })
         
         
@@ -8422,6 +8494,22 @@ observeEvent(input$actionprocess2_multi, {
             }
         })
         
+        observeEvent(input$zerocalmultirandom, {
+            
+            predict.frame <- if(calTypeMulti()==1){
+                calCurveFrameRandomizedMulti()
+            } else if(calTypeMulti()==2){
+                calCurveFrameRandomizedMulti()
+            } else if(calTypeMulti()==3) {
+                valFrameRandomizedMulti()
+            } else if(calTypeMulti()==5) {
+                valFrameRandomizedMulti()
+            }
+            
+            rangescalcurverandom_multi$x <- c(0, max(predict.frame$Intensity))
+            rangescalcurverandom_multi$y <- c(0, max(predict.frame$Concentration))
+        })
+        
         
         output$calcurveplotsrandom_multi <- renderPlot({
             calCurvePlotRandomMulti()
@@ -8478,6 +8566,15 @@ observeEvent(input$actionprocess2_multi, {
                 rangesvalcurverandom_multi$x <- NULL
                 rangesvalcurverandom_multi$y <- NULL
             }
+        })
+        
+        observeEvent(input$zerocalmultirandom, {
+            
+            predict.frame <- valFrameRandomizedMulti()
+            
+            
+            rangesvalcurverandom_multi$x <- c(0, max(predict.frame$Prediction))
+            rangesvalcurverandom_multi$y <- c(0, max(predict.frame$Concentration))
         })
         
         output$valcurveplotsrandom_multi <- renderPlot({

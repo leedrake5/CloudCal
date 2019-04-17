@@ -328,7 +328,9 @@ tabPanel("Cal Curves",
             brush = brushOpts(id = "plot_cal_brush", resetOnNew = TRUE),
             hover = hoverOpts("plot_hovercal", delay = 100, delayType = "debounce")),
             uiOutput("hover_infocal")),
-        actionButton("cropcal", "Zoom")),
+        actionButton("cropcal", "Zoom"),
+        actionButton("zerocal", "Zero")
+    ),
         column(width=12,
         div(
         style = "position:relative",
@@ -337,7 +339,9 @@ tabPanel("Cal Curves",
             brush = brushOpts(id = "plot_val_brush", resetOnNew = TRUE),
             hover = hoverOpts("plot_hoverval", delay = 100, delayType = "debounce")),
             uiOutput("hover_infoval")),
-        actionButton("cropval", "Zoom")
+        actionButton("cropval", "Zoom"),
+        actionButton("zeroval", "Zero")
+
         )
         ),
         tags$hr(),
@@ -360,7 +364,9 @@ tabPanel("Cross Validation",
             brush = brushOpts(id = "plot_cal_brush_random", resetOnNew = TRUE),
             hover = hoverOpts("plot_hovercal_random", delay = 100, delayType = "debounce")),
             uiOutput("hover_infocal_random")),
-        actionButton("cropcalrandom", "Zoom")
+        actionButton("cropcalrandom", "Zoom"),
+        actionButton("zerocalrandom", "Zero")
+
         ),
         column(width=12,
         div(
@@ -370,7 +376,9 @@ tabPanel("Cross Validation",
             brush = brushOpts(id = "plot_val_brush_random", resetOnNew = TRUE),
             hover = hoverOpts("plot_hoverval_random", delay = 100, delayType = "debounce")),
             uiOutput("hover_infoval_random")),
-        actionButton("cropvalrandom", "Zoom")
+        actionButton("cropvalrandom", "Zoom"),
+        actionButton("zerovalrandom", "Zero")
+
 )),
         tags$hr(),
         sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.33),
@@ -526,7 +534,9 @@ tabPanel("Cal Curves",
             brush = brushOpts(id = "plot_cal_brush_multi", resetOnNew = TRUE),
             hover = hoverOpts("plot_hovercal_multi", delay = 100, delayType = "debounce")),
         uiOutput("hover_infocal_multi")),
-        actionButton("cropcalmulti", "Zoom")
+        actionButton("cropcalmulti", "Zoom"),
+        actionButton("zerocalmulti", "Zero")
+
     ),
         column(width=12,
         div(
@@ -536,7 +546,9 @@ tabPanel("Cal Curves",
             brush = brushOpts(id = "plot_val_brush_multi", resetOnNew = TRUE),
             hover = hoverOpts("plot_hoverval_multi", delay = 100, delayType = "debounce")),
         uiOutput("hover_infoval_multi")),
-        actionButton("cropvalmulti", "Zoom")
+        actionButton("cropvalmulti", "Zoom"),
+        actionButton("zerovalmulti", "Zero")
+
     )),
     tags$hr(),
         actionButton("exclude_toggle_multi", "Toggle points"),
@@ -555,7 +567,8 @@ tabPanel("Cross Validation",
             brush = brushOpts(id = "plot_cal_brush_random_multi", resetOnNew = TRUE),
             hover = hoverOpts("plot_hovercal_random_multi", delay = 100, delayType = "debounce")),
         uiOutput("hover_infocal_random_multi")),
-        actionButton("cropcalmultirandom", "Zoom")),
+        actionButton("cropcalmultirandom", "Zoom"),
+        actionButton("zerocalmultirandom", "Zero")),
         column(width=12,
         div(
         style = "position:relative",
@@ -564,7 +577,8 @@ tabPanel("Cross Validation",
             brush = brushOpts(id = "plot_val_brush_random_multi", resetOnNew = TRUE),
             hover = hoverOpts("plot_hoverval_random_multi", delay = 100, delayType = "debounce")),
         uiOutput("hover_infoval_random_multi")),
-        actionButton("cropvalmultirandom", "Zoom"))
+        actionButton("cropvalmultirandom", "Zoom"),
+        actionButton("zerovalmultirandom", "Zero"))
     ),
     tags$hr(),
         sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.33),
