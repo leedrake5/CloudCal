@@ -3604,7 +3604,26 @@ plot.nnet <- cmpfun(plot.nnet)
 
 ###UI Choices
 
-forestTryUI <- function(radiocal=3, neuralhiddenlayers=1, selection, maxsample){
+forestTryUI <- function(radiocal=3, neuralhiddenlayers=NULL, selection=NULL, maxsample=NULL){
+    
+    neuralhiddenlayers <- if(is.null(neuralhiddenlayers)){
+        1
+    } else if(!is.null(neuralhiddenlayers)){
+        neuralhiddenlayers
+    }
+    
+    selection <- if(is.null(selection)){
+        5
+    } else if(!is.null(selection)){
+        selection
+    }
+    
+    maxsample <- if(is.null(maxsample)){
+        15
+    } else if(!is.null(maxsample)){
+        maxsample
+    }
+    
     if(radiocal==1){
         NULL
     } else if(radiocal==2){

@@ -2754,45 +2754,87 @@ shinyServer(function(input, output, session) {
             normhold <- if(input$usecalfilecal=="Use Saved Model"){
                 input$normcal
             } else if(input$usecalfilecal=="Generate New Model"){
-                if(input$radiocal==5){
+                if(input$radiocal==3){
+                    input$normcal
+                } else if(input$radiocal==4){
                     forestParameters$normtype
-                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                } else if(input$radiocal==6 && input$neuralhiddenlayers==1){
                     neuralNetworkIntensityShallowParameters$normtype
-                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
+                    neuralNetworkIntensityDeepParameters$normtype
+                }  else if(input$radiocal==8){
+                    xgboostIntensityParameters$normtype
+                }
+            } else if(is.null(input$usecalfilecal)){
+                if(input$radiocal==3){
+                    input$normcal
+                } else if(input$radiocal==4){
+                    forestParameters$normtype
+                } else if(input$radiocal==6 && input$neuralhiddenlayers==1){
+                    neuralNetworkIntensityShallowParameters$normtype
+                } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
                     neuralNetworkIntensityDeepParameters$normtype
                 }  else if(input$radiocal==8){
                     xgboostIntensityParameters$normtype
                 }
             }
-            
+
             normmin <- if(input$usecalfilecal=="Use Saved Model"){
                 input$comptonmin
             } else if(input$usecalfilecal=="Generate New Model"){
-                if(input$radiocal==5){
+                if(input$radiocal==3){
+                    input$comptonmin
+                } else if(input$radiocal==4){
                     forestParameters$normmin
-                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                } else if(input$radiocal==6 && input$neuralhiddenlayers==1){
                     neuralNetworkIntensityShallowParameters$normmin
-                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
+                    neuralNetworkIntensityDeepParameters$normmin
+                }  else if(input$radiocal==8){
+                    xgboostIntensityParameters$normmin
+                }
+            } else if(is.null(input$usecalfilecal)){
+                if(input$radiocal==3){
+                    input$comptonmin
+                } else if(input$radiocal==4){
+                    forestParameters$normmin
+                } else if(input$radiocal==6 && input$neuralhiddenlayers==1){
+                    neuralNetworkIntensityShallowParameters$normmin
+                } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
                     neuralNetworkIntensityDeepParameters$normmin
                 }  else if(input$radiocal==8){
                     xgboostIntensityParameters$normmin
                 }
             }
-            
+
             normmax <- if(input$usecalfilecal=="Use Saved Model"){
                 input$comptonmax
             } else if(input$usecalfilecal=="Generate New Model"){
-                if(input$radiocal==5){
+                if(input$radiocal==3){
+                    input$comptonmax
+                } else if(input$radiocal==4){
                     forestParameters$normmax
-                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                } else if(input$radiocal==6 && input$neuralhiddenlayers==1){
                     neuralNetworkIntensityShallowParameters$normmax
-                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
+                    neuralNetworkIntensityDeepParameters$normmax
+                }  else if(input$radiocal==8){
+                    xgboostIntensityParameters$normmax
+                }
+            } else if(is.null(input$usecalfilecal)){
+                if(input$radiocal==3){
+                    input$comptonmax
+                } else if(input$radiocal==4){
+                    forestParameters$normmax
+                } else if(input$radiocal==6 && input$neuralhiddenlayers==1){
+                    neuralNetworkIntensityShallowParameters$normmax
+                } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
                     neuralNetworkIntensityDeepParameters$normmax
                 }  else if(input$radiocal==8){
                     xgboostIntensityParameters$normmax
                 }
             }
-            
+
             
             if(normhold==1){
                 if(dataType()=="Spectra"){
@@ -2927,11 +2969,21 @@ shinyServer(function(input, output, session) {
                     neuralNetworkSpectraShallowParameters$normtype
                 } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
                     neuralNetworkSpectraDeepParameters$normtype
-                }  else if(input$radiocal==8){
+                }  else if(input$radiocal==9){
+                    xgboostSpectraParameters$normtype
+                }
+            } else if(is.null(input$usecalfilecal)){
+                if(input$radiocal==5){
+                    rainforestParameters$normtype
+                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                    neuralNetworkSpectraShallowParameters$normtype
+                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                    neuralNetworkSpectraDeepParameters$normtype
+                }  else if(input$radiocal==9){
                     xgboostSpectraParameters$normtype
                 }
             }
-            
+
             normmin <- if(input$usecalfilecal=="Use Saved Model"){
                 input$comptonmin
             } else if(input$usecalfilecal=="Generate New Model"){
@@ -2941,7 +2993,17 @@ shinyServer(function(input, output, session) {
                     neuralNetworkSpectraShallowParameters$normmin
                 } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
                     neuralNetworkSpectraDeepParameters$normmin
-                }  else if(input$radiocal==8){
+                }  else if(input$radiocal==9){
+                    xgboostSpectraParameters$normmin
+                }
+            } else if(is.null(input$usecalfilecal)){
+                if(input$radiocal==5){
+                    rainforestParameters$normmin
+                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                    neuralNetworkSpectraShallowParameters$normmin
+                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                    neuralNetworkSpectraDeepParameters$normmin
+                }  else if(input$radiocal==9){
                     xgboostSpectraParameters$normmin
                 }
             }
@@ -2955,11 +3017,21 @@ shinyServer(function(input, output, session) {
                     neuralNetworkSpectraShallowParameters$normmax
                 } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
                     neuralNetworkSpectraDeepParameters$normmax
-                }  else if(input$radiocal==8){
+                }  else if(input$radiocal==9){
+                    xgboostSpectraParameters$normmax
+                }
+            } else if(is.null(input$usecalfilecal)){
+                if(input$radiocal==5){
+                    rainforestParameters$normmax
+                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                    neuralNetworkSpectraShallowParameters$normmax
+                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                    neuralNetworkSpectraDeepParameters$normmax
+                }  else if(input$radiocal==9){
                     xgboostSpectraParameters$normmax
                 }
             }
-            
+
             spectra.data <- if(normhold==1){
                 if(dataType()=="Spectra"){
                     spectra_simp_prep_xrf(spectra=data)[,-1]
@@ -3532,7 +3604,19 @@ shinyServer(function(input, output, session) {
         
         maxSample <- reactive({
             
-            ncol(predictIntensity())
+            if(input$radiocal==4){
+                length(tableInput()[,-1])
+            } else if(input$radiocal==5){
+                300
+            }else if(input$radiocal==6){
+                length(tableInput()[,-1])
+            } else if(input$radiocal==7){
+                300
+            } else if(input$radiocal==8){
+                length(tableInput()[,-1])
+            } else if(input$radiocal==9){
+                300
+            }
             
         })
         
@@ -3545,7 +3629,7 @@ shinyServer(function(input, output, session) {
         
         calForestTrySelectionpre <- reactive({
             if(!"ForestTry" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                calConditons[["CalTable"]][["ForestTry"]]
+                calConditons[["CalTable"]]["ForestTry"]
             } else if("ForestTry" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 calList[[input$calcurveelement]][[1]]$CalTable$ForestTry[1]
             }
@@ -3554,7 +3638,7 @@ shinyServer(function(input, output, session) {
         
         calForestMetricSelectionpre <- reactive({
             if(!"ForestMetric" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                calConditons[["CalTable"]][["ForestMetric"]]
+                calConditons[["CalTable"]]["ForestMetric"]
             } else if("ForestMetric" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 calList[[input$calcurveelement]][[1]]$CalTable$ForestMetric[1]
             }
@@ -3562,7 +3646,7 @@ shinyServer(function(input, output, session) {
         
         calForestTCSelectionpre <- reactive({
             if(!"ForestTC" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                calConditons[["CalTable"]][["ForestTC"]]
+                calConditons[["CalTable"]]["ForestTC"]
             } else if("ForestTC" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 calList[[input$calcurveelement]][[1]]$CalTable$ForestTC[1]
             }
@@ -3571,7 +3655,7 @@ shinyServer(function(input, output, session) {
         
         calForestNumberSelectionpre <- reactive({
             if(!"ForestNumber" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                calConditons[["CalTable"]][["ForestNumber"]]
+                calConditons[["CalTable"]]["ForestNumber"]
             } else if("ForestNumber" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 calList[[input$calcurveelement]][[1]]$CalTable$ForestNumber[1]
             }
@@ -3580,7 +3664,7 @@ shinyServer(function(input, output, session) {
         
         calForestTreeSelectionpre <- reactive({
             if(!"ForestTrees" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                calConditons[["CalTable"]][["ForestTrees"]]
+                calConditons[["CalTable"]]["ForestTrees"]
             } else if("ForestNumber" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 calList[[input$calcurveelement]][[1]]$CalTable$ForestTrees[1]
             }
@@ -3588,7 +3672,7 @@ shinyServer(function(input, output, session) {
         
         calHiddenLayersSelectionpre <- reactive({
             if(!"NeuralHL" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                calConditons[["CalTable"]][["NeuralHL"]]
+                calConditons[["CalTable"]]["NeuralHL"]
             } else if("NeuralHL" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 calList[[input$calcurveelement]][[1]]$CalTable$NeuralHL[1]
             }
@@ -3596,7 +3680,7 @@ shinyServer(function(input, output, session) {
         
         calHiddenUnitsSelectionpre <- reactive({
             if(!"NeuralHU" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]][["NeuralHU"]]), "-")))
+                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]]["NeuralHU"]), "-")))
             } else if("NeuralHU" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calList[[input$calcurveelement]][[1]]$CalTable$NeuralHU[1]), "-")))
             }
@@ -3604,7 +3688,7 @@ shinyServer(function(input, output, session) {
         
         calWeightDecaySelectionpre <- reactive({
             if(!"NeuralWD" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]][["NeuralWD"]]), "-")))
+                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]]["NeuralWD"]), "-")))
             } else if("NeuralWD" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calList[[input$calcurveelement]][[1]]$CalTable$NeuralWD[1]), "-")))
             }
@@ -3612,7 +3696,7 @@ shinyServer(function(input, output, session) {
         
         calMaxIterationsSelectionpre <- reactive({
             if(!"NeuralMI" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                calConditons[["CalTable"]][["NeuralMI"]]
+                calConditons[["CalTable"]]["NeuralMI"]
             } else if("NeuralMI" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 calList[[input$calcurveelement]][[1]]$CalTable$NeuralMI[1]
             }
@@ -3620,7 +3704,7 @@ shinyServer(function(input, output, session) {
         
         calTreeDepthSelectionpre <- reactive({
             if(!"TreeDepth" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]][["TreeDepth"]]), "-")))
+                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]]["TreeDepth"]), "-")))
             } else if("TreeDepth" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calList[[input$calcurveelement]][[1]]$CalTable$TreeDepth[1]), "-")))
             }
@@ -3628,7 +3712,7 @@ shinyServer(function(input, output, session) {
         
         calXGBEtaSelectionpre <- reactive({
             if(!"xgbEta" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]][["xgbEta"]]), "-")))
+                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]]["xgbEta"]), "-")))
             } else if("xgbEta" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calList[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
             }
@@ -3636,7 +3720,7 @@ shinyServer(function(input, output, session) {
         
         calXGBGammaSelectionpre <- reactive({
             if(!"xgbGamma" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]][["xgbGamma"]]), "-")))
+                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]]["xgbGamma"]), "-")))
             } else if("xgbGamma" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calList[[input$calcurveelement]][[1]]$CalTable$xgbGamma[1]), "-")))
             }
@@ -3644,7 +3728,7 @@ shinyServer(function(input, output, session) {
         
         calXGBSubSampleSelectionpre <- reactive({
             if(!"xgbSubSample" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]][["xgbSubSample"]]), "-")))
+                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]]["xgbSubSample"]), "-")))
             } else if("xgbSubSample" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calList[[input$calcurveelement]][[1]]$CalTable$xgbSubSample[1]), "-")))
             }
@@ -3652,7 +3736,7 @@ shinyServer(function(input, output, session) {
         
         calXGBColSampleSelectionpre <- reactive({
             if(!"xgbColSample" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]][["xgbColSample"]]), "-")))
+                as.numeric(unlist(strsplit(as.character(calConditons[["CalTable"]]["xgbColSample"]), "-")))
             } else if("xgbColSample" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calList[[input$calcurveelement]][[1]]$CalTable$xgbColSample[1]), "-")))
             }
@@ -3660,7 +3744,7 @@ shinyServer(function(input, output, session) {
         
         calXGBMinChildSelectionpre <- reactive({
             if(!"xgbMinChild" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
-                calConditons[["CalTable"]][["xgbMinChild"]]
+                calConditons[["CalTable"]]["xgbMinChild"]
             } else if("xgbMinChild" %in% colnames(calList[[input$calcurveelement]][[1]]$CalTable)){
                 calList[[input$calcurveelement]][[1]]$CalTable$xgbMinChild[1]
             }
@@ -3801,7 +3885,12 @@ shinyServer(function(input, output, session) {
         })
         
         output$foresttryui <- renderUI({
-            forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=input$neuralhiddenlayers, selection=forestTrySelection(), maxsample=maxSample())
+            
+            if(input$radiocal==6 | input$radiocal==7){
+                forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=input$neuralhiddenlayers, selection=forestTrySelection(), maxsample=maxSample())
+            } else {
+                forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=NULL, selection=forestTrySelection(), maxsample=maxSample())
+            }
         })
         
         
@@ -6260,19 +6349,6 @@ shinyServer(function(input, output, session) {
         
         
         
-        calList <- reactiveValues()
-        
-        observeEvent(input$actionprocess, {
-            isolate(calList <- if(input$usecalfile==FALSE){
-                emptyList()
-            } else if(input$usecalfile==TRUE){
-                calFileContents()[["calList"]]
-            })
-            calList <<- calList
-        })
-        
-        
-        
         
         observeEvent(input$createcalelement, {
             
@@ -6408,7 +6484,6 @@ shinyServer(function(input, output, session) {
         })
         
         
-        calList <- reactiveValues()
         observeEvent(input$createcalelement, {
             
             
