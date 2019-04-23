@@ -2751,23 +2751,66 @@ shinyServer(function(input, output, session) {
             spectra.line.table <- holdFrame()
             
             
-            if(input$normcal==1){
+            normhold <- if(input$usecalfilecal=="Use Saved Model"){
+                input$normcal
+            } else if(input$usecalfilecal=="Generate New Model"){
+                if(input$radiocal==5){
+                    forestParameters$normtype
+                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                    neuralNetworkIntensityShallowParameters$normtype
+                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                    neuralNetworkIntensityDeepParameters$normtype
+                }  else if(input$radiocal==8){
+                    xgboostIntensityParameters$normtype
+                }
+            }
+            
+            normmin <- if(input$usecalfilecal=="Use Saved Model"){
+                input$comptonmin
+            } else if(input$usecalfilecal=="Generate New Model"){
+                if(input$radiocal==5){
+                    forestParameters$normmin
+                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                    neuralNetworkIntensityShallowParameters$normmin
+                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                    neuralNetworkIntensityDeepParameters$normmin
+                }  else if(input$radiocal==8){
+                    xgboostIntensityParameters$normmin
+                }
+            }
+            
+            normmax <- if(input$usecalfilecal=="Use Saved Model"){
+                input$comptonmax
+            } else if(input$usecalfilecal=="Generate New Model"){
+                if(input$radiocal==5){
+                    forestParameters$normmax
+                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                    neuralNetworkIntensityShallowParameters$normmax
+                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                    neuralNetworkIntensityDeepParameters$normmax
+                }  else if(input$radiocal==8){
+                    xgboostIntensityParameters$normmax
+                }
+            }
+            
+            
+            if(normhold==1){
                 if(dataType()=="Spectra"){
                     lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
                 } else if(dataType()=="Net"){
                     lucas_simp_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
                 }
-            } else if(input$normcal==2){
+            } else if(normhold==2){
                 predict.intensity <- if(dataType()=="Spectra"){
                     lucas_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
                 } else if(dataType()=="Net"){
                     lucas_tc_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars)
                 }
-            } else if(input$normcal==3){
+            } else if(normhold==3){
                 predict.intensity <- if(dataType()=="Spectra"){
-                    lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+                    lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars, norm.min=normmin, norm.max=normmax)
                 } else if(dataType()=="Net"){
-                    lucas_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars, norm.min=input$comptonmin, norm.max=input$comptonmax)
+                    lucas_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=elementallinestouse(), intercept.element.lines=input$intercept_vars, norm.min=normmin, norm.max=normmax)
                 }
             }
             
@@ -2800,6 +2843,9 @@ shinyServer(function(input, output, session) {
         
         forestParameters <- reactiveValues()
         observeEvent(input$mclrun, {
+            forestParameters$normtype <- input$normcal
+            forestParameters$normmin <- input$comptonmin
+            forestParameters$normmax <- input$comptonmax
             forestParameters$foresttry <- input$foresttry
             forestParameters$forestmetric <- input$forestmetric
             forestParameters$foresttrain <- input$foresttrain
@@ -2872,21 +2918,63 @@ shinyServer(function(input, output, session) {
         rainforestIntensityPre <- reactive({
             data <- dataNorm()
             
-            spectra.data <- if(input$normcal==1){
+            normhold <- if(input$usecalfilecal=="Use Saved Model"){
+                input$normcal
+            } else if(input$usecalfilecal=="Generate New Model"){
+                if(input$radiocal==5){
+                    rainforestParameters$normtype
+                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                    neuralNetworkSpectraShallowParameters$normtype
+                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                    neuralNetworkSpectraDeepParameters$normtype
+                }  else if(input$radiocal==8){
+                    xgboostSpectraParameters$normtype
+                }
+            }
+            
+            normmin <- if(input$usecalfilecal=="Use Saved Model"){
+                input$comptonmin
+            } else if(input$usecalfilecal=="Generate New Model"){
+                if(input$radiocal==5){
+                    rainforestParameters$normmin
+                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                    neuralNetworkSpectraShallowParameters$normmin
+                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                    neuralNetworkSpectraDeepParameters$normmin
+                }  else if(input$radiocal==8){
+                    xgboostSpectraParameters$normmin
+                }
+            }
+            
+            normmax <- if(input$usecalfilecal=="Use Saved Model"){
+                input$comptonmax
+            } else if(input$usecalfilecal=="Generate New Model"){
+                if(input$radiocal==5){
+                    rainforestParameters$normmax
+                } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
+                    neuralNetworkSpectraShallowParameters$normmax
+                } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
+                    neuralNetworkSpectraDeepParameters$normmax
+                }  else if(input$radiocal==8){
+                    xgboostSpectraParameters$normmax
+                }
+            }
+            
+            spectra.data <- if(normhold==1){
                 if(dataType()=="Spectra"){
                     spectra_simp_prep_xrf(spectra=data)[,-1]
                 } else if(dataType()=="Net"){
                     NULL
                 }
-            } else if(input$normcal==2){
+            } else if(normhold==2){
                 if(dataType()=="Spectra"){
                     spectra_tc_prep_xrf(spectra=data)[,-1]
                 } else if(dataType()=="Net"){
                     NULL
                 }
-            } else if(input$normcal==3){
+            } else if(normhold==3){
                 if(dataType()=="Spectra"){
-                    spectra_comp_prep_xrf(spectra=data, norm.min=input$comptonmin, norm.max=input$comptonmax)[,-1]
+                    spectra_comp_prep_xrf(spectra=data, norm.min=normmin, norm.max=normmax)[,-1]
                 } else if(dataType()=="Net"){
                     NULL
                 }
@@ -2923,6 +3011,9 @@ shinyServer(function(input, output, session) {
         
         rainforestParameters <- reactiveValues()
         observeEvent(input$mclrun, {
+            rainforestParameters$normtype <- input$normcal
+            rainforestParameters$normmin <- input$comptonmin
+            rainforestParameters$normmax <- input$comptonmax
             rainforestParameters$foresttry <- input$foresttry
             rainforestParameters$forestmetric <- input$forestmetric
             rainforestParameters$foresttrain <- input$foresttrain
@@ -2956,6 +3047,9 @@ shinyServer(function(input, output, session) {
         
         neuralNetworkIntensityShallowParameters <- reactiveValues()
         observeEvent(input$mclrun, {
+            neuralNetworkIntensityShallowParameters$normtype <- input$normcal
+            neuralNetworkIntensityShallowParameters$normmin <- input$comptonmin
+            neuralNetworkIntensityShallowParameters$normmax <- input$comptonmax
             neuralNetworkIntensityShallowParameters$forestmetric <- input$forestmetric
             neuralNetworkIntensityShallowParameters$foresttrain <- input$foresttrain
             neuralNetworkIntensityShallowParameters$forestnumber <- input$forestnumber
@@ -2987,6 +3081,9 @@ shinyServer(function(input, output, session) {
         
         neuralNetworkIntensityDeepParameters <- reactiveValues()
         observeEvent(input$mclrun, {
+            neuralNetworkIntensityDeepParameters$normtype <- input$normcal
+            neuralNetworkIntensityDeepParameters$normmin <- input$comptonmin
+            neuralNetworkIntensityDeepParameters$normmax <- input$comptonmax
             neuralNetworkIntensityDeepParameters$foresttry <- input$foresttry
             neuralNetworkIntensityDeepParameters$forestmetric <- input$forestmetric
             neuralNetworkIntensityDeepParameters$foresttrain <- input$foresttrain
@@ -3043,6 +3140,9 @@ shinyServer(function(input, output, session) {
         
         neuralNetworkSpectraShallowParameters <- reactiveValues()
         observeEvent(input$mclrun, {
+            neuralNetworkSpectraShallowParameters$normtype <- input$normcal
+            neuralNetworkSpectraShallowParameters$normmin <- input$comptonmin
+            neuralNetworkSpectraShallowParameters$normmax <- input$comptonmax
             neuralNetworkSpectraShallowParameters$forestmetric <- input$forestmetric
             neuralNetworkSpectraShallowParameters$foresttrain <- input$foresttrain
             neuralNetworkSpectraShallowParameters$forestnumber <- input$forestnumber
@@ -3075,6 +3175,9 @@ shinyServer(function(input, output, session) {
         
         neuralNetworkSpectraDeepParameters <- reactiveValues()
         observeEvent(input$mclrun, {
+            neuralNetworkSpectraDeepParameters$normtype <- input$normcal
+            neuralNetworkSpectraDeepParameters$normmin <- input$comptonmin
+            neuralNetworkSpectraDeepParameters$normmax <- input$comptonmax
             neuralNetworkSpectraDeepParameters$foresttry <- input$foresttry
             neuralNetworkSpectraDeepParameters$forestmetric <- input$forestmetric
             neuralNetworkSpectraDeepParameters$foresttrain <- input$foresttrain
@@ -3162,6 +3265,9 @@ shinyServer(function(input, output, session) {
         
         xgboostIntensityParameters <- reactiveValues()
         observeEvent(input$mclrun, {
+            xgboostIntensityParameters$normtype <- input$normcal
+            xgboostIntensityParameters$normmin <- input$comptonmin
+            xgboostIntensityParameters$normmax <- input$comptonmax
             xgboostIntensityParameters$foresttrees <- input$foresttrees
             xgboostIntensityParameters$forestmetric <- input$forestmetric
             xgboostIntensityParameters$foresttrain <- input$foresttrain
@@ -3219,6 +3325,9 @@ shinyServer(function(input, output, session) {
         
         xgboostSpectraParameters <- reactiveValues()
         observeEvent(input$mclrun, {
+            xgboostSpectraParameters$normtype <- input$normcal
+            xgboostSpectraParameters$normmin <- input$comptonmin
+            xgboostSpectraParameters$normmax <- input$comptonmax
             xgboostSpectraParameters$foresttrees <- input$foresttrees
             xgboostSpectraParameters$forestmetric <- input$forestmetric
             xgboostSpectraParameters$foresttrain <- input$foresttrain
@@ -3557,13 +3666,16 @@ shinyServer(function(input, output, session) {
             }
         })
         
-        
+        basichold <- reactiveValues()
         foresthold <- reactiveValues()
         neuralhold <- reactiveValues()
         xgboosthold <- reactiveValues()
 
         
         observeEvent(input$calcurveelement, {
+            basichold$normtype <- input$normcal
+            basichold$normmin <- input$comptonmin
+            basichold$normmax <- input$comptonmax
             foresthold$try <- calForestTrySelectionpre()
             foresthold$metric <- calForestMetricSelectionpre()
             foresthold$train <- calForestTCSelectionpre()
@@ -3589,7 +3701,17 @@ shinyServer(function(input, output, session) {
             #    isolate(calhold$caltype <- bestCalType())
             
             #})
+        basicNormType <- reactive({
+            basichold$normtype
+        })
         
+        basicNormMin <- reactive({
+            basichold$normmin
+        })
+        
+        basicNormMax <- reactive({
+            basichold$normmax
+        })
         
         forestTrySelection <- reactive({
             foresthold$try
