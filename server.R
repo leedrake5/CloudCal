@@ -4080,9 +4080,33 @@ shinyServer(function(input, output, session) {
             }
         })
         
+        usecaluiSelected <- reactive({
+            
+            if(input$radiocal==1){
+                "Generate New Model"
+            } else if(input$radiocal==2){
+                "Generate New Model"
+            } else if(input$radiocal==3){
+                "Generate New Model"
+            } else if(input$radiocal==4){
+                "Use Saved Model"
+            } else if(input$radiocal==5){
+                "Use Saved Model"
+            } else if(input$radiocal==6){
+                "Use Saved Model"
+            } else if(input$radiocal==7){
+                "Use Saved Model"
+            } else if(input$radiocal==8){
+                "Use Saved Model"
+            } else if(input$radiocal==9){
+                "Use Saved Model"
+            }
+            
+        })
+        
         output$usecalui <- renderUI({
             if(input$usecalfile==TRUE){
-                selectInput('usecalfilecal', "Operation", choices=c("Use Saved Model", "Generate New Model"), selected="Use Saved Model")
+                selectInput('usecalfilecal', "Operation", choices=c("Use Saved Model", "Generate New Model"), selected=usecaluiSelected())
             } else if(input$usecalfile==FALSE){
                 NULL
             }
@@ -4871,9 +4895,11 @@ shinyServer(function(input, output, session) {
             
             predict.intensity <- predictIntensity()[ vals$keeprows, , drop = FALSE]
             predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
-            
-            predict.intensity <- predict.intensity[!(randomizeData()), , drop = FALSE]
+            predict.frame.cal <- predict.frame[(randomizeData()), , drop = FALSE]
             predict.frame <- predict.frame[!(randomizeData()), , drop = FALSE]
+            predict.frame <- subset(predict.frame, predict.frame$Concentration > my.min(predict.frame.cal[,"Concentration"]) & predict.frame$Concentration  < my.max(predict.frame.cal[,"Concentration"]))
+            predict.intensity <- predict.frame[,!colnames(predict.frame) %in% "Concentration"]
+
             element.model <- elementModelRandom()
             
             

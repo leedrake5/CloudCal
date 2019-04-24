@@ -86,6 +86,8 @@ my.cores <- if(parallel::detectCores()>=3){
     "1"
 }
 
+my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA)
+my.min <- function(x) ifelse( !all(is.na(x)), min(x, na.rm=T), NA)
 
 layOut = function(...) {
     
