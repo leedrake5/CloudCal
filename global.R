@@ -4081,7 +4081,7 @@ predictIntensitySimp <- function(predict.frame){
     predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
 }
 
-predictIntensityForestPre <- function(spectra, hold.frame, element, intercepts, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercepts, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     data <- spectra
     spectra.line.table <- hold.frame
@@ -4102,7 +4102,7 @@ predictIntensityForestPre <- function(spectra, hold.frame, element, intercepts, 
         }
     } else if(norm.type==3){
         predict.intensity <- if(data.type=="Spectra"){
-            lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts, norm.min=norm.min, norm.max=nom.max)
+            lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts, norm.min=norm.min, norm.max=norm.max)
         } else if(data.type=="Net"){
             lucas_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts, norm.min=norm.min, norm.max=norm.max)
         }
@@ -4112,12 +4112,12 @@ predictIntensityForestPre <- function(spectra, hold.frame, element, intercepts, 
 }
 
 
-predictFrameForest <- function(spectra, hold.frame, element, intercepts, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictFrameForestGen <- function(spectra, hold.frame, element, intercepts, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     spectra.line.table <- hold.frame
     
     
-    predict.intensity.forest <- predictIntensityForestPre(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
     
     predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=spectra.line.table[,"Concentration"])
     predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
@@ -4158,7 +4158,7 @@ predictIntensityLuc <- function(predict.frame){
     predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
 }
 
-rainforestIntensityPre <- function(spectra, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+rainforestIntensityPreGen <- function(spectra, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     data <- spectra
     
     spectra.data <- if(norm.type==1){
@@ -4186,11 +4186,11 @@ rainforestIntensityPre <- function(spectra, norm.type, norm.min=NULL, norm.max=N
 }
 
 
-rainforestData <- function(spectra, hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+rainforestDataGen <- function(spectra, hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     spectra.line.table <- hold.frame
     
-    spectra.data <- rainforestIntensityPre(spectra=spectra, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    spectra.data <- rainforestIntensityPreGen(spectra=spectra, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
     
     
     
