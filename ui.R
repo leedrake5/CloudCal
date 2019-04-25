@@ -132,8 +132,7 @@ tags$hr(),
 
 
 
-fileInput('calfileinput', 'Load Cal File', accept=".quant", multiple=FALSE),
-checkboxInput('usecalfile', "Use Cal File")
+fileInput('calfileinput', 'Load Cal File', accept=".quant", multiple=FALSE)
 
 
 ),
@@ -179,10 +178,6 @@ sidebarPanel(width=3,
 
 actionButton('linecommit', "Confirm Elements"),
 downloadButton('downloadData', "Table"),
-
-tags$hr(),
-
-checkboxInput('usespectravalues', "Use Imported Spectra", value=FALSE),
 
 
 tags$hr(),
@@ -269,7 +264,7 @@ tags$hr(),
 downloadButton('downloadModel', "Model"),
 downloadButton('downloadReport', "Report"),
 uiOutput('usecalsep'),
-uiOutput('usecalui'),
+#uiOutput('usecalui'),
 
 tags$hr(),
 

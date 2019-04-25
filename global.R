@@ -4492,6 +4492,10 @@ modelSummary <- function(element.model, element.name){
         "Caret"
     } else if(element.model[[1]][["CalTable"]]$CalType==7){
         "Caret"
+    } else if(element.model[[1]][["CalTable"]]$CalType==8){
+        "Caret"
+    } else if(element.model[[1]][["CalTable"]]$CalType==9){
+        "Caret"
     }
     
     r2 <- if(model.class=="Regression"){
@@ -4509,4 +4513,72 @@ calProgressSummary <- function(calList){
     cal.results.list <- lapply(element.names, function(x) modelSummary(element.model=calList[[x]], element.name=x))
     
     rbindlist(cal.results.list)
+}
+
+calConditionsTable <- function(cal.type=1, norm.type=2, norm.min=11, norm.max=11.1, foresttry=5, forestmetric="RMSE", foresttrain="repeatedcv", forestnumber=6, foresttrees=50, neuralhiddenlayers=1, neuralhiddenunits="1-2", neuralweightdecay="03-0.5", neuralmaxiterations=1000, treedepth="5-15", xgbeta="0.1-0.3", xgbgamma="0-0.1", xgbsubsample="0.4-0.6", xgbcolsample="0.4-0.6", xgbminchild=1){
+    
+    cal.table <- data.frame(
+                CalType=cal.type,
+                NormType=norm.type,
+                Min=norm.min,
+                Max=norm.max,
+                ForestTry=foresttry,
+                ForestMetric=forestmetric,
+                ForestTC=foresttrain,
+                ForestNumber=forestnumber,
+                ForestTrees=foresttrees,
+                NeuralHL=neuralhiddenlayers,
+                NeuralHU=neuralhiddenunits,
+                NeuralWD=neuralweightdecay,
+                NeuralMI=neuralmaxiterations,
+                TreeDepth=treedepth,
+                xgbEta=xgbeta,
+                xgbGamma=xgbgamma,
+                xgbSubSample=xgbsubsample,
+                xgbColSample=xgbcolsample,
+                xgbMinChild=xgbminchild,
+                stringsAsFactors=FALSE)
+                    
+        return(cal.table)
+}
+
+
+calConditionsList <- function(cal.type=1, norm.type=2, norm.min=11, norm.max=11.1, foresttry=5, forestmetric="RMSE", foresttrain="repeatedcv", forestnumber=6, foresttrees=50, neuralhiddenlayers=1, neuralhiddenunits="1-2", neuralweightdecay="03-0.5", neuralmaxiterations=1000, treedepth="5-15", xgbeta="0.1-0.3", xgbgamma="0-0.1", xgbsubsample="0.4-0.6", xgbcolsample="0.4-0.6", xgbminchild=1, use.standards=TRUE, slopes=NULL, intercept=NULL){
+    
+    cal.table <- data.frame(
+                CalType=cal.type,
+                NormType=norm.type,
+                Min=norm.min,
+                Max=norm.max,
+                ForestTry=foresttry,
+                ForestMetric=forestmetric,
+                ForestTC=foresttrain,
+                ForestNumber=forestnumber,
+                ForestTrees=foresttrees,
+                NeuralHL=neuralhiddenlayers,
+                NeuralHU=neuralhiddenunits,
+                NeuralWD=neuralweightdecay,
+                NeuralMI=neuralmaxiterations,
+                TreeDepth=treedepth,
+                xgbEta=xgbeta,
+                xgbGamma=xgbgamma,
+                xgbSubSample=xgbsubsample,
+                xgbColSample=xgbcolsample,
+                xgbMinChild=xgbminchild,
+                stringsAsFactors=FALSE)
+                
+                cal.mode.list <- list(
+                    CalTable=cal.table,
+                    Slope=slopes,
+                    Intercept=intercept,
+                    StandardsUsed=use.standards)
+                    
+        return(cal.mode.list)
+}
+
+calConditionCompare <- function(cal.conditions.first, cal.conditions.second){
+    
+    cal.table.match <- identical(cal.conditions.first$CalTable, cal.conditions.second$CalTable)
+    use.standards.match <- identical(cal.conditions.first$StandardsUsed, cal.conditions.second$StandardsUsed)
+    all(cal.table.match, use.standards.match)
 }
