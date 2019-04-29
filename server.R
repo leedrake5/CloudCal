@@ -1743,7 +1743,7 @@ shinyServer(function(input, output, session) {
         
         
         calListPrep <- reactive({
-            calpre <- lapply(names(calFileContents()[["calList"]]), function(x) list(calFileContents()[["calList"]][[x]][[1]], calFileContents()[["calList"]][[x]][[2]]))
+            calpre <- lapply(names(calFileContents()[["calList"]]), function(x) list(importCalConditions(element=x, calList=calFileContents()[["calList"]]), calFileContents()[["calList"]][[x]][[2]]))
             names(calpre) <- names(calFileContents()[["calList"]])
             calpre
         })
@@ -1754,7 +1754,7 @@ shinyServer(function(input, output, session) {
         if(is.null(input$calfileinput)){
             calMemory$calList <- NULL
         } else if(!is.null(input$calfileinput) && is.null(input$file1)){
-            calMemory$calList <- calFileContents()[["calList"]]
+            calMemory$calList <- calListPrep()
         } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
             calMemory$calList <- NULL
         }
@@ -1763,11 +1763,10 @@ shinyServer(function(input, output, session) {
         
 
         calListSettings <- reactive({
-            calpre.pre <- lapply(names(calFileContents()[["calList"]]), function(x) importCalConditions(element=x, calList=calFileContents()[["calList"]]))
-            names(calpre.pre) <- names(calFileContents()[["calList"]])
+            calpre.pre <- calListPrep()
 
-            calpre <- lapply(calpre.pre, function(x) list(x, "Hold"))
-            names(calpre) <- names(calFileContents()[["calList"]])
+            calpre <- lapply(calpre.pre, function(x) list(x[[1]], "Hold"))
+            names(calpre) <- names(calpre.pre)
             calpre
         })
         
@@ -1782,7 +1781,7 @@ shinyServer(function(input, output, session) {
         })
         
         calSettings <- reactiveValues()
-        calSettings <- calListSettingsLoad()
+        calSettings$calList <- calListSettingsLoad()
         
         
 
@@ -1792,9 +1791,9 @@ shinyServer(function(input, output, session) {
         observeEvent(input$calcurveelement, {
             req(input$calcurveelement)
             
-            calConditions$hold <- if(input$calcurveelement %in% names(calSettings)){
-                calSettings
-            } else if(!input$calcurveelement %in% names(calSettings)){
+            calConditions$hold <- if(input$calcurveelement %in% names(calSettings$calList)){
+                calSettings$calList
+            } else if(!input$calcurveelement %in% names(calSettings$calList)){
                 defaultCalConditions(element=input$calcurveelement, number.of.standards=dataCount())
             }
             
@@ -1895,11 +1894,11 @@ shinyServer(function(input, output, session) {
             if(is.null((input$calcurveelement))){
                 NULL
             } else if(!is.null((input$calcurveelement))){
-                if(!is.null(calSettings) && !"StandardsUsed" %in% names(calSettings[[input$calcurveelement]][[1]])){
+                if(!is.null(calSettings$calList) && !"StandardsUsed" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
                     rep(TRUE, dataCount())
-                } else if(!is.null(calSettings) && "StandardsUsed" %in% names(calSettings[[input$calcurveelement]][[1]])){
-                    calSettings[[input$calcurveelement]][[1]]$StandardsUsed
-                } else if(is.null(calSettings)){
+                } else if(!is.null(calSettings$calList) && "StandardsUsed" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
+                    calSettings$calList[[input$calcurveelement]][[1]]$StandardsUsed
+                } else if(is.null(calSettings$calList)){
                     rep(TRUE, dataCount())
                 }
             }
@@ -1921,10 +1920,10 @@ shinyServer(function(input, output, session) {
 
         
         inVar3Selectedpre <- reactive({
-            if(!"Intercept" %in% names(calSettings[[input$calcurveelement]][[1]])){
+            if(!"Intercept" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
                 calConditions$hold$Intercept
-            } else if("Intercept" %in% names(calSettings[[input$calcurveelement]][[1]])){
-                calSettings[[input$calcurveelement]][[1]]$Intercept
+            } else if("Intercept" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
+                calSettings$calList[[input$calcurveelement]][[1]]$Intercept
             }
         })
         
@@ -1932,10 +1931,10 @@ shinyServer(function(input, output, session) {
         
         
         inVar4Selectedpre <- reactive({
-            if(!"Slope" %in% names(calSettings[[input$calcurveelement]][[1]])){
+            if(!"Slope" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
                 calConditions$hold$Slope
-            } else if("Slope" %in% names(calSettings[[input$calcurveelement]][[1]])){
-                calSettings[[input$calcurveelement]][[1]]$Slope
+            } else if("Slope" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
+                calSettings$calList[[input$calcurveelement]][[1]]$Slope
             }
         })
         
@@ -1945,18 +1944,18 @@ shinyServer(function(input, output, session) {
         ########Machine Learning: Normalization
         
         normMinPre <- reactive({
-            if(!"Min" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"Min" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]][["Min"]]
-            } else if("Min" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$Min[1]
+            } else if("Min" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$Min[1]
             }
         })
         
         normMaxPre <- reactive({
-            if(!"Max" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"Max" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]][["Max"]]
-            } else if("Max" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$Max[1]
+            } else if("Max" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$Max[1]
             }
         })
         
@@ -2073,10 +2072,10 @@ shinyServer(function(input, output, session) {
         
         
         calNormSelectionpre <- reactive({
-            if(!"NormType" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"NormType" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]][["NormType"]]
-            } else if("NormType" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$NormType[1]
+            } else if("NormType" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$NormType[1]
             }
         })
         
@@ -2672,10 +2671,10 @@ shinyServer(function(input, output, session) {
         
         
         calTypeSelectionPre <- reactive({
-            if(!"CalType" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"CalType" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]][["CalType"]]
-            } else if("CalType" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$CalType[1]
+            } else if("CalType" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$CalType[1]
             }
         })
         
@@ -3453,10 +3452,10 @@ shinyServer(function(input, output, session) {
         
         
         calTransformationPre <- reactive({
-            if(!"Transformation" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"Transformation" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]][["Transformation"]]
-            } else if("Transformation" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$Transformation[1]
+            } else if("Transformation" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$Transformation[1]
             }
         })
         
@@ -3466,11 +3465,11 @@ shinyServer(function(input, output, session) {
         })
         
         calEnergyRangePre <- reactive({
-            if(!"EnergyRange" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"EnergyRange" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character( calConditions$hold[[input$calcurveelement]][[1]]$CalTable$EnergyRange[1]), "-")))
                 
-            } else if("EnergyRange" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings[[input$calcurveelement]][[1]]$CalTable$EnergyRange[1]), "-")))
+            } else if("EnergyRange" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$EnergyRange[1]), "-")))
             }
         })
         
@@ -3480,10 +3479,10 @@ shinyServer(function(input, output, session) {
         })
         
         calCompressPre <- reactive({
-            if(!"Compress" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"Compress" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]][["Compress"]]
-            } else if("Compress" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$Compress[1]
+            } else if("Compress" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$Compress[1]
             }
         })
         
@@ -3524,125 +3523,125 @@ shinyServer(function(input, output, session) {
         })
         
         calForestTrySelectionpre <- reactive({
-            if(!"ForestTry" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"ForestTry" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]]["ForestTry"]
-            } else if("ForestTry" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$ForestTry[1]
+            } else if("ForestTry" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$ForestTry[1]
             }
         })
         
         
         calForestMetricSelectionpre <- reactive({
-            if(!"ForestMetric" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"ForestMetric" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]]["ForestMetric"]
-            } else if("ForestMetric" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$ForestMetric[1]
+            } else if("ForestMetric" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$ForestMetric[1]
             }
         })
         
         calForestTCSelectionpre <- reactive({
-            if(!"ForestTC" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"ForestTC" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]]["ForestTC"]
-            } else if("ForestTC" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$ForestTC[1]
+            } else if("ForestTC" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$ForestTC[1]
             }
         })
         
         
         calForestNumberSelectionpre <- reactive({
-            if(!"ForestNumber" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"ForestNumber" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]]["ForestNumber"]
-            } else if("ForestNumber" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$ForestNumber[1]
+            } else if("ForestNumber" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$ForestNumber[1]
             }
         })
         
         
         calForestTreeSelectionpre <- reactive({
-            if(!"ForestTrees" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"ForestTrees" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]]["ForestTrees"]
-            } else if("ForestNumber" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$ForestTrees[1]
+            } else if("ForestNumber" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$ForestTrees[1]
             }
         })
         
         calHiddenLayersSelectionpre <- reactive({
-            if(!"NeuralHL" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"NeuralHL" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]]["NeuralHL"]
-            } else if("NeuralHL" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$NeuralHL[1]
+            } else if("NeuralHL" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$NeuralHL[1]
             }
         })
         
         calHiddenUnitsSelectionpre <- reactive({
-            if(!"NeuralHU" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"NeuralHU" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["NeuralHU"]), "-")))
-            } else if("NeuralHU" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings[[input$calcurveelement]][[1]]$CalTable$NeuralHU[1]), "-")))
+            } else if("NeuralHU" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$NeuralHU[1]), "-")))
             }
         })
         
         calWeightDecaySelectionpre <- reactive({
-            if(!"NeuralWD" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"NeuralWD" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["NeuralWD"]), "-")))
-            } else if("NeuralWD" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings[[input$calcurveelement]][[1]]$CalTable$NeuralWD[1]), "-")))
+            } else if("NeuralWD" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$NeuralWD[1]), "-")))
             }
         })
         
         calMaxIterationsSelectionpre <- reactive({
-            if(!"NeuralMI" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"NeuralMI" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]]["NeuralMI"]
-            } else if("NeuralMI" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$NeuralMI[1]
+            } else if("NeuralMI" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$NeuralMI[1]
             }
         })
         
         calTreeDepthSelectionpre <- reactive({
-            if(!"TreeDepth" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["TreeDepth"]), "-")))
-            } else if("TreeDepth" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings[[input$calcurveelement]][[1]]$CalTable$TreeDepth[1]), "-")))
+            } else if("TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$TreeDepth[1]), "-")))
             }
         })
         
         calXGBEtaSelectionpre <- reactive({
-            if(!"xgbEta" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
-            } else if("xgbEta" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
+            } else if("xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
             }
         })
         
         calXGBGammaSelectionpre <- reactive({
-            if(!"xgbGamma" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbGamma"]), "-")))
-            } else if("xgbGamma" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings[[input$calcurveelement]][[1]]$CalTable$xgbGamma[1]), "-")))
+            } else if("xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbGamma[1]), "-")))
             }
         })
         
         calXGBSubSampleSelectionpre <- reactive({
-            if(!"xgbSubSample" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbSubSample"]), "-")))
-            } else if("xgbSubSample" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings[[input$calcurveelement]][[1]]$CalTable$xgbSubSample[1]), "-")))
+            } else if("xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbSubSample[1]), "-")))
             }
         })
         
         calXGBColSampleSelectionpre <- reactive({
-            if(!"xgbColSample" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbColSample"]), "-")))
-            } else if("xgbColSample" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings[[input$calcurveelement]][[1]]$CalTable$xgbColSample[1]), "-")))
+            } else if("xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbColSample[1]), "-")))
             }
         })
         
         calXGBMinChildSelectionpre <- reactive({
-            if(!"xgbMinChild" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
+            if(!"xgbMinChild" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]]["xgbMinChild"]
-            } else if("xgbMinChild" %in% colnames(calSettings[[input$calcurveelement]][[1]]$CalTable)){
-                calSettings[[input$calcurveelement]][[1]]$CalTable$xgbMinChild[1]
+            } else if("xgbMinChild" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbMinChild[1]
             }
         })
         
@@ -4073,7 +4072,7 @@ shinyServer(function(input, output, session) {
             cal.exists <- input$calcurveelement %in% names(calMemory$calList)
 
             cal.initial.conditions <- if(cal.exists==TRUE){
-                calSettings[[input$calcurveelement]][[1]]
+                calSettings$calList[[input$calcurveelement]][[1]]
             } else if(cal.exists==FALSE){
                 calConditions$hold
             }

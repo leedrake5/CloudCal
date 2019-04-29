@@ -23,7 +23,7 @@ if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "reshape", "magrittr")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
@@ -74,6 +74,7 @@ library(parallel)
 library(randomForest)
 library(nnet)
 library(neuralnet)
+library(xgboost)
 library(gridExtra)
 library(magrittr)
 enableJIT(3)
@@ -5086,7 +5087,7 @@ transformSpectrum <- function(spectra, transformation){
     
     return(spectra.transformed)
 }
-transformSpectra <- cmpfun(transformSpectra)
+transformSpectrum <- cmpfun(transformSpectrum)
 
 transformSpectra <- function(spectra.frame, transformation){
     spectra.list <- split(spectra.frame , f = spectra.frame$Spectrum )
