@@ -23,7 +23,7 @@ if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "reshape")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "reshape", "magrittr")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
@@ -75,7 +75,7 @@ library(randomForest)
 library(nnet)
 library(neuralnet)
 library(gridExtra)
-
+library(magrittr)
 enableJIT(3)
 
 options(digits=4)
@@ -84,6 +84,59 @@ my.cores <- if(parallel::detectCores()>=3){
     paste0(parallel::detectCores()-2)
 } else if(parallel::detectCores()<=2){
     "1"
+}
+
+
+# Redefined in global namespace since it's not exported from shiny
+`%OR2%` <- shiny:::`%OR%`
+debounce_sc <- function(r, millis, priority = 100, domain = getDefaultReactiveDomain(), short_circuit = NULL)
+{
+    force(r)
+    force(millis)
+    if (!is.function(millis)) {
+        origMillis <- millis
+        millis <- function() origMillis
+    }
+    v <- reactiveValues(trigger = NULL, when = NULL)
+    firstRun <- TRUE
+    observe({
+        r()
+        if (firstRun) {
+            firstRun <<- FALSE
+            return()
+        }
+        v$when <- Sys.time() + millis()/1000
+    }, label = "debounce tracker", domain = domain, priority = priority)
+    # New code here to short circuit the timer when the short_circuit reactive
+    # triggers
+    if (inherits(short_circuit, "reactive")) {
+        observe({
+            short_circuit()
+            v$when <- Sys.time()
+        }, label = "debounce short circuit", domain = domain, priority = priority)
+    }
+    # New code ends
+    observe({
+        if (is.null(v$when))
+        return()
+        now <- Sys.time()
+        if (now >= v$when) {
+            v$trigger <- isolate(v$trigger %OR2% 0) %% 999999999 +
+            1
+            v$when <- NULL
+        }
+        else {
+            invalidateLater((v$when - now) * 1000)
+        }
+    }, label = "debounce timer", domain = domain, priority = priority)
+    er <- eventReactive(v$trigger, {
+        r()
+    }, label = "debounce result", ignoreNULL = FALSE, domain = domain)
+    primer <- observe({
+        primer$destroy()
+        er()
+    }, label = "debounce primer", domain = domain, priority = priority)
+    er
 }
 
 my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA)
@@ -2317,7 +2370,13 @@ spectra_table_xrf <- function(spectra, concentration){
 spectra_table_xrf <- cmpfun(spectra_table_xrf)
 
 
-spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE){
+spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE, transformation="None"){
+    
+    spectra <- if(transformation=="None"){
+        spectra
+    } else if(transformation!="None"){
+        transformSpectra(spectra, transformation=transformation)
+    }
     
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
@@ -2338,13 +2397,22 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compre
     
     #test <- apply(test, 2, as.numeric)
     colnames(data) <- make.names(colnames(data))
-    do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
+    spectra.frame <- do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
     
+    return(spectra.frame)
+
+
 }
 spectra_simp_prep_xrf <- cmpfun(spectra_simp_prep_xrf)
 
 
-spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE){
+spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE, transformation="None"){
+    
+    spectra <- if(transformation=="None"){
+        spectra
+    } else if(transformation!="None"){
+        transformSpectra(spectra, transformation=transformation)
+    }
     
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
@@ -2368,13 +2436,21 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress
     total.counts <- rowSums(data[,-1], na.rm=TRUE)
     
     data <- data.frame(Spectrum=data$Spectrum, data[,-1]/total.counts, stringsAsFactors=FALSE)
-    do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
+    spectra.frame <- do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
     
+    return(spectra.frame)
+
 }
 spectra_tc_prep_xrf <- cmpfun(spectra_tc_prep_xrf)
 
 
-spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress=TRUE){
+spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress=TRUE, transformation="None"){
+    
+    spectra <- if(transformation=="None"){
+        spectra
+    } else if(transformation!="None"){
+        transformSpectra(spectra, transformation=transformation)
+    }
     
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
@@ -2402,7 +2478,10 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.m
     colnames(data) <- make.names(colnames(data))
     
     data <- data.frame(Spectrum=data$Spectrum, data[,-1]/compton.frame.ag$Compton, stringsAsFactors=FALSE)
-    do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
+    spectra.frame <- do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
+    
+    
+    return(spectra.frame)
     
 }
 spectra_comp_prep_xrf <- cmpfun(spectra_comp_prep_xrf)
@@ -3606,6 +3685,95 @@ plot.nnet <- cmpfun(plot.nnet)
 
 ###UI Choices
 
+compressUI <- function(radiocal=3, selection=NULL){
+    
+    selection <- if(is.null(selection)){
+        TRUE
+    } else if(!is.null(selection)){
+        selection
+    }
+    
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        checkboxInput('compress', label="Compress", value=selection)
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        checkboxInput('compress', label="Compress", value=selection)
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        checkboxInput('compress', label="Compress", value=selection)
+    }
+}
+
+transformationUI <- function(radiocal=3, selection=NULL){
+    
+    selection <- if(is.null(selection)){
+        "None"
+    } else if(!is.null(selection)){
+        selection
+    }
+    
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        selectInput('transformation', label="Spectra Transformation", choices=c("None", "Log", "e", "Velocity"), selected=selection)
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        selectInput('transformation', label="Spectra Transformation", choices=c("None", "Log", "e", "Velocity"), selected=selection)
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        selectInput('transformation', label="Spectra Transformation", choices=c("None", "Log", "e", "Velocity"), selected=selection)
+    }
+}
+
+energyRangeUI <- function(radiocal=3, selection=NULL){
+    
+    selection <- if(is.null(selection)){
+        c(0.7, 37)
+    } else if(!is.null(selection)){
+        selection
+    }
+    
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        sliderInput('energyrange', label="Energy Range", min=0, max=40, value=selection)
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        sliderInput('energyrange', label="Energy Range", min=0, max=40, value=selection)
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        sliderInput('energyrange', label="Energy Range", min=0, max=40, value=selection)
+    }
+}
+
+   
+
 forestTryUI <- function(radiocal=3, neuralhiddenlayers=NULL, selection=NULL, maxsample=NULL){
     
     neuralhiddenlayers <- if(is.null(neuralhiddenlayers)){
@@ -4158,43 +4326,39 @@ predictIntensityLuc <- function(predict.frame){
     predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
 }
 
-rainforestIntensityPreGen <- function(spectra, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
-    data <- spectra
+rainforestDataPreGen <- function(spectra, compress=TRUE, transformation="None", energy.range=c(0.7, 37), norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     spectra.data <- if(norm.type==1){
         if(data.type=="Spectra"){
-            spectra_simp_prep_xrf(spectra=data)[,-1]
+            spectra_simp_prep_xrf(spectra=spectra, compress=compress, energy.min=energy.range[1], energy.max=energy.range[2], transformation=transformation)
         } else if(data.type=="Net"){
             NULL
         }
     } else if(norm.type==2){
         if(data.type=="Spectra"){
-            spectra_tc_prep_xrf(spectra=data)[,-1]
+            spectra_tc_prep_xrf(spectra=spectra, compress=compress, energy.min=energy.range[1], energy.max=energy.range[2], transformation=transformation)
         } else if(data.type=="Net"){
             NULL
         }
     } else if(norm.type==3){
         if(data.type=="Spectra"){
-            spectra_comp_prep_xrf(spectra=data, norm.min=norm.min, norm.max=norm.max)[,-1]
+            spectra_comp_prep_xrf(spectra=spectra, compress=compress, energy.min=energy.range[1], energy.max=energy.range[2], transformation=transformation, norm.min=norm.min, norm.max=norm.max)
         } else if(data.type=="Net"){
             NULL
         }
     }
     
-    
     return(spectra.data)
 }
 
 
-rainforestDataGen <- function(spectra, hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+rainforestDataGen <- function(spectra, compress=TRUE, transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     spectra.line.table <- hold.frame
     
-    spectra.data <- rainforestIntensityPreGen(spectra=spectra, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    spectra.data <- rainforestDataPreGen(spectra=spectra, compress=compress, transformation=transformation, energy.range=energy.range, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
     
-    
-    
-    spectra.data$Concentration <- spectra.line.table[complete.cases(spectra.line.table[,"Concentration"]),]$Concentration
+    spectra.data <- merge(spectra.data, hold.frame[,c("Spectrum", "Concentration")], by="Spectrum")
     spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
     
     return(spectra.data)
@@ -4515,10 +4679,13 @@ calProgressSummary <- function(calList){
     rbindlist(cal.results.list)
 }
 
-calConditionsTable <- function(cal.type=1, norm.type=2, norm.min=11, norm.max=11.1, foresttry=5, forestmetric="RMSE", foresttrain="repeatedcv", forestnumber=6, foresttrees=50, neuralhiddenlayers=1, neuralhiddenunits="1-2", neuralweightdecay="03-0.5", neuralmaxiterations=1000, treedepth="5-15", xgbeta="0.1-0.3", xgbgamma="0-0.1", xgbsubsample="0.4-0.6", xgbcolsample="0.4-0.6", xgbminchild=1){
+calConditionsTable <- function(cal.type=1, compress=TRUE, transformation="None", energy.range="0.7-37", norm.type=2, norm.min=11, norm.max=11.1, foresttry=5, forestmetric="RMSE", foresttrain="repeatedcv", forestnumber=6, foresttrees=50, neuralhiddenlayers=1, neuralhiddenunits="1-2", neuralweightdecay="03-0.5", neuralmaxiterations=1000, treedepth="5-15", xgbeta="0.1-0.3", xgbgamma="0-0.1", xgbsubsample="0.4-0.6", xgbcolsample="0.4-0.6", xgbminchild=1){
     
     cal.table <- data.frame(
                 CalType=cal.type,
+                Compress=compress,
+                Transformation=transformation,
+                EnergyRange=energy.range,
                 NormType=norm.type,
                 Min=norm.min,
                 Max=norm.max,
@@ -4543,10 +4710,13 @@ calConditionsTable <- function(cal.type=1, norm.type=2, norm.min=11, norm.max=11
 }
 
 
-calConditionsList <- function(cal.type=1, norm.type=2, norm.min=11, norm.max=11.1, foresttry=5, forestmetric="RMSE", foresttrain="repeatedcv", forestnumber=6, foresttrees=50, neuralhiddenlayers=1, neuralhiddenunits="1-2", neuralweightdecay="03-0.5", neuralmaxiterations=1000, treedepth="5-15", xgbeta="0.1-0.3", xgbgamma="0-0.1", xgbsubsample="0.4-0.6", xgbcolsample="0.4-0.6", xgbminchild=1, use.standards=TRUE, slopes=NULL, intercept=NULL){
+calConditionsList <- function(cal.type=1, compress=TRUE, transformation="None", energy.range="0.7-37", norm.type=2, norm.min=11, norm.max=11.1, foresttry=5, forestmetric="RMSE", foresttrain="repeatedcv", forestnumber=6, foresttrees=50, neuralhiddenlayers=1, neuralhiddenunits="1-2", neuralweightdecay="03-0.5", neuralmaxiterations=1000, treedepth="5-15", xgbeta="0.1-0.3", xgbgamma="0-0.1", xgbsubsample="0.4-0.6", xgbcolsample="0.4-0.6", xgbminchild=1, use.standards=TRUE, slopes=NULL, intercept=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
+                Compress=compress,
+                Transformation=transformation,
+                EnergyRange=energy.range,
                 NormType=norm.type,
                 Min=norm.min,
                 Max=norm.max,
@@ -4582,3 +4752,365 @@ calConditionCompare <- function(cal.conditions.first, cal.conditions.second){
     use.standards.match <- identical(cal.conditions.first$StandardsUsed, cal.conditions.second$StandardsUsed)
     all(cal.table.match, use.standards.match)
 }
+
+defaultCalConditions <- function(element, number.of.standards){
+    cal.condition <- 3
+    compress <- TRUE
+    transformation <- "None"
+    energy.range <- "0.7-37"
+    norm.condition <- 1
+    norm.min <- 18.5
+    norm.max <- 19.5
+    
+    foresttry <- as.numeric(7)
+    forestmetric <- as.character("RMSE")
+    foresttrain <- as.character("repeatedcv")
+    forestnumber <- as.numeric(10)
+    foresttrees <- as.numeric(100)
+    neuralhiddenlayers <- as.numeric(1)
+    neuralhiddenunits <- paste0(1, "-", 4)
+    neuralweightdecay <- paste0(0.1, "-", 0.5)
+    neuralmaxiterations <- as.numeric(1000)
+    treedepth <- as.character("5-15")
+    xgbeta <- as.character("0.1-0.3")
+    xgbgamma <- as.character("0-0.1")
+    xgbsubsample <- as.character("0.4-0.6")
+    xgbcolsample <- as.character("0.4-0.6")
+    xgbminchild <- as.numeric(1)
+    
+    cal.table <- data.frame(
+        CalType=cal.condition,
+        Compress=compress,
+        Transformation=transformation,
+        EnergyRange=energy.range,
+        NormType=norm.condition,
+        Min=norm.min,
+        Max=norm.max,
+        ForestTry=foresttry,
+        ForestMetric=forestmetric,
+        ForestTC=foresttrain,
+        ForestNumber=forestnumber,
+        ForestTrees=foresttrees,
+        NeuralHL=neuralhiddenlayers,
+        NeuralHU=neuralhiddenunits,
+        NeuralWD=neuralweightdecay,
+        NeuralMI=neuralmaxiterations,
+        TreeDepth=treedepth,
+        xgbEta=xgbeta,
+        xgbGamma=xgbgamma,
+        xgbSubSample=xgbsubsample,
+        xgbColSample=xgbcolsample,
+        xgbMinChild=xgbminchild,
+        stringsAsFactors=FALSE)
+    
+    slope.corrections <- element
+    
+    intercept.corrections <- NULL
+    
+    standards.used <- rep(TRUE, number.of.standards)
+    
+    #standards.used <- vals$keeprows
+    
+    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
+    return(cal.mode.list)
+}
+
+importCalConditions <- function(element, calList, number.of.standards=NULL){
+    
+    number.of.standards <- if(is.null(number.of.standards)){
+        length(calList[[element]][[1]]$StandardsUsed)
+    } else if(!is.null(number.of.standards)){
+        number.of.standards
+    }
+    
+    default.cal.conditions <- defaultCalConditions(element=element, number.of.standards=number.of.standards)
+    
+    imported.cal.conditions <- calList[[element]][[1]]
+    
+    cal.condition <- if("CalType" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$CalType
+    } else if(!"CalType" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$CalType
+    }
+    
+    compress.condition <- if("Compress" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$Compress
+    } else if(!"Compress" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$Compress
+    }
+    
+    transformation.condition <- if("Transformation" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$Transformation
+    } else if(!"Transformation" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$Transformation
+    }
+    
+    energyrange.condition <- if("EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$EnergyRange
+    } else if(!"EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$EnergyRange
+    }
+    
+    
+    norm.condition <- if("NormType" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$NormType
+    } else if(!"NormType" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$NormType
+    }
+    
+    norm.min <- if("Min" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$Min
+    } else if(!"Min" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$Min
+    }
+    
+    norm.max <- if("Max" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$Max
+    } else if(!"Max" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$Max
+    }
+    
+    foresttry <- if("ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$ForestTry
+    } else if(!"ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ForestTry
+    }
+    
+    forestmetric <- if("ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$ForestMetric
+    } else if(!"ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ForestMetric
+    }
+    
+    foresttrain <- if("ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$ForestTC
+    } else if(!"ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ForestTC
+    }
+    
+    forestnumber <- if("ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$ForestNumber
+    } else if(!"ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ForestNumber
+    }
+    
+    foresttrees <- if("ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$ForestTrees
+    } else if(!"ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ForestTrees
+    }
+    
+    neuralhiddenlayers <- if("NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$NeuralHL
+    } else if(!"NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$NeuralHL
+    }
+    
+    neuralhiddenunits <- if("NeuralHU" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==6 | cal.condition==7){
+             paste0(calList[[element]][[2]]$bestTune$size, "-", calList[[element]][[2]]$bestTune$size)
+        } else if(!cal.condition==6 | !cal.condition==7){
+            imported.cal.conditions$CalTable$NeuralHU
+        }
+    } else if(!"NeuralHU" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$NeuralHU
+    }
+    
+    neuralweightdecay <- if("NeuralWD" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==6 | cal.condition==7){
+            if(neuralhiddenlayers==1){
+                paste0(calList[[element]][[2]]$bestTune$decay, "-", calList[[element]][[2]]$bestTune$decay)
+            } else if(neuralhiddenlayers > 1){
+                imported.cal.conditions$CalTable$NeuralWD
+            }
+        } else if(!cal.condition==6 | !cal.condition==7){
+            imported.cal.conditions$CalTable$NeuralWD
+        }
+    } else if(!"NeuralWD" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$NeuralWD
+    }
+    
+    neuralmaxiterations <- if("NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$NeuralMI
+    } else if(!"NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$NeuralMI
+    }
+    
+    treedepth <- if("TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9){
+            paste0(calList[[element]][[2]]$bestTune$max_depth, "-", calList[[element]][[2]]$bestTune$max_depth)
+        } else if(!cal.condition==8 | !cal.condition==9){
+            imported.cal.conditions$CalTable$TreeDepth
+        }
+    } else if(!"TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$TreeDepth
+    }
+    
+    xgbeta <- if("xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9){
+            paste0(calList[[element]][[2]]$bestTune$eta, "-", calList[[element]][[2]]$bestTune$eta)
+        } else if(!cal.condition==8 | !cal.condition==9){
+            imported.cal.conditions$CalTable$xgbEta
+        }
+    } else if(!"xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbEta
+    }
+    
+    xgbgamma <- if("xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9){
+            paste0(calList[[element]][[2]]$bestTune$gamma, "-", calList[[element]][[2]]$bestTune$gamma)
+        } else if(!cal.condition==8 | !cal.condition==9){
+            imported.cal.conditions$CalTable$xgbGamma
+        }
+    } else if(!"xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbGamma
+    }
+    
+    xgbsubsample <- if("xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9){
+            paste0(calList[[element]][[2]]$bestTune$subsample, "-", calList[[element]][[2]]$bestTune$subsample)
+        } else if(!cal.condition==8 | !cal.condition==9){
+            imported.cal.conditions$CalTable$xgbSubSample
+        }
+    } else if(!"xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbSubSample
+    }
+    
+    xgbcolsample <- if("xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9){
+            paste0(calList[[element]][[2]]$bestTune$colsample_bytree, "-", calList[[element]][[2]]$bestTune$colsample_bytree)
+        } else if(!cal.condition==8 | !cal.condition==9){
+            imported.cal.conditions$CalTable$xgbSubSample
+        }
+    } else if(!"xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbColSample
+    }
+    
+    xgbminchild <- if("xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9){
+           calList[[element]][[2]]$bestTune$min_child_weight
+        } else if(!cal.condition==8 | !cal.condition==9){
+            imported.cal.conditions$CalTable$xgbMinChild
+        }
+    } else if(!"xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbMinChild
+    }
+    
+    slope.corrections <- if("Slope" %in% names(imported.cal.conditions)){
+        imported.cal.conditions$Slope
+    } else if("Slope" %in% names(imported.cal.conditions)){
+        default.cal.conditions$Slope
+    }
+    
+    slope.corrections <- if(is.null(slope.corrections)){
+        element
+    } else if(!is.null(slope.corrections)){
+        slope.corrections
+    }
+    intercept.corrections <- if("Intercept" %in% names(imported.cal.conditions)){
+        imported.cal.conditions$Intercept
+    } else if("Intercept" %in% names(imported.cal.conditions)){
+        default.cal.conditions$Intercept
+    }
+    
+    standards.used <- if("StandardsUsed" %in% names(imported.cal.conditions)){
+        imported.cal.conditions$StandardsUsed
+    } else if("StandardsUsed" %in% names(imported.cal.conditions)){
+        default.cal.conditions$StandardsUsed
+    }
+    
+    cal.table <- data.frame(
+        CalType=cal.condition,
+        Compress=compress.condition,
+        Transformation=transformation.condition,
+        EnergyRange=energyrange.condition,
+        NormType=norm.condition,
+        Min=norm.min,
+        Max=norm.max,
+        ForestTry=foresttry,
+        ForestMetric=forestmetric,
+        ForestTC=foresttrain,
+        ForestNumber=forestnumber,
+        ForestTrees=foresttrees,
+        NeuralHL=neuralhiddenlayers,
+        NeuralHU=neuralhiddenunits,
+        NeuralWD=neuralweightdecay,
+        NeuralMI=neuralmaxiterations,
+        TreeDepth=treedepth,
+        xgbEta=xgbeta,
+        xgbGamma=xgbgamma,
+        xgbSubSample=xgbsubsample,
+        xgbColSample=xgbcolsample,
+        xgbMinChild=xgbminchild,
+        stringsAsFactors=FALSE)
+        
+        cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
+        return(cal.mode.list)
+}
+
+
+###Spectra Manipulations
+logspec <- function(x) ifelse(x!=0, log10(x), 0)
+exspec <- function(x) ifelse(x!=0, exp(x), 0)
+
+
+spectraBackgroundSubtract <- function(spectra){
+    spectra$CPS <- Hodder.v(spectra$CPS)
+    return(spectra)
+}
+spectraBackgroundSubtract <- cmpfun(spectraBackgroundSubtract)
+
+dataLog <- function(spectra){
+    spectra$CPS <- logspec(spectra$CPS)
+    return(spectra)
+}
+dataLog <- cmpfun(dataLog)
+
+dataExp <- function(spectra){
+    spectra$CPS <- exspec(spectra$CPS)
+    return(spectra)
+}
+dataExp <- cmpfun(dataExp)
+
+
+transformSpectrum <- function(spectra, transformation){
+    spectra.transformed <- if(transformation=="None"){
+        spectra
+    } else if(transformation=="Velocity"){
+        spectraBackgroundSubtract(spectra)
+    } else if(transformation=="Log"){
+        dataLog(spectra)
+    } else if(transformation=="e"){
+        dataExp(spectra)
+    }
+    
+    return(spectra.transformed)
+}
+transformSpectra <- cmpfun(transformSpectra)
+
+transformSpectra <- function(spectra.frame, transformation){
+    spectra.list <- split(spectra.frame , f = spectra.frame$Spectrum )
+    names(spectra.list) <- unique(spectra.frame$Spectrum)
+    
+    spectra.transformed <- lapply(spectra.list, function(x) transformSpectrum(spectra=x, transformation=transformation))
+    names(spectra.transformed) <- names(spectra.list)
+    return(rbindlist(spectra.transformed))
+}
+
+chooseTransformation <- function(spectra=NULL, cal){
+    
+    spectra <- if(is.null(spectra)){
+        cal[["Spectra"]]
+    } else if(!is.null(spectra)){
+        spectra
+    }
+    
+    spectra.transformed <- if(is.null(cal$Transformation)){
+        transformSpectra(cal[["Spectra"]], transformation="None")
+    } else if(!is.null(cal$Transformation)){
+        transformSpectra(cal[["Spectra"]], transformation=cal$Transformation)
+    }
+    
+    return(spectra.transformed)
+}
+chooseTransformation <- cmpfun(chooseTransformation)

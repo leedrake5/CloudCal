@@ -173,6 +173,36 @@ tabPanel("Counts",
 div(class="outer",
 
 fluidRow(
+tags$script(
+'function checkifrunning() {
+var is_running = $("html").attr("class").includes("shiny-busy");
+if (is_running){
+    $("#loading").show()
+} else {
+    $("#loading").hide()
+}
+};
+setInterval(checkifrunning, 50)'
+),
+tags$style(
+" body { text-align:left; }
+
+#loading {
+display: inline-block;
+border: 3px solid #f3f3f3;
+border-top: 3px solid #3498db;
+border-radius: 50%;
+width: 50px;
+height: 50px;
+animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}"
+),
+
 sidebarLayout(
 sidebarPanel(width=3,
 
@@ -254,7 +284,9 @@ div(class="outer",
 fluidRow(
 sidebarLayout(
 sidebarPanel(width=3,
-
+HTML("&nbsp;"),
+column(12, tags$div(id = "loading",
+tags$script('$("#loading").hide()'))),
 uiOutput('mclrunui'),
 actionButton('createcalelement', "Update"),
 actionButton('createcal', "Save"),
@@ -315,8 +347,12 @@ uiOutput('comptonMinInput'),
 
 uiOutput('comptonMaxInput'),
 
+uiOutput('energyrangeui'),
+uiOutput('transformationui'),
+uiOutput('compressui'),
 uiOutput('inVar3'),
 uiOutput('inVar4')
+
 #sliderInput("nvariables", label = "# Elements", min=1, max=7, value=2)
 
 ),
@@ -346,6 +382,7 @@ tabPanel("Cal Curves",
             brush = brushOpts(id = "plot_val_brush", resetOnNew = TRUE),
             hover = hoverOpts("plot_hoverval", delay = 100, delayType = "debounce")),
             uiOutput("hover_infoval")),
+
         actionButton("cropval", "Zoom"),
         actionButton("zeroval", "Zero")
 
