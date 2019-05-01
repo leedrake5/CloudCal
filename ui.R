@@ -491,7 +491,7 @@ tabPanel("Variables",
 
 #tabPanel("test", dataTableOutput('testingagain')),
 
-#tabPanel("Testing", dataTableOutput('testtable')),
+tabPanel("Testing", dataTableOutput('testtable')),
 #tabPanel("Testing2", dataTableOutput('testtable2')),
 
 

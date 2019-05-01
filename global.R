@@ -3744,12 +3744,18 @@ transformationUI <- function(radiocal=3, selection=NULL){
     }
 }
 
-energyRangeUI <- function(radiocal=3, selection=NULL){
+energyRangeUI <- function(radiocal=3, selection=NULL, compress=TRUE){
     
     selection <- if(is.null(selection)){
         c(0.7, 37)
     } else if(!is.null(selection)){
         selection
+    }
+    
+    step <- if(compress==TRUE){
+        0.1
+    } else if(compress==FALSE){
+        0.01
     }
     
     if(radiocal==1){
@@ -3761,15 +3767,15 @@ energyRangeUI <- function(radiocal=3, selection=NULL){
     } else if(radiocal==4){
         NULL
     }  else if(radiocal==5){
-        sliderInput('energyrange', label="Energy Range", min=0, max=40, value=selection)
+        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step,  value=selection)
     } else if(radiocal==6){
         NULL
     } else if(radiocal==7){
-        sliderInput('energyrange', label="Energy Range", min=0, max=40, value=selection)
+        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step, value=selection)
     } else if(radiocal==8){
         NULL
     } else if(radiocal==9){
-        sliderInput('energyrange', label="Energy Range", min=0, max=40, value=selection)
+        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step, value=selection)
     }
 }
 
