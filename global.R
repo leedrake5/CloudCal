@@ -23,7 +23,7 @@ if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
@@ -41,7 +41,8 @@ if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 }
 
 library(rPDZ)
-
+library(reactlog)
+options(shiny.reactlog = TRUE)
 
 ###update packages
 #update.packages(repos='http://cran.rstudio.com/', ask=FALSE)
@@ -88,57 +89,6 @@ my.cores <- if(parallel::detectCores()>=3){
 }
 
 
-# Redefined in global namespace since it's not exported from shiny
-`%OR2%` <- shiny:::`%OR%`
-debounce_sc <- function(r, millis, priority = 100, domain = getDefaultReactiveDomain(), short_circuit = NULL)
-{
-    force(r)
-    force(millis)
-    if (!is.function(millis)) {
-        origMillis <- millis
-        millis <- function() origMillis
-    }
-    v <- reactiveValues(trigger = NULL, when = NULL)
-    firstRun <- TRUE
-    observe({
-        r()
-        if (firstRun) {
-            firstRun <<- FALSE
-            return()
-        }
-        v$when <- Sys.time() + millis()/1000
-    }, label = "debounce tracker", domain = domain, priority = priority)
-    # New code here to short circuit the timer when the short_circuit reactive
-    # triggers
-    if (inherits(short_circuit, "reactive")) {
-        observe({
-            short_circuit()
-            v$when <- Sys.time()
-        }, label = "debounce short circuit", domain = domain, priority = priority)
-    }
-    # New code ends
-    observe({
-        if (is.null(v$when))
-        return()
-        now <- Sys.time()
-        if (now >= v$when) {
-            v$trigger <- isolate(v$trigger %OR2% 0) %% 999999999 +
-            1
-            v$when <- NULL
-        }
-        else {
-            invalidateLater((v$when - now) * 1000)
-        }
-    }, label = "debounce timer", domain = domain, priority = priority)
-    er <- eventReactive(v$trigger, {
-        r()
-    }, label = "debounce result", ignoreNULL = FALSE, domain = domain)
-    primer <- observe({
-        primer$destroy()
-        er()
-    }, label = "debounce primer", domain = domain, priority = priority)
-    er
-}
 
 my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA)
 my.min <- function(x) ifelse( !all(is.na(x)), min(x, na.rm=T), NA)
@@ -2292,7 +2242,7 @@ lucas_comp_xrf <- cmpfun(lucas_comp_xrf)
 james <- function(x) (abs(x)+x)/2
 james.cp <- compiler::cmpfun(james)
 
-spectra_summary_general <- function(spectra.frame, norm.type, norm.min, norm.max, compress){
+spectra_summary_general <- function(spectra.frame, norm.type, norm.min, norm.max, compress="100 eV"){
     
     if(norm.type==1){
         spectra_simp_trans_xrf(spectra=spectra.frame, compress=compress)
@@ -2371,7 +2321,7 @@ spectra_table_xrf <- function(spectra, concentration){
 spectra_table_xrf <- cmpfun(spectra_table_xrf)
 
 
-spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE, transformation="None"){
+spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress="100 eV", transformation="None"){
     
     spectra <- if(transformation=="None"){
         spectra
@@ -2381,14 +2331,14 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compre
     
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
-    if(is.null(compress)){compress <- TRUE}
+    if(is.null(compress)){compress <- "100 eV"}
 
 
-    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
+    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
     
-    if(compress==FALSE){spectra$Energy <- round(spectra$Energy, 2)}
-    if(compress==FALSE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
 
     
     spectra <- data.table(spectra)
@@ -2407,7 +2357,7 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compre
 spectra_simp_prep_xrf <- cmpfun(spectra_simp_prep_xrf)
 
 
-spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE, transformation="None"){
+spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress="100 eV", transformation="None"){
     
     spectra <- if(transformation=="None"){
         spectra
@@ -2417,13 +2367,13 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress
     
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
-    if(is.null(compress)){compress <- TRUE}
+    if(is.null(compress)){compress <- "100 eV"}
     
-    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
+    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
     
-    if(compress==FALSE){spectra$Energy <- round(spectra$Energy, 2)}
-    if(compress==FALSE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
@@ -2432,7 +2382,7 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress
     
     #test <- apply(test, 2, as.numeric)
     colnames(data) <- make.names(colnames(data))
-    data <- data[complete.cases(data),]
+    #data <- data[,complete.cases(data)]
     
     total.counts <- rowSums(data[,-1], na.rm=TRUE)
     
@@ -2445,7 +2395,7 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress
 spectra_tc_prep_xrf <- cmpfun(spectra_tc_prep_xrf)
 
 
-spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress=TRUE, transformation="None"){
+spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress="100 eV", transformation="None"){
     
     spectra <- if(transformation=="None"){
         spectra
@@ -2455,7 +2405,7 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.m
     
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
-    if(is.null(compress)){compress <- TRUE}
+    if(is.null(compress)){compress <- "100 eV"}
     
     compton.norm <- subset(spectra$CPS, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
     compton.file <- subset(spectra$Spectrum, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
@@ -2465,11 +2415,11 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.m
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     
-    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
+    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
     
-    if(compress==FALSE){spectra$Energy <- round(spectra$Energy, 2)}
-    if(compress==FALSE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
@@ -2489,17 +2439,19 @@ spectra_comp_prep_xrf <- cmpfun(spectra_comp_prep_xrf)
 
 
 
-spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compress=TRUE){
+spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compress="100 eV"){
     
     if(is.null(energy.min)){energy.min <- 0.2}
     if(is.null(energy.max)){energy.max <- 40}
-    if(is.null(compress)){compress <- TRUE}
+    if(is.null(compress)){compress <- "100 eV"}
     
     
-    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
     
+    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
+    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
     
+    spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
     
@@ -2525,14 +2477,17 @@ spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compr
 spectra_simp_trans_xrf <- cmpfun(spectra_simp_trans_xrf)
 
 
-spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress=TRUE){
+spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress="100 eV"){
     
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
-    if(is.null(compress)){compress <- TRUE}
+    if(is.null(compress)){compress <- "100 eV"}
     
-    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
+    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
+    
+    spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
@@ -2563,11 +2518,11 @@ spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compres
 spectra_tc_trans_xrf <- cmpfun(spectra_tc_trans_xrf)
 
 
-spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress=TRUE){
+spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress="100 eV"){
     
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
-    if(is.null(compress)){compress <- TRUE}
+    if(is.null(compress)){compress <- "100 eV"}
     
     compton.norm <- subset(spectra$CPS, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
     compton.file <- subset(spectra$Spectrum, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
@@ -2577,8 +2532,12 @@ spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     
-    if(compress==TRUE){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress==TRUE){spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))}
+    
+    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
+    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
+    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
+    
+    spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
@@ -2670,11 +2629,11 @@ simple_comp_prep_xrf <- cmpfun(simple_comp_prep_xrf)
 spectra_summary_apply <- function(spectra.frame, normalization, min, max){
     
     new.spectrum <- if(normalization==1){
-        spectra_simp_prep_xrf(spectra=spectra.frame, compress=FALSE)
+        spectra_simp_prep_xrf(spectra=spectra.frame, compress="100 eV")
     } else if(normalization==2){
-        spectra_tc_prep_xrf(spectra=spectra.frame, compress=FALSE)
+        spectra_tc_prep_xrf(spectra=spectra.frame, compress="100 eV")
     } else if(normalization==3){
-        spectra_comp_prep_xrf(spectra=spectra.frame, norm.min=min, norm.max=max, compress=FALSE)
+        spectra_comp_prep_xrf(spectra=spectra.frame, norm.min=min, norm.max=max, compress="100 eV")
     }
     
     newer.spectrum <- melt(new.spectrum, id.var="Spectrum")
@@ -2690,35 +2649,31 @@ spectra_summary_apply <- cmpfun(spectra_summary_apply)
 
 
 
-lucas_simp_prep_xrf <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lucas_simp_prep_xrf <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines=NULL) {
     
     
     intensity <- spectra.line.table[,element.line]
     
-    
-    intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
-    colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
-    
-    
-    
+    if(!is.null(intercept.element.lines)){
+        intercept.none <- rep(0, length(spectra.line.table[,1]))
+        lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
+        colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
+        lucas.intercept.table <- data.frame(first=rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]), stringsAsFactors=FALSE)
+        lucas.intercept <- lucas.intercept.table$first
+    }
     
     slope.none <- rep(1, length(spectra.line.table[,1]))
     lucas.slope.table <- data.frame(spectra.line.table, slope.none, stringsAsFactors=FALSE)
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
     
-    
-    lucas.intercept.table <- data.frame(first=rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]), stringsAsFactors=FALSE)
-    
-    
-    
-    lucas.intercept <- lucas.intercept.table$first
     lucas.slope <- data.frame(lucas.slope.table[,slope.element.lines], stringsAsFactors=FALSE)
     colnames(lucas.slope) <- slope.element.lines
     
-    
-    
-    predict.frame.luk <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope, stringsAsFactors=FALSE)
+    predict.frame.luk <- if(is.null(intercept.element.lines)){
+        data.frame(Intensity=intensity,lucas.slope, stringsAsFactors=FALSE)
+    } else if(!is.null(intercept.element.lines)){
+        data.frame(Intensity=((1+intensity/(intensity+lucas.intercept))-lucas.intercept/(intensity+lucas.intercept)),lucas.slope, stringsAsFactors=FALSE)
+    }
     
     predict.frame.luk
     
@@ -2727,7 +2682,7 @@ lucas_simp_prep_xrf <- function(spectra.line.table, element.line, slope.element.
 lucas_simp_prep_xrf <- cmpfun(lucas_simp_prep_xrf)
 
 
-lucas_tc_prep_xrf <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lucas_tc_prep_xrf <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines=NULL) {
     
     
     intensity <- spectra.line.table[,element.line]
@@ -2736,28 +2691,27 @@ lucas_tc_prep_xrf <- function(data, spectra.line.table, element.line, slope.elem
     total.counts <- aggregate(CPS~Spectrum, data=data, sum)
     colnames(total.counts) <- c("Spectrum", "CPS")
     
-    
-    intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
-    colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
+    if(!is.null(intercept.element.lines)){
+        intercept.none <- rep(0, length(spectra.line.table[,1]))
+        lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
+        colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
+        lucas.intercept.table.tc <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]), stringsAsFactors=FALSE)/total.counts$CPS
+        colnames(lucas.intercept.table.tc) <- c("first")
+        lucas.intercept.tc <- lucas.intercept.table.tc$first
+    }
     
     slope.none <- rep(1, length(spectra.line.table[,1]))
     lucas.slope.table <- data.frame(spectra.line.table, slope.none, stringsAsFactors=FALSE)
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
     
-    
-    lucas.intercept.table.tc <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")]), stringsAsFactors=FALSE)/total.counts$CPS
-    colnames(lucas.intercept.table.tc) <- c("first")
-    
-    
-    
-    lucas.intercept.tc <- lucas.intercept.table.tc$first
     lucas.slope.tc <- data.frame(lucas.slope.table[,slope.element.lines], stringsAsFactors=FALSE)/total.counts$CPS
     colnames(lucas.slope.tc) <- slope.element.lines
     
-    
-    
-    predict.intensity.luc.tc <- data.frame(Intensity=((1+intensity/(intensity+lucas.intercept.tc)-lucas.intercept.tc/(intensity+lucas.intercept.tc))),lucas.slope.tc, stringsAsFactors=FALSE)
+    predict.intensity.luc.tc <- if(is.null(intercept.element.lines)){
+        data.frame(Intensity=intensity,lucas.slope.tc, stringsAsFactors=FALSE)
+    } else if(!is.null(intercept.element.lines)){
+        data.frame(Intensity=((1+intensity/(intensity+lucas.intercept.tc))-lucas.intercept.tc/(intensity+lucas.intercept.tc)),lucas.slope.tc, stringsAsFactors=FALSE)
+    }
     
     predict.intensity.luc.tc
 }
@@ -2767,7 +2721,7 @@ lucas_tc_prep_xrf <- cmpfun(lucas_tc_prep_xrf)
 
 
 
-lucas_comp_prep_xrf <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {
+lucas_comp_prep_xrf <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines=NULL, norm.min, norm.max) {
     
     
     intensity <- spectra.line.table[,element.line]
@@ -2781,30 +2735,29 @@ lucas_comp_prep_xrf <- function(data, spectra.line.table, element.line, slope.el
     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     compton.frame.ag[compton.frame.ag ==0 ] <- 1
-
     
-    intercept.none <- rep(0, length(spectra.line.table[,1]))
-    lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
-    colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
+    if(!is.null(intercept.element.lines)){
+        intercept.none <- rep(0, length(spectra.line.table[,1]))
+        lucas.intercept.table.x <- data.frame(spectra.line.table, intercept.none, intercept.none, stringsAsFactors=FALSE)
+        colnames(lucas.intercept.table.x) <- c(names(spectra.line.table), "None", "NoneNull")
+        lucas.intercept.table.comp <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")])/compton.frame.ag$Compton, stringsAsFactors=FALSE)
+        colnames(lucas.intercept.table.comp) <- c("first")
+        lucas.intercept.comp <- lucas.intercept.table.comp$first
+    }
     
     slope.none <- rep(1, length(spectra.line.table[,1]))
     lucas.slope.table <- data.frame(spectra.line.table, slope.none, stringsAsFactors=FALSE)
     colnames(lucas.slope.table) <- c(names(spectra.line.table), "None")
     
-    
-    
-    lucas.intercept.table.comp <- data.frame(rowSums(lucas.intercept.table.x[,c(intercept.element.lines, "None", "NoneNull")])/compton.frame.ag$Compton, stringsAsFactors=FALSE)
-    colnames(lucas.intercept.table.comp) <- c("first")
-    
-    
-    
-    lucas.intercept.comp <- lucas.intercept.table.comp$first
     lucas.slope.comp <- data.frame(lucas.slope.table[,slope.element.lines]/compton.frame.ag$Compton, stringsAsFactors=FALSE)
     colnames(lucas.slope.comp) <- slope.element.lines
     
-    
-    predict.frame.luc.comp <- data.frame(Intensity=((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)-lucas.intercept.comp/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)),lucas.slope.comp, stringsAsFactors=FALSE)
-   
+    predict.frame.luc.comp <- if(is.null(intercept.element.lines)){
+        data.frame(Intensity=intensity/compton.frame.ag$Compton,lucas.slope.comp, stringsAsFactors=FALSE)
+    } else if(!is.null(intercept.element.lines)){
+        data.frame(Intensity=((1+intensity/compton.frame.ag$Compton)/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)-lucas.intercept.comp/(intensity/compton.frame.ag$Compton+lucas.intercept.comp)),lucas.slope.comp, stringsAsFactors=FALSE)
+    }
+
     predict.frame.luc.comp
 }
 lucas_comp_prep_xrf <- cmpfun(lucas_comp_prep_xrf)
@@ -3323,7 +3276,7 @@ bord.col='lightblue', max.sp = F,...){
     
     #gets weights for neural network, output is list
     #if rescaled argument is true, weights are returned but rescaled based on abs value
-    nnet.vals<-function(mod.in,nid,rel.rsc,struct.out=struct){
+    nnet.vals <- function(mod.in,nid,rel.rsc,struct.out=struct){
         
         require(scales)
         require(reshape)
@@ -3689,7 +3642,7 @@ plot.nnet <- cmpfun(plot.nnet)
 compressUI <- function(radiocal=3, selection=NULL){
     
     selection <- if(is.null(selection)){
-        TRUE
+        "100 eV"
     } else if(!is.null(selection)){
         selection
     }
@@ -3703,15 +3656,15 @@ compressUI <- function(radiocal=3, selection=NULL){
     } else if(radiocal==4){
         NULL
     }  else if(radiocal==5){
-        checkboxInput('compress', label="Compress", value=selection)
+        selectInput('compress', label="Compress", choices=c("100 eV", "50 eV", "25 eV"), selected=selection)
     } else if(radiocal==6){
         NULL
     } else if(radiocal==7){
-        checkboxInput('compress', label="Compress", value=selection)
+        selectInput('compress', label="Compress", choices=c("100 eV", "50 eV", "25 eV"), selected=selection)
     } else if(radiocal==8){
         NULL
     } else if(radiocal==9){
-        checkboxInput('compress', label="Compress", value=selection)
+        selectInput('compress', label="Compress", choices=c("100 eV", "50 eV", "25 eV"), selected=selection)
     }
 }
 
@@ -3744,7 +3697,7 @@ transformationUI <- function(radiocal=3, selection=NULL){
     }
 }
 
-energyRangeUI <- function(radiocal=3, selection=NULL, compress=TRUE){
+energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
     
     selection <- if(is.null(selection)){
         c(0.7, 37)
@@ -3752,10 +3705,12 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress=TRUE){
         selection
     }
     
-    step <- if(compress==TRUE){
+    step <- if(compress=="100 eV"){
         0.1
-    } else if(compress==FALSE){
-        0.01
+    } else if(compress=="50 eV"){
+        0.05
+    } else if(compress=="25 eV"){
+        0.025
     }
     
     if(radiocal==1){
@@ -3889,6 +3844,40 @@ forestNumberUI <- function(radiocal, selection){
         sliderInput("forestnumber", label="Iterations", min=5, max=500, value=selection)
     } else if(radiocal==9){
         sliderInput("forestnumber", label="Iterations", min=5, max=500, value=selection)
+    }
+}
+
+cvRepeatsUI <- function(radiocal, foresttrain, selection){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4 && foresttrain=="repeatedcv"){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==4 && foresttrain!="repeatedcv"){
+        NULL
+    } else if(radiocal==5 && foresttrain=="repeatedcv"){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==5 && foresttrain!="repeatedcv"){
+        NULL
+    } else if(radiocal==6 && foresttrain=="repeatedcv"){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==6 && foresttrain!="repeatedcv"){
+        NULL
+    } else if(radiocal==7 && foresttrain=="repeatedcv"){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==7 && foresttrain!="repeatedcv"){
+        NULL
+    } else if(radiocal==8 && foresttrain=="repeatedcv"){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==8 && foresttrain!="repeatedcv"){
+        NULL
+    } else if(radiocal==9 && foresttrain=="repeatedcv"){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==9 && foresttrain!="repeatedcv"){
+        NULL
     }
 }
 
@@ -4188,7 +4177,7 @@ netData <- function(spectra, element.lines.to.use){
     
 }
 
-holdFrame <- function(intensities, values, element){
+holdFrameGen <- function(intensities, values, element){
     spectra.line.table <- intensities
     concentration.table <- values
     spectra.line.table$Spectrum <- concentration.table$Spectrum
@@ -4208,25 +4197,25 @@ spectrumSelect <- function(spectra, hold.frame){
     return(data[data$Spectrum %in% hold.frame$Spectrum, ])
 }
 
-predictIntensitySimpPre <- function(spectra, hold.frame, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictIntensitySimpPreGen <- function(spectra, hold.frame, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     data <- spectra
-    spectra.line.table <- holdFrame()
+    spectra.line.table <- hold.frame
     
-    if(inorm.type==1){
+    
+    predict.intensity <- if(norm.type==1){
         if(data.type=="Spectra"){
             general_prep_xrf(spectra.line.table=spectra.line.table, element.line=element)
         } else if(data.type=="Net"){
             general_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=element)
         }
     } else if(norm.type==2){
-        predict.intensity <- if(data.type=="Spectra"){
+        if(data.type=="Spectra"){
             simple_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element)
         } else if(data.type=="Net"){
             simple_tc_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=element)
         }
-    } else if(norm.type==3){
-        predict.intensity <- if(data.type=="Spectra"){
+    } else if(norm.type==3){if(data.type=="Spectra"){
             simple_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=norm.min, norm.max=norm.max)
         } else if(data.type=="Net"){
             simple_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=norm.min, norm.max=norm.max)
@@ -4237,12 +4226,12 @@ predictIntensitySimpPre <- function(spectra, hold.frame, element, norm.type, nor
 }
 
 
-predictFrameSimp <- function(spectra, hold.frame, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictFrameSimpGen <- function(spectra, hold.frame, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     data <- spectra
     spectra.line.table <- hold.frame
     
-    predict.intensity.simp <- predictIntensitySimpPre(spectra=spectra, hold.frame=hold.frame, element=element, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    predict.intensity.simp <- predictIntensitySimpPreGen(spectra=spectra, hold.frame=hold.frame, element=element, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
     
     predict.frame.simp <- data.frame(predict.intensity.simp, spectra.line.table[,"Concentration"])
     colnames(predict.frame.simp) <- c(names(predict.intensity.simp), "Concentration")
@@ -4256,27 +4245,27 @@ predictIntensitySimp <- function(predict.frame){
     predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
 }
 
-predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercepts, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     data <- spectra
     spectra.line.table <- hold.frame
     element.lines.to.use <- names(hold.frame)[!names(hold.frame) %in% c("Spectrum", "Concentration")]
     
     
-    if(norm.type==1){
+    predict.intensity <- if(norm.type==1){
         if(data.type=="Spectra"){
-            lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
+            lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
         } else if(data.type=="Net"){
             lucas_simp_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
         }
     } else if(norm.type==2){
-        predict.intensity <- if(data.type=="Spectra"){
+        if(data.type=="Spectra"){
             lucas_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
         } else if(data.type=="Net"){
             lucas_tc_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
         }
     } else if(norm.type==3){
-        predict.intensity <- if(data.type=="Spectra"){
+        if(data.type=="Spectra"){
             lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts, norm.min=norm.min, norm.max=norm.max)
         } else if(data.type=="Net"){
             lucas_comp_prep_xrf_net(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts, norm.min=norm.min, norm.max=norm.max)
@@ -4287,7 +4276,7 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercept
 }
 
 
-predictFrameForestGen <- function(spectra, hold.frame, element, intercepts, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictFrameForestGen <- function(spectra, hold.frame, element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     spectra.line.table <- hold.frame
     
@@ -4305,21 +4294,21 @@ predictIntensityForest <- function(predict.frame){
     predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
 }
 
-predictIntensityLucPre <- function(spectra, hold.frame, element, intercepts, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictIntensityLucPreGen <- function(spectra, hold.frame, element, intercepts=NULL, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
-    predict.intensity.forest <- predictIntensityForestPre(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
 
     predict.intensity.forest[,c("Intensity", slopes)]
     
 }
 
-predictFrameLuc <- function(spectra, hold.frame, element, intercepts, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictFrameLucGen <- function(spectra, hold.frame, element, intercepts=NULL, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     data <- spectra
     spectra.line.table <- hold.frame
     
     
-    predict.intensity.luc <- predictIntensityLucPre(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, slopes=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    predict.intensity.luc <- predictIntensityLucPreGen(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, slopes=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
     
     predict.frame.luc <- data.frame(predict.intensity.luc, spectra.line.table[,"Concentration"])
     predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc),]
@@ -4333,7 +4322,7 @@ predictIntensityLuc <- function(predict.frame){
     predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
 }
 
-rainforestDataPreGen <- function(spectra, compress=TRUE, transformation="None", energy.range=c(0.7, 37), norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+rainforestDataPreGen <- function(spectra, compress="100 eV", transformation="None", energy.range=c(0.7, 37), norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     spectra.data <- if(norm.type==1){
         if(data.type=="Spectra"){
@@ -4359,7 +4348,7 @@ rainforestDataPreGen <- function(spectra, compress=TRUE, transformation="None", 
 }
 
 
-rainforestDataGen <- function(spectra, compress=TRUE, transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+rainforestDataGen <- function(spectra, compress="100 eV", transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     spectra.line.table <- hold.frame
     
@@ -4605,8 +4594,7 @@ calCurvePlot <- function(predict.frame, element.model.list, val.frame, element, 
     return(calcurve.plot)
 }
 
-valCurvePlot <- function(val.frame, element, element.model.list, unit){
-    element.model <- elementModel()
+valCurvePlotGen <- function(element, calibration, unit){
     
     
     
@@ -4686,7 +4674,147 @@ calProgressSummary <- function(calList){
     rbindlist(cal.results.list)
 }
 
-calConditionsTable <- function(cal.type=1, compress=TRUE, transformation="None", energy.range="0.7-37", norm.type=2, norm.min=11, norm.max=11.1, foresttry=5, forestmetric="RMSE", foresttrain="repeatedcv", forestnumber=6, foresttrees=50, neuralhiddenlayers=1, neuralhiddenunits="1-2", neuralweightdecay="03-0.5", neuralmaxiterations=1000, treedepth="5-15", xgbeta="0.1-0.3", xgbgamma="0-0.1", xgbsubsample="0.4-0.6", xgbcolsample="0.4-0.6", xgbminchild=1){
+calConditionsTable <- function(cal.type=NULL, compress=NULL, transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbeta=NULL, xgbgamma=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL){
+    
+    cal.type <- if(is.null(cal.type)){
+        1
+    } else if(!is.null(cal.type)){
+        cal.type
+    }
+    
+    compress <- if(is.null(compress)){
+        "100 eV"
+    } else if(!is.null(compress)){
+        compress
+    }
+    
+    transformation <- if(is.null(transformation)){
+        "None"
+    } else if(!is.null(transformation)){
+        transformation
+    }
+    
+    energy.range <- if(is.null(energy.range)){
+        "0.7-37"
+    } else if(!is.null(energy.range)){
+        energy.range
+    }
+    
+    norm.type <- if(is.null(norm.type)){
+        2
+    } else if(!is.null(norm.type)){
+        norm.type
+    }
+    
+    norm.min <- if(is.null(norm.min)){
+        11
+    } else if(!is.null(norm.min)){
+        norm.min
+    }
+    
+    norm.max <- if(is.null(norm.max)){
+        11.1
+    } else if(!is.null(norm.max)){
+        norm.max
+    }
+    
+    foresttry <- if(is.null(foresttry)){
+        5
+    } else if(!is.null(foresttry)){
+        foresttry
+    }
+    
+    forestmetric <- if(is.null(forestmetric)){
+        "RMSE"
+    } else if(!is.null(forestmetric)){
+        forestmetric
+    }
+    
+    foresttrain <- if(is.null(foresttrain)){
+        "repeatedcv"
+    } else if(!is.null(foresttrain)){
+        foresttrain
+    }
+    
+    forestnumber <- if(is.null(forestnumber)){
+        6
+    } else if(!is.null(forestnumber)){
+        forestnumber
+    }
+    
+    cvrepeats <- if(is.null(cvrepeats)){
+        1
+    } else if(!is.null(cvrepeats)){
+        cvrepeats
+    }
+    
+    foresttrees <- if(is.null(foresttrees)){
+        50
+    } else if(!is.null(foresttrees)){
+        foresttrees
+    }
+    
+    neuralhiddenlayers <- if(is.null(neuralhiddenlayers)){
+        1
+    } else if(!is.null(neuralhiddenlayers)){
+        neuralhiddenlayers
+    }
+    
+    neuralhiddenunits <- if(is.null(neuralhiddenunits)){
+        "1-2"
+    } else if(!is.null(neuralhiddenunits)){
+        neuralhiddenunits
+    }
+    
+    neuralweightdecay <- if(is.null(neuralweightdecay)){
+        "0.3-0.5"
+    } else if(!is.null(neuralweightdecay)){
+        neuralweightdecay
+    }
+    
+    neuralmaxiterations <- if(is.null(neuralmaxiterations)){
+        1000
+    } else if(!is.null(neuralmaxiterations)){
+        neuralmaxiterations
+    }
+    
+    treedepth <- if(is.null(treedepth)){
+        "5-15"
+    } else if(!is.null(treedepth)){
+        treedepth
+    }
+    
+    xgbeta <- if(is.null(xgbeta)){
+        "0.1-0.3"
+    } else if(!is.null(xgbeta)){
+        xgbeta
+    }
+    
+    xgbgamma <- if(is.null(xgbgamma)){
+        "0-0.1"
+    } else if(!is.null(xgbgamma)){
+        xgbgamma
+    }
+    
+    xgbsubsample <- if(is.null(xgbsubsample)){
+        "0.4-0.6"
+    } else if(!is.null(xgbsubsample)){
+        xgbsubsample
+    }
+    
+    xgbcolsample <- if(is.null(xgbcolsample)){
+        "0.4-0.6"
+    } else if(!is.null(xgbcolsample)){
+        xgbcolsample
+    }
+    
+    xgbminchild <- if(is.null(xgbminchild)){
+        1
+    } else if(!is.null(xgbminchild)){
+        xgbminchild
+    }
+    
+    
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -4700,6 +4828,7 @@ calConditionsTable <- function(cal.type=1, compress=TRUE, transformation="None",
                 ForestMetric=forestmetric,
                 ForestTC=foresttrain,
                 ForestNumber=forestnumber,
+                CVRepeats=cvrepeats,
                 ForestTrees=foresttrees,
                 NeuralHL=neuralhiddenlayers,
                 NeuralHU=neuralhiddenunits,
@@ -4717,7 +4846,7 @@ calConditionsTable <- function(cal.type=1, compress=TRUE, transformation="None",
 }
 
 
-calConditionsList <- function(cal.type=1, compress=TRUE, transformation="None", energy.range="0.7-37", norm.type=2, norm.min=11, norm.max=11.1, foresttry=5, forestmetric="RMSE", foresttrain="repeatedcv", forestnumber=6, foresttrees=50, neuralhiddenlayers=1, neuralhiddenunits="1-2", neuralweightdecay="03-0.5", neuralmaxiterations=1000, treedepth="5-15", xgbeta="0.1-0.3", xgbgamma="0-0.1", xgbsubsample="0.4-0.6", xgbcolsample="0.4-0.6", xgbminchild=1, use.standards=TRUE, slopes=NULL, intercept=NULL){
+calConditionsList <- function(cal.type=NULL, compress=NULL, transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbeta=NULL, xgbgamma=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -4731,6 +4860,7 @@ calConditionsList <- function(cal.type=1, compress=TRUE, transformation="None", 
                 ForestMetric=forestmetric,
                 ForestTC=foresttrain,
                 ForestNumber=forestnumber,
+                CVRepeats=cvrepeats,
                 ForestTrees=foresttrees,
                 NeuralHL=neuralhiddenlayers,
                 NeuralHU=neuralhiddenunits,
@@ -4762,7 +4892,7 @@ calConditionCompare <- function(cal.conditions.first, cal.conditions.second){
 
 defaultCalConditions <- function(element, number.of.standards){
     cal.condition <- 3
-    compress <- TRUE
+    compress <- "100 eV"
     transformation <- "None"
     energy.range <- "0.7-37"
     norm.condition <- 1
@@ -4773,6 +4903,7 @@ defaultCalConditions <- function(element, number.of.standards){
     forestmetric <- as.character("RMSE")
     foresttrain <- as.character("repeatedcv")
     forestnumber <- as.numeric(10)
+    cvrepeats <- as.numeric(1)
     foresttrees <- as.numeric(100)
     neuralhiddenlayers <- as.numeric(1)
     neuralhiddenunits <- paste0(1, "-", 4)
@@ -4797,6 +4928,7 @@ defaultCalConditions <- function(element, number.of.standards){
         ForestMetric=forestmetric,
         ForestTC=foresttrain,
         ForestNumber=forestnumber,
+        CVRepeats=cvrepeats,
         ForestTrees=foresttrees,
         NeuralHL=neuralhiddenlayers,
         NeuralHU=neuralhiddenunits,
@@ -4899,6 +5031,12 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         imported.cal.conditions$CalTable$ForestNumber
     } else if(!"ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestNumber
+    }
+    
+    cvrepeats <- if("CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
+        imported.cal.conditions$CalTable$CVRepeats
+    } else if(!"CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$CVRepeats
     }
     
     foresttrees <- if("ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
@@ -5038,6 +5176,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         ForestMetric=forestmetric,
         ForestTC=foresttrain,
         ForestNumber=forestnumber,
+        CVRepeats=cvrepeats,
         ForestTrees=foresttrees,
         NeuralHL=neuralhiddenlayers,
         NeuralHU=neuralhiddenunits,
@@ -5121,3 +5260,616 @@ chooseTransformation <- function(spectra=NULL, cal){
     return(spectra.transformed)
 }
 chooseTransformation <- cmpfun(chooseTransformation)
+
+
+calBundle <- function(filetype, units, spectra, intensities, definitions, values, notes, calList){
+    
+    list(FileType=filetype, Units=units, Spectra=spectra, Intensities=intensities, Definitions=definitions, Values=values, Notes=notes, calList=calList)
+    
+}
+
+
+cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, count.table, rounding=4, multiplier=1){
+
+    #count.table <- data.frame(fullInputValCounts())
+    the.cal <- Calibration[["calList"]]
+    #elements.cal <- calValElements()
+    elements <- elements.cal[!is.na(match(elements.cal, ls(count.table)))]
+    #variables <- calVariableElements()
+    #valdata <- myValData()
+        
+        #elements <- fluorescence.lines$Symbol[sort(order(fluorescence.lines$Symbol)[elements])]
+
+        cal_type <- function(element){
+    
+    
+            if(the.cal[[element]][[1]]$CalTable$CalType==1){
+                    1
+                } else if(the.cal[[element]][[1]]$CalTable$CalType==2){
+                    1
+                } else if(the.cal[[element]][[1]]$CalTable$CalType==3){
+                    3
+                } else if(the.cal[[element]][[1]]$CalTable$CalType==4){
+                    4
+                } else if(the.cal[[element]][[1]]$CalTable$CalType==5){
+                    5
+                } else if(the.cal[[element]][[1]]$CalTable$CalType==6){
+                    6
+                }  else if(the.cal[[element]][[1]]$CalTable$CalType==7){
+                    7
+                } else if(the.cal[[element]][[1]]$CalTable$CalType==8){
+                    8
+                }  else if(the.cal[[element]][[1]]$CalTable$CalType==9){
+                    9
+                }
+    
+        }
+        cal_type <- cmpfun(cal_type)
+
+        val.data.type <- if(Calibration[["FileType"]]=="Spectra"){
+                "Spectra"
+             } else if(Calibration[["FileType"]]=="CSV"){
+                "Spectra"
+            } else if(Calibration[["FileType"]]=="TXT"){
+                "Spectra"
+            } else if(Calibration[["FileType"]]=="Net"){
+                "Net"
+            } else if(Calibration[["FileType"]]=="Elio"){
+                "Spectra"
+            } else if(Calibration[["FileType"]]=="SPX"){
+                "Spectra"
+            } else if(Calibration[["FileType"]]=="MCA"){
+                "Spectra"
+            } else if(Calibration[["FileType"]]=="PDZ"){
+                "Spectra"
+            } else if(is.null(Calibration[["FileType"]])){
+                "Spectra"
+            }
+        
+            
+        predicted.list <- pblapply(elements, function(x)
+            if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=general_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                            element.line=x),
+                            na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=simple_tc_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x
+                        ),
+                        na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+                predict(
+                    object=the.cal[[x]][[2]],
+                        newdata=simple_comp_prep_xrf(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                                count.table
+                                ),
+                            element.line=x,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                            ),
+                            na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                 predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        na.action=na.pass
+                 )
+            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                        ),
+                        na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    ),
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=spectra_simp_prep_xrf(
+                        spectra=valdata,
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress,
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                        )[,-1],
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=valdata,
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress,
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                        )[,-1],
+                na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=valdata,
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress,
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max)[,-1],
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    ),
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=spectra_simp_prep_xrf(spectra=valdata,
+                    energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
+                    energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
+                    compress=the.cal[[x]][[1]]$CalTable$Compress,
+                    transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                    )[,-1],
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress,
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                )[,-1],
+                na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress,
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max)[,-1],
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf(
+                    spectra.line.table=as.data.frame(
+                    count.table
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                ),
+                na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_tc_prep_xrf(
+                    data=valdata,
+                    spectra.line.table=as.data.frame(
+                    count.table
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                ),
+                na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf(
+                    data=valdata,
+                    spectra.line.table=as.data.frame(
+                    count.table
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                ),
+                na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_simp_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress,
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                )[,-1],
+                    na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress,
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                )[,-1],
+                na.action=na.pass
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress,
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max)[,-1],
+                na.action=na.pass
+                )
+            } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=general_prep_xrf_net(
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                            element.line=x),
+                            na.action=na.pass
+                )
+            } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=simple_tc_prep_xrf_net(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                            element.line=x
+                            ),
+                            na.action=na.pass
+                )
+            } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=simple_comp_prep_xrf_net(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                        ),
+                        na.action=na.pass
+                )
+            } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf_net(
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        na.action=na.pass
+                )
+            } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf_net(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        na.action=na.pass
+                )
+            } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+                predict(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf_net(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                        ),
+                        na.action=na.pass
+                )
+        } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf_net(
+                    spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    na.action=na.pass
+            )
+        } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_tc_prep_xrf_net(
+                    data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        na.action=na.pass
+            )
+        } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf_net(
+                data=valdata,
+                    spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    ),
+                    na.action=na.pass
+            )
+        }  else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf_net(
+                    spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    na.action=na.pass
+            )
+        } else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_tc_prep_xrf_net(
+                    data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        na.action=na.pass
+            )
+        } else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf_net(
+                data=valdata,
+                    spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    ),
+                    na.action=na.pass
+            )
+        }  else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf_net(
+                    spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    na.action=na.pass
+            )
+        } else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_tc_prep_xrf_net(
+                    data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.table
+                            ),
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        na.action=na.pass
+            )
+        } else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            predict(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf_net(
+                data=valdata,
+                    spectra.line.table=as.data.frame(
+                        count.table
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    ),
+                    na.action=na.pass
+            )
+        }
+            )
+            
+        predicted.vector <- unlist(predicted.list)
+        
+        predicted.vector <- predicted.vector*multiplier
+        
+        predicted.vector <- round(predicted.vector, rounding)
+
+        
+        dim(predicted.vector) <- c(length(count.table$Spectrum), length(elements))
+        
+        predicted.frame <- data.frame(count.table$Spectrum, predicted.vector)
+        
+        colnames(predicted.frame) <- c("Spectrum", elements)
+        #elements <- elements[order(match(fluorescence.lines$Symbol, elements))]
+
+        
+
+        predicted.data.table <- predicted.frame
+
+        #predicted.values <- t(predicted.values)
+        predicted.data.table
+        
+        
+}

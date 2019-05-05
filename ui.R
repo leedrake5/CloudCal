@@ -29,9 +29,9 @@ uiOutput('binaryui'),
              
              tags$hr(),
 
-actionButton("actionprocess", label = "Process Data"),
+#actionButton("actionprocess", label = "Process Data"),
 actionButton("actionplot", label = "Plot Spectrum"),
-downloadButton('downloadPlot', "Plot"),
+
 
 
 tags$hr(),
@@ -150,6 +150,7 @@ resetOnNew = TRUE
 )),
 tags$hr(),
 actionButton("cropspectra", "Zoom"),
+downloadButton('downloadPlot', "Plot"),
 checkboxInput('showlegend', "Show Legend", value=FALSE),
 uiOutput('variancespectrumui'),
 tags$hr(),
@@ -256,7 +257,7 @@ sidebarLayout(
 sidebarPanel(width=3,
 
 actionButton('resethotable', "Reset"),
-actionButton('hotableprocess2', "Enter Values"),
+#actionButton('hotableprocess2', "Enter Values"),
 tags$hr(),
 textInput("calunits", label = "Units", value="Weight %")
 
@@ -287,20 +288,21 @@ sidebarPanel(width=3,
 HTML("&nbsp;"),
 column(12, tags$div(id = "loading",
 tags$script('$("#loading").hide()'))),
-uiOutput('mclrunui'),
+tags$hr(),
+#uiOutput('mclrunui'),
 actionButton('createcalelement', "Update"),
-actionButton('createcal', "Save"),
+#actionButton('createcal', "Save"),
 
 tags$hr(),
 
 downloadButton('downloadModel', "Model"),
 downloadButton('downloadReport', "Report"),
-uiOutput('usecalsep'),
+#uiOutput('usecalsep'),
 #uiOutput('usecalui'),
 
-tags$hr(),
+#tags$hr(),
 
-actionButton('trainslopes', "Train"),
+#actionButton('trainslopes', "Train"),
 
 tags$hr(),
 
@@ -314,6 +316,8 @@ uiOutput('calTypeInput'),
 uiOutput('forestmetricui'),
 
 uiOutput('foresttrainui'),
+
+uiOutput('cvrepeatsui'),
 
 uiOutput('forestnumberui'),
 
@@ -347,9 +351,9 @@ uiOutput('comptonMinInput'),
 
 uiOutput('comptonMaxInput'),
 
-uiOutput('energyrangeui'),
 uiOutput('transformationui'),
 uiOutput('compressui'),
+uiOutput('energyrangeui'),
 uiOutput('inVar3'),
 uiOutput('inVar4')
 
@@ -432,7 +436,7 @@ tabPanel("Cross Validation",
 
 ),
 
-tabPanel("Models", dataTableOutput("models")),
+#tabPanel("Models", dataTableOutput("models")),
 
 
 tabPanel("Diagnostics",
@@ -491,7 +495,7 @@ tabPanel("Variables",
 
 #tabPanel("test", dataTableOutput('testingagain')),
 
-tabPanel("Testing", dataTableOutput('testtable')),
+#tabPanel("Testing", dataTableOutput('testtable')),
 #tabPanel("Testing2", dataTableOutput('testtable2')),
 
 
@@ -667,8 +671,7 @@ sidebarLayout(
 sidebarPanel(width=3,
 
 actionButton('processvalspectra', "Quantify"),
-checkboxInput('converttoppm', "Convert to ppm"),
-checkboxInput('converttopercent', "Convert to percent"),
+numericInput("multiplier", "Multiply Values By", min=1, max=10000, value=1),
 
 
 tags$hr(),
