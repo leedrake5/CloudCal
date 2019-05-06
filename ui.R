@@ -296,7 +296,7 @@ actionButton('createcalelement', "Update"),
 tags$hr(),
 
 downloadButton('downloadModel', "Model"),
-downloadButton('downloadReport', "Report"),
+#downloadButton('downloadReport', "Report"),
 #uiOutput('usecalsep'),
 #uiOutput('usecalui'),
 

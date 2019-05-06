@@ -39,6 +39,7 @@ if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
     install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tar.gz", repos=NULL)
 }
+#sourceCpp("pdz.cpp")
 
 library(rPDZ)
 library(reactlog)
@@ -3791,15 +3792,15 @@ forestMetricUI <- function(radiocal, selection){
     } else if(radiocal==4){
         selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Kappa"="Kappa", "Logarithmic Loss"="logLoss"), selected=selection)
     } else if(radiocal==5){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "MAE"="Mean Absolute Error", "Logarithmic Loss"="logLoss"), selected=selection)
     } else if(radiocal==6){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "MAE"="Mean Absolute Error", "Logarithmic Loss"="logLoss"), selected=selection)
     } else if(radiocal==7){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "MAE"="Mean Absolute Error", "Logarithmic Loss"="logLoss"), selected=selection)
     } else if(radiocal==8){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "MAE"="Mean Absolute Error", "Logarithmic Loss"="logLoss"), selected=selection)
     } else if(radiocal==9){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "MAE"="Mean Absolute Error", "Logarithmic Loss"="logLoss"), selected=selection)
     }
 }
 
