@@ -437,9 +437,9 @@ shinyServer(function(input, output, session) {
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- calFileContents()
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
-                calMemory$Calibration$calList <- NULL
+                calMemory$Calibration$calList <- calFileContents()
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
-                calMemory$Calibration <- calFileContents()
+                calMemory$Calibration <- NULL
             }
             
             if(is.null(input$calfileinput) && is.null(input$file1)){
@@ -2695,14 +2695,7 @@ shinyServer(function(input, output, session) {
         })
         
         
-        mclDataGen <- reactiveValues()
-        observeEvent(input$calcurveelement, priority=175, {
-            observeEvent(input$radiocal, {
-                data <- dataHold()
-                mclDataGen$holdFrame <- holdFrame()
-                mclDataGen$dataNorm <- data[data$Spectrum %in% mclDataGen$holdFrame$Spectrum, ]
-            })
-        })
+
         
         holdFrameCal <- reactive({
             req(input$radiocal, input$calcurveelement)
@@ -4094,7 +4087,7 @@ shinyServer(function(input, output, session) {
 
 
         valFrame <- reactive(label="valFrame",{
-            req(input$radiocal, elementModel())
+            req(input$radiocal)
             
             if (input$radiocal==1){
 
@@ -4134,7 +4127,7 @@ shinyServer(function(input, output, session) {
                 
 
                 
-                cal.est.conc.pred.luc <- predict(object=elementModel() , newdata=predictIntensity())
+                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
                 #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
                 #cal.est.conc.luc <- cal.est.conc.tab$fit
                 #cal.est.conc.luc.up <- cal.est.conc.tab$upr
@@ -4149,7 +4142,7 @@ shinyServer(function(input, output, session) {
             if (input$radiocal==5){
 
                 
-                cal.est.conc.pred.luc <- predict(object=elementModel() , newdata=predictIntensity())
+                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
                 #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
                 #cal.est.conc.luc <- cal.est.conc.tab$fit
                 #cal.est.conc.luc.up <- cal.est.conc.tab$upr
@@ -4164,7 +4157,7 @@ shinyServer(function(input, output, session) {
             if (input$radiocal==6){
                 
                 
-                cal.est.conc.pred.luc <- predict(object=elementModel() , newdata=predictIntensity())
+                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
                 #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
                 #cal.est.conc.luc <- cal.est.conc.tab$fit
                 #cal.est.conc.luc.up <- cal.est.conc.tab$upr
@@ -4179,7 +4172,7 @@ shinyServer(function(input, output, session) {
             if (input$radiocal==7){
 
                 
-                cal.est.conc.pred.luc <- predict(object=elementModel() , newdata=predictIntensity())
+                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
                 #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
                 #cal.est.conc.luc <- cal.est.conc.tab$fit
                 #cal.est.conc.luc.up <- cal.est.conc.tab$upr
@@ -4193,7 +4186,7 @@ shinyServer(function(input, output, session) {
             if (input$radiocal==8){
                 
                 
-                cal.est.conc.pred.luc <- predict(object=elementModel() , newdata=predictIntensity())
+                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
                 #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
                 #cal.est.conc.luc <- cal.est.conc.tab$fit
                 #cal.est.conc.luc.up <- cal.est.conc.tab$upr
@@ -4208,7 +4201,7 @@ shinyServer(function(input, output, session) {
             if (input$radiocal==9){
                 
 
-                cal.est.conc.pred.luc <- predict(object=elementModel() , newdata=predictIntensity())
+                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
                 #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
                 #cal.est.conc.luc <- cal.est.conc.tab$fit
                 #cal.est.conc.luc.up <- cal.est.conc.tab$upr
@@ -4228,6 +4221,10 @@ shinyServer(function(input, output, session) {
         
         valFrameVal <- reactiveValues()
         valFrameVal$val.frame <- NULL
+        
+        observeEvent(input$calcurveelement, priority=77, {
+            valFrameVal$val.frame <- valFrame()
+        })
 
         observeEvent(input$createcalelement, priority=97, {
             valFrameVal$val.frame <- valFrame()
@@ -4298,68 +4295,126 @@ shinyServer(function(input, output, session) {
             
             
             if(input$radiocal==1){
-                calcurve.plot <- tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                stat_smooth(method="lm", fullrange = TRUE) +
-                geom_point() +
-                geom_point(data = predictFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
-                
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    stat_smooth(method="lm", fullrange = TRUE) +
+                    geom_point() +
+                    geom_point(data = predictFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    stat_smooth(method="lm", fullrange = TRUE) +
+                    geom_point() +
+                    geom_point(data = predictFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==2){
-                calcurve.plot <- tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn_poly(lm(Concentration~Intensity + I(Intensity^2), predictFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                stat_smooth(method="lm", formula=y~poly(x,2)) +
-                geom_point() +
-                geom_point(data = predictFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    stat_smooth(method="lm", fullrange = TRUE) +
+                    geom_point() +
+                    geom_point(data = predictFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    stat_smooth(method="lm", fullrange = TRUE) +
+                    geom_point() +
+                    geom_point(data = predictFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==3){
-                calcurve.plot <- tryCatch(ggplot(data=valFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., valFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper)) +
-                geom_point() +
-                geom_point(aes(Intensity, Concentration), data = valFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper)) +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper)) +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==4){
-                calcurve.plot <- tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
-                
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==5){
-                calcurve.plot <- tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==6){
@@ -4371,29 +4426,53 @@ shinyServer(function(input, output, session) {
             }
             
             if(input$radiocal==8){
-                calcurve.plot <- tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==9){
-                calcurve.plot <- tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             
@@ -4424,12 +4503,19 @@ shinyServer(function(input, output, session) {
             concentration.name <- c(element.name, conen)
             prediction.name <- c(element.name, predi)
             
-            
-            empty.plot <- ggplot() +
-            theme_light() +
-            text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
-            scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
-            scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            empty.plot <- if(input$loglinear=="Linear"){
+                ggplot() +
+                theme_light() +
+                text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
+                scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            } else if(input$loglinear=="Log"){
+                ggplot() +
+                theme_light() +
+                text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
+                scale_x_log10(paste("Log ", element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
+                scale_y_log10(paste("Log ", element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            }
             
             empty.plot
         })
@@ -4456,11 +4542,19 @@ shinyServer(function(input, output, session) {
             prediction.name <- c(element.name, predi)
             
             
-            empty.plot <- ggplot() +
-            theme_light() +
-            geom_text("text", label="Processing...", x=0, y=Inf, hjust=0, vjust=1, size=10)+
-            scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
-            scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            empty.plot <- if(input$loglinear=="Linear"){
+                ggplot() +
+                theme_light() +
+                text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
+                scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            } else if(input$loglinear=="Log"){
+                ggplot() +
+                theme_light() +
+                text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
+                scale_x_log10(paste("Log ", element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
+                scale_y_log10(paste("Log ", element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            }
             
             empty.plot
         })
@@ -4508,7 +4602,7 @@ shinyServer(function(input, output, session) {
         reac <- reactive(list(bins = input$bins, column  = input$column))
         
         output$calcurveplots <- renderPlot({
-            calCurvePlot()
+            calCurvePlotPre()()
         })
         
         
@@ -4536,17 +4630,30 @@ shinyServer(function(input, output, session) {
             prediction.name <- c(element.name, predi)
             
             
-            valcurve.plot <- tryCatch(ggplot(data=valFrame()[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
-            theme_light() +
-            annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, valFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-            geom_abline(intercept=0, slope=1, lty=2) +
-            stat_smooth(method="lm") +
-            geom_point() +
-            geom_point(aes(Prediction, Concentration),  data = valFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-            scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
-            scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-            coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = TRUE), error=function(e) NULL)
-            
+            valcurve.plot <- if(input$loglinear=="Linear"){
+                tryCatch(ggplot(data=valFrame()[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+                theme_light() +
+                annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, valFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_abline(intercept=0, slope=1, lty=2) +
+                stat_smooth(method="lm") +
+                geom_point() +
+                geom_point(aes(Prediction, Concentration),  data = valFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = TRUE), error=function(e) NULL)
+            } else if(input$loglinear=="Log"){
+                tryCatch(ggplot(data=valFrame()[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
+                theme_light() +
+                annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, valFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_abline(intercept=0, slope=1, lty=2) +
+                stat_smooth(method="lm") +
+                geom_point() +
+                geom_point(aes(Prediction, Concentration),  data = valFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = TRUE), error=function(e) NULL)
+            }
+
             valcurve.plot
             
         })
@@ -4570,12 +4677,21 @@ shinyServer(function(input, output, session) {
             concentration.name <- c(element.name, conen)
             prediction.name <- c(element.name, predi)
             
-            empty.plot <- ggplot() +
-            theme_light() +
-            text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
-            geom_abline(intercept=0, slope=1, lty=2) +
-            scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
-            scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            empty.plot <- if(input$loglinear=="Linear"){
+                ggplot() +
+                theme_light() +
+                text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
+                geom_abline(intercept=0, slope=1, lty=2) +
+                scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            } else if(input$loglinear=="Log"){
+                ggplot() +
+                theme_light() +
+                text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
+                geom_abline(intercept=0, slope=1, lty=2) +
+                scale_x_log10(paste("Log ", element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
+                scale_y_log10(paste("Log ", element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            }
             
             empty.plot
         })
@@ -4599,12 +4715,21 @@ shinyServer(function(input, output, session) {
             concentration.name <- c(element.name, conen)
             prediction.name <- c(element.name, predi)
             
-            empty.plot <- ggplot() +
-            theme_light() +
-            annotate("text", label="Processing...", x=0, y=Inf, hjust=0, vjust=1)+
-            geom_abline(intercept=0, slope=1, lty=2) +
-            scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
-            scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            empty.plot <- if(input$loglinear=="Linear"){
+                ggplot() +
+                theme_light() +
+                text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
+                geom_abline(intercept=0, slope=1, lty=2) +
+                scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            } else if(input$loglinear=="Log"){
+                ggplot() +
+                theme_light() +
+                text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
+                geom_abline(intercept=0, slope=1, lty=2) +
+                scale_x_log10(paste("Log ", element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
+                scale_y_log10(paste("Log ", element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
+            }
             
             empty.plot
         })

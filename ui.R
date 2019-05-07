@@ -397,7 +397,8 @@ tabPanel("Cal Curves",
         actionButton("exclude_reset", "Reset"),
         downloadButton('downloadcloudplot', "Plot"),
         selectInput('imagesize', "Image Size", choices=c("Small", "Large"), selected="Large"),
-        selectInput('plotunit', "Unit Display", choices=c("%", "ppm", "ppmv"), selected="%")
+        selectInput('plotunit', "Unit Display", choices=c("%", "ppm", "ppmv"), selected="%"),
+        selectInput('loglinear', "Scale", choices=c("Linear", "Log"), selected="Linear")
 
 
 ),
