@@ -23,7 +23,7 @@ if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
 if(length(new.bioconductor)) biocLite(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
@@ -79,6 +79,7 @@ library(neuralnet)
 library(xgboost)
 library(gridExtra)
 library(magrittr)
+library(Metrics)
 enableJIT(3)
 
 options(digits=4)
@@ -3782,6 +3783,30 @@ forestTryUI <- function(radiocal=3, neuralhiddenlayers=NULL, selection=NULL, max
     }
 }
 
+maeSummary <- function (data,
+lev = NULL,
+model = NULL) {
+    out <- Metrics::mae(data$obs, data$pred)
+    names(out) <- "MAE"
+    out
+}
+
+logmaeSummary <- function (data,
+lev = NULL,
+model = NULL) {
+    out <- Metrics::mae(log10(data$obs), log10(data$pred))
+    names(out) <- "logMAE"
+    out
+}
+
+smapeSummary <- function (data,
+lev = NULL,
+model = NULL) {
+    out <- Metrics::smape(data$obs, data$pred)
+    names(out) <- "SMAPE"
+    out
+}
+
 forestMetricUI <- function(radiocal, selection){
     if(radiocal==1){
         NULL
@@ -3790,17 +3815,17 @@ forestMetricUI <- function(radiocal, selection){
     } else if(radiocal==3){
         NULL
     } else if(radiocal==4){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Kappa"="Kappa", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
     } else if(radiocal==5){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Kappa"="Kappa", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
     } else if(radiocal==6){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Kappa"="Kappa", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
     } else if(radiocal==7){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Kappa"="Kappa", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
     } else if(radiocal==8){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Kappa"="Kappa", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
     } else if(radiocal==9){
-        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Kappa"="Kappa", "Logarithmic Loss"="logLoss"), selected=selection)
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
     }
 }
 
@@ -5873,4 +5898,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         predicted.data.table
         
         
+}
+
+mclValGen <- function(model, data, predict.frame){
+    cal.est.conc.pred.luc <- predict(object=model, newdata=data)
+    
+    val.frame <- data.frame(Concentration=predict.frame$Concentration, Intensity=as.vector(cal.est.conc.pred.luc), Prediction=as.vector(cal.est.conc.pred.luc))
+    
+    return(val.frame)
 }

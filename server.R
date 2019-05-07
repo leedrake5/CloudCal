@@ -2802,15 +2802,27 @@ shinyServer(function(input, output, session) {
             
             rf.grid <- expand.grid(.mtry=parameters$ForestTry)
             
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber)
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats)
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel)
             }
             
             
@@ -2859,15 +2871,27 @@ shinyServer(function(input, output, session) {
             
             rf.grid <- expand.grid(.mtry=parameters$ForestTry)
             
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber)
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats)
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel)
             }
             
             
@@ -2920,15 +2944,27 @@ shinyServer(function(input, output, session) {
             .decay = seq(weightdecay.vec[1], weightdecay.vec[2], 0.1),
             .size = seq(hiddenunits.vec[1], hiddenunits.vec[2], 1))
             
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber)
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats)
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel)
             }
             
             cl <- if(get_os()=="windows"){
@@ -2986,10 +3022,21 @@ shinyServer(function(input, output, session) {
                 )
             }
             
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
@@ -2997,6 +3044,7 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             }
@@ -3065,15 +3113,27 @@ shinyServer(function(input, output, session) {
             .decay = seq(weightdecay.vec[1], weightdecay.vec[2], 0.1),
             .size = seq(hiddenunits.vec[1], hiddenunits.vec[2], 1))
             
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber)
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats)
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel)
             }
             
             cl <- if(get_os()=="windows"){
@@ -3130,15 +3190,31 @@ shinyServer(function(input, output, session) {
                 )
             }
             
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber)
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats)
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
             }
             
             cl <- if(get_os()=="windows"){
@@ -3216,10 +3292,21 @@ shinyServer(function(input, output, session) {
             min_child_weight = parameters$xgbMinChild
             )
             
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
@@ -3227,6 +3314,7 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             }
@@ -3286,10 +3374,21 @@ shinyServer(function(input, output, session) {
             min_child_weight = parameters$xgbMinChild
             )
             
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
@@ -3297,6 +3396,7 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             }
@@ -4125,97 +4225,47 @@ shinyServer(function(input, output, session) {
             
             if (input$radiocal==4){
                 
-
-                
-                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
-                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
-                #cal.est.conc.luc <- cal.est.conc.tab$fit
-                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
-                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
-                
-                
-                val.frame <- data.frame(predictFrame()$Concentration, predictIntensity()$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction")
+                val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             }
             
             
             if (input$radiocal==5){
-
                 
-                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
-                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
-                #cal.est.conc.luc <- cal.est.conc.tab$fit
-                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
-                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
-                
-                
-                val.frame <- data.frame(predictFrame()$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
+                val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             }
             
             
             if (input$radiocal==6){
                 
-                
-                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
-                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
-                #cal.est.conc.luc <- cal.est.conc.tab$fit
-                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
-                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
-                
-                
-                val.frame <- data.frame(predictFrame()$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
+                val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             }
             
             
             if (input$radiocal==7){
-
                 
-                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
-                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
-                #cal.est.conc.luc <- cal.est.conc.tab$fit
-                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
-                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
-                
-                
-                val.frame <- data.frame(predictFrame()$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
+                val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             }
             
             if (input$radiocal==8){
                 
                 
-                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
-                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
-                #cal.est.conc.luc <- cal.est.conc.tab$fit
-                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
-                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
-                
-                
-                val.frame <- data.frame(predictFrame()$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
+                val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             }
             
             
             if (input$radiocal==9){
                 
-
-                cal.est.conc.pred.luc <- predict(object=calMemory$Calibration$calList[[input$calcurveelement]][[2]], newdata=predictIntensity())
-                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
-                #cal.est.conc.luc <- cal.est.conc.tab$fit
-                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
-                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
-                
-                
-                val.frame <- data.frame(predictFrame()$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
+            val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
+            
             }
             
             
             
-            
-            val.frame
+            if(is.null(val.frame)){
+                data.frame(Concentration=predictFrame()$Concentration, Intensity=rep(0, length(predictFrame()$Concentration), Prediction=rep(0, length(predictFrame()$Concentration))), stringsAsFactors=FALSE)
+            } else if(!is.null(val.frame)){
+                val.frame
+            }
             
         })
         
@@ -4602,7 +4652,7 @@ shinyServer(function(input, output, session) {
         reac <- reactive(list(bins = input$bins, column  = input$column))
         
         output$calcurveplots <- renderPlot({
-            calCurvePlotPre()()
+            calCurvePlot()
         })
         
         
@@ -4775,7 +4825,7 @@ shinyServer(function(input, output, session) {
         
         calPlotDownload <- reactive({
             
-            grid.arrange(calCurvePlot(), valCurvePlot(), ncol=2)
+            tryCatch(grid.arrange(calCurvePlot(), valCurvePlot(), ncol=2), error=function(e) NULL)
             
         })
 
