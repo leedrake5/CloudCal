@@ -2244,14 +2244,14 @@ lucas_comp_xrf <- cmpfun(lucas_comp_xrf)
 james <- function(x) (abs(x)+x)/2
 james.cp <- compiler::cmpfun(james)
 
-spectra_summary_general <- function(spectra.frame, norm.type, norm.min, norm.max, compress="100 eV"){
+spectra_summary_general <- function(spectra.frame, norm.type, norm.min, norm.max, compress="100 eV", transformation="None", energy.range=c(0.7, 37)){
     
     if(norm.type==1){
-        spectra_simp_trans_xrf(spectra=spectra.frame, compress=compress)
+        spectra_simp_trans_xrf(spectra=spectra.frame, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2])
     } else if(norm.type==2){
-        spectra_tc_trans_xrf(spectra=spectra.frame, compress=compress)
+        spectra_tc_trans_xrf(spectra=spectra.frame, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2])
     } else if(norm.type==3){
-        spectra_comp_trans_xrf(spectra=spectra.frame, norm.min=norm.min, norm.max=norm.max, compress=compress)
+        spectra_comp_trans_xrf(spectra=spectra.frame, norm.min=norm.min, norm.max=norm.max, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2])
     }
     
 }
@@ -2259,10 +2259,10 @@ spectra_summary_general <- cmpfun(spectra_summary_general)
 
 
 
-spectra_stats <- function(spectra.frame, norm.type, norm.min, norm.max, compress){
+spectra_stats <- function(spectra.frame, norm.type, norm.min, norm.max, compress="100 eV", transformation="None", energy.range=c(0.7, 37)){
     
     
-    data.processed <- spectra_summary_general(spectra.frame=spectra.frame, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, compress=compress)
+    data.processed <- spectra_summary_general(spectra.frame=spectra.frame, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, compress=compress, transformation=transformation, energy.range=energy.range)
     
     
     
@@ -2628,14 +2628,14 @@ simple_comp_prep_xrf <- function(data, spectra.line.table, element.line, norm.mi
 }
 simple_comp_prep_xrf <- cmpfun(simple_comp_prep_xrf)
 
-spectra_summary_apply <- function(spectra.frame, normalization, min, max){
+spectra_summary_apply <- function(spectra.frame, normalization, min, max, compress="100 eV", transformation="None", energy.range=c(0.7, 37)){
     
     new.spectrum <- if(normalization==1){
-        spectra_simp_prep_xrf(spectra=spectra.frame, compress="100 eV")
+        spectra_simp_prep_xrf(spectra=spectra.frame, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2])
     } else if(normalization==2){
-        spectra_tc_prep_xrf(spectra=spectra.frame, compress="100 eV")
+        spectra_tc_prep_xrf(spectra=spectra.frame, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2]))
     } else if(normalization==3){
-        spectra_comp_prep_xrf(spectra=spectra.frame, norm.min=min, norm.max=max, compress="100 eV")
+        spectra_comp_prep_xrf(spectra=spectra.frame, norm.min=min, norm.max=max, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2]))
     }
     
     newer.spectrum <- melt(new.spectrum, id.var="Spectrum")
