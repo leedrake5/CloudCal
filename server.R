@@ -2184,7 +2184,34 @@ shinyServer(function(input, output, session) {
         ####Machine Learning: Slope
         
         slopeImportance <- reactive({
-            varImp(forestModel(), scale=FALSE)
+            if(isMCL()==TRUE){
+                varImp(elementModel(), scale=FALSE)
+            } else if(isMCL()==FALSE){
+                predict.frame <- forestModelSet()$data[forestModelSet()$parameters$StandardsUsed,]
+                
+                rf.grid <- expand.grid(.mtry=5)
+                
+                
+                tune_control <-
+                    caret::trainControl(
+                    method = "cv",
+                    number = 5)
+                
+                cl <- if(get_os()=="windows"){
+                    parallel::makePSOCKcluster(as.numeric(my.cores))
+                } else if(get_os()!="windows"){
+                    parallel::makeForkCluster(as.numeric(my.cores))
+                }
+                registerDoParallel(cl)
+                
+                rf_model <- tryCatch(caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
+                trControl=tune_control, ntree=100,
+                prox=TRUE,allowParallel=TRUE, importance=TRUE, metric="RMSE", tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
+                
+                stopCluster(cl)
+                varImp(rf_model, scale=FALSE)
+            }
+            
         })
        
         slopeImportanceFrame <- reactive({
