@@ -3859,17 +3859,17 @@ forestNumberUI <- function(radiocal, selection){
     } else if(radiocal==3){
         NULL
     } else if(radiocal==4){
-        sliderInput("forestnumber", label="Iterations", min=5, max=500, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
     }  else if(radiocal==5){
-        sliderInput("forestnumber", label="Iterations", min=5, max=500, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
     } else if(radiocal==6){
-        sliderInput("forestnumber", label="Iterations", min=5, max=500, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
     } else if(radiocal==7){
-        sliderInput("forestnumber", label="Iterations", min=5, max=500, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
     } else if(radiocal==8){
-        sliderInput("forestnumber", label="Iterations", min=5, max=500, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
     } else if(radiocal==9){
-        sliderInput("forestnumber", label="Iterations", min=5, max=500, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
     }
 }
 

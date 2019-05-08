@@ -4225,37 +4225,37 @@ shinyServer(function(input, output, session) {
             
             if (input$radiocal==4){
                 
-                val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
+                val.frame <- tryCatch(mclValGen(model=elementModel(), data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             }
             
             
             if (input$radiocal==5){
                 
-                val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
+                val.frame <- tryCatch(mclValGen(model=elementModel(), data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             }
             
             
             if (input$radiocal==6){
                 
-                val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
+                val.frame <- tryCatch(mclValGen(model=elementModel(), data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             }
             
             
             if (input$radiocal==7){
                 
-                val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
+                val.frame <- tryCatch(mclValGen(model=elementModel(), data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             }
             
             if (input$radiocal==8){
                 
                 
-                val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
+                val.frame <- tryCatch(mclValGen(model=elementModel(), data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             }
             
             
             if (input$radiocal==9){
                 
-            val.frame <- tryCatch(mclValGen(model=calMemory$Calibration$calList[[input$calcurveelement]][[2]], data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
+            val.frame <- tryCatch(mclValGen(model=elementModel(), data=predictIntensity(), predict.frame=predictFrame()), error=function(e) NULL)
             
             }
             
