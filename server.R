@@ -4063,88 +4063,88 @@ shinyServer(function(input, output, session) {
         output$foresttryui <- renderUI({
             req(input$radiocal)
             if(input$radiocal==6 | input$radiocal==7){
-                forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=input$neuralhiddenlayers, selection=forestTrySelection(), maxsample=maxSample())
+                forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=input$neuralhiddenlayers, selection=calForestTrySelectionpre(), maxsample=maxSample())
             } else {
-                forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=NULL, selection=forestTrySelection(), maxsample=maxSample())
+                forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=NULL, selection=calForestTrySelectionpre(), maxsample=maxSample())
             }
         })
         
         
         output$forestmetricui <- renderUI({
             req(input$radiocal)
-            forestMetricUI(radiocal=input$radiocal, selection=forestMetricSelection())
+            forestMetricUI(radiocal=input$radiocal, selection=calForestMetricSelectionpre())
         })
         
         
         output$foresttrainui <- renderUI({
             req(input$radiocal)
-            forestTrainUI(radiocal=input$radiocal, selection=forestTrainSelection())
+            forestTrainUI(radiocal=input$radiocal, selection=calForestTCSelectionpre())
         })
         
         output$forestnumberui <- renderUI({
             req(input$radiocal, input$foresttrain)
-            forestNumberUI(radiocal=input$radiocal, selection=forestNumberSelection())
+            forestNumberUI(radiocal=input$radiocal, selection=calForestNumberSelectionpre())
         })
         
         output$cvrepeatsui <- renderUI({
             req(input$radiocal)
-            cvRepeatsUI(radiocal=input$radiocal, foresttrain=input$foresttrain, selection=cvRepeatsSelection())
+            cvRepeatsUI(radiocal=input$radiocal, foresttrain=input$foresttrain, selection=calCVRepeatsSelectionpre())
         })
         
         
         output$foresttreesui <- renderUI({
             req(input$radiocal)
-            forestTreesUI(radiocal=input$radiocal, selection=forestTreeSelection())
+            forestTreesUI(radiocal=input$radiocal, selection=calForestTreeSelectionpre())
         })
         
         output$neuralhiddenlayersui <- renderUI({
             req(input$radiocal)
-            neuralHiddenLayersUI(radiocal=input$radiocal, selection=neuralHiddenLayersSelection())
+            neuralHiddenLayersUI(radiocal=input$radiocal, selection=calHiddenLayersSelectionpre())
         })
         
         output$neuralhiddenunitsui <- renderUI({
             req(input$radiocal)
-            neuralHiddenUnitsUi(radiocal=input$radiocal, selection=neuralHiddenUnitsSelection())
+            neuralHiddenUnitsUi(radiocal=input$radiocal, selection=calHiddenUnitsSelectionpre())
         })
         
         output$neuralweightdecayui <- renderUI({
             req(input$radiocal)
-            neuralWeightDecayUI(radiocal=input$radiocal, selection=neuralWeightDecaySelection(), neuralhiddenlayers=input$neuralhiddenlayers)
+            neuralWeightDecayUI(radiocal=input$radiocal, selection=calWeightDecaySelectionpre(), neuralhiddenlayers=input$neuralhiddenlayers)
         })
         
         output$neuralmaxiterationsui <- renderUI({
             req(input$radiocal)
-            neuralMaxIterationsUI(radiocal=input$radiocal, selection=neuralMaxIterationsSelection(), neuralhiddenlayers=input$neuralhiddenlayers)
+            neuralMaxIterationsUI(radiocal=input$radiocal, selection=calMaxIterationsSelectionpre(), neuralhiddenlayers=input$neuralhiddenlayers)
         })
         
         output$treedepthui <- renderUI({
             req(input$radiocal)
-            treeDepthUI(radiocal=input$radiocal, selection=xgboostTreeDepthSelection())
+            treeDepthUI(radiocal=input$radiocal, selection=calTreeDepthSelectionpre())
         })
         
         output$xgbetaui <- renderUI({
             req(input$radiocal)
-            xgbEtaUI(radiocal=input$radiocal, selection=xgboostEtaSelection())
+            xgbEtaUI(radiocal=input$radiocal, selection=calXGBEtaSelectionpre())
         })
         
         output$xgbgammaui <- renderUI({
             req(input$radiocal)
-            xgbGammaUI(radiocal=input$radiocal, selection=xgboostGammaSelection())
+            xgbGammaUI(radiocal=input$radiocal, selection=calXGBGammaSelectionpre())
         })
         
         output$xgbsubsampleui <- renderUI({
             req(input$radiocal)
-            xgbSubSampleUI(radiocal=input$radiocal, selection=xgboostSubSampleSelection())
+            xgbSubSampleUI(radiocal=input$radiocal, selection=calXGBSubSampleSelectionpre())
         })
         
         output$xgbcolsampleui <- renderUI({
             req(input$radiocal)
-            xgbColSampleUI(radiocal=input$radiocal, selection=xgboostColSampleSelection())
+            xgbColSampleUI(radiocal=input$radiocal, selection=calXGBColSampleSelectionpre())
         })
         
         output$xgbminchildui <- renderUI({
             req(input$radiocal)
-            xgbMinChildUI(radiocal=input$radiocal, selection=xgboostMinChildSelection())
+            xgbMinChildUI(radiocal=input$radiocal, selection=calXGBMinChildSelectionpre())
         })
         
         
