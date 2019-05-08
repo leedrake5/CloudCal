@@ -300,9 +300,9 @@ downloadButton('downloadModel', "Model"),
 #uiOutput('usecalsep'),
 #uiOutput('usecalui'),
 
-#tags$hr(),
+tags$hr(),
 
-#actionButton('trainslopes', "Train"),
+actionButton('trainslopes', "Train"),
 
 tags$hr(),
 

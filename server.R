@@ -2183,11 +2183,17 @@ shinyServer(function(input, output, session) {
         
         ####Machine Learning: Slope
         
+        forestTemp <- reactive(label="forestModelData", {
+            req(input$radiocal, input$calcurveelement)
+            predictFrameForestGen(spectra=dataNorm(), hold.frame=holdFrame(), element=input$calcurveelement, intercepts=input$intercept_vars, norm.type=input$normcal, norm.min=input$comptonmin, norm.max=input$comptonmax, data.type=dataType())
+        })
+
+        
         slopeImportance <- reactive({
             if(isMCL()==TRUE){
                 varImp(elementModel(), scale=FALSE)
             } else if(isMCL()==FALSE){
-                predict.frame <- forestModelSet()$data[forestModelSet()$parameters$StandardsUsed,]
+                predict.frame <- forestTemp()
                 
                 rf.grid <- expand.grid(.mtry=5)
                 
