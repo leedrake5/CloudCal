@@ -437,7 +437,7 @@ tabPanel("Cross Validation",
 
 ),
 
-#tabPanel("Models", dataTableOutput("models")),
+tabPanel("Models", dataTableOutput("models")),
 
 
 tabPanel("Diagnostics",
