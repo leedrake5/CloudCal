@@ -2441,7 +2441,14 @@ spectra_comp_prep_xrf <- cmpfun(spectra_comp_prep_xrf)
 
 
 
-spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compress="100 eV"){
+spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compress="100 eV", transformation="None"){
+    
+    spectra <- if(transformation=="None"){
+        spectra
+    } else if(transformation!="None"){
+        transformSpectra(spectra, transformation=transformation)
+    }
+    
     
     if(is.null(energy.min)){energy.min <- 0.2}
     if(is.null(energy.max)){energy.max <- 40}
@@ -2479,7 +2486,13 @@ spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compr
 spectra_simp_trans_xrf <- cmpfun(spectra_simp_trans_xrf)
 
 
-spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress="100 eV"){
+spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress="100 eV", transformation="None"){
+    
+    spectra <- if(transformation=="None"){
+        spectra
+    } else if(transformation!="None"){
+        transformSpectra(spectra, transformation=transformation)
+    }
     
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
@@ -2520,7 +2533,13 @@ spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compres
 spectra_tc_trans_xrf <- cmpfun(spectra_tc_trans_xrf)
 
 
-spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress="100 eV"){
+spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress="100 eV", transformation="None"){
+    
+    spectra <- if(transformation=="None"){
+        spectra
+    } else if(transformation!="None"){
+        transformSpectra(spectra, transformation=transformation)
+    }
     
     if(is.null(energy.min)){energy.min <- 0.7}
     if(is.null(energy.max)){energy.max <- 37}
