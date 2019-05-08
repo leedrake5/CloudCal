@@ -4699,7 +4699,7 @@ shinyServer(function(input, output, session) {
                 stat_smooth(method="lm") +
                 geom_point() +
                 geom_point(aes(Prediction, Concentration),  data = valFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
-                scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                scale_x_log10(paste("Log ", element.name, predi), breaks=scales::pretty_breaks()) +
                 scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = TRUE), error=function(e) NULL)
             }
