@@ -4308,6 +4308,7 @@ shinyServer(function(input, output, session) {
         #   }
         #})
         
+        
         observeEvent(input$createcalelement, priority=100, {
             calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
                 calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(list(modelParameters(), elementModelGen()))
@@ -4417,6 +4418,10 @@ shinyServer(function(input, output, session) {
         
         valFrameVal <- reactiveValues()
         valFrameVal$val.frame <- NULL
+        
+        observeEvent(!is.null(values[["DF"]]), priority=75, {
+            valFrameVal$val.frame <- valFrame()
+        })
         
         observeEvent(input$calcurveelement, priority=77, {
             valFrameVal$val.frame <- valFrame()

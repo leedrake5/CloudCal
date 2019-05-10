@@ -2330,15 +2330,13 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compre
     } else if(transformation!="None"){
         transformSpectra(spectra, transformation=transformation)
     }
-    
-    if(is.null(energy.min)){energy.min <- 0.7}
-    if(is.null(energy.max)){energy.max <- 37}
-    if(is.null(compress)){compress <- "100 eV"}
 
-
-    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
-    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
+    spectra$Energy <- if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)
+    } else if(compress=="50 eV"){
+        round(spectra$Energy/0.05)*0.05
+    } else if(compress=="25 eV"){
+        round(spectra$Energy/0.025)*0.025
+    }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
 
@@ -2367,13 +2365,12 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress
         transformSpectra(spectra, transformation=transformation)
     }
     
-    if(is.null(energy.min)){energy.min <- 0.7}
-    if(is.null(energy.max)){energy.max <- 37}
-    if(is.null(compress)){compress <- "100 eV"}
-    
-    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
-    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
+    spectra$Energy <- if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)
+    } else if(compress=="50 eV"){
+        round(spectra$Energy/0.05)*0.05
+    } else if(compress=="25 eV"){
+        round(spectra$Energy/0.025)*0.025
+    }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
     
@@ -2404,11 +2401,7 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.m
     } else if(transformation!="None"){
         transformSpectra(spectra, transformation=transformation)
     }
-    
-    if(is.null(energy.min)){energy.min <- 0.7}
-    if(is.null(energy.max)){energy.max <- 37}
-    if(is.null(compress)){compress <- "100 eV"}
-    
+
     compton.norm <- subset(spectra$CPS, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
     compton.file <- subset(spectra$Spectrum, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
     compton.frame <- data.frame(is.0(compton.norm, compton.file))
@@ -2417,9 +2410,12 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.m
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     
-    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
-    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
+    spectra$Energy <- if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)
+    } else if(compress=="50 eV"){
+        round(spectra$Energy/0.05)*0.05
+    } else if(compress=="25 eV"){
+        round(spectra$Energy/0.025)*0.025
+    }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
     
@@ -2450,15 +2446,12 @@ spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compr
     }
     
     
-    if(is.null(energy.min)){energy.min <- 0.2}
-    if(is.null(energy.max)){energy.max <- 40}
-    if(is.null(compress)){compress <- "100 eV"}
-    
-    
-    
-    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
-    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
+    spectra$Energy <- if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)
+    } else if(compress=="50 eV"){
+        round(spectra$Energy/0.05)*0.05
+    } else if(compress=="25 eV"){
+        round(spectra$Energy/0.025)*0.025
+    }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
     spectra <- data.table(spectra)
@@ -2494,13 +2487,12 @@ spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compres
         transformSpectra(spectra, transformation=transformation)
     }
     
-    if(is.null(energy.min)){energy.min <- 0.7}
-    if(is.null(energy.max)){energy.max <- 37}
-    if(is.null(compress)){compress <- "100 eV"}
-    
-    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
-    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
+    spectra$Energy <- if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)
+    } else if(compress=="50 eV"){
+        round(spectra$Energy/0.05)*0.05
+    } else if(compress=="25 eV"){
+        round(spectra$Energy/0.025)*0.025
+    }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
     
@@ -2541,9 +2533,6 @@ spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.
         transformSpectra(spectra, transformation=transformation)
     }
     
-    if(is.null(energy.min)){energy.min <- 0.7}
-    if(is.null(energy.max)){energy.max <- 37}
-    if(is.null(compress)){compress <- "100 eV"}
     
     compton.norm <- subset(spectra$CPS, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
     compton.file <- subset(spectra$Spectrum, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
@@ -2554,9 +2543,12 @@ spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.
     
     
     
-    if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)}
-    if(compress=="50 eV"){spectra$Energy <- round(spectra$Energy/0.05)*0.05}
-    if(compress=="25 eV"){spectra$Energy <- round(spectra$Energy/0.025)*0.025}
+    spectra$Energy <- if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)
+    } else if(compress=="50 eV"){
+        round(spectra$Energy/0.05)*0.05
+    } else if(compress=="25 eV"){
+        round(spectra$Energy/0.025)*0.025
+    }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
     
