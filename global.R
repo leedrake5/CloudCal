@@ -5004,86 +5004,86 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     imported.cal.conditions <- calList[[element]][[1]]
     
     cal.condition <- if("CalType" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$CalType
+        imported.cal.conditions$CalTable$CalType[1]
     } else if(!"CalType" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$CalType
     }
     
     compress.condition <- if("Compress" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$Compress
+        imported.cal.conditions$CalTable$Compress[1]
     } else if(!"Compress" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Compress
     }
     
     transformation.condition <- if("Transformation" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$Transformation
+        imported.cal.conditions$CalTable$Transformation[1]
     } else if(!"Transformation" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Transformation
     }
     
     energyrange.condition <- if("EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$EnergyRange
+        imported.cal.conditions$CalTable$EnergyRange[1]
     } else if(!"EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$EnergyRange
     }
     
     
     norm.condition <- if("NormType" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$NormType
+        imported.cal.conditions$CalTable$NormType[1]
     } else if(!"NormType" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$NormType
     }
     
     norm.min <- if("Min" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$Min
+        imported.cal.conditions$CalTable$Min[1]
     } else if(!"Min" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Min
     }
     
     norm.max <- if("Max" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$Max
+        imported.cal.conditions$CalTable$Max[1]
     } else if(!"Max" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Max
     }
     
     foresttry <- if("ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$ForestTry
+        imported.cal.conditions$CalTable$ForestTry[1]
     } else if(!"ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestTry
     }
     
     forestmetric <- if("ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$ForestMetric
+        imported.cal.conditions$CalTable$ForestMetric[1]
     } else if(!"ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestMetric
     }
     
     foresttrain <- if("ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$ForestTC
+        imported.cal.conditions$CalTable$ForestTC[1]
     } else if(!"ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestTC
     }
     
     forestnumber <- if("ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$ForestNumber
+        imported.cal.conditions$CalTable$ForestNumber[1]
     } else if(!"ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestNumber
     }
     
     cvrepeats <- if("CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$CVRepeats
+        imported.cal.conditions$CalTable$CVRepeats[1]
     } else if(!"CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$CVRepeats
     }
     
     foresttrees <- if("ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$ForestTrees
+        imported.cal.conditions$CalTable$ForestTrees[1]
     } else if(!"ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestTrees
     }
     
     neuralhiddenlayers <- if("NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$NeuralHL
+        imported.cal.conditions$CalTable$NeuralHL[1]
     } else if(!"NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$NeuralHL
     }
@@ -5092,7 +5092,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==6 | cal.condition==7){
              paste0(calList[[element]][[2]]$bestTune$size, "-", calList[[element]][[2]]$bestTune$size)
         } else if(!cal.condition==6 | !cal.condition==7){
-            imported.cal.conditions$CalTable$NeuralHU
+            imported.cal.conditions$CalTable$NeuralHU[1]
         }
     } else if(!"NeuralHU" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$NeuralHU
@@ -5103,7 +5103,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
             if(neuralhiddenlayers==1){
                 paste0(calList[[element]][[2]]$bestTune$decay, "-", calList[[element]][[2]]$bestTune$decay)
             } else if(neuralhiddenlayers > 1){
-                imported.cal.conditions$CalTable$NeuralWD
+                imported.cal.conditions$CalTable$NeuralWD[1]
             }
         } else if(!cal.condition==6 | !cal.condition==7){
             imported.cal.conditions$CalTable$NeuralWD
@@ -5113,7 +5113,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     }
     
     neuralmaxiterations <- if("NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$NeuralMI
+        imported.cal.conditions$CalTable$NeuralMI[1]
     } else if(!"NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$NeuralMI
     }
@@ -5122,7 +5122,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
             paste0(calList[[element]][[2]]$bestTune$max_depth, "-", calList[[element]][[2]]$bestTune$max_depth)
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$TreeDepth
+            imported.cal.conditions$CalTable$TreeDepth[1]
         }
     } else if(!"TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$TreeDepth
@@ -5132,7 +5132,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
             paste0(calList[[element]][[2]]$bestTune$eta, "-", calList[[element]][[2]]$bestTune$eta)
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$xgbEta
+            imported.cal.conditions$CalTable$xgbEta[1]
         }
     } else if(!"xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbEta
@@ -5142,7 +5142,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
             paste0(calList[[element]][[2]]$bestTune$gamma, "-", calList[[element]][[2]]$bestTune$gamma)
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$xgbGamma
+            imported.cal.conditions$CalTable$xgbGamma[1]
         }
     } else if(!"xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbGamma
@@ -5152,7 +5152,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
             paste0(calList[[element]][[2]]$bestTune$subsample, "-", calList[[element]][[2]]$bestTune$subsample)
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$xgbSubSample
+            imported.cal.conditions$CalTable$xgbSubSample[1]
         }
     } else if(!"xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbSubSample
@@ -5162,7 +5162,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
             paste0(calList[[element]][[2]]$bestTune$colsample_bytree, "-", calList[[element]][[2]]$bestTune$colsample_bytree)
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$xgbSubSample
+            imported.cal.conditions$CalTable$xgbSubSample[1]
         }
     } else if(!"xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbColSample
@@ -5172,7 +5172,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
            calList[[element]][[2]]$bestTune$min_child_weight
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$xgbMinChild
+            imported.cal.conditions$CalTable$xgbMinChild[1]
         }
     } else if(!"xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbMinChild
@@ -5365,7 +5365,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         
             
         predicted.list <- pblapply(elements, function(x)
-            if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=general_prep_xrf(
@@ -5375,7 +5375,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             element.line=x),
                             na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+            } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple_tc_prep_xrf(
@@ -5387,7 +5387,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ),
                         na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+            } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
                 predict(
                     object=the.cal[[x]][[2]],
                         newdata=simple_comp_prep_xrf(
@@ -5396,12 +5396,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                                 count.table
                                 ),
                             element.line=x,
-                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                             ),
                             na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                  predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
@@ -5414,7 +5414,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ),
                         na.action=na.pass
                  )
-            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
@@ -5428,7 +5428,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ),
                         na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
@@ -5439,12 +5439,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                         na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
@@ -5457,7 +5457,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     ),
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
@@ -5471,7 +5471,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     ),
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 predict(
                 object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
@@ -5482,47 +5482,47 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=spectra_simp_prep_xrf(
                         spectra=valdata,
-                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
-                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
-                        compress=the.cal[[x]][[1]]$CalTable$Compress,
-                        transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                         )[,-1],
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
-                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
-                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
-                        compress=the.cal[[x]][[1]]$CalTable$Compress,
-                        transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                         )[,-1],
                 na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
-                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
-                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
-                        compress=the.cal[[x]][[1]]$CalTable$Compress,
-                        transformation=the.cal[[x]][[1]]$CalTable$Transformation,
-                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max)[,-1],
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
@@ -5535,7 +5535,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     ),
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
@@ -5549,7 +5549,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     ),
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 predict(
                 object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
@@ -5560,46 +5560,46 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=spectra_simp_prep_xrf(spectra=valdata,
-                    energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
-                    energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
-                    compress=the.cal[[x]][[1]]$CalTable$Compress,
-                    transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                    energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                    energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                    compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                    transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                     )[,-1],
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
-                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
-                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
-                compress=the.cal[[x]][[1]]$CalTable$Compress,
-                transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
                 na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
-                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
-                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
-                compress=the.cal[[x]][[1]]$CalTable$Compress,
-                transformation=the.cal[[x]][[1]]$CalTable$Transformation,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max)[,-1],
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf(
@@ -5612,7 +5612,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 ),
                 na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_tc_prep_xrf(
@@ -5626,7 +5626,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 ),
                 na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_comp_prep_xrf(
@@ -5637,46 +5637,46 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 element.line=x,
                 slope.element.lines=variables,
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                 ),
                 na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_simp_prep_xrf(spectra=valdata,
-                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
-                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
-                compress=the.cal[[x]][[1]]$CalTable$Compress,
-                transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
                     na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
-                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
-                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
-                compress=the.cal[[x]][[1]]$CalTable$Compress,
-                transformation=the.cal[[x]][[1]]$CalTable$Transformation
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
                 na.action=na.pass
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 predict(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
-                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[1],
-                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange), "-")))[2],
-                compress=the.cal[[x]][[1]]$CalTable$Compress,
-                transformation=the.cal[[x]][[1]]$CalTable$Transformation,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max)[,-1],
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                 na.action=na.pass
                 )
-            } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=general_prep_xrf_net(
@@ -5686,7 +5686,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             element.line=x),
                             na.action=na.pass
                 )
-            } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==2) {
+            } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple_tc_prep_xrf_net(
@@ -5698,7 +5698,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             ),
                             na.action=na.pass
                 )
-            } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType==3) {
+            } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=simple_comp_prep_xrf_net(
@@ -5707,12 +5707,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             count.table
                             ),
                         element.line=x,
-                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                         na.action=na.pass
                 )
-            } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==1){
+            } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf_net(
@@ -5725,7 +5725,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ),
                         na.action=na.pass
                 )
-            } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==2){
+            } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf_net(
@@ -5739,7 +5739,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ),
                         na.action=na.pass
                 )
-            } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType==3){
+            } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 predict(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf_net(
@@ -5750,12 +5750,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                         na.action=na.pass
                 )
-        } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==1){
+        } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf_net(
@@ -5768,7 +5768,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     ),
                     na.action=na.pass
             )
-        } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==2){
+        } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_tc_prep_xrf_net(
@@ -5782,7 +5782,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ),
                         na.action=na.pass
             )
-        } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType==3){
+        } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_comp_prep_xrf_net(
@@ -5793,12 +5793,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     na.action=na.pass
             )
-        }  else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==1){
+        }  else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf_net(
@@ -5811,7 +5811,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     ),
                     na.action=na.pass
             )
-        } else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==2){
+        } else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_tc_prep_xrf_net(
@@ -5825,7 +5825,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ),
                         na.action=na.pass
             )
-        } else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType==3){
+        } else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_comp_prep_xrf_net(
@@ -5836,12 +5836,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     na.action=na.pass
             )
-        }  else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==1){
+        }  else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf_net(
@@ -5854,7 +5854,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     ),
                     na.action=na.pass
             )
-        } else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==2){
+        } else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_tc_prep_xrf_net(
@@ -5868,7 +5868,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ),
                         na.action=na.pass
             )
-        } else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType==3){
+        } else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             predict(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_comp_prep_xrf_net(
@@ -5879,8 +5879,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min,
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     na.action=na.pass
             )
