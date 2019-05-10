@@ -4674,23 +4674,23 @@ valCurvePlotGen <- function(element, calibration, unit){
 
 modelSummary <- function(element.model, element.name){
     
-    model.class <- if(element.model[[1]][["CalTable"]]$CalType==1){
+    model.class <- if(element.model[[1]][["CalTable"]]$CalType[1]==1){
         "Regression"
-    } else if(element.model[[1]][["CalTable"]]$CalType==2){
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==2){
         "Regression"
-    } else if(element.model[[1]][["CalTable"]]$CalType==3){
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==3){
         "Regression"
-    } else if(element.model[[1]][["CalTable"]]$CalType==4){
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==4){
         "Caret"
-    } else if(element.model[[1]][["CalTable"]]$CalType==5){
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==5){
         "Caret"
-    } else if(element.model[[1]][["CalTable"]]$CalType==6){
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==6){
         "Caret"
-    } else if(element.model[[1]][["CalTable"]]$CalType==7){
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==7){
         "Caret"
-    } else if(element.model[[1]][["CalTable"]]$CalType==8){
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==8){
         "Caret"
-    } else if(element.model[[1]][["CalTable"]]$CalType==9){
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==9){
         "Caret"
     }
     
@@ -5320,23 +5320,23 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         cal_type <- function(element){
     
     
-            if(the.cal[[element]][[1]]$CalTable$CalType==1){
+            if(the.cal[[element]][[1]]$CalTable$CalType[1]==1){
                     1
-                } else if(the.cal[[element]][[1]]$CalTable$CalType==2){
+                } else if(the.cal[[element]][[1]]$CalTable$CalType[1]==2){
                     1
-                } else if(the.cal[[element]][[1]]$CalTable$CalType==3){
+                } else if(the.cal[[element]][[1]]$CalTable$CalType[1]==3){
                     3
-                } else if(the.cal[[element]][[1]]$CalTable$CalType==4){
+                } else if(the.cal[[element]][[1]]$CalTable$CalType[1]==4){
                     4
-                } else if(the.cal[[element]][[1]]$CalTable$CalType==5){
+                } else if(the.cal[[element]][[1]]$CalTable$CalType[1]==5){
                     5
-                } else if(the.cal[[element]][[1]]$CalTable$CalType==6){
+                } else if(the.cal[[element]][[1]]$CalTable$CalType[1]==6){
                     6
-                }  else if(the.cal[[element]][[1]]$CalTable$CalType==7){
+                }  else if(the.cal[[element]][[1]]$CalTable$CalType[1]==7){
                     7
-                } else if(the.cal[[element]][[1]]$CalTable$CalType==8){
+                } else if(the.cal[[element]][[1]]$CalTable$CalType[1]==8){
                     8
-                }  else if(the.cal[[element]][[1]]$CalTable$CalType==9){
+                }  else if(the.cal[[element]][[1]]$CalTable$CalType[1]==9){
                     9
                 }
     
