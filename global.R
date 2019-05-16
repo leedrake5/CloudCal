@@ -2359,6 +2359,8 @@ spectra_simp_prep_xrf <- cmpfun(spectra_simp_prep_xrf)
 
 spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress="100 eV", transformation="None"){
     
+    spectra <- as.data.frame(spectra, stringsAsFactors=FALSE)
+    
     spectra <- if(transformation=="None"){
         spectra
     } else if(transformation!="None"){
@@ -4695,12 +4697,12 @@ modelSummary <- function(element.model, element.name){
     }
     
     r2 <- if(model.class=="Regression"){
-        summary(element.model[[2]])$r.squared
+        tryCatch(summary(element.model[[2]])$r.squared, error=function(e) 0)
     } else if(model.class=="Caret"){
-        element.model[[2]][["results"]]$Rsquared
+        tryCatch(element.model[[2]][["results"]]$Rsquared, error=function(e) 0)
     }
     
-    data.frame(Element=element.name, R2=round(r2, 2))
+    data.frame(Element=element.name, R2=tryCatch(round(r2, 2), error=function(e) NULL))
 }
 
 calProgressSummary <- function(calList){

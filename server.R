@@ -2730,7 +2730,7 @@ shinyServer(function(input, output, session) {
 
         linearParameters <- reactive(label="linearParameters", {
             req(input$radiocal, input$calcurveelement)
-            list(CalTable=calConditionsTable(cal.type=1, norm.type=basichold$normcal, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=1, norm.type=basichold$normtype, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax), StandardsUsed=vals$keeprows)
         })
         linearModelData <- reactive(label="linearModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -2752,7 +2752,7 @@ shinyServer(function(input, output, session) {
         
         nonLinearParameters <- reactive(label="nonLinearParameters", {
             req(input$radiocal, input$calcurveelement)
-            list(CalTable=calConditionsTable(cal.type=2, norm.type=basichold$normcal, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=2, norm.type=basichold$normtype, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax), StandardsUsed=vals$keeprows)
         })
         nonLinearModelData <- reactive(label="nonLinearModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -2774,7 +2774,7 @@ shinyServer(function(input, output, session) {
         
         lucasToothParameters <- reactive(label="lucasToothParameters", {
             req(input$radiocal, input$calcurveelement)
-            list(CalTable=calConditionsTable(cal.type=3, norm.type=basichold$normcal, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax), Slope=input$slope_vars, Intercept=input$intercept_vars, StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=3, norm.type=basichold$normtype, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax), Slope=input$slope_vars, Intercept=input$intercept_vars, StandardsUsed=vals$keeprows)
         })
         lucasToothModelData <- reactive(label="lucasToothModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -2801,7 +2801,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=4, norm.type=basichold$normcal, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttry=foresthold$foresttry, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, foresttrees=input$foresttrees), Intercept=foresthold$intercept_vars, StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=4, norm.type=basichold$normtype, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttry=foresthold$foresttry, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, foresttrees=input$foresttrees), Intercept=foresthold$intercept_vars, StandardsUsed=vals$keeprows)
         })
         forestModelData <- reactive(label="forestModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -2865,7 +2865,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=5, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(basichold$energyrange[1], "-", basichold$energyrange[2]), norm.type=basichold$normcal, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttry=foresthold$foresttry, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, foresttrees=foresthold$foresttrees), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=5, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(basichold$energyrange[1], "-", basichold$energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttry=foresthold$foresttry, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, foresttrees=foresthold$foresttrees), StandardsUsed=vals$keeprows)
         })
         rainforestModelData <- reactive(label="rainforestModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -2935,7 +2935,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=6, norm.type=basichold$normcal, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, neuralhiddenlayers=neuralhold$neuralhiddenlayers, neuralhiddenunits=paste0(neuralhold$neuralhiddenunits[1], "-", neuralhold$neuralhiddenunits[2]), neuralweightdecay=paste0(neuralhold$neuralweightdecay[1], "-", neuralhold$neuralweightdecay[2]), neuralmaxiterations=neuralhold$neuralmaxiterations), Intercept=input$intercept_vars, StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=6, norm.type=basichold$normtype, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, neuralhiddenlayers=neuralhold$neuralhiddenlayers, neuralhiddenunits=paste0(neuralhold$neuralhiddenunits[1], "-", neuralhold$neuralhiddenunits[2]), neuralweightdecay=paste0(neuralhold$neuralweightdecay[1], "-", neuralhold$neuralweightdecay[2]), neuralmaxiterations=neuralhold$neuralmaxiterations), Intercept=input$intercept_vars, StandardsUsed=vals$keeprows)
         })
         neuralNetworkIntensityShallowModelData <- reactive(label="neuralNetworkIntensityShallowModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -3005,7 +3005,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=6, norm.type=basichold$normcal, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttry=foresthold$foresttry, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, neuralhiddenlayers=neuralhold$neuralhiddenlayers, neuralhiddenunits=paste0(neuralhold$neuralhiddenunits[1], "-", neuralhold$neuralhiddenunits[2])), Intercept=input$intercept_vars, StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=6, norm.type=basichold$normtype, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttry=foresthold$foresttry, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, neuralhiddenlayers=neuralhold$neuralhiddenlayers, neuralhiddenunits=paste0(neuralhold$neuralhiddenunits[1], "-", neuralhold$neuralhiddenunits[2])), Intercept=input$intercept_vars, StandardsUsed=vals$keeprows)
         })
         neuralNetworkIntensityDeepModelData <- reactive(label="neuralNetworkIntensityDeepModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -3105,7 +3105,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=7, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(basichold$energyrange[1], "-", basichold$energyrange[2]), norm.type=basichold$normcal, basichold=input$comptonmin, norm.max=basichold$comptonmax, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, neuralhiddenlayers=neuralhold$neuralhiddenlayers, neuralhiddenunits=paste0(neuralhold$neuralhiddenunits[1], "-", neuralhold$neuralhiddenunits[2]), neuralweightdecay=paste0(neuralhold$neuralweightdecay[1], "-", neuralhold$neuralweightdecay[2]), neuralmaxiterations=neuralhold$neuralmaxiterations), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=7, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(basichold$energyrange[1], "-", basichold$energyrange[2]), norm.type=basichold$normtype, basichold=input$comptonmin, norm.max=basichold$comptonmax, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, neuralhiddenlayers=neuralhold$neuralhiddenlayers, neuralhiddenunits=paste0(neuralhold$neuralhiddenunits[1], "-", neuralhold$neuralhiddenunits[2]), neuralweightdecay=paste0(neuralhold$neuralweightdecay[1], "-", neuralhold$neuralweightdecay[2]), neuralmaxiterations=neuralhold$neuralmaxiterations), StandardsUsed=vals$keeprows)
         })
         neuralNetworkSpectraShallowModelData <- reactive(label="neuralNetworkSpectraShallowModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -3174,7 +3174,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=7, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(basichold$energyrange[1], "-", basichold$energyrange[2]), norm.type=basichold$normcal, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttry=foresthold$foresttry, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, neuralhiddenlayers=neuralhold$neuralhiddenlayers, neuralhiddenunits=paste0(neuralhold$neuralhiddenunits[1], "-", neuralhold$neuralhiddenunits[2])), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=7, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(basichold$energyrange[1], "-", basichold$energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttry=foresthold$foresttry, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, neuralhiddenlayers=neuralhold$neuralhiddenlayers, neuralhiddenunits=paste0(neuralhold$neuralhiddenunits[1], "-", neuralhold$neuralhiddenunits[2])), StandardsUsed=vals$keeprows)
         })
         neuralNetworkSpectraDeepModelData <- reactive(label="neuralNetworkSpectraDeepModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -3274,7 +3274,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=8, norm.type=basichold$normcal, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttrees=foresthold$foresttrees, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, treedepth=paste0(xgboosthold$treedepth[1], "-", xgboosthold$treedepth[2]), xgbeta=paste0(xgboosthold$xgbeta[1], "-", xgboosthold$xgbeta[2]), xgbgamma=paste0(xgboosthold$xgbgamma[1], "-", xgboosthold$xgbgamma[2]), xgbsubsample=paste0(xgboosthold$xgbsubsample[1], "-", xgboosthold$xgbsubsample[2]), xgbcolsample=paste0(xgboosthold$xgbcolsample[1], "-", xgboosthold$xgbcolsample[2]), xgbminchild=xgboosthold$xgbminchild), Intercept=input$intercept_vars, StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=8, norm.type=basichold$normtype, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttrees=foresthold$foresttrees, forestmetric=foresthold$forestmetric, foresttrain=foresthold$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, treedepth=paste0(xgboosthold$treedepth[1], "-", xgboosthold$treedepth[2]), xgbeta=paste0(xgboosthold$xgbeta[1], "-", xgboosthold$xgbeta[2]), xgbgamma=paste0(xgboosthold$xgbgamma[1], "-", xgboosthold$xgbgamma[2]), xgbsubsample=paste0(xgboosthold$xgbsubsample[1], "-", xgboosthold$xgbsubsample[2]), xgbcolsample=paste0(xgboosthold$xgbcolsample[1], "-", xgboosthold$xgbcolsample[2]), xgbminchild=xgboosthold$xgbminchild), Intercept=input$intercept_vars, StandardsUsed=vals$keeprows)
         })
         xgboostIntensityModelData <- reactive(label="xgboostIntensityModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -3357,7 +3357,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=9, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(basichold$energyrange[1], "-", basichold$energyrange[2]), norm.type=basichold$normcal, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttrees=foresthold$foresttrees, forestmetric=foresthold$forestmetric, foresttrain=input$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, treedepth=paste0(xgboosthold$treedepth[1], "-", xgboosthold$treedepth[2]), xgbeta=paste0(xgboosthold$xgbeta[1], "-", xgboosthold$xgbeta[2]), xgbgamma=paste0(xgboosthold$xgbgamma[1], "-", xgboosthold$xgbgamma[2]), xgbsubsample=paste0(xgboosthold$xgbsubsample[1], "-", xgboosthold$xgbsubsample[2]), xgbcolsample=paste0(xgboosthold$xgbcolsample[1], "-", xgboosthold$xgbcolsample[2]), xgbminchild=xgboosthold$xgbminchild), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=9, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(basichold$energyrange[1], "-", basichold$energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$comptonmin, norm.max=basichold$comptonmax, foresttrees=foresthold$foresttrees, forestmetric=foresthold$forestmetric, foresttrain=input$foresttrain, forestnumber=foresthold$forestnumber, cvrepeats=cvrepeats, treedepth=paste0(xgboosthold$treedepth[1], "-", xgboosthold$treedepth[2]), xgbeta=paste0(xgboosthold$xgbeta[1], "-", xgboosthold$xgbeta[2]), xgbgamma=paste0(xgboosthold$xgbgamma[1], "-", xgboosthold$xgbgamma[2]), xgbsubsample=paste0(xgboosthold$xgbsubsample[1], "-", xgboosthold$xgbsubsample[2]), xgbcolsample=paste0(xgboosthold$xgbcolsample[1], "-", xgboosthold$xgbcolsample[2]), xgbminchild=xgboosthold$xgbminchild), StandardsUsed=vals$keeprows)
         })
         xgboostSpectraModelData <- reactive(label="xgboostSpectraModelData", {
             req(input$radiocal, input$calcurveelement)
@@ -4419,9 +4419,9 @@ shinyServer(function(input, output, session) {
         valFrameVal <- reactiveValues()
         valFrameVal$val.frame <- NULL
         
-        observeEvent(!is.null(values[["DF"]]), priority=75, {
-            valFrameVal$val.frame <- valFrame()
-        })
+        #observeEvent(!is.null(values[["DF"]]), priority=75, {
+        #    valFrameVal$val.frame <- valFrame()
+        #})
         
         observeEvent(input$calcurveelement, priority=77, {
             valFrameVal$val.frame <- valFrame()
