@@ -4281,23 +4281,23 @@ shinyServer(function(input, output, session) {
         elementModelGen <- reactive(label="elementModelGen",{
             req(input$radiocal, input$calcurveelement)
             if(input$radiocal==1){
-                linearModel()
+                tryCatch(linearModel(), error=function(e) NULL)
             } else if(input$radiocal==2){
-                nonLinearModel()
+                tryCatch(nonLinearModel(), error=function(e) NULL)
             } else if(input$radiocal==3){
-                lucasToothModel()
+                tryCatch(lucasToothModel(), error=function(e) NULL)
             } else if(input$radiocal==4){
-                forestModel()
+                tryCatch(forestModel(), error=function(e) NULL)
             } else if(input$radiocal==5){
-                rainforestModel()
+                trycatch(rainforestModel(), error=function(e) NULL)
             } else if(input$radiocal==6){
-                neuralNetworkIntensityModel()
+                tryCatch(neuralNetworkIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==7){
-                neuralNetworkSpectraModel()
+                tryCatch(neuralNetworkSpectraModel(), error=function(e) NULL)
             } else if(input$radiocal==8){
-                xgboostIntensityModel()
+                tryCatch(xgboostIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==9){
-                xgboostSpectraModel()
+                tryCatch(xgboostSpectraModel(), error=function(e) NULL)
             }
         })
         
