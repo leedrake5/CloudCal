@@ -351,6 +351,8 @@ uiOutput('comptonMinInput'),
 
 uiOutput('comptonMaxInput'),
 
+uiOutput('dependenttransformationui'),
+
 uiOutput('transformationui'),
 uiOutput('compressui'),
 uiOutput('energyrangeui'),
