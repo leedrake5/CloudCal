@@ -16,11 +16,12 @@ get_os <- function(){
 
 #options(repos = BiocInstaller::biocinstallRepos())
 #getOption("repos")
-options(download.file.method="libcurl", url.method="libcurl")
+#options(download.file.method="libcurl", url.method="libcurl")
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 list.of.bioconductor <- c("graph", "RBGL", "Rgraphviz")
 new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.packages()[,"Package"])]
-if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
-if(length(new.bioconductor)) biocLite(new.bioconductor)
+#if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
+if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
 list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics")
