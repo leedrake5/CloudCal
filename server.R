@@ -4332,7 +4332,7 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$createcalelement, priority=100, {
             calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
-                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(list(modelParameters(), elementModelGen()))
+                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(list(modelParameters(), strip_glm(elementModelGen())))
         })
         
         output$usecalsep <- renderUI({
