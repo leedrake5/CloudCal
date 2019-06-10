@@ -4364,7 +4364,7 @@ shinyServer(function(input, output, session) {
                 } else if(basichold$deptransformation=="Log"){
                     exp(predict(object=elementModelGen() , newdata=predictIntensity(), interval='confidence'))
                 } else if(basichold$deptransformation=="e"){
-                    log10(predict(object=elementModelGen() , newdata=predictIntensity(), interval='confidence'))
+                    log(predict(object=elementModelGen() , newdata=predictIntensity(), interval='confidence'))
                 }
                 
                 cal.est.conc.tab <- data.frame(cal.est.conc.pred)
@@ -4381,7 +4381,7 @@ shinyServer(function(input, output, session) {
                 } else if(basichold$deptransformation=="Log"){
                     exp(predict(object=elementModelGen() , newdata=predictIntensity(), interval='confidence'))
                 } else if(basichold$deptransformation=="e"){
-                    log10(predict(object=elementModelGen() , newdata=predictIntensity(), interval='confidence'))
+                    log(predict(object=elementModelGen() , newdata=predictIntensity(), interval='confidence'))
                 }
                 
                 cal.est.conc.tab <- data.frame(cal.est.conc.pred)
@@ -4398,7 +4398,7 @@ shinyServer(function(input, output, session) {
                 } else if(basichold$deptransformation=="Log"){
                     exp(predict(object=elementModelGen() , newdata=predictIntensity(), interval='confidence'))
                 } else if(basichold$deptransformation=="e"){
-                    log10(predict(object=elementModelGen() , newdata=predictIntensity(), interval='confidence'))
+                    log(predict(object=elementModelGen() , newdata=predictIntensity(), interval='confidence'))
                 }
                 
                 

@@ -5991,7 +5991,7 @@ mclValGen <- function(model, data, predict.frame, dependent.transformation){
     } else if(dependent.transformation=="Log"){
         exp(predict(object=model, newdata=data))
     } else if(dependent.transformation=="e"){
-        log10(predict(object=model, newdata=data))
+        log(predict(object=model, newdata=data))
     }
     
     concentration <- if(dependent.transformation=="None"){
@@ -5999,7 +5999,7 @@ mclValGen <- function(model, data, predict.frame, dependent.transformation){
     } else if(dependent.transformation=="Log"){
         exp(predict.frame$Concentration)
     } else if(dependent.transformation=="e"){
-        log10(predict.frame$Concentration)
+        log(predict.frame$Concentration)
     }
     
     val.frame <- data.frame(Concentration=concentration, Intensity=as.vector(cal.est.conc.pred.luc), Prediction=as.vector(cal.est.conc.pred.luc))
@@ -6015,7 +6015,7 @@ mclPred <- function(object, newdata, dependent.transformation){
         exp(predict(object=object, newdata=newdata,
         na.action=na.pass))
     } else if(dependent.transformation=="e"){
-        log10(predict(object=object, newdata=newdata,
+        log(predict(object=object, newdata=newdata,
         na.action=na.pass))
     }
 }
