@@ -24,7 +24,7 @@ new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.p
 if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
-list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics")
+list.of.packages <- c("pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, repos="http://cran.rstudio.com/", dep = TRUE)
 
@@ -81,6 +81,9 @@ library(xgboost)
 library(gridExtra)
 library(magrittr)
 library(Metrics)
+library(taRifx)
+library(strip)
+
 enableJIT(3)
 
 options(digits=4)
@@ -4312,7 +4315,7 @@ predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="N
         log(predict.frame.simp$Concentration)
     }
     
-    predict.frame.simp
+    predictFrameCheck(predict.frame.simp)
     
 }
 
@@ -4367,7 +4370,7 @@ predictFrameForestGen <- function(spectra, hold.frame, dependent.transformation=
         log(predict.frame.forest$Concentration)
     }
     
-    return(predict.frame.forest)
+    return(predictFrameCheck(predict.frame.forest))
     
 }
 
@@ -4402,7 +4405,7 @@ predictFrameLucGen <- function(spectra, hold.frame, element, intercepts=NULL, sl
         log(predict.frame.luc$Concentration)
     }
     
-    return(predict.frame.luc)
+    return(predictFrameCheck(predict.frame.luc))
 }
 
 predictIntensityLuc <- function(predict.frame){
@@ -4450,7 +4453,7 @@ rainforestDataGen <- function(spectra, compress="100 eV", transformation="None",
         log(spectra.data$Concentration)
     }
     
-    return(spectra.data)
+    return(predictFrameCheck(spectra.data))
 }
 
 rainforestIntensity <- function(rainforest.data){
@@ -4756,13 +4759,13 @@ modelSummary <- function(element.model, element.name){
         tryCatch(max(element.model[[2]][["results"]]$Rsquared), error=function(e) 0)
     }
     
-    data.frame(Element=element.name, R2=tryCatch(round(r2, 2), error=function(e) NULL))
+    data.frame(Element=element.name, R2=tryCatch(round(r2, 2), error=function(e) NULL), stringsAsFactors=FALSE)
 }
 
 calProgressSummary <- function(calList){
     element.names <- names(calList)
     
-    cal.results.list <- lapply(element.names, function(x) modelSummary(element.model=calList[[x]], element.name=x))
+    cal.results.list <- tryCatch(lapply(element.names, function(x) modelSummary(element.model=calList[[x]], element.name=x)), error=function(e) NULL)
     
     rbindlist(cal.results.list)
 }
@@ -4992,14 +4995,14 @@ calConditionCompare <- function(cal.conditions.first, cal.conditions.second){
 }
 
 defaultCalConditions <- function(element, number.of.standards){
-    cal.condition <- 3
-    compress <- "100 eV"
-    transformation <- "None"
-    energy.range <- "0.7-37"
-    norm.condition <- 1
-    norm.min <- 18.5
-    norm.max <- 19.5
-    dependent.transformation <- "None"
+    cal.condition <- as.numeric(3)
+    compress <- as.character("100 eV")
+    transformation <- as.character("None")
+    energy.range <- as.character("0.7-37")
+    norm.condition <- as.numeric(1)
+    norm.min <- as.numeric(11)
+    norm.max <- as.numeric(11.2)
+    dependent.transformation <- as.character("None")
 
     foresttry <- as.numeric(7)
     forestmetric <- as.character("RMSE")
@@ -5070,92 +5073,92 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     imported.cal.conditions <- calList[[element]][[1]]
     
     cal.condition <- if("CalType" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$CalType[1]
+         as.numeric(as.character(imported.cal.conditions$CalTable$CalType[1]))
     } else if(!"CalType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$CalType
+       default.cal.conditions$CalTable$CalType
     }
     
     compress.condition <- if("Compress" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$Compress[1]
+        as.character(imported.cal.conditions$CalTable$Compress[1])
     } else if(!"Compress" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Compress
     }
     
     transformation.condition <- if("Transformation" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$Transformation[1]
+        as.character(imported.cal.conditions$CalTable$Transformation[1])
     } else if(!"Transformation" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Transformation
     }
     
     energyrange.condition <- if("EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$EnergyRange[1]
+        as.character(imported.cal.conditions$CalTable$EnergyRange[1])
     } else if(!"EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$EnergyRange
     }
     
     
     norm.condition <- if("NormType" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$NormType[1]
+        as.numeric(as.character(imported.cal.conditions$CalTable$NormType[1]))
     } else if(!"NormType" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$NormType
     }
     
     norm.min <- if("Min" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$Min[1]
+        as.numeric(as.character(imported.cal.conditions$CalTable$Min[1]))
     } else if(!"Min" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Min
     }
     
     norm.max <- if("Max" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$Max[1]
+        as.numeric(as.character(imported.cal.conditions$CalTable$Max[1]))
     } else if(!"Max" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Max
     }
     
     dependent.transformation <- if("DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$DepTrans[1]
+        as.character(imported.cal.conditions$CalTable$DepTrans[1])
     } else if(!"DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$DepTrans
     }
     
     foresttry <- if("ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$ForestTry[1]
+        as.numeric(as.character(imported.cal.conditions$CalTable$ForestTry[1]))
     } else if(!"ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestTry
     }
     
     forestmetric <- if("ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$ForestMetric[1]
+        as.character(imported.cal.conditions$CalTable$ForestMetric[1])
     } else if(!"ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestMetric
     }
     
     foresttrain <- if("ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$ForestTC[1]
+        as.character(imported.cal.conditions$CalTable$ForestTC[1])
     } else if(!"ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestTC
     }
     
     forestnumber <- if("ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$ForestNumber[1]
+        as.numeric(as.character(imported.cal.conditions$CalTable$ForestNumber[1]))
     } else if(!"ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestNumber
     }
     
     cvrepeats <- if("CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$CVRepeats[1]
+        as.numeric(as.character(imported.cal.conditions$CalTable$CVRepeats[1]))
     } else if(!"CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$CVRepeats
     }
     
     foresttrees <- if("ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$ForestTrees[1]
+        as.numeric(as.character(imported.cal.conditions$CalTable$ForestTrees[1]))
     } else if(!"ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$ForestTrees
     }
     
     neuralhiddenlayers <- if("NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$NeuralHL[1]
+        as.numeric(as.character(imported.cal.conditions$CalTable$NeuralHL[1]))
     } else if(!"NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$NeuralHL
     }
@@ -5164,7 +5167,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==6 | cal.condition==7){
              paste0(calList[[element]][[2]]$bestTune$size, "-", calList[[element]][[2]]$bestTune$size)
         } else if(!cal.condition==6 | !cal.condition==7){
-            imported.cal.conditions$CalTable$NeuralHU[1]
+            as.character(imported.cal.conditions$CalTable$NeuralHU[1])
         }
     } else if(!"NeuralHU" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$NeuralHU
@@ -5175,7 +5178,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
             if(neuralhiddenlayers==1){
                 paste0(calList[[element]][[2]]$bestTune$decay, "-", calList[[element]][[2]]$bestTune$decay)
             } else if(neuralhiddenlayers > 1){
-                imported.cal.conditions$CalTable$NeuralWD[1]
+                as.character(imported.cal.conditions$CalTable$NeuralWD[1])
             }
         } else if(!cal.condition==6 | !cal.condition==7){
             imported.cal.conditions$CalTable$NeuralWD
@@ -5185,7 +5188,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     }
     
     neuralmaxiterations <- if("NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
-        imported.cal.conditions$CalTable$NeuralMI[1]
+        as.numeric(as.character(imported.cal.conditions$CalTable$NeuralMI[1]))
     } else if(!"NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$NeuralMI
     }
@@ -5194,7 +5197,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
             paste0(calList[[element]][[2]]$bestTune$max_depth, "-", calList[[element]][[2]]$bestTune$max_depth)
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$TreeDepth[1]
+            as.numeric(as.character(imported.cal.conditions$CalTable$TreeDepth[1]))
         }
     } else if(!"TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$TreeDepth
@@ -5204,7 +5207,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
             paste0(calList[[element]][[2]]$bestTune$eta, "-", calList[[element]][[2]]$bestTune$eta)
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$xgbEta[1]
+            as.character(imported.cal.conditions$CalTable$xgbEta[1])
         }
     } else if(!"xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbEta
@@ -5214,7 +5217,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
             paste0(calList[[element]][[2]]$bestTune$gamma, "-", calList[[element]][[2]]$bestTune$gamma)
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$xgbGamma[1]
+            as.character(imported.cal.conditions$CalTable$xgbGamma[1])
         }
     } else if(!"xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbGamma
@@ -5224,7 +5227,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
             paste0(calList[[element]][[2]]$bestTune$subsample, "-", calList[[element]][[2]]$bestTune$subsample)
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$xgbSubSample[1]
+            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
         }
     } else if(!"xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbSubSample
@@ -5234,7 +5237,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
             paste0(calList[[element]][[2]]$bestTune$colsample_bytree, "-", calList[[element]][[2]]$bestTune$colsample_bytree)
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$xgbSubSample[1]
+            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
         }
     } else if(!"xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbColSample
@@ -5244,25 +5247,20 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         if(cal.condition==8 | cal.condition==9){
            calList[[element]][[2]]$bestTune$min_child_weight
         } else if(!cal.condition==8 | !cal.condition==9){
-            imported.cal.conditions$CalTable$xgbMinChild[1]
+            as.numeric(as.character(imported.cal.conditions$CalTable$xgbMinChild[1]))
         }
     } else if(!"xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbMinChild
     }
     
     slope.corrections <- if("Slope" %in% names(imported.cal.conditions)){
-        imported.cal.conditions$Slope
+        as.character(imported.cal.conditions$Slope)
     } else if("Slope" %in% names(imported.cal.conditions)){
         default.cal.conditions$Slope
     }
     
-    slope.corrections <- if(is.null(slope.corrections)){
-        element
-    } else if(!is.null(slope.corrections)){
-        slope.corrections
-    }
     intercept.corrections <- if("Intercept" %in% names(imported.cal.conditions)){
-        imported.cal.conditions$Intercept
+        as.character(imported.cal.conditions$Intercept)
     } else if("Intercept" %in% names(imported.cal.conditions)){
         default.cal.conditions$Intercept
     }
@@ -6018,5 +6016,54 @@ mclPred <- function(object, newdata, dependent.transformation){
         log(predict(object=object, newdata=newdata,
         na.action=na.pass))
     }
+}
+
+valFrameCheck <- function(val.frame){
+    if("Include" %in% colnames(val.frame)){
+        test <- remove.factors(val.frame)
+        test2 <- as.data.frame(lapply(test[,-2], as.numeric), stringsAsFactors=FALSE)
+        new.frame <- data.frame(Include=test$Include, Spectrum=test$Spectrum, test2, stringsAsFactors=FALSE)
+    } else if(!"Include" %in% colnames(val.frame)){
+        test <- remove.factors(val.frame)
+        test2 <- as.data.frame(lapply(test[,-1], as.numeric), stringsAsFactors=FALSE)
+        new.frame <- data.frame(Spectrum=test$Spectrum, test2, stringsAsFactors=FALSE)
+    }
+    
+    return(new.frame)
+}
+
+intensityFrameCheck <- function(intensity.table){
+    if("Spectrum" %in% colnames(intensity.table)){
+        test <- remove.factors(intensity.table)
+        test2 <- as.data.frame(lapply(test[,-1], as.numeric), stringsAsFactors=FALSE)
+        new.frame <- data.frame(Spectrum=test$Spectrum, test2, stringsAsFactors=FALSE)
+    } else if(!"Spectrum" %in% colnames(intensity.table)){
+        test <- remove.factors(intensity.table)
+        test2 <- as.data.frame(lapply(test, as.numeric), stringsAsFactors=FALSE)
+        new.frame <- data.frame(test2, stringsAsFactors=FALSE)
+    }
+    
+    return(new.frame)
+}
+
+spectraCheck <- function(spectra){
+    test <- remove.factors(spectra)
+    test2 <- as.data.frame(lapply(test[,c("Energy", "CPS")], as.numeric), stringsAsFactors=FALSE)
+    new.frame <- data.frame(Spectrum=test$Spectrum, test2, stringsAsFactors=FALSE)
+    return(new.frame)
+}
+
+predictFrameCheck <- function(predict.frame){
+    if("Spectrum" %in% colnames(predict.frame)){
+        test <- remove.factors(predict.frame)
+        test2 <- as.data.frame(lapply(test[,!colnames(test) %in% "Spectrum"], as.numeric), stringsAsFactors=FALSE)
+        new.frame <- data.frame(Spectrum=test$Spectrum, test2, stringsAsFactors=FALSE)
+    } else if(!"Spectrum" %in% colnames(predict.frame)){
+        test <- remove.factors(predict.frame)
+        test2 <- as.data.frame(lapply(test, as.numeric), stringsAsFactors=FALSE)
+        new.frame <- data.frame(test2, stringsAsFactors=FALSE)
+    }
+    
+    return(new.frame)
 }
 

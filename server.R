@@ -57,7 +57,11 @@ shinyServer(function(input, output, session) {
         Calibration[["Spectra"]]$Spectrum <- gsub(".spt", "", Calibration[["Spectra"]]$Spectrum)
         Calibration[["Spectra"]]$Spectrum <- gsub(".mca", "", Calibration[["Spectra"]]$Spectrum)
         
+        Calibration$Values <- valFrameCheck(Calibration$Values)
+        Calibration$Intensities <- intensityFrameCheck(Calibration$Intensities)
+        Calibration$Spectra <- spectraCheck(Calibration$Spectra)
 
+        
         
         Calibration
         
@@ -1494,14 +1498,16 @@ shinyServer(function(input, output, session) {
             
             
             hotable.new <- if(is.null(calMemory$Calibration$Values)){
-                data.frame(Include=rep(TRUE, length(hotable.data$Spectrum)), hotable.data)
+                data.frame(Include=rep(TRUE, length(hotable.data$Spectrum)), hotable.data, stringsAsFactors=FALSE)
             } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Spectrum"){
-                data.frame(Include=rep(TRUE, length(hotable.data$Spectrum)), hotable.data)
+                data.frame(Include=rep(TRUE, length(hotable.data$Spectrum)), hotable.data, stringsAsFactors=FALSE)
             } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Include"){
-                data.frame(calMemory$Calibration$Values)
+                data.frame(calMemory$Calibration$Values, stringsAsFactors=FALSE)
             }
             
+            hotable.new <- valFrameCheck(hotable.new)
             
+            hotable.new
             
         })
         
@@ -1521,7 +1527,7 @@ shinyServer(function(input, output, session) {
         
         eventReactive(input$linecommit,  {
             
-            values[["DF"]] <- hotableInput()
+            values[["DF"]] <- valFrameCheck(hotableInput())
             
         })
         
@@ -1547,7 +1553,7 @@ shinyServer(function(input, output, session) {
             
             values[["DF"]] <- NULL
             
-            values[["DF"]] <- hotableInput()
+            values[["DF"]] <- valFrameCheck(hotableInput())
             
         })
         
@@ -1647,8 +1653,8 @@ shinyServer(function(input, output, session) {
             
             concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
             concentration.table[concentration.table==""] <- NA
-            concentration.table[values[["DF"]]$Include,]
-            
+            valFrameCheck(concentration.table[values[["DF"]]$Include,])
+
         })
         
         spectraLineTable <- reactive({
@@ -2738,7 +2744,7 @@ shinyServer(function(input, output, session) {
         })
         linearModelSet <- reactive(label="linearModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=linearModelData(), parameters=linearParameters())
+            list(data=predictFrameCheck(linearModelData()), parameters=linearParameters())
         })
         linearModel <- reactive(label="nonLinearModel", {
             
@@ -2760,7 +2766,7 @@ shinyServer(function(input, output, session) {
         })
         nonLinearModelSet <- reactive(label="nonLinearModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=nonLinearModelData(), parameters=nonLinearParameters())
+            list(data=predictFrameCheck(nonLinearModelData()), parameters=nonLinearParameters())
         })
         nonLinearModel <- reactive(label="nonLinearModel", {
             
@@ -2782,7 +2788,7 @@ shinyServer(function(input, output, session) {
         })
         lucasToothModelSet <- reactive(label="lucasToothModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=lucasToothModelData(), parameters=lucasToothParameters())
+            list(data=predictFrameCheck(lucasToothModelData()), parameters=lucasToothParameters())
         })
         lucasToothModel <- reactive(label="lucasToothModel", {
             
@@ -2809,7 +2815,7 @@ shinyServer(function(input, output, session) {
         })
         forestModelSet <- reactive(label="forestModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=forestModelData(), parameters=forestParameters())
+            list(data=predictFrameCheck(forestModelData()), parameters=forestParameters())
         })
         forestModel <- reactive(label="forestModel", {
             req(input$radiocal, input$calcurveelement)
@@ -2878,7 +2884,7 @@ shinyServer(function(input, output, session) {
         
         rainforestModelSet <- reactive(label="rainforestModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=rainforestModelData(), parameters=rainforestParameters())
+            list(data=predictFrameCheck(rainforestModelData()), parameters=rainforestParameters())
         })
         rainforestModel <- reactive(label="rainforestModel", {
             req(input$radiocal, input$calcurveelement)
@@ -2943,7 +2949,7 @@ shinyServer(function(input, output, session) {
         })
         neuralNetworkIntensityShallowModelSet <- reactive(label="neuralNetworkIntensityShallowModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=neuralNetworkIntensityShallowModelData(), parameters=neuralNetworkIntensityShallowParameters())
+            list(data=predictFrameCheck(neuralNetworkIntensityShallowModelData()), parameters=neuralNetworkIntensityShallowParameters())
         })
         neuralNetworkIntensityShallow <- reactive(label="neuralNetworkIntensityShallow", {
             req(input$radiocal, input$calcurveelement)
@@ -3013,7 +3019,7 @@ shinyServer(function(input, output, session) {
         })
         neuralNetworkIntensityDeepModelSet <- reactive(label="neuralNetworkIntensityDeepModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=neuralNetworkIntensityDeepModelData(), parameters=neuralNetworkIntensityDeepParameters())
+            list(data=predictFrameCheck(neuralNetworkIntensityDeepModelData()), parameters=neuralNetworkIntensityDeepParameters())
         })
         neuralNetworkIntensityDeep <- reactive(label="neuralNetworkIntensityDeep", {
             req(input$radiocal, input$calcurveelement)
@@ -3113,7 +3119,7 @@ shinyServer(function(input, output, session) {
         })
         neuralNetworkSpectraShallowModelSet <- reactive(label="neuralNetworkSpectraShallowModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=neuralNetworkSpectraShallowModelData(), parameters=neuralNetworkSpectraShallowParameters())
+            list(data=predictFrameCheck(neuralNetworkSpectraShallowModelData()), parameters=neuralNetworkSpectraShallowParameters())
         })
         neuralNetworkSpectraShallow <- reactive(label="neuralNetworkSpectraShallow", {
             req(input$radiocal, input$calcurveelement)
@@ -3182,7 +3188,7 @@ shinyServer(function(input, output, session) {
         })
         neuralNetworkSpectraDeepModelSet <- reactive(label="neuralNetworkSpectraDeepModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=neuralNetworkSpectraDeepModelData(), parameters=neuralNetworkSpectraDeepParameters())
+            list(data=predictFrameCheck(neuralNetworkSpectraDeepModelData()), parameters=neuralNetworkSpectraDeepParameters())
         })
         neuralNetworkSpectraDeep <- reactive(label="neuralNetworkSpectraDeep", {
             req(input$radiocal, input$calcurveelement)
@@ -3282,7 +3288,7 @@ shinyServer(function(input, output, session) {
         })
         xgboostIntensityModelSet <- reactive(label="xgboostIntensityModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=xgboostIntensityModelData(), parameters=xgboostIntensityParameters())
+            list(data=predictFrameCheck(xgboostIntensityModelData()), parameters=xgboostIntensityParameters())
         })
         xgboostIntensityModel <- reactive(label="xgboostIntensityModel", {
             req(input$radiocal, input$calcurveelement)
@@ -3365,7 +3371,7 @@ shinyServer(function(input, output, session) {
         })
         xgboostSpectraModelSet <- reactive(label="xgboostSpectraModelSet", {
             req(input$radiocal, input$calcurveelement)
-            list(data=xgboostSpectraModelData(), parameters=xgboostSpectraParameters())
+            list(data=predictFrameCheck(xgboostSpectraModelData()), parameters=xgboostSpectraParameters())
         })
         xgboostSpectraModel <- reactive(label="xgboostSpectraModel", {
             req(input$radiocal, input$calcurveelement)
@@ -3833,6 +3839,7 @@ shinyServer(function(input, output, session) {
             basichold$normmax <- normMaxPre()
             basichold$compress <- calCompressPre()
             basichold$transformation <- calTransformationPre()
+            basichold$deptransformation <- calDependentTransformationPre()
             basichold$energyrange <- calEnergyRangePre()
             lucashold$intercept <- calInterceptSelectionPre()
             lucashold$slope <- calSlopeSelectionPre()
@@ -4190,7 +4197,7 @@ shinyServer(function(input, output, session) {
         
         predictIntensity <- reactive(label="predictIntensity",{
             req(input$radiocal)
-            predict.intensity <- if (input$radiocal==1){
+            predict.intensity <- if(input$radiocal==1){
                 linearModelSet()$data[,!colnames(linearModelSet()$data) %in% c("Spectrum", "Concentration")]
             } else if(input$radiocal==2){
                 nonLinearModelSet()$data[,!colnames(nonLinearModelSet()$data) %in% c("Spectrum", "Concentration")]
@@ -4213,13 +4220,13 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==9){
                 xgboostSpectraModelSet()$data[,!colnames(xgboostSpectraModelSet()$data) %in% c("Spectrum", "Concentration")]
             }
-            predict.intensity
+            predictFrameCheck(predict.intensity)
             
         })
         
         
         output$testingagain <- renderDataTable({
-            predictIntensity()
+            predictFrame()
             
         })
         
@@ -4302,11 +4309,11 @@ shinyServer(function(input, output, session) {
         elementModelGen <- reactive(label="elementModelGen",{
             req(input$radiocal, input$calcurveelement)
             if(input$radiocal==1){
-                tryCatch(linearModel(), error=function(e) NULL)
+                tryCatch(strip(linearModel(), keep=c("predict", "summary")), error=function(e) NULL)
             } else if(input$radiocal==2){
-                tryCatch(nonLinearModel(), error=function(e) NULL)
+                tryCatch(strip(nonLinearModel(), keep=c("predict", "summary")), error=function(e) NULL)
             } else if(input$radiocal==3){
-                tryCatch(lucasToothModel(), error=function(e) NULL)
+                tryCatch(strip(lucasToothModel(), keep=c("predict", "summary")), error=function(e) NULL)
             } else if(input$radiocal==4){
                 tryCatch(forestModel(), error=function(e) NULL)
             } else if(input$radiocal==5){
@@ -4316,9 +4323,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==7){
                 tryCatch(neuralNetworkSpectraModel(), error=function(e) NULL)
             } else if(input$radiocal==8){
-                tryCatch(xgboostIntensityModel(), error=function(e) NULL)
+                tryCatch(strip_glm(xgboostIntensityModel()), error=function(e) NULL)
             } else if(input$radiocal==9){
-                tryCatch(xgboostSpectraModel(), error=function(e) NULL)
+                tryCatch(strip_glm(xgboostSpectraModel()), error=function(e) NULL)
             }
         })
         
@@ -4332,7 +4339,7 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$createcalelement, priority=100, {
             calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
-                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(list(modelParameters(), strip_glm(elementModelGen())))
+                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(list(Parameters=modelParameters(), Model=elementModelGen()))
         })
         
         output$usecalsep <- renderUI({
@@ -4467,7 +4474,7 @@ shinyServer(function(input, output, session) {
         #})
         
         observeEvent(input$calcurveelement, priority=77, {
-            valFrameVal$val.frame <- valFrame()
+            valFrameVal$val.frame <- tryCatch(valFrame(), error=function(e) NULL)
         })
         
         #observeEvent(input$radiocal, priority=-1, {
@@ -4475,11 +4482,11 @@ shinyServer(function(input, output, session) {
         #})
         
         observeEvent(input$trainslopes, priority=75, {
-            valFrameVal$val.frame <- valFrame()
+            valFrameVal$val.frame <- tryCatch(valFrame(), error=function(e) NULL)
         })
 
         observeEvent(input$createcalelement, priority=97, {
-            valFrameVal$val.frame <- valFrame()
+            valFrameVal$val.frame <- tryCatch(valFrame(), error=function(e) NULL)
         })
         
         
@@ -10127,7 +10134,7 @@ observeEvent(input$createcalelement_multi, {
         observeEvent(input$createcalelement_multi, {
             
            lapply(quantNames(), function(x)
-            calListMulti[[x]][["calList"]][[input$calcurveelement_multi]] <<- list(isolate(calConditionsMulti), isolate(strip_glm(elementModelMulti()[[x]]))))
+            calListMulti[[x]][["calList"]][[input$calcurveelement_multi]] <<- list(isolate(calConditionsMulti), isolate(elementModelMulti()[[x]])))
             
             
             
