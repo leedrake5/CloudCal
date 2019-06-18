@@ -6021,7 +6021,7 @@ mclPred <- function(object, newdata, dependent.transformation){
 valFrameCheck <- function(val.frame){
     if("Include" %in% colnames(val.frame)){
         test <- remove.factors(val.frame)
-        test2 <- as.data.frame(lapply(test[,-2], as.numeric), stringsAsFactors=FALSE)
+        test2 <- as.data.frame(lapply(test[,3:length(test)], as.numeric), stringsAsFactors=FALSE)
         new.frame <- data.frame(Include=test$Include, Spectrum=test$Spectrum, test2, stringsAsFactors=FALSE)
     } else if(!"Include" %in% colnames(val.frame)){
         test <- remove.factors(val.frame)

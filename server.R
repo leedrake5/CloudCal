@@ -1430,18 +1430,18 @@ shinyServer(function(input, output, session) {
             
             
             spectra.line.table <- calMemory$Calibration$Intensities
-            
+            value.frame <- calMemory$Calibration$Values
+
             empty.line.table <- spectra.line.table[,elements] * 0.0000
             
             #empty.line.table$Spectrum <- spectra.line.table$Spectrum
             
-            hold.frame <- data.frame(spectra.line.table$Spectrum, empty.line.table)
-            colnames(hold.frame) <- c("Spectrum", elements)
+            hold.frame <- data.frame(Spectrum=spectra.line.table$Spectrum, empty.line.table, stringsAsFactors=FALSE)
+            #colnames(hold.frame) <- c("Spectrum", elements)
             
-            hold.frame <- as.data.frame(hold.frame)
+            #hold.frame <- as.data.frame(hold.frame)
             
             
-            value.frame <- calMemory$Calibration$Values
             
             #anna <- rbind(hold.frame, value.frame)
             
@@ -1481,7 +1481,15 @@ shinyServer(function(input, output, session) {
             hotable.new$Spectrum <- gsub(".mca", "", hotable.new$Spectrum)
             hotable.new$Spectrum <- gsub(".spx", "", hotable.new$Spectrum)
             
-            hotable.new
+            hotable.new <- if(is.null(calMemory$Calibration$Values)){
+                data.frame(Include=rep(TRUE, length(hotable.new$Spectrum)), hotable.new, stringsAsFactors=FALSE)
+            } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Spectrum"){
+                data.frame(Include=rep(TRUE, length(hotable.new$Spectrum)), hotable.new, stringsAsFactors=FALSE)
+            } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Include"){
+                data.frame(hotable.new, stringsAsFactors=FALSE)
+            }
+            
+            hotable.new[,c("Include", "Spectrum", elements)]
             
             
         })
@@ -1491,21 +1499,12 @@ shinyServer(function(input, output, session) {
             
             hotable.data <- if(is.null(calMemory$Calibration$Values)){
                 hotableInputBlank()
-            }else if(!is.null(calMemory$Calibration$Values)){
+            } else if(!is.null(calMemory$Calibration$Values)){
                 hotableInputCal()
             }
             
             
-            
-            hotable.new <- if(is.null(calMemory$Calibration$Values)){
-                data.frame(Include=rep(TRUE, length(hotable.data$Spectrum)), hotable.data, stringsAsFactors=FALSE)
-            } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Spectrum"){
-                data.frame(Include=rep(TRUE, length(hotable.data$Spectrum)), hotable.data, stringsAsFactors=FALSE)
-            } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Include"){
-                data.frame(calMemory$Calibration$Values, stringsAsFactors=FALSE)
-            }
-            
-            hotable.new <- valFrameCheck(hotable.new)
+            hotable.new <- valFrameCheck(hotable.data)
             
             hotable.new
             
@@ -5434,6 +5433,8 @@ shinyServer(function(input, output, session) {
             predict.frame <- predict.frame[!(randomizeData()), , drop = FALSE]
             predict.frame <- subset(predict.frame, predict.frame$Concentration > my.min(predict.frame.cal[,"Concentration"]) & predict.frame$Concentration  < my.max(predict.frame.cal[,"Concentration"]))
             predict.intensity <- predict.frame[,!colnames(predict.frame) %in% "Concentration"]
+            
+            predict.intensity <- predict.intensity[,!colnames(predict.intensity) %in% c("Spectrum")]
 
             element.model <- elementModelRandom()
             
