@@ -4195,9 +4195,9 @@ shinyServer(function(input, output, session) {
         predictIntensity <- reactive(label="predictIntensity",{
             #req(input$radiocal)
             predict.intensity <- if(input$radiocal==1){
-                linearModelSet()$data[,"Intensity"]
+                linearModelSet()$data
             } else if(input$radiocal==2){
-                nonLinearModelSet()$data[,"Intensity"]
+                nonLinearModelSet()$data
             } else if(input$radiocal==3){
                 lucasToothModelSet()$data[,!colnames(lucasToothModelSet()$data) %in% c("Spectrum", "Concentration")]
             } else if(input$radiocal==4){
