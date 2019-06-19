@@ -5014,11 +5014,11 @@ defaultCalConditions <- function(element, number.of.standards){
     neuralhiddenunits <- paste0(1, "-", 4)
     neuralweightdecay <- paste0(0.1, "-", 0.5)
     neuralmaxiterations <- as.numeric(1000)
-    treedepth <- as.character("5-15")
-    xgbeta <- as.character("0.1-0.3")
-    xgbgamma <- as.character("0-0.1")
-    xgbsubsample <- as.character("0.4-0.6")
-    xgbcolsample <- as.character("0.4-0.6")
+    treedepth <- as.character("5-5")
+    xgbeta <- as.character("0.1-0.1")
+    xgbgamma <- as.character("0-0")
+    xgbsubsample <- as.character("0.6-0.6")
+    xgbcolsample <- as.character("0.6-0.6")
     xgbminchild <- as.numeric(1)
     
     cal.table <- data.frame(
@@ -6062,6 +6062,10 @@ predictFrameCheck <- function(predict.frame){
         test <- remove.factors(predict.frame)
         test2 <- as.data.frame(lapply(test, as.numeric), stringsAsFactors=FALSE)
         new.frame <- data.frame(test2, stringsAsFactors=FALSE)
+    } else if(length(colnames(predict.frame))==1){
+        test <- remove.factors(predict.frame)
+        test[,1] <- as.numeric(test[,1])
+        new.frame <- test
     }
     
     return(new.frame)
