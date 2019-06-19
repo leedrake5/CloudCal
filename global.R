@@ -6067,3 +6067,42 @@ predictFrameCheck <- function(predict.frame){
     return(new.frame)
 }
 
+calRDS <- function(calibration.directory){
+    Calibration <- readRDS(calibration.directory)
+    
+    if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}
+    
+    Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
+        paste0(calMemory$Calibration[["Notes"]], " Updated on ", Sys.time())
+    } else if(is.null(Calibration[["Notes"]])){
+        paste0("Updated on ", Sys.time())
+    }
+    
+    
+    Calibration[["Values"]]$Spectrum <- gsub(".spx", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".PDZ", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".pdz", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".CSV", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".csv", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".spt", "", Calibration[["Values"]]$Spectrum)
+    Calibration[["Values"]]$Spectrum <- gsub(".mca", "", Calibration[["Values"]]$Spectrum)
+    
+    Calibration[["Spectra"]]$Spectrum <- gsub(".spx", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".PDZ", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".pdz", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".CSV", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".csv", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".spt", "", Calibration[["Spectra"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- gsub(".mca", "", Calibration[["Spectra"]]$Spectrum)
+    
+    Calibration$Values <- valFrameCheck(Calibration$Values)
+    Calibration$Intensities <- intensityFrameCheck(Calibration$Intensities)
+    Calibration$Spectra <- spectraCheck(Calibration$Spectra)
+    
+    calpre <- lapply(names(Calibration[["calList"]]), function(x) list(Parameters=importCalConditions(element=x, calList=Calibration[["calList"]]), Model=Calibration[["calList"]][[x]][[2]]))
+    names(calpre) <- names(Calibration[["calList"]])
+    
+    Calibration$calList <- calpre
+    
+    return(Calibration)
+}

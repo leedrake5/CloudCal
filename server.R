@@ -37,31 +37,7 @@ shinyServer(function(input, output, session) {
         if (is.null(existingCalFile)) return(NULL)
         
         
-        Calibration <- readRDS(existingCalFile$datapath)
-        
-        
-        
-        
-        
-        Calibration[["Values"]]$Spectrum <- gsub(".spx", "", Calibration[["Values"]]$Spectrum)
-        Calibration[["Values"]]$Spectrum <- gsub(".pdz", "", Calibration[["Values"]]$Spectrum)
-        Calibration[["Values"]]$Spectrum <- gsub(".CSV", "", Calibration[["Values"]]$Spectrum)
-        Calibration[["Values"]]$Spectrum <- gsub(".csv", "", Calibration[["Values"]]$Spectrum)
-        Calibration[["Values"]]$Spectrum <- gsub(".spt", "", Calibration[["Values"]]$Spectrum)
-        Calibration[["Values"]]$Spectrum <- gsub(".mca", "", Calibration[["Values"]]$Spectrum)
-        
-        Calibration[["Spectra"]]$Spectrum <- gsub(".spx", "", Calibration[["Spectra"]]$Spectrum)
-        Calibration[["Spectra"]]$Spectrum <- gsub(".pdz", "", Calibration[["Spectra"]]$Spectrum)
-        Calibration[["Spectra"]]$Spectrum <- gsub(".CSV", "", Calibration[["Spectra"]]$Spectrum)
-        Calibration[["Spectra"]]$Spectrum <- gsub(".csv", "", Calibration[["Spectra"]]$Spectrum)
-        Calibration[["Spectra"]]$Spectrum <- gsub(".spt", "", Calibration[["Spectra"]]$Spectrum)
-        Calibration[["Spectra"]]$Spectrum <- gsub(".mca", "", Calibration[["Spectra"]]$Spectrum)
-        
-        Calibration$Values <- valFrameCheck(Calibration$Values)
-        Calibration$Intensities <- intensityFrameCheck(Calibration$Intensities)
-        Calibration$Spectra <- spectraCheck(Calibration$Spectra)
-
-        
+        Calibration <- calRDS(existingCalFile$datapath)
         
         Calibration
         
@@ -449,7 +425,7 @@ shinyServer(function(input, output, session) {
             if(is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- NULL
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
-                calMemory$Calibration$calList <- calListPrep()
+                calMemory$Calibration$calList <- calMemory$Calibration$calList
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration$calList <- NULL
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
@@ -1486,10 +1462,10 @@ shinyServer(function(input, output, session) {
             } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Spectrum"){
                 data.frame(Include=rep(TRUE, length(hotable.new$Spectrum)), hotable.new, stringsAsFactors=FALSE)
             } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Include"){
-                data.frame(hotable.new, stringsAsFactors=FALSE)
+                data.frame(Include=calMemory$Calibration$Values$Include, hotable.new, stringsAsFactors=FALSE)
             }
             
-            hotable.new[,c("Include", "Spectrum", elements)]
+            hotable.new
             
             
         })
@@ -4361,7 +4337,7 @@ shinyServer(function(input, output, session) {
 
 
         valFrame <- reactive(label="valFrame",{
-            req(input$radiocal)
+            req(input$calcurveelement, input$radiocal)
             
             if (input$radiocal==1){
 
@@ -4472,7 +4448,8 @@ shinyServer(function(input, output, session) {
         #    valFrameVal$val.frame <- valFrame()
         #})
         
-        observeEvent(input$calcurveelement, priority=77, {
+        observeEvent(modelParameters(), priority=77, {
+            #req(input$calcurvelement, input$radiocal)
             valFrameVal$val.frame <- tryCatch(valFrame(), error=function(e) NULL)
         })
         
@@ -4528,7 +4505,7 @@ shinyServer(function(input, output, session) {
         
         
         calCurvePlotPre <- reactive(label="calCurvePlotPre",{
-            req(input$radiocal)
+            req(input$calcurveelement, input$radiocal)
             element.name <- if(input$calcurveelement %in% spectralLines){
                 gsub("[.]", "", substr(input$calcurveelement, 1, 2))
             } else {
@@ -5164,7 +5141,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            rf_model<-caret::train(Concentration~.,data=data, method="rf", type="Regression",
+            rf_model<-caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression",
             trControl=trainControl(method=parameters$ForestTC, number=parameters$ForestNumber), ntree=parameters$ForestTrees,
             prox=TRUE,allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
             
@@ -5262,7 +5239,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model<-caret::train(Concentration~.,data=data, method="nnet", linout=TRUE, trControl=trainControl(method=parameters$ForestTC, number=parameters$ForestNumber), allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+            nn_model<-caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=trainControl(method=parameters$ForestTC, number=parameters$ForestNumber), allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
             
             
             stopCluster(cl)
@@ -5299,7 +5276,7 @@ shinyServer(function(input, output, session) {
             registerDoParallel(cl)
             
             f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
-            nn_model<-caret::train(f,data=data, method="neuralnet", rep=parameters$ForestTry, trControl=trainControl(method=parameters$ForestTC, number=parameters$ForestNumber), metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
+            nn_model<-caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=trainControl(method=parameters$ForestTC, number=parameters$ForestNumber), metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
             
             
             stopCluster(cl)
@@ -5388,7 +5365,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+            xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
             
             
             stopCluster(cl)
@@ -5424,6 +5401,14 @@ shinyServer(function(input, output, session) {
 
         })
         
+        randomHold <- reactiveValues()
+        randomHold$calList <- list()
+        
+        observeEvent(input$createcalelement, priority=100, {
+            randomHold$calList[[input$calcurveelement]] <- NULL
+            randomHold$calList[[input$calcurveelement]] <- isolate(list(Parameters=modelParameters(), Model=elementModelRandom()))
+        })
+        
         
         valFrameRandomized <- reactive(label="valFrameRandomized",{
             
@@ -5436,7 +5421,7 @@ shinyServer(function(input, output, session) {
             
             predict.intensity <- predict.intensity[,!colnames(predict.intensity) %in% c("Spectrum")]
 
-            element.model <- elementModelRandom()
+            element.model <-  randomHold$calList[[input$calcurveelement]]
             
             
             
@@ -5568,7 +5553,7 @@ shinyServer(function(input, output, session) {
             
             predict.intensity <- predict.intensity[(randomizeData()), ]
             predict.frame <- predict.frame[(randomizeData()), ]
-            element.model <- elementModelRandom()
+            element.model <-  randomHold$calList[[input$calcurveelement]]
             
             
             
