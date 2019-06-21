@@ -6077,7 +6077,7 @@ calRDS <- function(calibration.directory){
     if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}
     
     Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
-        paste0(calMemory$Calibration[["Notes"]], " Updated on ", Sys.time())
+        paste0(Calibration[["Notes"]], " Updated on ", Sys.time())
     } else if(is.null(Calibration[["Notes"]])){
         paste0("Updated on ", Sys.time())
     }
