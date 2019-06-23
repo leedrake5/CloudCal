@@ -10177,7 +10177,7 @@ content = function(file){
         if (is.null(existingCalFile)) return(NULL)
         
         
-        Calibration <- calRDS(existingCalFile$datapath)
+        Calibration <- calRDS(existingCalFile$datapath, null.strip=TRUE)
         
         
         Calibration
@@ -10442,7 +10442,7 @@ content = function(file){
         
         calValElements <- reactive({
             calList <- calValHold()
-            valelements <- ls(calList)
+            valelements <- names(calList)
             
             valelements.simp <- gsub(".K.alpha", "", valelements)
             valelements.simp <- gsub(".K.beta", "", valelements.simp)
@@ -10453,7 +10453,7 @@ content = function(file){
             
             valelements <- as.vector(as.character(valelements[match(as.character(fluorescence.lines$Symbol), valelements.simp)]))
             
-            valelements <- c(valelements, ls(calList)[!(ls(calList) %in% valelements)])
+            valelements <- c(valelements, names(calList)[!(names(calList) %in% valelements)])
 
             
             valelements
@@ -10461,7 +10461,7 @@ content = function(file){
         
         calVariableElements <- reactive({
             variables <- calVariables()
-            variableelements <- ls(variables)
+            variableelements <- names(variables)
             
             #variableelements.simp <- gsub(".K.alpha", "", variableelements)
             #variableelements.simp <- gsub(".K.beta", "", variableelements)
@@ -10501,6 +10501,8 @@ content = function(file){
             } else if(input$valfiletype=="MCA") {
                 "Spectra"
             } else if(input$valfiletype=="PDZ") {
+                "Spectra"
+            } else if(input$valfiletype=="Spectra") {
                 "Spectra"
             }
             
@@ -10584,7 +10586,9 @@ content = function(file){
         
         
         tableInputValQuant <- reactive({
-            cloudCalPredict(Calibration=calFileContents2(), count.table=data.frame(fullInputValCounts()), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier==input$multiplier)
+            suppressWarnings({
+                cloudCalPredict(Calibration=calFileContents2(), count.table=data.frame(fullInputValCounts()), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier==input$multiplier)
+            })
         })
         
         

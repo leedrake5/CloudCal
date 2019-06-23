@@ -5434,10 +5434,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 "Spectra"
             }
         
-        
+        predicted.frame <- data.frame(Spectrum=count.table$Spectrum, stringsAsFactors=FALSE)
             
-        predicted.list <- pblapply(elements, function(x)
-            if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            #pblapply(elements, function(x) tryCatch(predicted.frame[,x] <-
+        
+        for(x in 1:length(elements)){
+            values <- tryCatch(round(if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=general_prep_xrf(
@@ -5956,21 +5958,23 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
             )
+        }*multiplier, rounding), error=function(e) NULL)
+        predicted.frame$hold <- values
+        colnames(predicted.frame)[which(names(predicted.frame) == "hold")] <- elements[x]
         }
-            )
             
-        predicted.vector <- unlist(predicted.list)
+            #predicted.vector <- unlist(predicted.list)
         
-        predicted.vector <- predicted.vector*multiplier
+        #predicted.vector <- predicted.vector*multiplier
         
-        predicted.vector <- round(predicted.vector, rounding)
+        #predicted.vector <- round(predicted.vector, rounding)
 
         
-        dim(predicted.vector) <- c(length(count.table$Spectrum), length(elements))
+        #dim(predicted.vector) <- c(length(count.table$Spectrum), length(elements))
         
-        predicted.frame <- data.frame(count.table$Spectrum, predicted.vector)
+        #predicted.frame <- data.frame(count.table$Spectrum, predicted.vector)
         
-        colnames(predicted.frame) <- c("Spectrum", elements)
+        #colnames(predicted.frame) <- c("Spectrum", elements)
         #elements <- elements[order(match(fluorescence.lines$Symbol, elements))]
 
         
@@ -6071,7 +6075,7 @@ predictFrameCheck <- function(predict.frame){
     return(new.frame)
 }
 
-calRDS <- function(calibration.directory){
+calRDS <- function(calibration.directory, null.strip=FALSE){
     Calibration <- readRDS(calibration.directory)
     
     if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}
@@ -6103,10 +6107,21 @@ calRDS <- function(calibration.directory){
     Calibration$Intensities <- intensityFrameCheck(Calibration$Intensities)
     Calibration$Spectra <- spectraCheck(Calibration$Spectra)
     
+    if(null.strip==TRUE){
+        null.list <- sapply(Calibration$calList, function(x) is.null(x[[2]]))
+        tryCatch(for(i in seq_along(Calibration$calList)){
+            if(null.list[i]==TRUE){
+                Calibration$calList[[i]] <- NULL
+            }
+        }, error=function(e) NULL)
+
+    }
+    
     calpre <- lapply(names(Calibration[["calList"]]), function(x) list(Parameters=importCalConditions(element=x, calList=Calibration[["calList"]]), Model=Calibration[["calList"]][[x]][[2]]))
     names(calpre) <- names(Calibration[["calList"]])
     
     Calibration$calList <- calpre
+    
     
     return(Calibration)
 }
