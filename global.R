@@ -5382,10 +5382,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
     #count.table <- data.frame(fullInputValCounts())
     the.cal <- Calibration[["calList"]]
     #elements.cal <- calValElements()
-    elements <- elements.cal[!is.na(match(elements.cal, ls(count.table)))]
+    elements <- elements.cal[!is.na(match(elements.cal, names(count.table)))]
     #variables <- calVariableElements()
     #valdata <- myValData()
-        
         #elements <- fluorescence.lines$Symbol[sort(order(fluorescence.lines$Symbol)[elements])]
 
         cal_type <- function(element){
@@ -5438,7 +5437,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             
             #pblapply(elements, function(x) tryCatch(predicted.frame[,x] <-
         
-        for(x in 1:length(elements)){
+        for(x in elements){
             values <- tryCatch(round(if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
@@ -5959,8 +5958,10 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
             )
         }*multiplier, rounding), error=function(e) NULL)
-        predicted.frame$hold <- values
-        colnames(predicted.frame)[which(names(predicted.frame) == "hold")] <- elements[x]
+        if(!is.null(values)){
+            predicted.frame$hold <- values
+            colnames(predicted.frame)[which(names(predicted.frame) == "hold")] <- x
+        }
         }
             
             #predicted.vector <- unlist(predicted.list)
