@@ -1386,10 +1386,10 @@ shinyServer(function(input, output, session) {
             
             #empty.line.table$Spectrum <- spectra.line.table$Spectrum
             
-            hold.frame <- data.frame(spectra.line.table$Spectrum, empty.line.table)
-            colnames(hold.frame) <- c("Spectrum", elements)
+            hold.frame <- data.frame(Include=rep(TRUE, length(empty.line.table[,1])), Spectrum=spectra.line.table$Spectrum, empty.line.table)
+            #colnames(hold.frame) <- c("Spectrum", elements)
             
-            hold.frame <- as.data.frame(hold.frame)
+            hold.frame <- as.data.frame(hold.frame, stringsAsFactors=FALSE)
             
             
             
@@ -1480,7 +1480,7 @@ shinyServer(function(input, output, session) {
             }
             
             
-            hotable.new <- valFrameCheck(hotable.data)
+            hotable.new <- hotable.data
             
             hotable.new
             
@@ -1502,7 +1502,7 @@ shinyServer(function(input, output, session) {
         
         eventReactive(input$linecommit,  {
             
-            values[["DF"]] <- valFrameCheck(hotableInput())
+            values[["DF"]] <- hotableInput()
             
         })
         
@@ -1528,7 +1528,7 @@ shinyServer(function(input, output, session) {
             
             values[["DF"]] <- NULL
             
-            values[["DF"]] <- valFrameCheck(hotableInput())
+            values[["DF"]] <- hotableInput()
             
         })
         
@@ -4223,7 +4223,7 @@ shinyServer(function(input, output, session) {
         
         
         output$testingagain <- renderDataTable({
-            predictFrame()
+            concentrationTable()
             
         })
         
