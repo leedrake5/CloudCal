@@ -6079,7 +6079,7 @@ predictFrameCheck <- function(predict.frame){
 calRDS <- function(calibration.directory, null.strip=FALSE){
     Calibration <- readRDS(calibration.directory)
     
-    if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}
+    tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
     
     Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
         paste0(Calibration[["Notes"]], " Updated on ", Sys.time())
@@ -6130,7 +6130,7 @@ calRDS <- function(calibration.directory, null.strip=FALSE){
 calConvert <- function(calibration, null.strip=TRUE){
     Calibration <- calibration
     
-    if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}
+    tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
     
     Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
         paste0(Calibration[["Notes"]], " Updated on ", Sys.time())
