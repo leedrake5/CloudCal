@@ -6110,7 +6110,7 @@ calRDS <- function(calibration.directory, null.strip=FALSE){
     
     if(null.strip==TRUE){
         null.list <- sapply(Calibration$calList, function(x) is.null(x[[2]]))
-        tryCatch(for(i in seq_along(Calibration$calList)){
+        tryCatch(for(i in names(Calibration$calList)){
             if(null.list[i]==TRUE){
                 Calibration$calList[[i]] <- NULL
             }
@@ -6161,7 +6161,7 @@ calConvert <- function(calibration, null.strip=TRUE){
     
     if(null.strip==TRUE){
         null.list <- sapply(Calibration$calList, function(x) is.null(x[[2]]))
-        tryCatch(for(i in seq_along(Calibration$calList)){
+        tryCatch(for(i in names(Calibration$calList)){
             if(null.list[i]==TRUE){
                 Calibration$calList[[i]] <- NULL
             }
