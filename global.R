@@ -4323,11 +4323,15 @@ predictIntensitySimp <- function(predict.frame){
     predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
 }
 
-predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercepts=NULL, slopes=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     data <- spectra
     spectra.line.table <- hold.frame
-    element.lines.to.use <- names(hold.frame)[!names(hold.frame) %in% c("Spectrum", "Concentration")]
+    element.lines.to.use <- if(is.null(slopes)){
+        names(hold.frame)[!names(hold.frame) %in% c("Spectrum", "Concentration")]
+    } else if(!is.null(slopes)){
+        slopes
+    }
     
     
     predict.intensity <- if(norm.type==1){
@@ -4354,12 +4358,14 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercept
 }
 
 
-predictFrameForestGen <- function(spectra, hold.frame, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictFrameForestGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
     spectra.line.table <- hold.frame
     
+    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, element=element, slopes=slopes, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+
     
-    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    
     
     predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=spectra.line.table[,"Concentration"])
     predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
