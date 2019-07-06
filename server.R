@@ -417,7 +417,7 @@ shinyServer(function(input, output, session) {
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- calFileContents()
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
-                calMemory$Calibration$calList <- calFileContents()
+                calMemory$Calibration <- calFileContents()
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- NULL
             }
@@ -1891,15 +1891,7 @@ shinyServer(function(input, output, session) {
         calSlopeSelectionPre <- reactive({
             req(input$radiocal)
             if(input$radiocal==3){
-                if(!"Slope" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
-                    calConditions$hold$Slope
-                } else if("Slope" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
-                    if(is.null(calSettings$calList[[input$calcurveelement]][[1]]$Slope)){
-                        input$calcurveelement
-                    } else if(!is.null(calSettings$calList[[input$calcurveelement]][[1]]$Slope)){
-                        calSettings$calList[[input$calcurveelement]][[1]]$Slope
-                    }
-                }
+                calSettings$calList[[input$calcurveelement]][[1]]$Slope
             } else if(input$radiocal==4 | input$radiocal==6 | input$radiocal==8){
                 if(!"Slope" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
                     elementallinestouse()
@@ -2648,11 +2640,16 @@ shinyServer(function(input, output, session) {
         
         
         inVar4Selected <- reactive({
+            req(input$radiocal)
+            
+            if(is.null(lucashold$slope)){
+                lucashold$slope <- input$calcurveelement
+            }
             
             lucashold$slope
             
-            
         })
+        
         
         
         output$inVar4 <- renderUI({
@@ -3586,7 +3583,7 @@ shinyServer(function(input, output, session) {
         observeEvent(input$trainslopes, priority=95, {
             calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
             bestCalHold[[input$calcurveelement]] <- bestCalTypeFrame()
-            calMemory$Calibration$calList[[input$calcurveelement]] <- tryCatch(isolate(list(Parameters=bestParameters(), Model=bestModel())), error=function(e) NULL)
+            calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=bestParameters(), model=bestModel(), compress=TRUE))
         })
         
         output$models <- renderDataTable({
@@ -4342,23 +4339,23 @@ shinyServer(function(input, output, session) {
         elementModelGen <- reactive(label="elementModelGen",{
             req(input$radiocal, input$calcurveelement)
             if(input$radiocal==1){
-                tryCatch(strip(linearModel(), keep=c("predict", "summary")), error=function(e) NULL)
+                tryCatch(linearModel(), error=function(e) NULL)
             } else if(input$radiocal==2){
-                tryCatch(strip(nonLinearModel(), keep=c("predict", "summary")), error=function(e) NULL)
+                tryCatch(nonLinearModel(), error=function(e) NULL)
             } else if(input$radiocal==3){
-                tryCatch(strip(lucasToothModel(), keep=c("predict", "summary")), error=function(e) NULL)
+                tryCatch(lucasToothModel(), error=function(e) NULL)
             } else if(input$radiocal==4){
-                tryCatch(strip_glm(forestModel()), error=function(e) NULL)
+                tryCatch(forestModel(), error=function(e) NULL)
             } else if(input$radiocal==5){
-                tryCatch(strip_glm(rainforestModel()), error=function(e) NULL)
+                tryCatch(rainforestModel(), error=function(e) NULL)
             } else if(input$radiocal==6){
                 tryCatch(neuralNetworkIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==7){
                 tryCatch(neuralNetworkSpectraModel(), error=function(e) NULL)
             } else if(input$radiocal==8){
-                tryCatch(strip_glm(xgboostIntensityModel()), error=function(e) NULL)
+                tryCatch(xgboostIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==9){
-                tryCatch(strip_glm(xgboostSpectraModel()), error=function(e) NULL)
+                tryCatch(xgboostSpectraModel(), error=function(e) NULL)
             }
         })
         
@@ -4372,7 +4369,7 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$createcalelement, priority=100, {
             calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
-                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(list(Parameters=modelParameters(), Model=elementModelGen()))
+                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelGen(), compress=TRUE))
         })
         
         output$usecalsep <- renderUI({
@@ -6255,7 +6252,7 @@ shinyServer(function(input, output, session) {
         normalLM <- reactive(label="normalLM",{
             
             
-            model <- calMemory$Calibration$calList[[input$calcurveelement]][[2]]
+            model <- elementModelGen()
 
             
             model.frame <- as.data.frame(augment(model))

@@ -5260,20 +5260,24 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     }
     
     slope.corrections <- if("Slope" %in% names(imported.cal.conditions)){
-        as.character(imported.cal.conditions$Slope)
-    } else if("Slope" %in% names(imported.cal.conditions)){
+        if(is.null(imported.cal.conditions$Slope)){
+            default.cal.conditions$Slope
+        } else if(!is.null(imported.cal.conditions$Slope)){
+            as.character(imported.cal.conditions$Slope)
+        }
+    } else if(!"Slope" %in% names(imported.cal.conditions)){
         default.cal.conditions$Slope
     }
     
     intercept.corrections <- if("Intercept" %in% names(imported.cal.conditions)){
         as.character(imported.cal.conditions$Intercept)
-    } else if("Intercept" %in% names(imported.cal.conditions)){
+    } else if(!"Intercept" %in% names(imported.cal.conditions)){
         default.cal.conditions$Intercept
     }
     
     standards.used <- if("StandardsUsed" %in% names(imported.cal.conditions)){
         imported.cal.conditions$StandardsUsed
-    } else if("StandardsUsed" %in% names(imported.cal.conditions)){
+    } else if(!"StandardsUsed" %in% names(imported.cal.conditions)){
         default.cal.conditions$StandardsUsed
     }
     
@@ -6182,4 +6186,32 @@ calConvert <- function(calibration, null.strip=TRUE){
     
     
     return(Calibration)
+}
+
+modelPack <- function(parameters, model, compress=TRUE){
+    model <- if(compress==TRUE){
+        if(parameters$CalTable$CalType==1){
+            strip(model, keep=c("predict", "summary"))
+        } else if(parameters$CalTable$CalType==2){
+            strip(model, keep=c("predict", "summary"))
+        } else if(parameters$CalTable$CalType==3){
+            strip(model, keep=c("predict", "summary"))
+        } else if(parameters$CalTable$CalType==4){
+            strip_glm(model)
+        } else if(parameters$CalTable$CalType==5){
+            strip_glm(model)
+        } else if(parameters$CalTable$CalType==6){
+            model
+        } else if(parameters$CalTable$CalType==7){
+            model
+        } else if(parameters$CalTable$CalType==8){
+            strip_glm(model)
+        } else if(parameters$CalTable$CalType==9){
+            strip_glm(model)
+        }
+    } else if(compress==FALSE){
+        model
+    }
+    
+    return(list(Parameters=parameters, Model=model))
 }

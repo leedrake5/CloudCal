@@ -291,6 +291,7 @@ tags$script('$("#loading").hide()'))),
 tags$hr(),
 #uiOutput('mclrunui'),
 actionButton('createcalelement', "Update"),
+#checkboxInput('modelcompression', "Shrink File Size", value=TRUE),
 #actionButton('createcal', "Save"),
 
 tags$hr(),
