@@ -4348,9 +4348,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==3){
                 tryCatch(strip(lucasToothModel(), keep=c("predict", "summary")), error=function(e) NULL)
             } else if(input$radiocal==4){
-                tryCatch(forestModel(), error=function(e) NULL)
+                tryCatch(strip_glm(forestModel()), error=function(e) NULL)
             } else if(input$radiocal==5){
-                tryCatch(rainforestModel(), error=function(e) NULL)
+                tryCatch(strip_glm(rainforestModel()), error=function(e) NULL)
             } else if(input$radiocal==6){
                 tryCatch(neuralNetworkIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==7){
