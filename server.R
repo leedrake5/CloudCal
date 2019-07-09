@@ -2168,7 +2168,7 @@ shinyServer(function(input, output, session) {
         
         slopeImportance <- reactive({
             if(isMCL()==TRUE){
-                varImp(elementModel(), scale=FALSE)
+                varImp(elementModelGen(), scale=FALSE)
             } else if(isMCL()==FALSE){
                 predict.frame <- forestTemp()
                 
@@ -3450,56 +3450,70 @@ shinyServer(function(input, output, session) {
             predict.frame.xgboost.spectra <- xgboostSpectraModelSet()$data[vals$keeprows,]
 
             
-            cal.lm.simp <- linearModel()
-            lm.predict <- predict(cal.lm.simp, newdata=predict.frame.lin)
-            lm.sum <- summary(lm(predict.frame.lin$Concentration~lm.predict, na.action=na.exclude))
+            cal.lm.simp <- tryCatch(linearModel(), error=function(e) NULL)
+            lm.predict <- tryCatch(predict(cal.lm.simp, newdata=predict.frame.lin), error=function(e) rep(0, length(predict.frame.lin$Concentration)))
+            lm.sum <- tryCatch(summary(lm(predict.frame.lin$Concentration~lm.predict, na.action=na.exclude)), error=function(e) NULL)
+            lm.r2 <- tryCatch(as.numeric(lm.sum$adj.r.squared), error=function(e) 0)
+            lm.slope <- tryCatch(as.numeric(lm.sum$coef[2]), error=function(e) 0)
             
-            cal.lm.two <- nonLinearModel()
-            lm2.predict <- predict(cal.lm.two, newdata=predict.frame.lin)
-            lm2.sum <- summary(lm(predict.frame.lin$Concentration~lm2.predict, na.action=na.exclude))
-            
-            cal.lm.luc <- lucasToothModel()
-            lucas.predict <- predict(cal.lm.luc, newdata=predict.frame.luc)
-            lucas.sum <- summary(lm(predict.frame.luc$Concentration~lucas.predict, na.action=na.exclude))
-            
-            cal.lm.forest <- forestModel()
-            forest.predict <- predict(cal.lm.forest, newdata=predict.frame.forest)
-            forest.sum <- summary(lm(predict.frame.forest$Concentration~forest.predict, na.action=na.exclude))
-            forest.r2 <- as.numeric(max(cal.lm.forest[["results"]]$Rsquared))
+            cal.lm.two <- tryCatch(nonLinearModel(), error=function(e) NULL)
+            lm2.predict <- tryCatch(predict(cal.lm.two, newdata=predict.frame.nonlin), error=function(e) rep(0, length(predict.frame.nonlin$Concentration)))
+            lm2.sum <- tryCatch(summary(lm(predict.frame.lin$Concentration~lm2.predict, na.action=na.exclude)), error=function(e) NULL)
+            lm2.r2 <- tryCatch(as.numeric(lm2.sum$adj.r.squared), error=function(e) 0)
+            lm2.slope <- tryCatch(as.numeric(lm2.sum$coef[2]), error=function(e) 0)
 
-            cal.lm.rainforest <- rainforestModel()
-            rainforest.predict <- predict(cal.lm.rainforest, newdata=predict.frame.rainforest)
-            rainforest.sum <- summary(lm(predict.frame.rainforest$Concentration~rainforest.predict, na.action=na.exclude))
-            rainforest.r2 <- as.numeric(max(cal.lm.rainforest[["results"]]$Rsquared))
             
-            cal.lm.neural.shallow.intens <- neuralNetworkIntensityShallow()
-            neural.shallow.intens.predict <- predict(cal.lm.neural.shallow.intens, newdata=predict.frame.neural.shallow.intens)
-            neural.shallow.intens.sum <- summary(lm(predict.frame.neural.shallow.intens$Concentration~neural.shallow.intens.predict, na.action=na.exclude))
-            neural.shallow.intens.r2 <- as.numeric(max(cal.lm.neural.shallow.intens[["results"]]$Rsquared))
+            cal.lm.luc <- tryCatch(lucasToothModel(), error=function(e) NULL)
+            lucas.predict <- tryCatch(predict(cal.lm.luc, newdata=predict.frame.luc), error=function(e) rep(0, length(predict.frame.luc$Concentration)))
+            lucas.sum <- tryCatch(summary(lm(predict.frame.luc$Concentration~lucas.predict, na.action=na.exclude)), error=function(e) NULL)
+            lucas.r2 <- tryCatch(as.numeric(lucas.sum$adj.r.squared), error=function(e) 0)
+            lucas.slope <- tryCatch(as.numeric(lucas.sum$coef[2]), error=function(e) 0)
+
+            cal.lm.forest <- tryCatch(forestModel(), error=function(e) NULL)
+            forest.predict <- tryCatch(predict(cal.lm.forest, newdata=predict.frame.forest), error=function(e) rep(0, length(predict.frame.forest$Concentration)))
+            forest.sum <- tryCatch(summary(lm(predict.frame.forest$Concentration~forest.predict, na.action=na.exclude)), error=function(e) NULL)
+            forest.r2 <- tryCatch(as.numeric(max(cal.lm.forest[["results"]]$Rsquared)), error=function(e) 0)
+            forest.slope <- tryCatch(as.numeric(forest.sum$coef[2]), error=function(e) 0)
+
+            cal.lm.rainforest <- tryCatch(rainforestModel(), error=function(e) NULL)
+            rainforest.predict <- tryCatch(predict(cal.lm.rainforest, newdata=predict.frame.rainforest), error=function(e) rep(0, length(predict.frame.rainforest$Concentration)))
+            rainforest.sum <- tryCatch(summary(lm(predict.frame.rainforest$Concentration~rainforest.predict)), error=function(e) NULL)
+            rainforest.r2 <- tryCatch(as.numeric(max(cal.lm.rainforest[["results"]]$Rsquared)), error=function(e) 0)
+            rainforest.slope <- tryCatch(as.numeric(rainforest.sum$coef[2]), error=function(e) 0)
             
-            cal.lm.neural.shallow.spectra <- neuralNetworkSpectraShallow()
-            neural.shallow.spectra.predict <- predict(cal.lm.neural.shallow.spectra, newdata=predict.frame.neural.shallow.spectra)
-            neural.shallow.spectra.sum <- summary(lm(predict.frame.neural.shallow.spectra$Concentration~neural.shallow.spectra.predict, na.action=na.exclude))
+            cal.lm.neural.shallow.intens <- tryCatch(neuralNetworkIntensityShallow(), error=function(e) NULL)
+            neural.shallow.intens.predict <- tryCatch(predict(cal.lm.neural.shallow.intens, newdata=predict.frame.neural.shallow.intens), error=function(e) rep(0, length(predict.frame.neural.shallow.intens$Concentration)))
+            neural.shallow.intens.sum <- tryCatch(summary(lm(predict.frame.neural.shallow.intens$Concentration~neural.shallow.intens.predict, na.action=na.exclude)), error=function(e) NULL)
+            neural.shallow.intens.r2 <- tryCatch(as.numeric(max(cal.lm.neural.shallow.intens[["results"]]$Rsquared)), error=function(e) 0)
+            neural.shallow.intens.slope <- tryCatch(as.numeric(neural.shallow.intens.sum$coef[2]), error=function(e) 0)
+            
+            cal.lm.neural.shallow.spectra <- tryCatch(neuralNetworkSpectraShallow(), error=function(e) NULL)
+            neural.shallow.spectra.predict <- tryCatch(predict(cal.lm.neural.shallow.spectra, newdata=predict.frame.neural.shallow.spectra), error=function(e) rep(0, length(predict.frame.neural.shallow.spectra$Concentration)))
+            neural.shallow.spectra.sum <- tryCatch(summary(lm(predict.frame.neural.shallow.spectra$Concentration~neural.shallow.spectra.predict, na.action=na.exclude)), error=function(e) NULL)
             neural.shallow.spectra.r2 <- tryCatch(as.numeric(max(cal.lm.neural.shallow.spectra[["results"]]$Rsquared)), error=function(e) 0)
+            neural.shallow.spectra.slope <- tryCatch(as.numeric(neural.shallow.spectra.sum$coef[2]), error=function(e) 0)
             
-            cal.lm.xgboost.intens <- xgboostIntensityModel()
-            xgboost.intens.predict <- predict(cal.lm.xgboost.intens, newdata=predict.frame.xgboost.intens)
-            xgboost.intens.sum <- summary(lm(predict.frame.xgboost.intens$Concentration~xgboost.intens.predict, na.action=na.exclude))
-            xgboost.intens.r2 <- as.numeric(max(cal.lm.xgboost.intens[["results"]]$Rsquared))
+            cal.lm.xgboost.intens <- tryCatch(xgboostIntensityModel(), error=function(e) NULL)
+            xgboost.intens.predict <- tryCatch(predict(cal.lm.xgboost.intens, newdata=predict.frame.xgboost.intens), error=function(e) rep(0, length(predict.frame.xgboost.intens$Concentration)))
+            xgboost.intens.sum <- tryCatch(summary(lm(predict.frame.xgboost.intens$Concentration~xgboost.intens.predict, na.action=na.exclude)), error=function(e) NULL)
+            xgboost.intens.r2 <- tryCatch(as.numeric(max(cal.lm.xgboost.intens[["results"]]$Rsquared)), error=function(e) 0)
+            xgboost.intens.slope <- tryCatch(as.numeric(xgboost.intens.sum$coef[2]), error=function(e) 0)
             
-            cal.lm.xgboost.spectra <- xgboostSpectraModel()
-            xgboost.spectra.predict <- predict(cal.lm.xgboost.spectra, newdata=predict.frame.xgboost.spectra)
-            xgboost.spectra.sum <- summary(lm(predict.frame.xgboost.spectra$Concentration~xgboost.spectra.predict, na.action=na.exclude))
-            xgboost.spectra.r2 <- as.numeric(max(cal.lm.xgboost.spectra[["results"]]$Rsquared))
-            
+            cal.lm.xgboost.spectra <- tryCatch(xgboostSpectraModel(), error=function(e) NULL)
+            xgboost.spectra.predict <- tryCatch(predict(cal.lm.xgboost.spectra, newdata=predict.frame.xgboost.spectra), error=function(e) rep(0, length(predict.frame.xgboost.spectra$Concentration)))
+            xgboost.spectra.sum <- tryCatch(summary(lm(predict.frame.xgboost.spectra$Concentration~xgboost.spectra.predict, na.action=na.exclude)), error=function(e) NULL)
+            xgboost.spectra.r2 <- tryCatch(as.numeric(max(cal.lm.xgboost.spectra[["results"]]$Rsquared)), error=function(e) 0)
+            xgboost.spectra.slope <- tryCatch(as.numeric(xgboost.spectra.sum$coef[2]), error=function(e) 0)
+
 
             
             model.frame <- data.frame(Model = c("Linear", "Non-Linear", "Lucas-Tooth", "Forest", "Rainforest", "Neural Intensities Shallow", "Neural Spectra Shallow", "XGBoost Intensities", "XGBoost Spectra"),
-            valSlope = round(c(lm.sum$coef[2], lm2.sum$coef[2], lucas.sum$coef[2], forest.sum$coef[2], rainforest.sum$coef[2], neural.shallow.intens.sum$coef[2], neural.shallow.spectra.sum$coef[2], xgboost.intens.sum$coef[2], xgboost.spectra.sum$coef[2]), 2),
-            R2 = round(c(lm.sum$adj.r.squared, lm2.sum$adj.r.squared, lucas.sum$adj.r.squared, forest.r2, rainforest.r2, neural.shallow.intens.r2, neural.shallow.spectra.r2, xgboost.intens.r2, xgboost.spectra.r2), 2),
-            Score = round(c(lm.sum$adj.r.squared*lm.sum$coef[2], lm2.sum$adj.r.squared*lm2.sum$coef[2], lucas.sum$adj.r.squared*lucas.sum$coef[2], forest.r2*forest.sum$coef[2], rainforest.r2*rainforest.sum$coef[2], neural.shallow.intens.r2*neural.shallow.intens.sum$coef[2], neural.shallow.spectra.r2*neural.shallow.spectra.sum$coef[2], xgboost.intens.r2*xgboost.intens.sum$coef[2], xgboost.spectra.r2*xgboost.spectra.sum$coef[2]), 2),
-            Rank = round(abs(1-c(lm.sum$adj.r.squared*lm.sum$coef[2], lm2.sum$adj.r.squared*lm2.sum$coef[2], lucas.sum$adj.r.squared*lucas.sum$coef[2], forest.r2*forest.sum$coef[2], rainforest.r2*rainforest.sum$coef[2], neural.shallow.intens.r2*neural.shallow.intens.sum$coef[2], neural.shallow.spectra.r2*neural.shallow.spectra.sum$coef[2], xgboost.intens.r2*xgboost.intens.sum$coef[2], xgboost.spectra.r2*xgboost.spectra.sum$coef[2])), 2),
-            Code=c(1, 2, 3, 4, 5, 6, 7, 8, 9))
+            valSlope = round(c(lm.slope, lm2.slope, lucas.slope, forest.slope, rainforest.slope, neural.shallow.intens.slope, neural.shallow.spectra.slope, xgboost.intens.slope, xgboost.spectra.slope), 2),
+            R2 = round(c(lm.r2, lm2.r2, lucas.r2, forest.r2, rainforest.r2, neural.shallow.intens.r2, neural.shallow.spectra.r2, xgboost.intens.r2, xgboost.spectra.r2), 2),
+            Score = round(c(lm.r2*lm.slope, lm2.r2*lm2.slope, lucas.r2*lucas.slope, forest.r2*forest.slope, rainforest.r2*rainforest.slope, neural.shallow.intens.r2*neural.shallow.intens.slope, neural.shallow.spectra.r2*neural.shallow.spectra.slope, xgboost.intens.r2*xgboost.intens.slope, xgboost.spectra.r2*xgboost.spectra.slope), 2),
+            Rank = round(abs(1-c(lm.r2*lm.slope, lm2.r2*lm2.slope, lucas.r2*lucas.slope, forest.r2*forest.slope, rainforest.r2*rainforest.slope, neural.shallow.intens.r2*neural.shallow.intens.slope, neural.shallow.spectra.r2*neural.shallow.spectra.slope, xgboost.intens.r2*xgboost.intens.slope, xgboost.spectra.r2*xgboost.spectra.slope)), 2),
+            Code=c(1, 2, 3, 4, 5, 6, 7, 8, 9),
+            stringsAsFactors=FALSE)
             
             for(i in 1:9){
                 if(model.frame$valSlope[i] < 0.9 | model.frame$valSlope[i] > 1.1){
@@ -3581,7 +3595,7 @@ shinyServer(function(input, output, session) {
         })
         
         observeEvent(input$trainslopes, priority=95, {
-            calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
+            calMemory$Calibration$calList[[input$calcurveelement]] <- list(Parameters=defaultCalConditions(element=input$calcurveelement, number.of.standards=length(holdFrame()$Spectrum)), Model=NULL)
             bestCalHold[[input$calcurveelement]] <- bestCalTypeFrame()
             calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=bestParameters(), model=bestModel(), compress=TRUE))
         })
