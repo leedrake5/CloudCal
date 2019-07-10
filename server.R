@@ -3304,33 +3304,32 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = FALSE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
                 summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = FALSE)
+                verboseIter = TRUE)
             }
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
-            }
-            registerDoParallel(cl)
+
             
             xgb_model <- if(get_os!="linux"){
+                cl <- if(get_os()=="windows"){
+                    parallel::makePSOCKcluster(as.numeric(my.cores))
+                } else if(get_os()!="windows"){
+                    parallel::makeForkCluster(as.numeric(my.cores))
+                }
+                registerDoParallel(cl)
                 tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+                stopCluster(cl)
             } else if(get_os=="linux"){
-                tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE), error=function(e) NULL)
+                tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
             }
             
             
-            stopCluster(cl)
             xgb_model
             
         })
