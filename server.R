@@ -960,9 +960,9 @@ shinyServer(function(input, output, session) {
         lineInput <- reactive({
             
             blank.frame <- data.frame(
-            Name=as.vector(as.character(rep("", 25))),
-            EnergyMin=as.numeric(rep("", 25)),
-            EnergyMax=as.numeric(rep("", 25)),
+            Name=as.vector(as.character(rep("", 75))),
+            EnergyMin=as.numeric(rep("", 75)),
+            EnergyMax=as.numeric(rep("", 75)),
             stringsAsFactors = FALSE
             )
             
@@ -2168,7 +2168,7 @@ shinyServer(function(input, output, session) {
         
         slopeImportance <- reactive({
             if(isMCL()==TRUE){
-                varImp(elementModelGen(), scale=FALSE)
+                varImp(elementModel(), scale=FALSE)
             } else if(isMCL()==FALSE){
                 predict.frame <- forestTemp()
                 
@@ -3283,14 +3283,14 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+            tune_control <- if(parameters$ForestTC!="repeatedcv" && get_os()!="linux"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv"){
+            } else if(parameters$ForestTC=="repeatedcv" && get_os()!="linux"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
@@ -3298,6 +3298,21 @@ shinyServer(function(input, output, session) {
                 summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
+            } else if(parameters$ForestTC!="repeatedcv" && get_os()=="linux"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = FALSE)
+            } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = FALSE)
             }
             
             cl <- if(get_os()=="windows"){
@@ -3307,7 +3322,11 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+            xgb_model <- if(get_os!="linux"){
+                tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+            } else if(get_os=="linux"){
+                tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE), error=function(e) NULL)
+            }
             
             
             stopCluster(cl)
@@ -3362,14 +3381,14 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+            tune_control <- if(parameters$ForestTC!="repeatedcv" && get_os()!="linux"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv"){
+            } else if(parameters$ForestTC=="repeatedcv" && get_os()!="linux"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
@@ -3377,6 +3396,21 @@ shinyServer(function(input, output, session) {
                 summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
+            } else if(parameters$ForestTC!="repeatedcv" && get_os()=="linux"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = FALSE)
+            } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = FALSE)
             }
             
             cl <- if(get_os()=="windows"){
@@ -3386,7 +3420,11 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            xgb_model <- tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+            xgb_model <- if(get_os()!="linux"){
+                tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+            } else if(get_os()=="linux"){
+                tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE), error=function(e) NULL)
+            }
             
             
             stopCluster(cl)
@@ -3596,6 +3634,7 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$trainslopes, priority=95, {
             calMemory$Calibration$calList[[input$calcurveelement]] <- list(Parameters=defaultCalConditions(element=input$calcurveelement, number.of.standards=length(holdFrame()$Spectrum)), Model=NULL)
+            
             bestCalHold[[input$calcurveelement]] <- bestCalTypeFrame()
             calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=bestParameters(), model=bestModel(), compress=TRUE))
         })
