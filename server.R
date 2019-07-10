@@ -3430,7 +3430,7 @@ shinyServer(function(input, output, session) {
                     parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoMC(cl)
-                caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores))
+                caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
             }
             
             
