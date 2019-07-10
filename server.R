@@ -3430,7 +3430,7 @@ shinyServer(function(input, output, session) {
                     parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoMC(cl)
-                tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores)), error=function(e) NULL)
+                caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores))
             }
             
             
@@ -4415,7 +4415,7 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==8){
                 tryCatch(xgboostIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==9){
-                tryCatch(xgboostSpectraModel(), error=function(e) NULL)
+                xgboostSpectraModel()
             }
         })
         
