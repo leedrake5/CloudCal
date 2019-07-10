@@ -20,6 +20,7 @@ library(DescTools)
 library(prospectr)
 library(pls)
 library(baseline)
+library(doMC)
 library(doParallel)
 pdf(NULL)
 
@@ -3421,12 +3422,19 @@ shinyServer(function(input, output, session) {
                 }
                 registerDoParallel(cl)
                 tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+                stopCluster(cl)
             } else if(get_os()=="linux"){
+                cl <- if(get_os()=="windows"){
+                    parallel::makePSOCKcluster(as.numeric(my.cores))
+                } else if(get_os()!="windows"){
+                    parallel::makeForkCluster(as.numeric(my.cores))
+                }
+                registerDoMC(cl)
                 tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores)), error=function(e) NULL)
             }
             
             
-            stopCluster(cl)
+            
             xgb_model
             
         })
