@@ -3426,12 +3426,7 @@ shinyServer(function(input, output, session) {
                 tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
             } else if(get_os()=="linux"){
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
-                }
-                registerDoMC(cl)
+                registerDoMC(as.numeric(my.cores))
                 caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores))
             }
             
