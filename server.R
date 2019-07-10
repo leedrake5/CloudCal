@@ -3402,7 +3402,7 @@ shinyServer(function(input, output, session) {
                 number = parameters$ForestNumber,
                 summaryFunction=metricModel,
                 verboseIter = TRUE,
-                allowParallel = FALSE)
+                nthread = TRUE)
             } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
                 caret::trainControl(
                 method = parameters$ForestTC,
@@ -3410,20 +3410,21 @@ shinyServer(function(input, output, session) {
                 repeats=parameters$CVRepeats,
                 summaryFunction=metricModel,
                 verboseIter = TRUE,
-                allowParallel = FALSE)
+                nthread = TRUE)
             }
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
-            }
-            registerDoParallel(cl)
+
             
             xgb_model <- if(get_os()!="linux"){
+                cl <- if(get_os()=="windows"){
+                    parallel::makePSOCKcluster(as.numeric(my.cores))
+                } else if(get_os()!="windows"){
+                    parallel::makeForkCluster(as.numeric(my.cores))
+                }
+                registerDoParallel(cl)
                 tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
             } else if(get_os()=="linux"){
-                tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE), error=function(e) NULL)
+                tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores)), error=function(e) NULL)
             }
             
             
