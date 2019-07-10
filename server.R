@@ -3401,16 +3401,14 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 summaryFunction=metricModel,
-                verboseIter = TRUE,
-                nthread = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
                 summaryFunction=metricModel,
-                verboseIter = TRUE,
-                nthread = TRUE)
+                verboseIter = TRUE)
             }
             
 
