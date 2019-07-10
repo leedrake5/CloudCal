@@ -3402,16 +3402,14 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel=TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
                 summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel=TRUE)
+                verboseIter = TRUE)
             }
             
 
@@ -3427,7 +3425,7 @@ shinyServer(function(input, output, session) {
                 stopCluster(cl)
             } else if(get_os()=="linux"){
                 registerDoMC(as.numeric(my.cores))
-                caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
             }
             
             
