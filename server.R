@@ -3422,7 +3422,7 @@ shinyServer(function(input, output, session) {
                 xgb_model <- tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
             } else if(get_os()=="linux"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                xgb_model <- tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
             }
             
             xgb_model
@@ -4405,7 +4405,7 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==8){
                 tryCatch(xgboostIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==9){
-                xgboostSpectraModel()
+                tryCatch(xgboostSpectraModel(), error=function(e) NULL)
             }
         })
         
