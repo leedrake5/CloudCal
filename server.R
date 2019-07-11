@@ -426,7 +426,7 @@ shinyServer(function(input, output, session) {
             if(is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- NULL
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
-                calMemory$Calibration$calList <- calMemory$Calibration$calList
+
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration$calList <- NULL
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
@@ -3316,7 +3316,7 @@ shinyServer(function(input, output, session) {
             
 
             
-            if(get_os!="linux"){
+            if(get_os()!="linux"){
                 cl <- if(get_os()=="windows"){
                     parallel::makePSOCKcluster(as.numeric(my.cores))
                 } else if(get_os()!="windows"){
@@ -3325,7 +3325,7 @@ shinyServer(function(input, output, session) {
                 registerDoParallel(cl)
                 xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
-            } else if(get_os=="linux"){
+            } else if(get_os()=="linux"){
                 xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
             }
             
@@ -5498,7 +5498,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            if(get_os!="linux"){
+            if(get_os()!="linux"){
                 cl <- if(get_os()=="windows"){
                     parallel::makePSOCKcluster(as.numeric(my.cores))
                 } else if(get_os()!="windows"){
@@ -5507,7 +5507,7 @@ shinyServer(function(input, output, session) {
                 registerDoParallel(cl)
                 xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
-            } else if(get_os=="linux"){
+            } else if(get_os()=="linux"){
                 xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
             }
             
