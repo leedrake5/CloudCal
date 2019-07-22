@@ -285,9 +285,9 @@ div(class="outer",
 fluidRow(
 sidebarLayout(
 sidebarPanel(width=3,
-HTML("&nbsp;"),
-column(12, tags$div(id = "loading",
-tags$script('$("#loading").hide()'))),
+#HTML("&nbsp;"),
+#column(12, tags$div(id = "loading",
+#tags$script('$("#loading").hide()'))),
 tags$hr(),
 #uiOutput('mclrunui'),
 actionButton('createcalelement', "Update"),
@@ -358,7 +358,8 @@ uiOutput('transformationui'),
 uiOutput('compressui'),
 uiOutput('energyrangeui'),
 uiOutput('inVar3'),
-uiOutput('inVar4')
+uiOutput('inVar4'),
+uiOutput('addallslopesui')
 
 #sliderInput("nvariables", label = "# Elements", min=1, max=7, value=2)
 
