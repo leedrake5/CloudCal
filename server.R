@@ -20,7 +20,6 @@ library(DescTools)
 library(prospectr)
 library(pls)
 library(baseline)
-library(doMC)
 library(doParallel)
 pdf(NULL)
 
