@@ -2646,7 +2646,7 @@ simple_comp_prep_xrf <- function(data, spectra.line.table, element.line, norm.mi
 }
 simple_comp_prep_xrf <- cmpfun(simple_comp_prep_xrf)
 
-spectra_summary_apply <- function(spectra.frame, normalization, min, max, compress="100 eV", transformation="None", energy.range=c(0.7, 37)){
+just_spectra_summary_apply <- function(spectra.frame, normalization, min=NULL, max=NULL, compress="100 eV", transformation="None", energy.range=c(0.7, 37)){
     
     new.spectrum <- if(normalization==1){
         spectra_simp_prep_xrf(spectra=spectra.frame, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2])
@@ -2661,7 +2661,7 @@ spectra_summary_apply <- function(spectra.frame, normalization, min, max, compre
     newer.spectrum$Energy <- as.numeric(gsub("X", "", newer.spectrum$Energy))
     newer.spectrum
 }
-spectra_summary_apply <- cmpfun(spectra_summary_apply)
+just_spectra_summary_apply <- cmpfun(just_spectra_summary_apply)
 
 
 

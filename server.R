@@ -667,7 +667,7 @@ shinyServer(function(input, output, session) {
             
             
             spectraPlotData <- reactive({
-                spectra_summary_apply(spectra.frame=dataHold(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra)
+                just_spectra_summary_apply(spectra.frame=dataHold(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra)
 
             })
             
