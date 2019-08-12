@@ -2328,7 +2328,32 @@ spectra_table_xrf <- function(spectra, concentration){
 spectra_table_xrf <- cmpfun(spectra_table_xrf)
 
 
-spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress="100 eV", transformation="None"){
+spectra_simp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, compress="100 eV", transformation="None"){
+    
+    energy.min <- if(is.null(energy.min)){
+        0.7
+    } else if(!is.null(energy.min)){
+        energy.min
+    }
+    
+    energy.max <- if(is.null(energy.max)){
+        37
+    } else if(!is.null(energy.max)){
+        energy.max
+    }
+    
+    compress <- if(is.null(compress)){
+        "100 eV"
+    } else if(!is.null(compress)){
+        compress
+    }
+    
+    transformation <- if(is.null(transformation)){
+        "None"
+    } else if(!is.null(transformation)){
+        transformation
+    }
+    
     
     spectra <- if(transformation=="None"){
         spectra
@@ -2362,7 +2387,32 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compre
 spectra_simp_prep_xrf <- cmpfun(spectra_simp_prep_xrf)
 
 
-spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress="100 eV", transformation="None"){
+spectra_tc_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, compress="100 eV", transformation="None"){
+    
+    energy.min <- if(is.null(energy.min)){
+        0.7
+    } else if(!is.null(energy.min)){
+        energy.min
+    }
+    
+    energy.max <- if(is.null(energy.max)){
+        37
+    } else if(!is.null(energy.max)){
+        energy.max
+    }
+    
+    compress <- if(is.null(compress)){
+        "100 eV"
+    } else if(!is.null(compress)){
+        compress
+    }
+    
+    transformation <- if(is.null(transformation)){
+        "None"
+    } else if(!is.null(transformation)){
+        transformation
+    }
+    
     
     spectra <- as.data.frame(spectra, stringsAsFactors=FALSE)
     
@@ -2401,7 +2451,31 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress
 spectra_tc_prep_xrf <- cmpfun(spectra_tc_prep_xrf)
 
 
-spectra_comp_prep_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress="100 eV", transformation="None"){
+spectra_comp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, norm.min, norm.max, compress="100 eV", transformation="None"){
+    
+    energy.min <- if(is.null(energy.min)){
+        0.7
+    } else if(!is.null(energy.min)){
+        energy.min
+    }
+    
+    energy.max <- if(is.null(energy.max)){
+        37
+    } else if(!is.null(energy.max)){
+        energy.max
+    }
+    
+    compress <- if(is.null(compress)){
+        "100 eV"
+    } else if(!is.null(compress)){
+        compress
+    }
+    
+    transformation <- if(is.null(transformation)){
+        "None"
+    } else if(!is.null(transformation)){
+        transformation
+    }
     
     spectra <- if(transformation=="None"){
         spectra
@@ -3954,7 +4028,7 @@ cvRepeatsUI <- function(radiocal, foresttrain, selection){
     }
 }
 
-forestTreesUI <- function(radiocal, selection){
+forestTreesUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -3969,10 +4043,14 @@ forestTreesUI <- function(radiocal, selection){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8){
-        sliderInput("foresttrees", label="Trees", min=50, max=2000, value=selection)
-    } else if(radiocal==9){
-        sliderInput("foresttrees", label="Trees", min=50, max=2000, value=selection)
+    } else if(radiocal==8 && xgbtype=="Tree"){
+        sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
+    } else if(radiocal==9 && xgbtype=="Tree"){
+        sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
     }
 }
 
@@ -4072,7 +4150,33 @@ neuralMaxIterationsUI <- function(radiocal, selection, neuralhiddenlayers){
     }
 }
 
-treeDepthUI <- function(radiocal, selection){
+treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype=="Tree"){
+        sliderInput("treedepth", label="Tree Depth", min=5, max=50, step=5, value=selection)
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Tree"){
+        sliderInput("treedepth", label="Tree Depth", min=5, max=50, step=5, value=selection)
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
+    }
+}
+
+xgbTypeUI <- function(radiocal, selection){
     if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -4088,10 +4192,61 @@ treeDepthUI <- function(radiocal, selection){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8){
-        sliderInput("treedepth", label="Tree Depth", min=5, max=50, step=5, value=selection)
+        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Tree")
     } else if(radiocal==9){
-        sliderInput("treedepth", label="Tree Depth", min=5, max=50, step=5, value=selection)
-        
+        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Tree")
+    }
+}
+
+xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype=="Tree"){
+        NULL
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        sliderInput("xgbalpha", label="Alpha", min=0.1, max=1, step=0.1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Tree"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        sliderInput("xgbalpha", label="Alpha", min=0.1, max=1, step=0.1, value=selection)
+    }
+}
+
+xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype=="Tree"){
+        sliderInput("xgbgamma", label="Gamma", min=0, max=0.9, step=0.1, value=selection)
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Tree"){
+        sliderInput("xgbgamma", label="Gamma", min=0, max=0.9, step=0.1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
     }
 }
 
@@ -4118,7 +4273,7 @@ xgbEtaUI <- function(radiocal, selection){
     }
 }
 
-xgbGammaUI <- function(radiocal, selection){
+xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -4133,15 +4288,18 @@ xgbGammaUI <- function(radiocal, selection){
         NULL
     } else if(radiocal==7){
         NULL
-    }else if(radiocal==8){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=0.9, step=0.1, value=selection)
-    } else if(radiocal==9){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=0.9, step=0.1, value=selection)
-        
+    } else if(radiocal==8 && xgbtype=="Tree"){
+        NULL
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        sliderInput("xgblambda", label="Lambda", min=0.1, max=1, step=0.1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Tree"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        sliderInput("xgblambda", label="Lambda", min=0.1, max=1, step=0.1, value=selection)
     }
 }
 
-xgbSubSampleUI <- function(radiocal, selection){
+xgbSubSampleUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -4156,15 +4314,18 @@ xgbSubSampleUI <- function(radiocal, selection){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8){
+    } else if(radiocal==8 && xgbtype=="Tree"){
         sliderInput("xgbsubsample", label="Sub Sample", min=0.1, max=1, step=0.1, value=selection)
-    } else if(radiocal==9){
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Tree"){
         sliderInput("xgbsubsample", label="Sub Sample", min=0.1, max=1, step=0.1, value=selection)
-        
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
     }
 }
 
-xgbColSampleUI <- function(radiocal, selection){
+xgbColSampleUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -4179,15 +4340,18 @@ xgbColSampleUI <- function(radiocal, selection){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8){
+    } else if(radiocal==8 && xgbtype=="Tree"){
         sliderInput("xgbcolsample", label="Col Sample", min=0.1, max=1, step=0.1, value=selection)
-    } else if(radiocal==9){
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Tree"){
         sliderInput("xgbcolsample", label="Col Sample", min=0.1, max=1, step=0.1, value=selection)
-        
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
     }
 }
 
-xgbMinChildUI <- function(radiocal, selection){
+xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -4202,10 +4366,14 @@ xgbMinChildUI <- function(radiocal, selection){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8){
+    } else if(radiocal==8 && xgbtype=="Tree"){
         sliderInput("xgbminchild", label="Min Child", min=0, max=15, step=1, value=selection)
-    } else if(radiocal==9){
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Tree"){
         sliderInput("xgbminchild", label="Min Child", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
     }
 }
 
@@ -4777,7 +4945,7 @@ calProgressSummary <- function(calList){
     rbindlist(cal.results.list)
 }
 
-calConditionsTable <- function(cal.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbeta=NULL, xgbgamma=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL){
+calConditionsTable <- function(cal.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -4888,31 +5056,49 @@ calConditionsTable <- function(cal.type=NULL, compress=NULL, transformation=NULL
     }
     
     treedepth <- if(is.null(treedepth)){
-        "5-15"
+        "5-5"
     } else if(!is.null(treedepth)){
         treedepth
     }
     
-    xgbeta <- if(is.null(xgbeta)){
-        "0.1-0.3"
-    } else if(!is.null(xgbeta)){
-        xgbeta
+    xgbtype <- if(is.null(xgbtype)){
+        "Tree"
+    } else if(!is.null(xgbtype)){
+        xgbtype
+    }
+    
+    xgbalpha <- if(is.null(xgbalpha)){
+        "0.1-0.1"
+    } else if(!is.null(xgbalpha)){
+        xgbalpha
     }
     
     xgbgamma <- if(is.null(xgbgamma)){
-        "0-0.1"
+        "0-0"
     } else if(!is.null(xgbgamma)){
         xgbgamma
     }
     
+    xgbeta <- if(is.null(xgbeta)){
+        "0.1-0.1"
+    } else if(!is.null(xgbeta)){
+        xgbeta
+    }
+    
+    xgblambda <- if(is.null(xgblambda)){
+        "0.1-0.1"
+    } else if(!is.null(xgblambda)){
+        xgblambda
+    }
+    
     xgbsubsample <- if(is.null(xgbsubsample)){
-        "0.4-0.6"
+        "0.6-0.6"
     } else if(!is.null(xgbsubsample)){
         xgbsubsample
     }
     
     xgbcolsample <- if(is.null(xgbcolsample)){
-        "0.4-0.6"
+        "0.6-0.6"
     } else if(!is.null(xgbcolsample)){
         xgbcolsample
     }
@@ -4945,8 +5131,11 @@ calConditionsTable <- function(cal.type=NULL, compress=NULL, transformation=NULL
                 NeuralWD=neuralweightdecay,
                 NeuralMI=neuralmaxiterations,
                 TreeDepth=treedepth,
-                xgbEta=xgbeta,
+                xgbType=xgbtype,
+                xgbAlpha=xgbalpha,
                 xgbGamma=xgbgamma,
+                xgbEta=xgbeta,
+                xgbLambda=xgblambda,
                 xgbSubSample=xgbsubsample,
                 xgbColSample=xgbcolsample,
                 xgbMinChild=xgbminchild,
@@ -4956,7 +5145,7 @@ calConditionsTable <- function(cal.type=NULL, compress=NULL, transformation=NULL
 }
 
 
-calConditionsList <- function(cal.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbeta=NULL, xgbgamma=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL){
+calConditionsList <- function(cal.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -4978,8 +5167,11 @@ calConditionsList <- function(cal.type=NULL, compress=NULL, transformation=NULL,
                 NeuralWD=neuralweightdecay,
                 NeuralMI=neuralmaxiterations,
                 TreeDepth=treedepth,
-                xgbEta=xgbeta,
+                xgbType=xgbtype,
+                xgbAlpha=xgbalpha,
                 xgbGamma=xgbgamma,
+                xgbEta=xgbeta,
+                xgbLambda=xgblambda,
                 xgbSubSample=xgbsubsample,
                 xgbColSample=xgbcolsample,
                 xgbMinChild=xgbminchild,
@@ -5021,9 +5213,12 @@ defaultCalConditions <- function(element, number.of.standards){
     neuralhiddenunits <- paste0(1, "-", 4)
     neuralweightdecay <- paste0(0.1, "-", 0.5)
     neuralmaxiterations <- as.numeric(1000)
+    xgbtype <- as.character("Tree")
     treedepth <- as.character("5-5")
-    xgbeta <- as.character("0.1-0.1")
+    xgbalpha <- as.character("0.1-0.1")
     xgbgamma <- as.character("0-0")
+    xgbeta <- as.character("0.1-0.1")
+    xgblambda <- as.character("0.1-0.1")
     xgbsubsample <- as.character("0.6-0.6")
     xgbcolsample <- as.character("0.6-0.6")
     xgbminchild <- as.numeric(1)
@@ -5048,8 +5243,11 @@ defaultCalConditions <- function(element, number.of.standards){
         NeuralWD=neuralweightdecay,
         NeuralMI=neuralmaxiterations,
         TreeDepth=treedepth,
-        xgbEta=xgbeta,
+        xgbType=xgbtype,
+        xgbAlpha=xgbalpha,
         xgbGamma=xgbgamma,
+        xgbEta=xgbeta,
+        xgbLambda=xgblambda,
         xgbSubSample=xgbsubsample,
         xgbColSample=xgbcolsample,
         xgbMinChild=xgbminchild,
@@ -5210,14 +5408,20 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         default.cal.conditions$CalTable$TreeDepth
     }
     
-    xgbeta <- if("xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
+    xgbtype <- if("xgbType" %in% colnames(imported.cal.conditions$CalTable)){
+            as.character(imported.cal.conditions$CalTable$xgbType[1])
+    } else if(!"xgbType" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbType
+    }
+    
+    xgbalpha <- if("xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==8 | cal.condition==9){
-            paste0(calList[[element]][[2]]$bestTune$eta, "-", calList[[element]][[2]]$bestTune$eta)
+            paste0(calList[[element]][[2]]$bestTune$alpha, "-", calList[[element]][[2]]$bestTune$alpha)
         } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbEta[1])
+            as.character(imported.cal.conditions$CalTable$xgbAlpha[1])
         }
-    } else if(!"xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbEta
+    } else if(!"xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbAlpha
     }
     
     xgbgamma <- if("xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
@@ -5228,6 +5432,26 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         }
     } else if(!"xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbGamma
+    }
+    
+    xgbeta <- if("xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9){
+            paste0(calList[[element]][[2]]$bestTune$eta, "-", calList[[element]][[2]]$bestTune$eta)
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.character(imported.cal.conditions$CalTable$xgbEta[1])
+        }
+    } else if(!"xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbEta
+    }
+    
+    xgblambda <- if("xgbLambda" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9){
+            paste0(calList[[element]][[2]]$bestTune$lambda, "-", calList[[element]][[2]]$bestTune$lambda)
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.character(imported.cal.conditions$CalTable$xgbLambda[1])
+        }
+    } else if(!"xgbLambda" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbLambda
     }
     
     xgbsubsample <- if("xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
@@ -5302,8 +5526,11 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         NeuralWD=neuralweightdecay,
         NeuralMI=neuralmaxiterations,
         TreeDepth=treedepth,
-        xgbEta=xgbeta,
+        xgbType=xgbtype,
+        xgbAlpha=xgbalpha,
         xgbGamma=xgbgamma,
+        xgbEta=xgbeta,
+        xgbLambda=xgblambda,
         xgbSubSample=xgbsubsample,
         xgbColSample=xgbcolsample,
         xgbMinChild=xgbminchild,

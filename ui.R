@@ -314,6 +314,8 @@ uiOutput('inVar2'),
 
 uiOutput('calTypeInput'),
 
+uiOutput('xgbtypeui'),
+
 uiOutput('forestmetricui'),
 
 uiOutput('foresttrainui'),
@@ -336,9 +338,13 @@ uiOutput('neuralmaxiterationsui'),
 
 uiOutput('treedepthui'),
 
-uiOutput('xgbetaui'),
+uiOutput('xgbalphaui'),
 
 uiOutput('xgbgammaui'),
+
+uiOutput('xgbetaui'),
+
+uiOutput('xgblambdaui'),
 
 uiOutput('xgbsubsampleui'),
 
