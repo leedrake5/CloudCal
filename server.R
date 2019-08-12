@@ -3442,7 +3442,7 @@ shinyServer(function(input, output, session) {
                     parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoParallel(cl)
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
             } else if(get_os()=="linux"){
                 xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
@@ -3594,7 +3594,7 @@ shinyServer(function(input, output, session) {
         xgblinearSpectraModel <- reactive(label="xgblinearSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             
-            data <- xgblinearSpectraModelSet()$data[xgblinearpectraModelSet()$parameters$StandardsUsed,]
+            data <- xgblinearSpectraModelSet()$data[xgblinearSpectraModelSet()$parameters$StandardsUsed,]
             parameters <- xgblinearSpectraModelSet()$parameters$CalTable
             
             xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
@@ -3658,7 +3658,7 @@ shinyServer(function(input, output, session) {
                     parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoParallel(cl)
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                xgb_model <- tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
             } else if(get_os()=="linux"){
                 xgb_model <- tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
@@ -4201,7 +4201,7 @@ shinyServer(function(input, output, session) {
             neuralhold$neuralmaxiterations <- calMaxIterationsSelectionpre()
             xgboosthold$xgbtype <- calXGBTypeSelectionpre()
             xgboosthold$treedepth <- calTreeDepthSelectionpre()
-            xgboosthold$xgbalpha <- calXGBALphaSelectionpre()
+            xgboosthold$xgbalpha <- calXGBAlphaSelectionpre()
             xgboosthold$xgbgamma <- calXGBGammaSelectionpre()
             xgboosthold$xgbeta <- calXGBEtaSelectionpre()
             xgboosthold$xgblambda <- calXGBLambdaSelectionpre()
@@ -4733,7 +4733,7 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==7){
                 tryCatch(neuralNetworkSpectraModel(), error=function(e) NULL)
             } else if(input$radiocal==8){
-                xgboostIntensityModel()
+                tryCatch(xgboostIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==9){
                 tryCatch(xgboostSpectraModel(), error=function(e) NULL)
             }
