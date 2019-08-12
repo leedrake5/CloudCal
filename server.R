@@ -3290,7 +3290,7 @@ shinyServer(function(input, output, session) {
             
             
             xgbGrid <- expand.grid(
-            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            nrounds = parameters$ForestTrees,
             max_depth = seq(tree.depth.vec[1], tree.depth.vec[2], by=5),
             eta = seq(xgbeta.vec[1], xgbeta.vec[2], by=0.1),
             gamma=seq(xgbgamma.vec[1], xgbgamma.vec[2], by=0.1),
@@ -3387,7 +3387,7 @@ shinyServer(function(input, output, session) {
             xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
             
             xgbGrid <- expand.grid(
-            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            nrounds = parameters$ForestTrees,
             alpha=seq(xgbalpha.vec[1], xgbalpha.vec[2], by=0.1),
             eta = seq(xgbeta.vec[1], xgbeta.vec[2], by=0.1),
             lambda = seq(xgblambda.vec[1], xgblambda.vec[2], by=0.1)
@@ -3505,7 +3505,7 @@ shinyServer(function(input, output, session) {
             
             
             xgbGrid <- expand.grid(
-            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            nrounds = parameters$ForestTrees,
             max_depth = seq(tree.depth.vec[1], tree.depth.vec[2], by=5),
             eta = seq(xgbeta.vec[1], xgbeta.vec[2], by=0.1),
             gamma=seq(xgbgamma.vec[1], xgbgamma.vec[2], by=0.1),
@@ -3603,7 +3603,7 @@ shinyServer(function(input, output, session) {
             
             
             xgbGrid <- expand.grid(
-            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            nrounds = parameters$ForestTrees,
             alpha=seq(xgbalpha.vec[1], xgbalpha.vec[2], by=0.1),
             eta = seq(xgbeta.vec[1], xgbeta.vec[2], by=0.1),
             lambda = seq(xgblambda.vec[1], xgblambda.vec[2], by=0.1)
