@@ -365,7 +365,8 @@ uiOutput('compressui'),
 uiOutput('energyrangeui'),
 uiOutput('inVar3'),
 uiOutput('inVar4'),
-uiOutput('addallslopesui')
+uiOutput('addallslopesui'),
+uiOutput('removeallslopesui')
 
 #sliderInput("nvariables", label = "# Elements", min=1, max=7, value=2)
 

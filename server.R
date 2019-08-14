@@ -2673,6 +2673,16 @@ shinyServer(function(input, output, session) {
             }
         })
         
+        output$removeallslopesui <- renderUI({
+            req(input$radiocal)
+            
+            if(input$radiocal==3 | input$radiocal==4 | input$radiocal==6 | input$radiocal==8){
+                actionButton(inputId = "removeallslopes", label = "Remove All Slopes")
+            } else if(input$radiocal!=3 | input$radiocal!=4 | input$radiocal!=6 | input$radiocal!=8){
+                NULL
+            }
+        })
+        
 
         
         
@@ -4368,6 +4378,10 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$addallslopes==TRUE, {
             lucashold$slope <- outVaralt()
+        })
+        
+        observeEvent(input$removeallslopes==TRUE, {
+            lucashold$slope <- input$calcurveelement
         })
         
         observeEvent(input$intercept_vars, {
