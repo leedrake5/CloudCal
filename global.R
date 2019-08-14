@@ -5265,7 +5265,7 @@ defaultCalConditions <- function(element, number.of.standards){
     return(cal.mode.list)
 }
 
-importCalConditions <- function(element, calList, number.of.standards=NULL){
+importCalConditionsDetail <- function(element, calList, number.of.standards=NULL){
     
     number.of.standards <- if(is.null(number.of.standards)){
         length(calList[[element]][[1]]$StandardsUsed)
@@ -5398,24 +5398,24 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         default.cal.conditions$CalTable$NeuralMI
     }
     
+    xgbtype <- if("xgbType" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$xgbType[1])
+    } else if(!"xgbType" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbType
+    }
+    
     treedepth <- if("TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
             paste0(calList[[element]][[2]]$bestTune$max_depth, "-", calList[[element]][[2]]$bestTune$max_depth)
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.numeric(as.character(imported.cal.conditions$CalTable$TreeDepth[1]))
+        } else if(!cal.condition==8 | !cal.condition==9 | xgbtype=="Linear"){
+            default.cal.conditions$CalTable$TreeDepth
         }
     } else if(!"TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$TreeDepth
     }
     
-    xgbtype <- if("xgbType" %in% colnames(imported.cal.conditions$CalTable)){
-            as.character(imported.cal.conditions$CalTable$xgbType[1])
-    } else if(!"xgbType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbType
-    }
-    
     xgbalpha <- if("xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Linear"){
             paste0(calList[[element]][[2]]$bestTune$alpha, "-", calList[[element]][[2]]$bestTune$alpha)
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbAlpha[1])
@@ -5425,7 +5425,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     }
     
     xgbgamma <- if("xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
             paste0(calList[[element]][[2]]$bestTune$gamma, "-", calList[[element]][[2]]$bestTune$gamma)
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbGamma[1])
@@ -5445,7 +5445,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     }
     
     xgblambda <- if("xgbLambda" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Linear"){
             paste0(calList[[element]][[2]]$bestTune$lambda, "-", calList[[element]][[2]]$bestTune$lambda)
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbLambda[1])
@@ -5455,7 +5455,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     }
     
     xgbsubsample <- if("xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
             paste0(calList[[element]][[2]]$bestTune$subsample, "-", calList[[element]][[2]]$bestTune$subsample)
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
@@ -5465,7 +5465,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     }
     
     xgbcolsample <- if("xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
             paste0(calList[[element]][[2]]$bestTune$colsample_bytree, "-", calList[[element]][[2]]$bestTune$colsample_bytree)
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
@@ -5475,7 +5475,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     }
     
     xgbminchild <- if("xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
            calList[[element]][[2]]$bestTune$min_child_weight
         } else if(!cal.condition==8 | !cal.condition==9){
             as.numeric(as.character(imported.cal.conditions$CalTable$xgbMinChild[1]))
@@ -5538,6 +5538,281 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
         
         cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
         return(cal.mode.list)
+}
+
+importCalConditions <- function(element, calList, number.of.standards=NULL){
+    
+    number.of.standards <- if(is.null(number.of.standards)){
+        length(calList[[element]][[1]]$StandardsUsed)
+    } else if(!is.null(number.of.standards)){
+        number.of.standards
+    }
+    
+    default.cal.conditions <- defaultCalConditions(element=element, number.of.standards=number.of.standards)
+    
+    imported.cal.conditions <- calList[[element]][[1]]
+    
+    cal.condition <- if("CalType" %in% colnames(imported.cal.conditions$CalTable)){
+        as.numeric(as.character(imported.cal.conditions$CalTable$CalType[1]))
+    } else if(!"CalType" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$CalType
+    }
+    
+    compress.condition <- if("Compress" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$Compress[1])
+    } else if(!"Compress" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$Compress
+    }
+    
+    transformation.condition <- if("Transformation" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$Transformation[1])
+    } else if(!"Transformation" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$Transformation
+    }
+    
+    energyrange.condition <- if("EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$EnergyRange[1])
+    } else if(!"EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$EnergyRange
+    }
+    
+    
+    norm.condition <- if("NormType" %in% colnames(imported.cal.conditions$CalTable)){
+        as.numeric(as.character(imported.cal.conditions$CalTable$NormType[1]))
+    } else if(!"NormType" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$NormType
+    }
+    
+    norm.min <- if("Min" %in% colnames(imported.cal.conditions$CalTable)){
+        as.numeric(as.character(imported.cal.conditions$CalTable$Min[1]))
+    } else if(!"Min" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$Min
+    }
+    
+    norm.max <- if("Max" %in% colnames(imported.cal.conditions$CalTable)){
+        as.numeric(as.character(imported.cal.conditions$CalTable$Max[1]))
+    } else if(!"Max" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$Max
+    }
+    
+    dependent.transformation <- if("DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$DepTrans[1])
+    } else if(!"DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$DepTrans
+    }
+    
+    foresttry <- if("ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
+        as.numeric(as.character(imported.cal.conditions$CalTable$ForestTry[1]))
+    } else if(!"ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ForestTry
+    }
+    
+    forestmetric <- if("ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$ForestMetric[1])
+    } else if(!"ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ForestMetric
+    }
+    
+    foresttrain <- if("ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$ForestTC[1])
+    } else if(!"ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ForestTC
+    }
+    
+    forestnumber <- if("ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
+        as.numeric(as.character(imported.cal.conditions$CalTable$ForestNumber[1]))
+    } else if(!"ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ForestNumber
+    }
+    
+    cvrepeats <- if("CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
+        as.numeric(as.character(imported.cal.conditions$CalTable$CVRepeats[1]))
+    } else if(!"CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$CVRepeats
+    }
+    
+    foresttrees <- if("ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
+        as.numeric(as.character(imported.cal.conditions$CalTable$ForestTrees[1]))
+    } else if(!"ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ForestTrees
+    }
+    
+    neuralhiddenlayers <- if("NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
+        as.numeric(as.character(imported.cal.conditions$CalTable$NeuralHL[1]))
+    } else if(!"NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$NeuralHL
+    }
+    
+    neuralhiddenunits <- if("NeuralHU" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==6 | cal.condition==7){
+            as.character(imported.cal.conditions$CalTable$NeuralHU[1])
+        } else if(!cal.condition==6 | !cal.condition==7){
+            as.character(imported.cal.conditions$CalTable$NeuralHU[1])
+        }
+    } else if(!"NeuralHU" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$NeuralHU
+    }
+    
+    neuralweightdecay <- if("NeuralWD" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==6 | cal.condition==7){
+            if(neuralhiddenlayers==1){
+                as.character(imported.cal.conditions$CalTable$NeuralWD[1])
+            } else if(neuralhiddenlayers > 1){
+                as.character(imported.cal.conditions$CalTable$NeuralWD[1])
+            }
+        } else if(!cal.condition==6 | !cal.condition==7){
+            imported.cal.conditions$CalTable$NeuralWD
+        }
+    } else if(!"NeuralWD" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$NeuralWD
+    }
+    
+    neuralmaxiterations <- if("NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
+        as.numeric(as.character(imported.cal.conditions$CalTable$NeuralMI[1]))
+    } else if(!"NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$NeuralMI
+    }
+    
+    xgbtype <- if("xgbType" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$xgbType[1])
+    } else if(!"xgbType" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbType
+    }
+    
+    treedepth <- if("TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+            as.character(imported.cal.conditions$CalTable$TreeDepth[1])
+        } else if(!cal.condition==8 | !cal.condition==9 | xgbtype=="Linear"){
+            default.cal.conditions$CalTable$TreeDepth
+        }
+    } else if(!"TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$TreeDepth
+    }
+    
+    xgbalpha <- if("xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Linear"){
+            as.character(imported.cal.conditions$CalTable$xgbAlpha[1])
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.character(imported.cal.conditions$CalTable$xgbAlpha[1])
+        }
+    } else if(!"xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbAlpha
+    }
+    
+    xgbgamma <- if("xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+            as.character(imported.cal.conditions$CalTable$xgbGamma[1])
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.character(imported.cal.conditions$CalTable$xgbGamma[1])
+        }
+    } else if(!"xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbGamma
+    }
+    
+    xgbeta <- if("xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9){
+            as.character(imported.cal.conditions$CalTable$xgbEta[1])
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.character(imported.cal.conditions$CalTable$xgbEta[1])
+        }
+    } else if(!"xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbEta
+    }
+    
+    xgblambda <- if("xgbLambda" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Linear"){
+            as.character(imported.cal.conditions$CalTable$xgbLambda[1])
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.character(imported.cal.conditions$CalTable$xgbLambda[1])
+        }
+    } else if(!"xgbLambda" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbLambda
+    }
+    
+    xgbsubsample <- if("xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
+        }
+    } else if(!"xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbSubSample
+    }
+    
+    xgbcolsample <- if("xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
+        }
+    } else if(!"xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbColSample
+    }
+    
+    xgbminchild <- if("xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+            as.numeric(as.character(imported.cal.conditions$CalTable$xgbMinChild[1]))
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.numeric(as.character(imported.cal.conditions$CalTable$xgbMinChild[1]))
+        }
+    } else if(!"xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbMinChild
+    }
+    
+    slope.corrections <- if("Slope" %in% names(imported.cal.conditions)){
+        if(is.null(imported.cal.conditions$Slope)){
+            default.cal.conditions$Slope
+        } else if(!is.null(imported.cal.conditions$Slope)){
+            as.character(imported.cal.conditions$Slope)
+        }
+    } else if(!"Slope" %in% names(imported.cal.conditions)){
+        default.cal.conditions$Slope
+    }
+    
+    intercept.corrections <- if("Intercept" %in% names(imported.cal.conditions)){
+        as.character(imported.cal.conditions$Intercept)
+    } else if(!"Intercept" %in% names(imported.cal.conditions)){
+        default.cal.conditions$Intercept
+    }
+    
+    standards.used <- if("StandardsUsed" %in% names(imported.cal.conditions)){
+        imported.cal.conditions$StandardsUsed
+    } else if(!"StandardsUsed" %in% names(imported.cal.conditions)){
+        default.cal.conditions$StandardsUsed
+    }
+    
+    cal.table <- data.frame(
+    CalType=cal.condition,
+    Compress=compress.condition,
+    Transformation=transformation.condition,
+    EnergyRange=energyrange.condition,
+    NormType=norm.condition,
+    Min=norm.min,
+    Max=norm.max,
+    DepTrans=dependent.transformation,
+    ForestTry=foresttry,
+    ForestMetric=forestmetric,
+    ForestTC=foresttrain,
+    ForestNumber=forestnumber,
+    CVRepeats=cvrepeats,
+    ForestTrees=foresttrees,
+    NeuralHL=neuralhiddenlayers,
+    NeuralHU=neuralhiddenunits,
+    NeuralWD=neuralweightdecay,
+    NeuralMI=neuralmaxiterations,
+    TreeDepth=treedepth,
+    xgbType=xgbtype,
+    xgbAlpha=xgbalpha,
+    xgbGamma=xgbgamma,
+    xgbEta=xgbeta,
+    xgbLambda=xgblambda,
+    xgbSubSample=xgbsubsample,
+    xgbColSample=xgbcolsample,
+    xgbMinChild=xgbminchild,
+    stringsAsFactors=FALSE)
+    
+    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
+    return(cal.mode.list)
 }
 
 
@@ -6356,7 +6631,7 @@ calRDS <- function(calibration.directory, null.strip=FALSE){
 
     }
     
-    calpre <- lapply(names(Calibration[["calList"]]), function(x) list(Parameters=importCalConditions(element=x, calList=Calibration[["calList"]]), Model=Calibration[["calList"]][[x]][[2]]))
+    calpre <- pblapply(names(Calibration[["calList"]]), function(x) list(Parameters=importCalConditions(element=x, calList=Calibration[["calList"]]), Model=Calibration[["calList"]][[x]][[2]]))
     names(calpre) <- names(Calibration[["calList"]])
     
     Calibration$calList <- calpre
