@@ -6718,3 +6718,18 @@ modelPack <- function(parameters, model, compress=TRUE){
     
     return(list(Parameters=parameters, Model=model))
 }
+
+defaultCalList <- function(calibration){
+    variables <- colnames(calibration$Values)[as.vector(sapply(calibration$Values, is.numeric))]
+    variables <- variables[as.vector(sapply(variables, function(x) length(unique(calibration$Values[,x]))>1))]
+    
+    for(i in variables){
+        if(i %in% names(calibration$calList)){
+            calibration$calList[[i]] <- calibration$calList[[i]]
+        } else if(!i %in% names(calibration$calList)){
+            calibration$calList[[i]] <- list(Parameters=defaultCalConditions(element=i), Model=lm(calibration$Values[,i]~calibration$Intensities[,i]), na.action=na.omit)
+        }
+    }
+    
+    return(calibration)
+}
