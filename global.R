@@ -6719,9 +6719,14 @@ modelPack <- function(parameters, model, compress=TRUE){
     return(list(Parameters=parameters, Model=model))
 }
 
-defaultCalList <- function(calibration){
+calibrationElements <- function(calibration){
     variables <- colnames(calibration$Values)[as.vector(sapply(calibration$Values, is.numeric))]
     variables <- variables[as.vector(sapply(variables, function(x) length(unique(calibration$Values[,x]))>1))]
+    return(variables)
+}
+
+defaultCalList <- function(calibration){
+    variables <- calibrationElements(calibration)
     
     for(i in variables){
         if(i %in% names(calibration$calList)){
