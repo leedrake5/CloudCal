@@ -5882,10 +5882,9 @@ chooseTransformation <- function(spectra=NULL, cal){
 }
 chooseTransformation <- cmpfun(chooseTransformation)
 
-
 calBundle <- function(filetype, units, spectra, intensities, definitions, values, notes, calList){
     
-    list(FileType=filetype, Units=units, Spectra=spectra, Intensities=intensities, Definitions=definitions, Values=values, Notes=notes, calList=calList)
+    list(FileType=filetype, Units=units, Spectra=spectra, Intensities=intensities, Definitions=definitions, Values=values, Notes=notes, calList=calListCompress(calList))
     
 }
 
@@ -6717,6 +6716,12 @@ modelPack <- function(parameters, model, compress=TRUE){
     }
     
     return(list(Parameters=parameters, Model=model))
+}
+
+calListCompress <- function(calList){
+    newcalList <- lapply(calList, function(x) modelPack(parameters=x[[1]], model=x[[2]], compress=TRUE))
+    names(newcalList) <- names(calList)
+    return(newcalList)
 }
 
 calibrationElements <- function(calibration){

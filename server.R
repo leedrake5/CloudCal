@@ -7711,7 +7711,11 @@ shinyServer(function(input, output, session) {
         })
         
         calExport <- reactive({
-            calBundle(filetype=input$filetype, units=input$unit, spectra=spectraExport(), intensities=spectraLineTableExport(), definitions=linevalues[["DF"]], values=values[["DF"]], notes=input$notes, calList=calMemory$Calibration$calList)
+            if(input$modelcompress==TRUE){
+                calBundle(filetype=input$filetype, units=input$unit, spectra=spectraExport(), intensities=spectraLineTableExport(), definitions=linevalues[["DF"]], values=values[["DF"]], notes=input$notes, calList=calListCompress(calMemory$Calibration$calList))
+            } else if(input$modelcompress==FALSE){
+                calBundle(filetype=input$filetype, units=input$unit, spectra=spectraExport(), intensities=spectraLineTableExport(), definitions=linevalues[["DF"]], values=values[["DF"]], notes=input$notes, calList=calMemory$Calibration$calList)
+            }
         })
         
         
