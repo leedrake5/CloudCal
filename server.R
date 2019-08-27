@@ -11355,7 +11355,7 @@ content = function(file){
             variableelements <- calVariableElements()
             val.data <- myValData()
             
-            if(valDataType()=="Spectra"){spectra.line.list <- lapply(valelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
+            if(valDataType()=="Spectra"){spectra.line.list <- pblapply(cl=as.numeric(my.cores)/2, X=valelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
             if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, '[', 2)}
             
             

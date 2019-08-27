@@ -1874,6 +1874,21 @@ xrf_parse <- function(range.table, data){
 }
 xrf_parse <- cmpfun(xrf_parse)
 
+xrf_parse_single <- function(range.table, data, element){
+    
+    choice.lines <- range.table[range.table$Name %in% element,]
+    
+    choice.list <- split(choice.lines, f=choice.lines$Name)
+    names(choice.list) <- choice.lines[,"Name"]
+    
+    index <- choice.lines[,"Name"]
+    
+    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data))
+    
+    Reduce(function(...) merge(..., all=T), selected.list)
+}
+xrf_parse_single <- cmpfun(xrf_parse_single)
+
 
 
 elementGrab <- function(element.line, data, range.table=NULL){
@@ -1883,7 +1898,7 @@ elementGrab <- function(element.line, data, range.table=NULL){
     if(is.element==TRUE){
         elementGrabpre(element.line, data)
     } else if(is.element==FALSE){
-        xrf_parse(range.table, data)
+        xrf_parse_single(range.table, data, element.line)
     }
 
     
