@@ -4909,14 +4909,14 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 }
             }
-            
+
             if(input$radiocal==2){
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm(Concentration~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                    stat_smooth(method="lm", fullrange = TRUE) +
+                    annotate("text", label=lm_eqn_poly(lm(Concentration~Intensity + I(Intensity^2), data=predictFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    stat_smooth(method="lm", formula=y~poly(x,2), fullrange = TRUE) +
                     geom_point() +
                     geom_point(data = predictFrame()[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
