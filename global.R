@@ -5208,6 +5208,79 @@ calConditionCompare <- function(cal.conditions.first, cal.conditions.second){
     all(cal.table.match, use.standards.match)
 }
 
+deleteCalConditions <- function(element, number.of.standards){
+    cal.condition <- as.numeric(3)
+    compress <- as.character("100 eV")
+    transformation <- as.character("None")
+    energy.range <- as.character("0.7-37")
+    norm.condition <- as.numeric(1)
+    norm.min <- as.numeric(11)
+    norm.max <- as.numeric(11.2)
+    dependent.transformation <- as.character("None")
+    
+    foresttry <- as.numeric(7)
+    forestmetric <- as.character("RMSE")
+    foresttrain <- as.character("repeatedcv")
+    forestnumber <- as.numeric(10)
+    cvrepeats <- as.numeric(1)
+    foresttrees <- as.numeric(100)
+    neuralhiddenlayers <- as.numeric(1)
+    neuralhiddenunits <- paste0(1, "-", 4)
+    neuralweightdecay <- paste0(0.1, "-", 0.5)
+    neuralmaxiterations <- as.numeric(1000)
+    xgbtype <- as.character("Tree")
+    treedepth <- as.character("5-5")
+    xgbalpha <- as.character("0.1-0.1")
+    xgbgamma <- as.character("0-0")
+    xgbeta <- as.character("0.1-0.1")
+    xgblambda <- as.character("0.1-0.1")
+    xgbsubsample <- as.character("0.6-0.6")
+    xgbcolsample <- as.character("0.6-0.6")
+    xgbminchild <- as.numeric(1)
+    
+    cal.table <- data.frame(
+    CalType=cal.condition,
+    Compress=compress,
+    Transformation=transformation,
+    EnergyRange=energy.range,
+    NormType=norm.condition,
+    Min=norm.min,
+    Max=norm.max,
+    DepTrans=dependent.transformation,
+    ForestTry=foresttry,
+    ForestMetric=forestmetric,
+    ForestTC=foresttrain,
+    ForestNumber=forestnumber,
+    CVRepeats=cvrepeats,
+    ForestTrees=foresttrees,
+    NeuralHL=neuralhiddenlayers,
+    NeuralHU=neuralhiddenunits,
+    NeuralWD=neuralweightdecay,
+    NeuralMI=neuralmaxiterations,
+    TreeDepth=treedepth,
+    xgbType=xgbtype,
+    xgbAlpha=xgbalpha,
+    xgbGamma=xgbgamma,
+    xgbEta=xgbeta,
+    xgbLambda=xgblambda,
+    xgbSubSample=xgbsubsample,
+    xgbColSample=xgbcolsample,
+    xgbMinChild=xgbminchild,
+    Delete=TRUE,
+    stringsAsFactors=FALSE)
+    
+    slope.corrections <- element
+    
+    intercept.corrections <- NULL
+    
+    standards.used <- rep(TRUE, number.of.standards)
+    
+    #standards.used <- vals$keeprows
+    
+    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
+    return(cal.mode.list)
+}
+
 defaultCalConditions <- function(element, number.of.standards){
     cal.condition <- as.numeric(3)
     compress <- as.character("100 eV")
@@ -6705,7 +6778,7 @@ calConvert <- function(calibration, null.strip=TRUE){
     return(Calibration)
 }
 
-modelPack <- function(parameters, model, compress=TRUE){
+modelPackPre <- function(parameters, model, compress=TRUE){
     model <- if(compress==TRUE){
         if(parameters$CalTable$CalType==1){
             strip(model, keep=c("predict", "summary"))
@@ -6733,6 +6806,14 @@ modelPack <- function(parameters, model, compress=TRUE){
     return(list(Parameters=parameters, Model=model))
 }
 
+modelPack <- function(parameters, model, compress=TRUE){
+    if("Delete" %in% colnames(parameters$CalTable)){
+        NULL
+    } else if(!"Delete" %in% colnames(parameters$CalTable)){
+        modelPackPre(parameters=parameters, model=model, compress=compress)
+    }
+}
+
 calListCompress <- function(calList){
     newcalList <- lapply(calList, function(x) modelPack(parameters=x[[1]], model=x[[2]], compress=TRUE))
     names(newcalList) <- names(calList)
@@ -6752,7 +6833,7 @@ defaultCalList <- function(calibration){
         if(i %in% names(calibration$calList)){
             calibration$calList[[i]] <- calibration$calList[[i]]
         } else if(!i %in% names(calibration$calList)){
-            calibration$calList[[i]] <- list(Parameters=defaultCalConditions(element=i), Model=lm(calibration$Values[,i]~calibration$Intensities[,i]), na.action=na.omit)
+            calibration$calList[[i]] <- list(Parameters=deleteCalConditions(element=i), Model=lm(calibration$Values[,i]~calibration$Intensities[,i]), na.action=na.omit)
         }
     }
     

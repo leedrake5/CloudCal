@@ -427,7 +427,7 @@ shinyServer(function(input, output, session) {
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- defaultCalList(calMemory$Calibration)
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
-                calMemory$Calibration$calList <- NULL
+                calMemory$Calibration <- defaultCalList(calMemory$Calibration)
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- NULL
             }
@@ -505,7 +505,11 @@ shinyServer(function(input, output, session) {
             data <- if(is.null(calMemory$Calibration$calList)){
                 myData()
             } else if(!is.null(calMemory$Calibration$calList)){
-                calMemory$Calibration[["Spectra"]]
+                if(is.null(input$file1)){
+                    calMemory$Calibration[["Spectra"]]
+                } else if(!is.null(input$file1)){
+                    myData()
+                }
             }
             
             data <- data[order(as.character(data$Spectrum)),]
