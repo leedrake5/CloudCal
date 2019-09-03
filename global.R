@@ -5628,7 +5628,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         return(cal.mode.list)
 }
 
-importCalConditions <- function(element, calList, number.of.standards=NULL){
+importCalConditions <- function(element, calList, number.of.standards=NULL, temp=FALSE){
     
     number.of.standards <- if(is.null(number.of.standards)){
         length(calList[[element]][[1]]$StandardsUsed)
@@ -5898,6 +5898,10 @@ importCalConditions <- function(element, calList, number.of.standards=NULL){
     xgbColSample=xgbcolsample,
     xgbMinChild=xgbminchild,
     stringsAsFactors=FALSE)
+    
+    if(temp==TRUE){
+        cal.table$Delete <- TRUE
+    }
     
     cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
     return(cal.mode.list)
@@ -6676,7 +6680,7 @@ predictFrameCheck <- function(predict.frame){
     return(new.frame)
 }
 
-calRDS <- function(calibration.directory, null.strip=FALSE){
+calRDS <- function(calibration.directory, null.strip=FALSE, temp=FALSE){
     Calibration <- readRDS(calibration.directory)
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
@@ -6718,7 +6722,7 @@ calRDS <- function(calibration.directory, null.strip=FALSE){
 
     }
     
-    calpre <- pblapply(names(Calibration[["calList"]]), function(x) list(Parameters=importCalConditions(element=x, calList=Calibration[["calList"]]), Model=Calibration[["calList"]][[x]][[2]]))
+    calpre <- pblapply(names(Calibration[["calList"]]), function(x) list(Parameters=importCalConditions(element=x, calList=Calibration[["calList"]], temp=temp), Model=Calibration[["calList"]][[x]][[2]]))
     names(calpre) <- names(Calibration[["calList"]])
     
     Calibration$calList <- calpre
@@ -6807,17 +6811,16 @@ modelPackPre <- function(parameters, model, compress=TRUE){
 }
 
 modelPack <- function(parameters, model, compress=TRUE){
-    if("Delete" %in% colnames(parameters$CalTable)){
-        NULL
-    } else if(!"Delete" %in% colnames(parameters$CalTable)){
-        modelPackPre(parameters=parameters, model=model, compress=compress)
-    }
+    modelPackPre(parameters=parameters, model=model, compress=compress)
 }
 
 calListCompress <- function(calList){
-    newcalList <- lapply(calList, function(x) modelPack(parameters=x[[1]], model=x[[2]], compress=TRUE))
-    names(newcalList) <- names(calList)
-    return(newcalList)
+    calListNames <- names(calList)[as.vector(sapply(calList, function(x) !"Delete" %in%  colnames(x[[1]]$CalTable)))]
+    newcalList <- list()
+    for(i in calListNames){
+        newcalList[[i]] <- modelPack(parameters=calList[[i]][[1]], model=calList[[i]][[2]], compress=TRUE)
+    }
+        return(newcalList)
 }
 
 calibrationElements <- function(calibration){
@@ -6826,7 +6829,7 @@ calibrationElements <- function(calibration){
     return(variables)
 }
 
-defaultCalList <- function(calibration){
+defaultCalList <- function(calibration, temp=FALSE){
     variables <- calibrationElements(calibration)
     
     for(i in variables){
@@ -6836,6 +6839,13 @@ defaultCalList <- function(calibration){
             calibration$calList[[i]] <- list(Parameters=deleteCalConditions(element=i), Model=lm(calibration$Values[,i]~calibration$Intensities[,i]), na.action=na.omit)
         }
     }
+    
+    if(temp==TRUE){
+        for(i in variables){
+            calibration$calList[[i]][[1]]$CalTable$Delete <- TRUE
+        }
+    }
+
     
     return(calibration)
 }

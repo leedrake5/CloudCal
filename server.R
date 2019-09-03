@@ -427,7 +427,7 @@ shinyServer(function(input, output, session) {
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- defaultCalList(calMemory$Calibration)
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
-                calMemory$Calibration <- defaultCalList(calMemory$Calibration)
+                calMemory$Calibration <- defaultCalList(calMemory$Calibration, temp=TRUE)
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- NULL
             }
