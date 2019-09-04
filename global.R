@@ -6042,7 +6042,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             #pblapply(elements, function(x) tryCatch(predicted.frame[,x] <-
         
         for(x in elements){
-            values <- tryCatch(round(if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            values <- tryCatch(if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=general_prep_xrf(
@@ -6561,7 +6561,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
             )
-        }*multiplier, rounding), error=function(e) NULL)
+        }, error=function(e) NULL)
         if(!is.null(values)){
             predicted.frame$hold <- values
             colnames(predicted.frame)[which(names(predicted.frame) == "hold")] <- x
@@ -6584,7 +6584,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
 
         
 
-        predicted.data.table <- predicted.frame
+        predicted.data.table <- round(predicted.frame[,-1]*multiplier, rounding)
 
         #predicted.values <- t(predicted.values)
         predicted.data.table

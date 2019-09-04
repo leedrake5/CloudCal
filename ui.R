@@ -708,7 +708,7 @@ uiOutput('roundingui')
 mainPanel(
 tabsetPanel(
 id = 'dataset2',
-tabPanel('Validation', dataTableOutput('myvaltable2'),
+tabPanel('Quantification Results', dataTableOutput('myvaltable2'),
 tags$hr(),
 
 

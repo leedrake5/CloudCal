@@ -3468,18 +3468,18 @@ shinyServer(function(input, output, session) {
         
         
         xgboostIntensityModelSet <- reactive(label="xgboostIntensityModelSet", {
-            if(input$xgbtype=="Tree"){
+            if(xgboosthold$xgbtype=="Tree"){
                 xgbtreeIntensityModelSet()
-            } else if(input$xgbtype=="Linear"){
+            } else if(xgboosthold$xgbtype=="Linear"){
                 xgblinearIntensityModelSet()
             }
         })
         
         xgboostIntensityModel <- reactive({
             
-            if(input$xgbtype=="Tree"){
+            if(xgboosthold$xgbtype=="Tree"){
                 xgbtreeIntensityModel()
-            } else if(input$xgbtype=="Linear"){
+            } else if(xgboosthold$xgbtype=="Linear"){
                 xgblinearIntensityModel()
             }
             
@@ -3683,18 +3683,18 @@ shinyServer(function(input, output, session) {
         })
         
         xgboostSpectraModelSet <- reactive(label="xgboostSpectraModelSet", {
-            if(input$xgbtype=="Tree"){
+            if(xgboosthold$xgbtype=="Tree"){
                 xgbtreeSpectraModelSet()
-            } else if(input$xgbtype=="Linear"){
+            } else if(xgboosthold$xgbtype=="Linear"){
                 xgblinearSpectraModelSet()
             }
         })
         
         xgboostSpectraModel <- reactive({
             
-            if(input$xgbtype=="Tree"){
+            if(xgboosthold$xgbtype=="Tree"){
                 xgbtreeSpectraModel()
-            } else if(input$xgbtype=="Linear"){
+            } else if(xgboosthold$xgbtype=="Linear"){
                 xgblinearSpectraModel()
             }
             
@@ -3901,6 +3901,8 @@ shinyServer(function(input, output, session) {
         })
         
         observeEvent(input$trainslopes, priority=95, {
+            foresthold$foresttrain <- "cv"
+            xgboosthold$xgbtype <- "Linear"
             calMemory$Calibration$calList[[input$calcurveelement]] <- list(Parameters=defaultCalConditions(element=input$calcurveelement, number.of.standards=length(holdFrame()$Spectrum)), Model=NULL)
             
             bestCalHold[[input$calcurveelement]] <- bestCalTypeFrame()
@@ -11428,7 +11430,7 @@ content = function(file){
         
         tableInputValQuant <- reactive({
             suppressWarnings({
-                cloudCalPredict(Calibration=calFileContents2(), count.table=data.frame(fullInputValCounts()), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier==input$multiplier)
+                cloudCalPredict(Calibration=calFileContents2(), count.table=data.frame(fullInputValCounts()), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier=input$multiplier)
             })
         })
         
