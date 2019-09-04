@@ -557,7 +557,7 @@ readPDZData <- function(filepath, filename) {
     nbrOfRecords <- 10000
 
     
-    #floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
+    floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
     
     if(floats[[9]]=="5"){
         readPDZ25Data(filepath, filename)
