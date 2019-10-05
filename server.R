@@ -5964,9 +5964,9 @@ shinyServer(function(input, output, session) {
         xgboostIntensityModelRandom <- reactive({
             
             if(input$xgbtype=="Tree"){
-                xgbtreeSpectraModelRandom()
+                xgbtreeIntensityModelRandom()
             } else if(input$xgbtype=="Linear"){
-                xgblinearSpectraModelRandom()
+                xgblinearIntensityModelRandom()
             }
             
         })
