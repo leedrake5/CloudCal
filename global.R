@@ -6587,7 +6587,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         predicted.data.table <- round(predicted.frame[,-1]*multiplier, rounding)
 
         #predicted.values <- t(predicted.values)
-        predicted.data.table
+        data.frame(Spectrum=predicted.frame$Spectrum, predicted.data.table, stringsAsFactors=FALSE)
         
         
 }
@@ -6727,6 +6727,14 @@ calRDS <- function(calibration.directory, null.strip=FALSE, temp=FALSE){
     
     Calibration$calList <- calpre
     
+    if(is.null(Calibration$Definitions)){
+        Calibration$Definitions <- data.frame(
+        Name=as.vector(as.character(rep("", 75))),
+        EnergyMin=as.numeric(rep("", 75)),
+        EnergyMax=as.numeric(rep("", 75)),
+        stringsAsFactors = FALSE
+        )
+    }
     
     return(Calibration)
 }
