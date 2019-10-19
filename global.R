@@ -299,7 +299,10 @@ read_csv_filename_y <- function(filename){
 }
 read_csv_filename_y <- cmpfun(read_csv_filename_y)
 
-csvFrame <- function(filepath, filename){
+csvFrame <- function(filepath, filename=NULL){
+    if(is.null(filename)){
+        filename <- as.character(basename(filepath))
+    }
     filename <- gsub(".csv", "", filename, ignore.case=TRUE)
     data.frame(Energy=read_csv_filename_x(filepath), CPS=read_csv_filename_y(filepath), Spectrum=rep(filename, length(read_csv_filename_x(filepath))), stringsAsFactors=FALSE)
 }
@@ -553,10 +556,14 @@ readPDZ24Data <- cmpfun(readPDZ24Data)
 
 
 
-readPDZData <- function(filepath, filename) {
-    nbrOfRecords <- 10000
-
+readPDZData <- function(filepath, filename=NULL) {
     
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
+    
+    
+    nbrOfRecords <- 10000
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
     
     if(floats[[9]]=="5"){
