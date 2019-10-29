@@ -2043,6 +2043,7 @@ shinyServer(function(input, output, session) {
         
         
         calNormSelectionpre <- reactive({
+            
             if(!"NormType" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 calConditions$hold[["CalTable"]][["NormType"]]
             } else if("NormType" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -4770,6 +4771,8 @@ shinyServer(function(input, output, session) {
         observeEvent(input$createcalelement, priority=100, {
             calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
                 calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelGen(), compress=TRUE))
+                calSettings$calList[[input$calcurveelement]] <- NULL
+                    calSettings$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=NULL, compress=TRUE))
         })
         
         output$usecalsep <- renderUI({
