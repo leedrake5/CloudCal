@@ -2752,7 +2752,7 @@ just_spectra_summary_apply <- function(spectra.frame, normalization, min=NULL, m
         spectra_comp_prep_xrf(spectra=spectra.frame, norm.min=min, norm.max=max, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2])
     }
     
-    newer.spectrum <- melt(new.spectrum, id.var="Spectrum")
+    newer.spectrum <- reshape2::melt(new.spectrum, id.var="Spectrum")
     colnames(newer.spectrum) <- c("Spectrum", "Energy", "CPS")
     newer.spectrum$Energy <- as.numeric(gsub("X", "", newer.spectrum$Energy))
     newer.spectrum
@@ -3428,12 +3428,12 @@ bord.col='lightblue', max.sp = F,...){
             
             #get all input-hidden and hidden-hidden wts
             inps<-wts[grep('Input',row.names(wts)),grep('Hidden_2',colnames(wts)),drop=F]
-            inps<-melt(rbind(rep(NA,ncol(inps)),inps))$value
+            inps<-reshape2::melt(rbind(rep(NA,ncol(inps)),inps))$value
             uni.hids<-paste0('Hidden_',1+seq(1,hid.num))
             for(i in 1:length(uni.hids)){
                 if(is.na(uni.hids[i+1])) break
                 tmp<-wts[grep(uni.hids[i],rownames(wts)),grep(uni.hids[i+1],colnames(wts)),drop=F]
-                inps<-c(inps,melt(rbind(rep(NA,ncol(tmp)),tmp))$value)
+                inps<-c(inps,reshape2::melt(rbind(rep(NA,ncol(tmp)),tmp))$value)
             }
             
             #get connections from last hidden to output layers
@@ -3441,7 +3441,7 @@ bord.col='lightblue', max.sp = F,...){
             outs<-rbind(rep(NA,ncol(outs)),outs)
             
             #weight vector for all
-            wts<-c(inps,melt(outs)$value)
+            wts<-c(inps,reshape2::melt(outs)$value)
             assign('bias',F,envir=environment(nnet.vals))
         }
         
