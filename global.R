@@ -308,6 +308,16 @@ csvFrame <- function(filepath, filename=NULL){
 }
 csvFrame <- cmpfun(csvFrame)
 
+importCSVFrame <- function(filepath){
+    csv.frame <- read.csv(filepath)
+    metadata <- csv.frame[1,]
+    spectra.data <- csv.frame[-1,]
+    
+    melt.frame <- reshape2::melt(spectra.data, id="Std.")
+    data.frame(Energy=as.numeric(as.vector(melt.frame$Std.)), CPS=as.numeric(as.vector(melt.frame$value)), Spectrum=as.vector(melt.frame$variable), stringsAsFactors=FALSE)
+}
+importCSVFrame <- cmpfun(importCSVFrame)
+
 
 readTXTData <- function(filepath, filename){
     filename <- gsub(".txt", "", filename, ignore.case=TRUE)
@@ -6729,7 +6739,7 @@ calRDS <- function(calibration.directory, null.strip=FALSE, temp=FALSE){
 
     }
     
-    calpre <- pblapply(names(Calibration[["calList"]]), function(x) list(Parameters=importCalConditions(element=x, calList=Calibration[["calList"]], temp=temp), Model=Calibration[["calList"]][[x]][[2]]))
+    calpre <- pblapply(names(Calibration[["calList"]]), function(x) tryCatch(list(Parameters=importCalConditions(element=x, calList=Calibration[["calList"]], temp=temp), Model=Calibration[["calList"]][[x]][[2]]), error=function(e) NULL))
     names(calpre) <- names(Calibration[["calList"]])
     
     Calibration$calList <- calpre

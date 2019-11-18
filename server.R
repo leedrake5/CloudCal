@@ -60,9 +60,9 @@ shinyServer(function(input, output, session) {
     
     output$filetypeui <- renderUI({
         if(is.null(input$calfileinput)){
-            selectInput("filetype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="CSV")
+            selectInput("filetype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="CSV")
         } else if(!is.null(input$calfileinput)){
-            selectInput("filetype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected=oldCalCompatibility())
+            selectInput("filetype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected=oldCalCompatibility())
         }
         
     })
@@ -70,6 +70,9 @@ shinyServer(function(input, output, session) {
     output$filegrab <- renderUI({
         req(input$filetype)
         if(input$filetype=="CSV") {
+            fileInput('file1', 'Choose CSV', multiple=TRUE,
+            accept=c(".csv"))
+        } else if(input$filetype=="Aggregate CSV File") {
             fileInput('file1', 'Choose CSV', multiple=TRUE,
             accept=c(".csv"))
         } else if(input$filetype=="TXT") {
@@ -230,6 +233,15 @@ shinyServer(function(input, output, session) {
         data$Energy <- data$Energy + gainshiftHold()
         
         data
+    })
+    
+    importedCSV <- reactive(label="importedCSV", {
+        req(input$file1)
+        
+            inFile <- input$file1
+            if (is.null(inFile)) return(NULL)
+            
+            importCSVFrame(filepath=inFile$datapath)
     })
     
     
@@ -478,6 +490,8 @@ shinyServer(function(input, output, session) {
             req(input$filetype)
                 data <- if(input$filetype=="CSV"){
                     fullSpectra()
+                } else if(input$filetype=="Aggregate CSV File"){
+                    importedCSV()
                 } else if(input$filetype=="TXT"){
                     readTXT()
                 } else if(input$filetype=="Net"){
@@ -491,6 +505,8 @@ shinyServer(function(input, output, session) {
                 }  else if(input$filetype=="PDZ"){
                     readPDZ()
                 }
+                
+                
 
             data
         })
@@ -822,6 +838,8 @@ shinyServer(function(input, output, session) {
             
             if(is.null(calMemory$Calibration$Intensities) && input$filetype=="CSV"){
                 standard
+            } else if(is.null(calMemory$Calibration$Intensities) && input$filetype=="Aggregate CSV File"){
+                standard
             } else if(is.null(calMemory$Calibration$Intensities) && input$filetype=="TXT"){
                 standard
             } else if(is.null(calMemory$Calibration$Intensities) && input$filetype=="Elio"){
@@ -848,6 +866,8 @@ shinyServer(function(input, output, session) {
             
             
             choices <- if(input$filetype=="CSV"){
+                spectralLines
+            } else if(input$filetype=="Aggregate CSV File"){
                 spectralLines
             } else if(input$filetype=="TXT"){
                 spectralLines
@@ -1231,6 +1251,8 @@ shinyServer(function(input, output, session) {
             
             select.line.table <- if(input$filetype=="CSV"){
                 spectraData()
+            } else if(input$filetype=="Aggregate CSV File"){
+                spectraData()
             } else if(input$filetype=="TXT"){
                 spectraData()
             } else if(input$filetype=="Elio"){
@@ -1253,6 +1275,8 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$linecommit, priority = 2, {
             calMemory$Calibration$Intensities <- if(input$filetype=="CSV"){
+                spectraData()
+            } else if(input$filetype=="Aggregate CSV File"){
                 spectraData()
             } else if(input$filetype=="TXT"){
                 spectraData()
@@ -1608,6 +1632,8 @@ shinyServer(function(input, output, session) {
         dataType <- reactive({
             req(input$filetype)
             if(input$filetype=="CSV"){
+                "Spectra"
+            } else if(input$filetype=="Aggregate CSV File"){
                 "Spectra"
             } else if(input$filetype=="TXT"){
                 "Spectra"
@@ -10982,6 +11008,9 @@ content = function(file){
         if(input$valfiletype=="CSV") {
             fileInput('loadvaldata', 'Choose CSV', multiple=TRUE,
             accept=c(".csv"))
+        } else if(input$valfiletype=="Aggregate CSV File") {
+            fileInput('loadvaldata', 'Choose CSV', multiple=FALSE,
+            accept=c(".csv"))
         } else if(input$valfiletype=="TXT") {
             fileInput('loadvaldata', 'Choose TXT', multiple=TRUE,
             accept=c(".txt"))
@@ -11008,9 +11037,9 @@ content = function(file){
     output$valfiletypeui <- renderUI({
         
         if(is.null(input$calfileinput2)){
-            selectInput("valfiletype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="CSV")
+            selectInput("valfiletype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="CSV")
         } else if(!is.null(input$calfileinput2)){
-            selectInput("valfiletype", label="Filetype", c("CSV", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected=calFileContents2()[["FileType"]])
+            selectInput("valfiletype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected=calFileContents2()[["FileType"]])
         
         }
     
@@ -11063,6 +11092,15 @@ content = function(file){
             data$Energy <- data$Energy + gainshiftHold()
             
             data
+        })
+        
+        valImportedCSV <- reactive(label="importedCSV", {
+            req(input$file1)
+            
+                inFile <- input$file1
+                if (is.null(inFile)) return(NULL)
+                
+                importCSVFrame(filepath=inFile$datapath)
         })
         
         readValTXT <- reactive({
@@ -11232,6 +11270,8 @@ content = function(file){
             
             data <- if(input$valfiletype=="CSV"){
                 fullValSpectra()
+            } else if(input$valfiletype=="Aggregate CSV File"){
+                valImportedCSV()
             } else if(input$valfiletype=="TXT"){
                 readValTXT()
             } else if(input$valfiletype=="Net"){
@@ -11335,6 +11375,8 @@ content = function(file){
         valDataType <- reactive({
             
             if(input$valfiletype=="CSV"){
+                "Spectra"
+            } else if(input$valfiletype=="Aggregate CSV File"){
                 "Spectra"
             } else if(input$valfiletype=="TXT"){
                 "Spectra"
