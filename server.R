@@ -67,6 +67,7 @@ shinyServer(function(input, output, session) {
         
     })
     
+    
     output$filegrab <- renderUI({
         req(input$filetype)
         if(input$filetype=="CSV") {
@@ -151,6 +152,14 @@ shinyServer(function(input, output, session) {
             0
         }
         
+    })
+    
+    output$beamnoui <- renderUI({
+        if(input$filetype=="Aggregate CSV File"){
+            selectInput("beamno", "Choose Beam", uniqueBeams(input$file1))
+        } else if(input$filetype!="Aggregate CSV File"){
+            NULL
+        }
     })
     
     

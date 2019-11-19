@@ -39,6 +39,7 @@ tags$hr(),
 uiOutput('filegrab'),
 
 uiOutput("filetypeui"),
+uiOutput("beamnoui"),
 
 tags$hr(),
 
