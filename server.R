@@ -11104,9 +11104,9 @@ content = function(file){
         })
         
         valImportedCSV <- reactive(label="importedCSV", {
-            req(input$file1)
+            req(input$loadvaldata)
             
-                inFile <- input$file1
+                inFile <- input$loadvaldata
                 if (is.null(inFile)) return(NULL)
                 
                 importCSVFrame(filepath=inFile$datapath)

@@ -4247,11 +4247,11 @@ treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
-        sliderInput("treedepth", label="Tree Depth", min=5, max=50, step=5, value=selection)
+        sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==9 && xgbtype=="Tree"){
-        sliderInput("treedepth", label="Tree Depth", min=5, max=50, step=5, value=selection)
+        sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     }
@@ -4297,11 +4297,11 @@ xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==8 && xgbtype=="Tree"){
         NULL
     } else if(radiocal==8 && xgbtype=="Linear"){
-        sliderInput("xgbalpha", label="Alpha", min=0.1, max=1, step=0.1, value=selection)
+        sliderInput("xgbalpha", label="Alpha", min=0, max=100, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Tree"){
         NULL
     } else if(radiocal==9 && xgbtype=="Linear"){
-        sliderInput("xgbalpha", label="Alpha", min=0.1, max=1, step=0.1, value=selection)
+        sliderInput("xgbalpha", label="Alpha", min=0, max=100, step=0.05, value=selection)
     }
 }
 
@@ -4321,11 +4321,11 @@ xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=0.9, step=0.1, value=selection)
+        sliderInput("xgbgamma", label="Gamma", min=0, max=100, step=0.05, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==9 && xgbtype=="Tree"){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=0.9, step=0.1, value=selection)
+        sliderInput("xgbgamma", label="Gamma", min=0, max=100, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     }
@@ -4347,9 +4347,9 @@ xgbEtaUI <- function(radiocal, selection){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8){
-        sliderInput("xgbeta", label="Eta", min=0.1, max=0.9, step=0.1, value=selection)
+        sliderInput("xgbeta", label="Eta", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==9){
-        sliderInput("xgbeta", label="Eta", min=0.1, max=0.9, step=0.1, value=selection)
+        sliderInput("xgbeta", label="Eta", min=0.05, max=0.95, step=0.05, value=selection)
         
     }
 }
@@ -4372,11 +4372,11 @@ xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==8 && xgbtype=="Tree"){
         NULL
     } else if(radiocal==8 && xgbtype=="Linear"){
-        sliderInput("xgblambda", label="Lambda", min=0.1, max=1, step=0.1, value=selection)
+        sliderInput("xgblambda", label="Lambda", min=0, max=100, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Tree"){
         NULL
     } else if(radiocal==9 && xgbtype=="Linear"){
-        sliderInput("xgblambda", label="Lambda", min=0.1, max=1, step=0.1, value=selection)
+        sliderInput("xgblambda", label="Lambda", min=0, max=100, step=0.05, value=selection)
     }
 }
 
@@ -4396,11 +4396,11 @@ xgbSubSampleUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
-        sliderInput("xgbsubsample", label="Sub Sample", min=0.1, max=1, step=0.1, value=selection)
+        sliderInput("xgbsubsample", label="Sub Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==9 && xgbtype=="Tree"){
-        sliderInput("xgbsubsample", label="Sub Sample", min=0.1, max=1, step=0.1, value=selection)
+        sliderInput("xgbsubsample", label="Sub Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     }
@@ -4422,11 +4422,11 @@ xgbColSampleUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
-        sliderInput("xgbcolsample", label="Col Sample", min=0.1, max=1, step=0.1, value=selection)
+        sliderInput("xgbcolsample", label="Col Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==9 && xgbtype=="Tree"){
-        sliderInput("xgbcolsample", label="Col Sample", min=0.1, max=1, step=0.1, value=selection)
+        sliderInput("xgbcolsample", label="Col Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     }
@@ -4987,7 +4987,7 @@ valCurvePlotGen <- function(element, calibration, unit){
     return(valcurve.plot)
 }
 
-modelSummary <- function(element.model, element.name){
+modelSummaryPre <- function(element.model, element.name){
     
     model.class <- if(element.model[[1]][["CalTable"]]$CalType[1]==1){
         "Regression"
@@ -5018,10 +5018,18 @@ modelSummary <- function(element.model, element.name){
     data.frame(Element=element.name, R2=tryCatch(round(r2, 2), error=function(e) NULL), stringsAsFactors=FALSE)
 }
 
+modelSummary <- function(element.model, element.name){
+    if(is.null(element.model)){
+        data.frame(Element=element.name, R2=NA, stringsAsFactors=FALSE)
+    } else if(!is.null(element.model)){
+        modelSummaryPre(element.model=element.model, element.name=element.name)
+    }
+}
+
 calProgressSummary <- function(calList){
     element.names <- names(calList)
     
-    cal.results.list <- tryCatch(lapply(element.names, function(x) modelSummary(element.model=calList[[x]], element.name=x)), error=function(e) NULL)
+    cal.results.list <- lapply(element.names, function(x) modelSummary(element.model=calList[[x]], element.name=x))
     
     rbindlist(cal.results.list)
 }
