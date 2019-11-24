@@ -7821,7 +7821,7 @@ shinyServer(function(input, output, session) {
             inFile <- input$calfileinput_multi
             if (is.null(inFile)) return(NULL)
             
-            cal.list <- lapply(inFile$datapath, readRDS)
+            cal.list <- lapply(inFile$datapath, calRDS)
             names(cal.list) <- quantNames()
             
             cal.list

@@ -4297,11 +4297,11 @@ xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==8 && xgbtype=="Tree"){
         NULL
     } else if(radiocal==8 && xgbtype=="Linear"){
-        sliderInput("xgbalpha", label="Alpha", min=0, max=100, step=0.05, value=selection)
+        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Tree"){
         NULL
     } else if(radiocal==9 && xgbtype=="Linear"){
-        sliderInput("xgbalpha", label="Alpha", min=0, max=100, step=0.05, value=selection)
+        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
     }
 }
 
@@ -4321,11 +4321,11 @@ xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=100, step=0.05, value=selection)
+        sliderInput("xgbgamma", label="Gamma", min=0, max=10, step=0.05, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==9 && xgbtype=="Tree"){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=100, step=0.05, value=selection)
+        sliderInput("xgbgamma", label="Gamma", min=0, max=10, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     }
@@ -4372,11 +4372,11 @@ xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==8 && xgbtype=="Tree"){
         NULL
     } else if(radiocal==8 && xgbtype=="Linear"){
-        sliderInput("xgblambda", label="Lambda", min=0, max=100, step=0.05, value=selection)
+        sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Tree"){
         NULL
     } else if(radiocal==9 && xgbtype=="Linear"){
-        sliderInput("xgblambda", label="Lambda", min=0, max=100, step=0.05, value=selection)
+        sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
     }
 }
 
@@ -6754,7 +6754,7 @@ predictFrameCheck <- function(predict.frame){
     return(new.frame)
 }
 
-calRDS <- function(calibration.directory, null.strip=FALSE, temp=FALSE){
+calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE){
     Calibration <- readRDS(calibration.directory)
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
@@ -6788,6 +6788,16 @@ calRDS <- function(calibration.directory, null.strip=FALSE, temp=FALSE){
     
     if(null.strip==TRUE){
         null.list <- sapply(Calibration$calList, function(x) is.null(x[[2]]))
+        tryCatch(for(i in names(Calibration$calList)){
+            if(null.list[i]==TRUE){
+                Calibration$calList[[i]] <- NULL
+            }
+        }, error=function(e) NULL)
+
+    }
+    
+    if(null.strip==TRUE){
+        null.list <- sapply(Calibration$calList, function(x) is.null(x[[1]]$CalTable))
         tryCatch(for(i in names(Calibration$calList)){
             if(null.list[i]==TRUE){
                 Calibration$calList[[i]] <- NULL
