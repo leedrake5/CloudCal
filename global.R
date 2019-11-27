@@ -3938,6 +3938,55 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
     }
 }
 
+interceptUI <- function(radiocal=3, selection=NULL, elements){
+    
+
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        selectInput(inputId = "intercept_vars", label = "Intercept", choices=elements, selected=selection, multiple=TRUE)
+    } else if(radiocal==4){
+        selectInput(inputId = "intercept_vars", label = "Intercept", choices=elements, selected=selection, multiple=TRUE)
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        selectInput(inputId = "intercept_vars", label = "Intercept", choices=elements, selected=selection, multiple=TRUE)
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        selectInput(inputId = "intercept_vars", label = "Intercept", choices=elements, selected=selection, multiple=TRUE)
+    } else if(radiocal==9){
+        NULL
+    }
+}
+
+slopeUI <- function(radiocal=3, selection=NULL, elements){
+    
+    element.mod <- elements[!elements %in% selection]
+
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        selectInput(inputId = "slope_vars", label = "Slope", choices=elements.mod, selected=selection, multiple=TRUE)
+    } else if(radiocal==4){
+        selectInput(inputId = "slope_vars", label = "Slope", choices=elements.mod, selected=selection, multiple=TRUE)
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        selectInput(inputId = "slope_vars", label = "Slope", choices=elements.mod, selected=selection, multiple=TRUE)
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        selectInput(inputId = "slope_vars", label = "Slope", choices=elements.mod, selected=selection, multiple=TRUE)
+    } else if(radiocal==9){
+        NULL
+    }
+}
+
    
 
 forestTryUI <- function(radiocal=3, neuralhiddenlayers=NULL, selection=NULL, maxsample=NULL){
@@ -6940,4 +6989,64 @@ defaultCalList <- function(calibration, temp=FALSE){
 
     
     return(calibration)
+}
+
+valCurve <- function(element, unit="%", loglinear="Linear", val.frame, rangesvalcurve, usestandards=NULL){
+    element.name <- if(element %in% spectralLines){
+        gsub("[.]", "", substr(element, 1, 2))
+    } else {
+        element
+    }
+    intens <- " Counts per Second"
+    norma <- " Normalized"
+    norma.comp <- " Compton Normalized"
+    norma.tc <- " Valid Counts Normalized"
+    conen <- paste0(" ", unit)
+    predi <- paste0(" Estimate ", unit)
+    log <- "Log "
+    
+    intensity.name <- c(element.name, intens)
+    concentration.name <- c(element.name, conen)
+    prediction.name <- c(element.name, predi)
+    
+    usestandards <- if(is.null(usestandards)){
+        rep(TRUE, nrow(val.frame))
+    } else if(!is.null(usestandards)){
+        usestandards
+    }
+    
+    if(unit=="ppm"){
+        val.frame$Prediction = val.frame$Prediction*10000
+        val.frame$Concentration = val.frame$Concentration*10000
+    }
+    
+    valcurve.plot <- if(loglinear=="Linear"){
+        #tryCatch(
+        ggplot(data=val.frame[usestandards, , drop = FALSE], aes(Prediction, Concentration)) +
+        theme_light() +
+        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[usestandards, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
+        stat_smooth(method="lm") +
+        geom_point() +
+        geom_point(aes(Prediction, Concentration),  data = val.frame[!usestandards, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+        scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
+        scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+        coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = TRUE)
+        #, error=function(e) NULL)
+    } else if(loglinear=="Log"){
+        #tryCatch(
+        ggplot(data=val.frame[usestandards, , drop = FALSE], aes(Prediction, Concentration)) +
+        theme_light() +
+        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[usestandards, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+        geom_abline(intercept=0, slope=1, lty=2) +
+        stat_smooth(method="lm") +
+        geom_point() +
+        geom_point(aes(Prediction, Concentration),  data = val.frame[!usestandards, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+        scale_x_log10(paste("Log ", element.name, predi), breaks=scales::pretty_breaks()) +
+        scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+        coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = TRUE)
+        #, error=function(e) NULL)
+    }
+    
+    return(valcurve.plot)
 }
