@@ -2706,21 +2706,13 @@ shinyServer(function(input, output, session) {
         output$addallslopesui <- renderUI({
             req(input$radiocal)
             
-            if(input$radiocal==3 | input$radiocal==4 | input$radiocal==6 | input$radiocal==8){
-                actionButton(inputId = "addallslopes", label = "Add All Slopes")
-            } else if(input$radiocal!=3 | input$radiocal!=4 | input$radiocal!=6 | input$radiocal!=8){
-                NULL
-            }
+            addAllSlopeUI(radiocal=input$radiocal)
         })
         
         output$removeallslopesui <- renderUI({
             req(input$radiocal)
             
-            if(input$radiocal==3 | input$radiocal==4 | input$radiocal==6 | input$radiocal==8){
-                actionButton(inputId = "removeallslopes", label = "Remove All Slopes")
-            } else if(input$radiocal!=3 | input$radiocal!=4 | input$radiocal!=6 | input$radiocal!=8){
-                NULL
-            }
+            removeAllSlopeUI(radiocal=input$radiocal)
         })
         
 

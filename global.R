@@ -3964,7 +3964,7 @@ interceptUI <- function(radiocal=3, selection=NULL, elements){
 
 slopeUI <- function(radiocal=3, selection=NULL, elements){
     
-    element.mod <- elements[!elements %in% selection]
+    elements.mod <- elements
 
     if(radiocal==1){
         NULL
@@ -3983,6 +3983,22 @@ slopeUI <- function(radiocal=3, selection=NULL, elements){
     } else if(radiocal==8){
         selectInput(inputId = "slope_vars", label = "Slope", choices=elements.mod, selected=selection, multiple=TRUE)
     } else if(radiocal==9){
+        NULL
+    }
+}
+
+addAllSlopeUI <- function(radiocal=3){
+    if(radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8){
+        actionButton(inputId = "addallslopes", label = "Add All Slopes")
+    } else if(radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8){
+        NULL
+    }
+}
+
+removeAllSlopeUI <- function(radiocal=3){
+    if(radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8){
+        actionButton(inputId = "removeallslopes", label = "Remove All Slopes")
+    } else if(radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8){
         NULL
     }
 }
@@ -6803,6 +6819,33 @@ predictFrameCheck <- function(predict.frame){
     return(new.frame)
 }
 
+
+calPre <- function(element.model.list, element, temp){
+    
+    temp.list <- list(element.model.list)
+    names(temp.list) <- element
+    
+    new.element.model.list <- tryCatch(
+        list(Parameters=importCalConditions(element=element,
+        calList=temp.list, temp=temp),
+        Model=element.model.list[[2]]), error=function(e) NULL)
+        
+        if("ValidationSet" %in% names(element.model.list)){
+            new.element.model.list$ValidationSet <- element.model.list$ValidationSet
+        }
+        
+        if("Backup" %in% names(element.model.list)){
+            new.element.model.list$Backup <- element.model.list$Backup
+        }
+        
+        if("Score" %in% names(element.model.list)){
+            new.element.model.list$Score <- element.model.list$Score
+        }
+    
+    return(new.element.model.list)
+        
+}
+
 calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE){
     Calibration <- readRDS(calibration.directory)
     
@@ -6855,7 +6898,7 @@ calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE){
 
     }
     
-    calpre <- pblapply(names(Calibration[["calList"]]), function(x) tryCatch(list(Parameters=importCalConditions(element=x, calList=Calibration[["calList"]], temp=temp), Model=Calibration[["calList"]][[x]][[2]]), error=function(e) NULL))
+    calpre <- pblapply(names(Calibration[["calList"]]), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp), error=function(e) NULL))
     names(calpre) <- names(Calibration[["calList"]])
     
     Calibration$calList <- calpre
@@ -7016,8 +7059,8 @@ valCurve <- function(element, unit="%", loglinear="Linear", val.frame, rangesval
     }
     
     if(unit=="ppm"){
-        val.frame$Prediction = val.frame$Prediction*10000
-        val.frame$Concentration = val.frame$Concentration*10000
+        val.frame$Prediction <- val.frame$Prediction*10000
+        val.frame$Concentration <- val.frame$Concentration*10000
     }
     
     valcurve.plot <- if(loglinear=="Linear"){
