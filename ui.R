@@ -213,7 +213,7 @@ downloadButton('downloadData', "Table"),
 
 
 tags$hr(),
-
+uiOutput('linetypeui'),
 conditionalPanel(
 condition='input.dataset === dataHold()',
 uiOutput('checkboxElementsKalpha'),
@@ -232,8 +232,14 @@ mainPanel(
 tabsetPanel(
 id = 'dataset',
 tabPanel('Custom Lines', rHandsontableOutput('hotline')),
-tabPanel('Spectral Lines', dataTableOutput('mytable1')),
-tabPanel('Covariance', plotOutput('covarianceplot', height=800),
+tabPanel('Narrow Lines', dataTableOutput('mytable1')),
+tabPanel('Wide Lines', dataTableOutput('mytable2')),
+tabPanel('Covariance',
+tabsetPanel(
+    tabPanel('Narrow', plotOutput('covarianceplot', height=800)),
+    tabPanel('Wide', plotOutput('widecovarianceplot', height=800))
+),
+
 tags$hr(),
 checkboxInput('linecovarnumber', "Use Numbers", value=FALSE))
 #tabPanel("test", dataTableOutput('LineValues'))
@@ -311,8 +317,9 @@ tags$hr(),
 
 #uiOutput('testing'),
 
-
 uiOutput('inVar2'),
+
+uiOutput('linepreferenceelementui'),
 
 uiOutput('calTypeInput'),
 
@@ -716,7 +723,11 @@ tags$hr(),
 textInput('quantifiedname', label=NULL, placeholder="Data Label"),
 downloadButton('downloadValData', "Results")
 ),
-tabPanel('Counts', dataTableOutput('myvaltable1'))
+tabPanel('Counts',
+tabsetPanel(
+tabPanel('Narrow', dataTableOutput('myvaltable1')),
+tabPanel('Wide', dataTableOutput('myvaltablewide'))
+))
 
 ))
 ))
