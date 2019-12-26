@@ -5455,7 +5455,7 @@ chooseTransformation <- cmpfun(chooseTransformation)
 
 calBundle <- function(filetype, units, spectra, intensities, definitions, values, notes, calList, compress=FALSE){
     
-    list(FileType=filetype, Units=units, Spectra=spectra, Intensities=intensities, Definitions=definitions, Values=values, Notes=notes, calList=calListCompress(calList, compress=compress))
+    list(FileType=filetype, Units=units, Spectra=spectra, Intensities=intensities, Definitions=definitions, Values=values, Notes=notes, calList=calListCompress(calList))
     
 }
 
