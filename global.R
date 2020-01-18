@@ -6214,8 +6214,8 @@ calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE){
     
     
     extensions <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
-    Calibration[["Spectra"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=Calibration[["Spectra"]]$Spectrum)
-    Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=Calibration[["Values"]]$Spectrum)
+    Calibration[["Spectra"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Spectra"]]$Spectrum))
+    Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Values"]]$Spectrum))
 
     
     Calibration$Values <- valFrameCheck(Calibration$Values)
@@ -6354,11 +6354,14 @@ defaultCalList <- function(calibration, temp=FALSE){
     variables <- calibrationElements(calibration)
     
     for(i in variables){
-        if(i %in% names(calibration$calList)){
-            calibration$calList[[i]] <- calibration$calList[[i]]
-        } else if(!i %in% names(calibration$calList)){
-            calibration$calList[[i]] <- list(Parameters=deleteCalConditions(element=i), Model=lm(calibration$Values[,i]~calibration$Intensities[,i]), na.action=na.omit)
+        if(i %in% colnames(calibration$Intensities)){
+            if(i %in% names(calibration$calList)){
+                calibration$calList[[i]] <- calibration$calList[[i]]
+            } else if(!i %in% names(calibration$calList)){
+                calibration$calList[[i]] <- list(Parameters=deleteCalConditions(element=i), Model=lm(calibration$Values[,i]~calibration$Intensities[,i]), na.action=na.omit)
+            }
         }
+        
     }
     
     if(temp==TRUE){
