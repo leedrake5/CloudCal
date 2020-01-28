@@ -6195,12 +6195,20 @@ calPre <- function(element.model.list, element, temp){
         if("Score" %in% names(element.model.list)){
             new.element.model.list$Score <- element.model.list$Score
         }
+        
+        if("SystemicAdjust" %in% names(element.model.list)){
+            new.element.model.list$SystemicAdjust <- element.model.list$SystemicAdjust
+        }
+        
+        if(nrow(new.element.model.list$Parameters$CalTable)>1){
+            new.element.model.list$Parameters$CalTable <- new.element.model.list$Parameters$CalTable[!duplicated(new.element.model.list$Parameters$CalTable), ]
+        }
             
     return(new.element.model.list)
         
 }
 
-calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE){
+calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extensions=FALSE){
     Calibration <- readRDS(calibration.directory)
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
@@ -6212,10 +6220,12 @@ calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE){
     }
     
     
+    if(extensions==TRUE){
+        extensions <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
+        Calibration[["Spectra"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Spectra"]]$Spectrum))
+        Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Values"]]$Spectrum))
+    }
     
-    extensions <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
-    Calibration[["Spectra"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Spectra"]]$Spectrum))
-    Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Values"]]$Spectrum))
 
     
     Calibration$Values <- valFrameCheck(Calibration$Values)
