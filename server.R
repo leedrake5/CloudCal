@@ -2934,6 +2934,19 @@ shinyServer(function(input, output, session) {
             
         })
         
+        output$parallelmethodui <- renderUI({
+            
+            style <- if(get_os()=="windows"){
+                "Serialize"
+            } else if(get_os()=="osx"){
+                "Fork"
+            } else if(get_os()=="linux"){
+                "OpenMP"
+            }
+            
+            selectInput("parallelmethod", "Parallel Processing Type", choices=c("Serialize", "Fork", "OpenMP"), selected=style)
+        })
+        
         forestParameters <- reactive(label="forestParameters", {
             cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
                 foresthold$cvrepeats

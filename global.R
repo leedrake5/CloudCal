@@ -84,7 +84,7 @@ library(magrittr)
 library(Metrics)
 library(taRifx)
 library(strip)
-library(mgsub)
+tryCatch(library(mgsub), error=function(e) NULL)
 enableJIT(3)
 
 options(digits=12)
@@ -790,44 +790,65 @@ numericInputRow<-function (inputId, label, min, max,  value = "")
 }
 numericInputRow <- cmpfun(numericInputRow)
 
-
-
-diagPlot<-function(model){
+fitresid_resid <- function(model){
     p1<-ggplot(model, aes(as.vector(.fitted), as.vector(.resid)))+geom_point()
     p1<-p1+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
     p1<-p1+xlab("Fitted values")+ylab("Residuals")
     p1<-p1+ggtitle("Residual vs Fitted Plot")+theme_light()
-    
+    return(p1)
+}
+
+qq <- function(model){
     p2 <- ggplot(model, aes(qqnorm(.stdresid)[[1]], .stdresid))+geom_point(na.rm = TRUE)
     p2 <- p2+geom_abline()+xlab("Theoretical Quantiles")+ylab("Standardized Residuals")
     p2 <- p2+ggtitle("Normal Q-Q")+theme_bw()
-    p2
-    
+    return(p2)
+}
+
+scale_location <- function(model){
     p3<-ggplot(model, aes(as.vector(.fitted), sqrt(abs(as.vector(.stdresid)))))+geom_point(na.rm=TRUE)
     p3<-p3+stat_smooth(method="loess", na.rm = TRUE)+xlab("Fitted Value")
     p3<-p3+ylab(expression(sqrt("|Standardized residuals|")))
     p3<-p3+ggtitle("Scale-Location")+theme_light()
-    
+    return(p3)
+}
+
+cooksdist_bar <- function(model){
     p4<-ggplot(model, aes(seq_along(as.vector(.cooksd)), as.vector(.cooksd)))+geom_bar(stat="identity", position="identity")
     p4<-p4+xlab("Obs. Number")+ylab("Cook's distance")
     p4<-p4+ggtitle("Cook's distance")+theme_light()
-    
+    return(p4)
+}
+
+resid_leverage <- function(model){
     p5<-ggplot(model, aes(as.vector(.hat), as.vector(.stdresid)))+geom_point(aes(size=as.vector(.cooksd)), na.rm=TRUE)
     p5<-p5+stat_smooth(method="loess", na.rm=TRUE)
     p5<-p5+xlab("Leverage")+ylab("Standardized Residuals")
     p5<-p5+ggtitle("Residual vs Leverage Plot")
     p5<-p5+scale_size_continuous("Cook's Distance", range=c(1,5))
     p5<-p5+theme_light()+theme(legend.position="bottom")
-    
+    return(p5)
+}
+
+cooksdist_leverage <- function(model){
     p6<-ggplot(model, aes(as.vector(.hat), as.vector(.cooksd)))+geom_point(na.rm=TRUE)+stat_smooth(method="loess", na.rm=TRUE)
     p6<-p6+xlab("Leverage hii")+ylab("Cook's Distance")
     p6<-p6+ggtitle("Cook's dist vs Leverage hii/(1-hii)")
     p6<-p6+geom_abline(slope=seq(0,3,0.5), color="gray", linetype="dashed")
     p6<-p6+theme_light()
+    return(p6)
+}
+
+diagPlot<-function(model){
+    p1 <- fitresid_resid(model)
+    p2 <- qq(model)
+    p3 <- scale_location(model)
+    p4 <- cooksdist_bar(model)
+    p5 <- resid_leverage(model)
+    p6 <- cooksdist_leverage(model)
     
     return(list(rvfPlot=p1, qqPlot=p2, sclLocPlot=p3, cdPlot=p4, rvlevPlot=p5, cvlPlot=p6))
 }
-
 diagPlot <- cmpfun(diagPlot)
 
 

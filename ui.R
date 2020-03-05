@@ -586,7 +586,8 @@ uiOutput('comptonMinInput_multi'),
 uiOutput('comptonMaxInput_multi'),
 
 uiOutput('inVar3_multi'),
-uiOutput('inVar4_multi')
+uiOutput('inVar4_multi'),
+uiOutput('parallelmethodui')
 
 ),
 
