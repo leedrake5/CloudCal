@@ -25,7 +25,7 @@ new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.p
 if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
-list.of.packages <- c("mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip")
+list.of.packages <- c("mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE))
 
@@ -85,6 +85,10 @@ library(Metrics)
 library(taRifx)
 library(strip)
 tryCatch(library(mgsub), error=function(e) NULL)
+tryCatch(library(bartMachine), error=function(e) NULL)
+library(arm)
+library(brnn)
+library(kernlab)
 enableJIT(3)
 
 options(digits=12)
@@ -3180,6 +3184,15 @@ compressUI <- function(radiocal=3, selection=NULL){
         NULL
     } else if(radiocal==9){
         selectInput('compress', label="Compress", choices=c("100 eV", "50 eV", "25 eV"), selected=selection)
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        selectInput('compress', label="Compress", choices=c("100 eV", "50 eV", "25 eV"), selected=selection)
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        selectInput('compress', label="Compress", choices=c("100 eV", "50 eV", "25 eV"), selected=selection)
+
     }
 }
 
@@ -3209,6 +3222,14 @@ transformationUI <- function(radiocal=3, selection=NULL){
         NULL
     } else if(radiocal==9){
         selectInput('transformation', label="Spectra Transformation", choices=c("None", "Log", "e", "Velocity"), selected=selection)
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        selectInput('transformation', label="Spectra Transformation", choices=c("None", "Log", "e", "Velocity"), selected=selection)
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        selectInput('transformation', label="Spectra Transformation", choices=c("None", "Log", "e", "Velocity"), selected=selection)
     }
 }
 
@@ -3237,6 +3258,14 @@ dependentTransformationUI <- function(radiocal=3, selection=NULL){
     } else if(radiocal==8){
         selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
     } else if(radiocal==9){
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+    } else if(radiocal==10){
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+    } else if(radiocal==11){
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+    } else if(radiocal==12){
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+    } else if(radiocal==13){
         selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
     }
 }
@@ -3275,6 +3304,14 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
         NULL
     } else if(radiocal==9){
         sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step, value=selection)
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step, value=selection)
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step, value=selection)
     }
 }
 
@@ -3298,6 +3335,14 @@ interceptUI <- function(radiocal=3, selection=NULL, elements){
     } else if(radiocal==8){
         selectInput(inputId = "intercept_vars", label = "Intercept", choices=elements, selected=selection, multiple=TRUE)
     } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10){
+        selectInput(inputId = "intercept_vars", label = "Intercept", choices=elements, selected=selection, multiple=TRUE)
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        selectInput(inputId = "intercept_vars", label = "Intercept", choices=elements, selected=selection, multiple=TRUE)
+    } else if(radiocal==13){
         NULL
     }
 }
@@ -3324,21 +3369,29 @@ slopeUI <- function(radiocal=3, selection=NULL, elements){
         selectInput(inputId = "slope_vars", label = "Slope", choices=elements.mod, selected=selection, multiple=TRUE)
     } else if(radiocal==9){
         NULL
+    } else if(radiocal==10){
+        selectInput(inputId = "slope_vars", label = "Slope", choices=elements.mod, selected=selection, multiple=TRUE)
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        selectInput(inputId = "slope_vars", label = "Slope", choices=elements.mod, selected=selection, multiple=TRUE)
+    } else if(radiocal==13){
+        NULL
     }
 }
 
 addAllSlopeUI <- function(radiocal=3){
-    if(radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8){
+    if(radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
         actionButton(inputId = "addallslopes", label = "Add All Slopes")
-    } else if(radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8){
+    } else if(radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
         NULL
     }
 }
 
 removeAllSlopeUI <- function(radiocal=3){
-    if(radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8){
+    if(radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
         actionButton(inputId = "removeallslopes", label = "Remove All Slopes")
-    } else if(radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8){
+        } else if(radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
         NULL
     }
 }
@@ -3387,6 +3440,14 @@ forestTryUI <- function(radiocal=3, neuralhiddenlayers=NULL, selection=NULL, max
         NULL
     } else if(radiocal==9){
         NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+            NULL
+    } else if(radiocal==13){
+        NULL
     }
 }
 
@@ -3433,6 +3494,14 @@ forestMetricUI <- function(radiocal, selection){
         selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
     } else if(radiocal==9){
         selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
+    } else if(radiocal==10){
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
+    } else if(radiocal==11){
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
+    } else if(radiocal==12){
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
+    } else if(radiocal==13){
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
     }
 }
 
@@ -3454,6 +3523,14 @@ forestTrainUI <- function(radiocal, selection){
     } else if(radiocal==8){
         selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=selection)
     } else if(radiocal==9){
+        selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=selection)
+    } else if(radiocal==10){
+        selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=selection)
+    } else if(radiocal==11){
+        selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=selection)
+    } else if(radiocal==12){
+        selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=selection)
+    } else if(radiocal==13){
         selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV"), selected=selection)
     }
 }
@@ -3477,7 +3554,16 @@ forestNumberUI <- function(radiocal, selection){
         sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
     } else if(radiocal==9){
         sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+    } else if(radiocal==10){
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+    } else if(radiocal==11){
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+    } else if(radiocal==12){
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+    } else if(radiocal==13){
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
     }
+       
 }
 
 cvRepeatsUI <- function(radiocal, foresttrain, selection){
@@ -3511,6 +3597,22 @@ cvRepeatsUI <- function(radiocal, foresttrain, selection){
         sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
     } else if(radiocal==9 && foresttrain!="repeatedcv"){
         NULL
+    }  else if(radiocal==10 && foresttrain=="repeatedcv"){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==10 && foresttrain!="repeatedcv"){
+        NULL
+    } else if(radiocal==11 && foresttrain=="repeatedcv"){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==11 && foresttrain!="repeatedcv"){
+        NULL
+    } else if(radiocal==12 && foresttrain=="repeatedcv"){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==12 && foresttrain!="repeatedcv"){
+        NULL
+    } else if(radiocal==13 && foresttrain=="repeatedcv"){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==13 && foresttrain!="repeatedcv"){
+        NULL
     }
 }
 
@@ -3537,6 +3639,18 @@ forestTreesUI <- function(radiocal, selection, xgbtype="Tree"){
         sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
+    }  else if(radiocal==10 && xgbtype=="Tree"){
+        sliderInput("foresttrees", label="Trees", min=50, max=2000, value=selection)
+    } else if(radiocal==10 && xgbtype!="Tree"){
+        NULL
+    } else if(radiocal==11 && xgbtype=="Tree"){
+        sliderInput("foresttrees", label="Trees", min=50, max=2000, value=selection)
+    } else if(radiocal==11 && xgbtype!="Tree"){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
     }
 }
 
@@ -3559,10 +3673,18 @@ neuralHiddenLayersUI <- function(radiocal, selection){
         NULL
     } else if(radiocal==9){
         NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    }  else if(radiocal==13){
+        NULL
     }
 }
 
-neuralHiddenUnitsUi <- function(radiocal, selection){
+neuralHiddenUnitsUi <- function(radiocal, selection, xgbtype="Neural Net"){
     if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -3580,6 +3702,18 @@ neuralHiddenUnitsUi <- function(radiocal, selection){
     } else if(radiocal==8){
         NULL
     } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10 && xgbtype=="Neural Net"){
+        sliderInput("neuralhiddenunits", label="Neurons", min=1, max=10, value=selection)
+    } else if(radiocal==10 && xgbtype!="Neural Net"){
+        NULL
+    } else if(radiocal==11 && xgbtype=="Neural Net"){
+        sliderInput("neuralhiddenunits", label="Neurons", min=1, max=10, value=selection)
+    } else if(radiocal==11 && xgbtype!="Neural Net"){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    }  else if(radiocal==13){
         NULL
     }
 }
@@ -3607,6 +3741,14 @@ neuralWeightDecayUI <- function(radiocal, selection, neuralhiddenlayers){
         NULL
     } else if(radiocal==9){
         NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    }  else if(radiocal==13){
+        NULL
     }
 }
 
@@ -3632,6 +3774,14 @@ neuralMaxIterationsUI <- function(radiocal, selection, neuralhiddenlayers){
     } else if(radiocal==8){
         NULL
     } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    }  else if(radiocal==13){
         NULL
     }
 }
@@ -3659,6 +3809,14 @@ treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    }  else if(radiocal==13){
+        NULL
     }
 }
 
@@ -3678,9 +3836,19 @@ xgbTypeUI <- function(radiocal, selection){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8){
-        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Tree")
+        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Linear")
     } else if(radiocal==9){
-        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Tree")
+        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Linear")
+    } else if(radiocal==10){
+        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Linear", "Neural Net"), selected="Linear")
+    } else if(radiocal==11){
+        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Linear", "Neural Net"), selected="Linear")
+    } else if(radiocal==12){
+        #selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Exponential", "Radial", "Radial Cost", "Radial Sigma", "Boundrange String", "Spectrum String"), selected="Linear")
+        selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
+        } else if(radiocal==13){
+    } else if(radiocal==13){
+        selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
     }
 }
 
@@ -3707,6 +3875,18 @@ xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==9 && xgbtype=="Linear"){
         sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==10 && xgbtype=="Tree"){
+        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==10 && xgbtype!="Tree"){
+        NULL
+    } else if(radiocal==11 && xgbtype=="Tree"){
+        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==11 && xgbtype!="Tree"){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
     }
 }
 
@@ -3733,6 +3913,14 @@ xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
         sliderInput("xgbgamma", label="Gamma", min=0, max=10, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    }  else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
     }
 }
 
@@ -3755,7 +3943,14 @@ xgbEtaUI <- function(radiocal, selection){
         sliderInput("xgbeta", label="Eta", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==9){
         sliderInput("xgbeta", label="Eta", min=0.05, max=0.95, step=0.05, value=selection)
-        
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
     }
 }
 
@@ -3782,6 +3977,22 @@ xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==9 && xgbtype=="Linear"){
         sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        if(xgbtype=="Exponential" | xgbtype=="Spectrum String"){
+            sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
+        } else {
+            NULL
+        }
+    } else if(radiocal==13){
+        if(xgbtype=="Exponential" | xgbtype=="Spectrum String"){
+            sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
+        } else {
+            NULL
+        }
     }
 }
 
@@ -3807,6 +4018,14 @@ xgbSubSampleUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==9 && xgbtype=="Tree"){
         sliderInput("xgbsubsample", label="Sub Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
         NULL
     }
 }
@@ -3834,6 +4053,14 @@ xgbColSampleUI <- function(radiocal, selection, xgbtype="Tree"){
         sliderInput("xgbcolsample", label="Col Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
     }
 }
 
@@ -3860,6 +4087,300 @@ xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
         sliderInput("xgbminchild", label="Min Child", min=0, max=15, step=1, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
+dnorminv<-function(y) sqrt(-2*log(sqrt(2*pi)*y))
+
+bartKUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10 && xgbtype=="Tree"){
+        sliderInput("bartk", label="Prior Probability", min=61, max=99, step=1, value=selection)
+    } else if(radiocal==10 && xgbtype!="Tree"){
+        NULL
+    } else if(radiocal==11 && xgbtype=="Tree"){
+        sliderInput("bartk", label="Prior Probability", min=61, max=99, step=1, value=selection)
+    } else if(radiocal==11 && xgbtype!="Tree"){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
+bartBetaUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10 && xgbtype=="Tree"){
+        sliderInput("bartbeta", label="Beta", min=1, max=3, step=1, value=selection)
+    } else if(radiocal==10 && xgbtype!="Tree"){
+        NULL
+    } else if(radiocal==11 && xgbtype=="Tree"){
+        sliderInput("bartbeta", label="Beta", min=1, max=3, step=1, value=selection)
+    } else if(radiocal==11 && xgbtype!="Tree"){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
+bartNuUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10 && xgbtype=="Tree"){
+        sliderInput("bartnu", label="Degrees of Freedom", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==10 && xgbtype!="Tree"){
+        NULL
+    } else if(radiocal==11 && xgbtype=="Tree"){
+        sliderInput("bartnu", label="Degrees of Freedom", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==11 && xgbtype!="Tree"){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
+svmCUI <- function(radiocal, selection){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        sliderInput("svmc", label="Cost", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==13){
+        sliderInput("svmc", label="Cost", min=1, max=5, step=1, value=selection)
+    }
+}
+
+svmDegreeUI <- function(radiocal, selection, xgbtype="Linear"){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        if(xgbtype=="Polynomial"){
+            sliderInput("svmdegree", label="Degree", min=1, max=5, step=1, value=selection)
+        } else {
+            NULL
+        }
+    } else if(radiocal==13){
+        if(xgbtype=="Polynomial"){
+            sliderInput("svmdegree", label="Degree", min=1, max=5, step=1, value=selection)
+        } else {
+            NULL
+        }
+    }
+}
+
+svmScaleUI <- function(radiocal, selection, xgbtype="Linear"){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        if(xgbtype=="Polynomial"){
+            sliderInput("svmscale", label="Scale", min=1, max=5, step=1, value=selection)
+        } else {
+            NULL
+        }
+    } else if(radiocal==13){
+        if(xgbtype=="Polynomial"){
+            sliderInput("svmscale", label="Scale", min=1, max=5, step=1, value=selection)
+        } else {
+            NULL
+        }
+    }
+}
+
+svmSigmaUI <- function(radiocal, selection, xgbtype="Linear"){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        if(xgbtype=="Radial" | xgbtype=="Radial Cost" | xgbtype=="Radial Sigma"){
+            sliderInput("svmsigma", label="Sigma", min=1, max=5, step=1, value=selection)
+        } else {
+            NULL
+        }
+    } else if(radiocal==13){
+        if(xgbtype=="Radial" | xgbtype=="Radial Cost" | xgbtype=="Radial Sigma"){
+            sliderInput("svmsigma", label="Sigma", min=1, max=5, step=1, value=selection)
+        } else {
+            NULL
+        }
+    }
+}
+
+svmLengthUI <- function(radiocal, selection, xgbtype="Linear"){
+    if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        if(xgbtype=="Boundrange String"){
+            sliderInput("svmlength", label="Length", min=1, max=5, step=1, value=selection)
+        } else {
+            NULL
+        }
+    } else if(radiocal==13){
+        if(xgbtype=="Boundrange String"){
+            sliderInput("svmlength", label="Length", min=1, max=5, step=1, value=selection)
+        } else {
+            NULL
+        }
     }
 }
 
@@ -4137,6 +4658,18 @@ predictFrame <- function(cal.type, spectra){
         predictFrameForest()
     } else if(input$radiocal==7){
         rainforestData()
+    } else if(input$radiocal==8){
+        predictFrameForest()
+    } else if(input$radiocal==9){
+        rainforestData()
+    } else if(input$radiocal==10){
+        predictFrameForest()
+    } else if(input$radiocal==11){
+        rainforestData()
+    } else if(input$radiocal==12){
+        predictFrameForest()
+    } else if(input$radiocal==13){
+        rainforestData()
     }
 }
 
@@ -4412,6 +4945,14 @@ modelSummaryPre <- function(element.model, element.name){
         "Caret"
     } else if(element.model[[1]][["CalTable"]]$CalType[1]==9){
         "Caret"
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==10){
+        "Caret"
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==11){
+        "Caret"
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==12){
+        "Caret"
+    } else if(element.model[[1]][["CalTable"]]$CalType[1]==13){
+        "Caret"
     }
     
     r2 <- if(model.class=="Regression"){
@@ -4439,7 +4980,7 @@ calProgressSummary <- function(calList){
     rbindlist(cal.results.list)
 }
 
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -4609,6 +5150,54 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, tra
         xgbminchild
     }
     
+    bartk <- if(is.null(bartk)){
+        "95-95"
+    } else if(!is.null(bartk)){
+        bartk
+    }
+    
+    bartbeta <- if(is.null(bartbeta)){
+        "2-2"
+    } else if(!is.null(bartbeta)){
+        bartbeta
+    }
+    
+    bartnu <- if(is.null(bartnu)){
+        "2-2"
+    } else if(!is.null(bartnu)){
+        bartnu
+    }
+    
+    svmc <- if(is.null(svmc)){
+        "2-2"
+    } else if(!is.null(svmc)){
+        svmc
+    }
+    
+    svmdegree <- if(is.null(svmdegree)){
+        "2-2"
+    } else if(!is.null(svmdegree)){
+        svmdegree
+    }
+    
+    svmscale <- if(is.null(svmscale)){
+        "2-2"
+    } else if(!is.null(svmscale)){
+        svmscale
+    }
+    
+    svmsigma <- if(is.null(svmsigma)){
+        "2-2"
+    } else if(!is.null(svmsigma)){
+        svmsigma
+    }
+    
+    svmlength <- if(is.null(svmlength)){
+        "2-2"
+    } else if(!is.null(svmlength)){
+        svmlength
+    }
+    
     
     
     cal.table <- data.frame(
@@ -4640,13 +5229,21 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, tra
                 xgbSubSample=xgbsubsample,
                 xgbColSample=xgbcolsample,
                 xgbMinChild=xgbminchild,
+                bartK=bartk,
+                bartBeta=bartbeta,
+                bartNu=bartnu,
+                svmC=svmc,
+                svmDegree=svmdegree,
+                svmScale=svmscale,
+                svmSigma=svmsigma,
+                svmLength=svmlength,
                 stringsAsFactors=FALSE)
                     
         return(cal.table)
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -4677,6 +5274,14 @@ calConditionsList <- function(cal.type=NULL, line.type=NULL, compress=NULL, tran
                 xgbSubSample=xgbsubsample,
                 xgbColSample=xgbcolsample,
                 xgbMinChild=xgbminchild,
+                bartK=bartk,
+                bartBeta=bartbeta,
+                bartNu=bartnu,
+                svmC=svmc,
+                svmDegree=svmdegree,
+                svmScale=svmscale,
+                svmSigma=svmsigma,
+                svmLength=svmlength,
                 stringsAsFactors=FALSE)
                 
                 cal.mode.list <- list(
@@ -4725,7 +5330,15 @@ deleteCalConditions <- function(element, number.of.standards){
     xgbsubsample <- as.character("0.6-0.6")
     xgbcolsample <- as.character("0.6-0.6")
     xgbminchild <- as.numeric(1)
-    
+    bartk <- as.character("95-95")
+    bartbeta <- as.character("2-2")
+    bartnu <- as.character("2-2")
+    svmc <- as.character("2-2")
+    svmdegree <- as.character("2-2")
+    svmscale <- as.character("2-2")
+    svmsigma <- as.character("2-2")
+    svmlength <- as.character("2-2")
+
     cal.table <- data.frame(
     CalType=cal.condition,
     LineType=line.type,
@@ -4755,6 +5368,14 @@ deleteCalConditions <- function(element, number.of.standards){
     xgbSubSample=xgbsubsample,
     xgbColSample=xgbcolsample,
     xgbMinChild=xgbminchild,
+    bartK=bartk,
+    bartBeta=bartbeta,
+    bartNu=bartnu,
+    svmC=svmc,
+    svmDegree=svmdegree,
+    svmScale=svmscale,
+    svmSigma=svmsigma,
+    svmLength=svmlength,
     Delete=TRUE,
     stringsAsFactors=FALSE)
     
@@ -4800,6 +5421,14 @@ defaultCalConditions <- function(element, number.of.standards){
     xgbsubsample <- as.character("0.6-0.6")
     xgbcolsample <- as.character("0.6-0.6")
     xgbminchild <- as.numeric(1)
+    bartk <- as.character("95-95")
+    bartbeta <- as.character("2-2")
+    bartnu <- as.character("2-2")
+    svmc <- as.character("2-2")
+    svmdegree <- as.character("2-2")
+    svmscale <- as.character("2-2")
+    svmsigma <- as.character("2-2")
+    svmlength <- as.character("2-2")
     
     cal.table <- data.frame(
         CalType=cal.condition,
@@ -4830,6 +5459,14 @@ defaultCalConditions <- function(element, number.of.standards){
         xgbSubSample=xgbsubsample,
         xgbColSample=xgbcolsample,
         xgbMinChild=xgbminchild,
+        bartK=bartk,
+        bartBeta=bartbeta,
+        bartNu=bartnu,
+        svmC=svmc,
+        svmDegree=svmdegree,
+        svmScale=svmscale,
+        svmSigma=svmsigma,
+        svmLength=svmlength,
         stringsAsFactors=FALSE)
     
     slope.corrections <- element
@@ -5069,6 +5706,114 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         default.cal.conditions$CalTable$xgbMinChild
     }
     
+    bartk <- if("bartK" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
+            paste0(calList[[element]][[2]]$bestTune$k, "-", calList[[element]][[2]]$bestTune$k)
+        } else if(!cal.condition==10 | !cal.condition==11){
+            as.character(imported.cal.conditions$CalTable$bartK[1])
+        }
+    } else if(!"bartK" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$bartK
+    }
+    
+    bartbeta <- if("bartBeta" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
+            paste0(calList[[element]][[2]]$bestTune$beta, "-", calList[[element]][[2]]$bestTune$beta)
+        } else if(!cal.condition==10 | !cal.condition==11){
+            as.character(imported.cal.conditions$CalTable$bartBeta[1])
+        }
+    } else if(!"bartBeta" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$bartBeta
+    }
+    
+    bartnu <- if("bartNu" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
+            paste0(calList[[element]][[2]]$bestTune$nu, "-", calList[[element]][[2]]$bestTune$nu)
+        } else if(!cal.condition==10 | !cal.condition==11){
+            as.character(imported.cal.conditions$CalTable$bartNu[1])
+        }
+    } else if(!"bartNu" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$bartNu
+    }
+    
+    svmc <- if("svmC" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==12 | cal.condition==13){
+            if("C" %in% names(calList[[element]][[2]]$bestTune)){
+                paste0(calList[[element]][[2]]$bestTune$C, "-", calList[[element]][[2]]$bestTune$C)
+            } else {
+                as.character(imported.cal.conditions$CalTable$svmC[1])
+            }
+        } else if(cal.condition==12 | cal.condition==13){
+            as.character(imported.cal.conditions$CalTable$svmC[1])
+        }
+    } else if(!"svmC" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$svmC
+    }
+    
+    svmdegree <- if("svmDegree" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==12 | cal.condition==13 && xgbtype=="Polynomial"){
+            if("degree" %in% names(calList[[element]][[2]]$bestTune)){
+                paste0(calList[[element]][[2]]$bestTune$degree, "-", calList[[element]][[2]]$bestTune$degree)
+            } else {
+                as.character(imported.cal.conditions$CalTable$svmDegree[1])
+            }
+        } else if(!cal.condition==12 | !cal.condition==13){
+            as.character(imported.cal.conditions$CalTable$svmDegree[1])
+        }
+    } else if(!"svmDegree" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$svmDegree
+    }
+    
+    svmscale <- if("svmScale" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==12 | cal.condition==13 && xgbtype=="Polynomial"){
+            if("scale" %in% names(calList[[element]][[2]]$bestTune)){
+                paste0(calList[[element]][[2]]$bestTune$scale, "-", calList[[element]][[2]]$bestTune$scale)
+            } else {
+                as.character(imported.cal.conditions$CalTable$svmScale[1])
+            }
+        } else if(!cal.condition==12 | !cal.condition==13){
+            as.character(imported.cal.conditions$CalTable$svmScale[1])
+        }
+    } else if(!"svmScale" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$svmScale
+    }
+    
+    svmsigma <- if("svmSigma" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==12 | cal.condition==13){
+            if(xgbtype=="Radial" | xgbtype=="Radial Cost" | xgbtype=="Radial Sigma"){
+                if("sigma" %in% names(calList[[element]][[2]]$bestTune)){
+                    paste0(calList[[element]][[2]]$bestTune$sigma, "-", calList[[element]][[2]]$bestTune$sigma)
+                } else {
+                    as.character(imported.cal.conditions$CalTable$svmSigma[1])
+                }
+            } else {
+                as.character(imported.cal.conditions$CalTable$svmSigma[1])
+            }
+        } else if(!cal.condition==12 | !cal.condition==13){
+            as.character(imported.cal.conditions$CalTable$svmSigma[1])
+        }
+    } else if(!"svmSigma" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$svmSigma
+    }
+    
+    svmlength <- if("svmLength" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==12 | cal.condition==13){
+            if(xgbtype=="Boundrange String"){
+                if("length" %in% names(calList[[element]][[2]]$bestTune)){
+                    paste0(calList[[element]][[2]]$bestTune$length, "-", calList[[element]][[2]]$bestTune$length)
+                } else {
+                    as.character(imported.cal.conditions$CalTable$svmLength[1])
+                }
+            } else {
+                as.character(imported.cal.conditions$CalTable$svmLength[1])
+            }
+        } else if(!cal.condition==12 | !cal.condition==13){
+            as.character(imported.cal.conditions$CalTable$svmLength[1])
+        }
+    } else if(!"svmLength" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$svmLength
+    }
+    
     slope.corrections <- if("Slope" %in% names(imported.cal.conditions)){
         if(is.null(imported.cal.conditions$Slope)){
             default.cal.conditions$Slope
@@ -5120,6 +5865,14 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         xgbSubSample=xgbsubsample,
         xgbColSample=xgbcolsample,
         xgbMinChild=xgbminchild,
+        bartK=bartk,
+        bartBeta=bartbeta,
+        bartNu=bartnu,
+        svmC=svmc,
+        svmDegree=svmdegree,
+        svmScale=svmscale,
+        svmSigma=svmsigma,
+        svmLength=svmlength,
         stringsAsFactors=FALSE)
         
         cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
@@ -5351,6 +6104,114 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         default.cal.conditions$CalTable$xgbMinChild
     }
     
+    bartk <- if("bartK" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
+            paste0(calList[[element]][[2]]$bestTune$k, "-", calList[[element]][[2]]$bestTune$k)
+        } else if(!cal.condition==10 | !cal.condition==11){
+            as.character(imported.cal.conditions$CalTable$bartK[1])
+        }
+    } else if(!"bartK" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$bartK
+    }
+    
+    bartbeta <- if("bartBeta" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
+            paste0(calList[[element]][[2]]$bestTune$beta, "-", calList[[element]][[2]]$bestTune$beta)
+        } else if(!cal.condition==10 | !cal.condition==11){
+            as.character(imported.cal.conditions$CalTable$bartBeta[1])
+        }
+    } else if(!"bartBeta" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$bartBeta
+    }
+    
+    bartnu <- if("bartNu" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
+            paste0(calList[[element]][[2]]$bestTune$nu, "-", calList[[element]][[2]]$bestTune$nu)
+        } else if(!cal.condition==10 | !cal.condition==11){
+            as.character(imported.cal.conditions$CalTable$bartNu[1])
+        }
+    } else if(!"bartNu" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$bartNu
+    }
+    
+    svmc <- if("svmC" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==12 | cal.condition==13){
+            if("C" %in% names(calList[[element]][[2]]$bestTune)){
+                paste0(calList[[element]][[2]]$bestTune$C, "-", calList[[element]][[2]]$bestTune$C)
+            } else {
+                as.character(imported.cal.conditions$CalTable$svmC[1])
+            }
+        } else if(cal.condition==12 | cal.condition==13){
+            as.character(imported.cal.conditions$CalTable$svmC[1])
+        }
+    } else if(!"svmC" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$svmC
+    }
+    
+    svmdegree <- if("svmDegree" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==12 | cal.condition==13 && xgbtype=="Polynomial"){
+            if("degree" %in% names(calList[[element]][[2]]$bestTune)){
+                paste0(calList[[element]][[2]]$bestTune$degree, "-", calList[[element]][[2]]$bestTune$degree)
+            } else {
+                as.character(imported.cal.conditions$CalTable$svmDegree[1])
+            }
+        } else if(!cal.condition==12 | !cal.condition==13){
+            as.character(imported.cal.conditions$CalTable$svmDegree[1])
+        }
+    } else if(!"svmDegree" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$svmDegree
+    }
+    
+    svmscale <- if("svmScale" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==12 | cal.condition==13 && xgbtype=="Polynomial"){
+            if("scale" %in% names(calList[[element]][[2]]$bestTune)){
+                paste0(calList[[element]][[2]]$bestTune$scale, "-", calList[[element]][[2]]$bestTune$scale)
+            } else {
+                as.character(imported.cal.conditions$CalTable$svmScale[1])
+            }
+        } else if(!cal.condition==12 | !cal.condition==13){
+            as.character(imported.cal.conditions$CalTable$svmScale[1])
+        }
+    } else if(!"svmScale" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$svmScale
+    }
+    
+    svmsigma <- if("svmSigma" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==12 | cal.condition==13){
+            if(xgbtype=="Radial" | xgbtype=="Radial Cost" | xgbtype=="Radial Sigma"){
+                if("sigma" %in% names(calList[[element]][[2]]$bestTune)){
+                    paste0(calList[[element]][[2]]$bestTune$sigma, "-", calList[[element]][[2]]$bestTune$sigma)
+                } else {
+                    as.character(imported.cal.conditions$CalTable$svmSigma[1])
+                }
+            } else {
+                as.character(imported.cal.conditions$CalTable$svmSigma[1])
+            }
+        } else if(!cal.condition==12 | !cal.condition==13){
+            as.character(imported.cal.conditions$CalTable$svmSigma[1])
+        }
+    } else if(!"svmSigma" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$svmSigma
+    }
+    
+    svmlength <- if("svmLength" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==12 | cal.condition==13){
+            if(xgbtype=="Boundrange String"){
+                if("length" %in% names(calList[[element]][[2]]$bestTune)){
+                    paste0(calList[[element]][[2]]$bestTune$length, "-", calList[[element]][[2]]$bestTune$length)
+                } else {
+                    as.character(imported.cal.conditions$CalTable$svmLength[1])
+                }
+            } else {
+                as.character(imported.cal.conditions$CalTable$svmLength[1])
+            }
+        } else if(!cal.condition==12 | !cal.condition==13){
+            as.character(imported.cal.conditions$CalTable$svmLength[1])
+        }
+    } else if(!"svmLength" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$svmLength
+    }
+    
     slope.corrections <- if("Slope" %in% names(imported.cal.conditions)){
         if(is.null(imported.cal.conditions$Slope)){
             default.cal.conditions$Slope
@@ -5402,6 +6263,14 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     xgbSubSample=xgbsubsample,
     xgbColSample=xgbcolsample,
     xgbMinChild=xgbminchild,
+    bartK=bartk,
+    bartBeta=bartbeta,
+    bartNu=bartnu,
+    svmC=svmc,
+    svmDegree=svmdegree,
+    svmScale=svmscale,
+    svmSigma=svmsigma,
+    svmLength=svmlength,
     stringsAsFactors=FALSE)
     
     if(temp==TRUE){
@@ -5862,6 +6731,160 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
                 )
+            } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=spectra_simp_prep_xrf(spectra=valdata,
+                    energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                    energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                    compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                    transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                    )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf(
+                    spectra.line.table=as.data.frame(
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_tc_prep_xrf(
+                    data=valdata,
+                    spectra.line.table=as.data.frame(
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf(
+                    data=valdata,
+                    spectra.line.table=as.data.frame(
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_simp_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
+            } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                )
             } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
@@ -6070,8 +7093,93 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
             )
-        }
-        #, error=function(e) NULL)
+        }  else if(val.data.type=="Net" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf_net(
+                    spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+            )
+        } else if(val.data.type=="Net" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_tc_prep_xrf_net(
+                    data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]]
+                            ),
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+            )
+        } else if(val.data.type=="Net" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf_net(
+                data=valdata,
+                    spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]]
+                            ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+            )
+        }  else if(val.data.type=="Net" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf_net(
+                    spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+            )
+        } else if(val.data.type=="Net" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_tc_prep_xrf_net(
+                    data=valdata,
+                        spectra.line.table=as.data.frame(
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]]
+                            ),
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+            )
+        } else if(val.data.type=="Net" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf_net(
+                data=valdata,
+                    spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]]
+                            ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+            )
+        }        #, error=function(e) NULL)
         if(!is.null(values)){
             predicted.frame$hold <- values
             colnames(predicted.frame)[which(names(predicted.frame) == "hold")] <- x
@@ -6196,10 +7304,12 @@ calPre <- function(element.model.list, element, temp){
     temp.list <- list(element.model.list)
     names(temp.list) <- element
     
-    new.element.model.list <- tryCatch(
+    new.element.model.list <-
+    #tryCatch(
         list(Parameters=importCalConditions(element=element,
         calList=temp.list, temp=temp),
-        Model=element.model.list[[2]]), error=function(e) NULL)
+        Model=element.model.list[[2]])
+        #, error=function(e) NULL)
         
         if(is.na(new.element.model.list$Parameters$CalTable$LineType[1])){
             new.element.model.list$Parameters$CalTable$LineType[1] <- "Narrow"
@@ -6353,6 +7463,14 @@ modelPackPre <- function(parameters, model, compress=TRUE){
         } else if(parameters$CalTable$CalType==8){
             strip_glm(model)
         } else if(parameters$CalTable$CalType==9){
+            strip_glm(model)
+        } else if(parameters$CalTable$CalType==10){
+            strip_glm(model)
+        } else if(parameters$CalTable$CalType==11){
+            strip_glm(model)
+        } else if(parameters$CalTable$CalType==12){
+            strip_glm(model)
+        } else if(parameters$CalTable$CalType==13){
             strip_glm(model)
         }
     } else if(compress==FALSE){

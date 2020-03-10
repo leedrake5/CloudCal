@@ -311,7 +311,7 @@ checkboxInput('modelcompress', label="Reduce Fie Size", value=TRUE),
 
 tags$hr(),
 
-actionButton('trainslopes', "Train"),
+#actionButton('trainslopes', "Train"),
 
 tags$hr(),
 
@@ -361,6 +361,22 @@ uiOutput('xgbcolsampleui'),
 
 uiOutput('xgbminchildui'),
 
+uiOutput('bartkui'),
+
+uiOutput('bartbetaui'),
+
+uiOutput('bartnuui'),
+
+uiOutput('svmcui'),
+
+uiOutput('svmdegreeui'),
+
+uiOutput('svmscaleui'),
+
+uiOutput('svmsigmaui'),
+
+uiOutput('svmlengthui'),
+
 uiOutput('normTypeInput'),
 
 uiOutput('comptonMinInput'),
@@ -384,7 +400,7 @@ uiOutput('removeallslopesui')
 mainPanel(
 tabsetPanel(
 #tabPanel("Testing", dataTableOutput('testingagain')),
-#stabPanel("Testing2", dataTableOutput('weird')),
+#tabPanel("Testing2", dataTableOutput('weird')),
 tabPanel("Cal Curves",
     splitLayout(cellWidths = c("50%", "50%"),
         column(width=12,

@@ -17,9 +17,9 @@ library(scales)
 library(caret)
 library(randomForest)
 library(DescTools)
-library(prospectr)
+#library(prospectr)
 library(pls)
-library(baseline)
+#library(baseline)
 library(doParallel)
 pdf(NULL)
 
@@ -1986,6 +1986,18 @@ shinyServer(function(input, output, session) {
             calConditions$hold[["CalTable"]]$xgbMinChild <<- as.numeric(input$xgbminchild)
         })
         
+        observeEvent(input$bartk, {
+            calConditions$hold[["CalTable"]]$bartK <<- paste0(input$bartk[1], "-", input$bartk[2])
+        })
+        
+        observeEvent(input$bartbeta, {
+            calConditions$hold[["CalTable"]]$bartBeta <<- paste0(input$bartbeta[1], "-", input$bartbeta[2])
+        })
+        
+        observeEvent(input$bartnu, {
+            calConditions$hold[["CalTable"]]$bartNu <<- paste0(input$bartnu[1], "-", input$bartnu[2])
+        })
+        
         
         calFileStandards <- reactive({
             if(is.null((input$calcurveelement))){
@@ -2290,9 +2302,9 @@ shinyServer(function(input, output, session) {
         output$inVar3 <- renderUI({
             req(input$radiocal)
             
-            if(input$radiocal==3 | input$radiocal==4 | input$radiocal==6 | input$radiocal==8){
+            if(input$radiocal==3 | input$radiocal==4 | input$radiocal==6 | input$radiocal==8 | input$radiocal==10 | input$radiocal==12){
                 selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt2(), selected=inVar3Selected(), multiple=TRUE)
-            } else if(input$radiocal!=3 | input$radiocal!=4 | input$radiocal!=6 | input$radiocal!=8){
+            } else if(input$radiocal!=3 | input$radiocal!=4 | input$radiocal!=6 | input$radiocal!=8 | input$radiocal!=10 | input$radiocal!=12){
                 NULL
             }
         })
@@ -2796,9 +2808,9 @@ shinyServer(function(input, output, session) {
         output$inVar4 <- renderUI({
             req(input$radiocal)
             
-            if(input$radiocal==3 | input$radiocal==4 | input$radiocal==6 | input$radiocal==8){
+            if(input$radiocal==3 | input$radiocal==4 | input$radiocal==6 | input$radiocal==8 | input$radiocal==10 | input$radiocal==12){
                 selectInput(inputId = "slope_vars", label = h4("Slope"), choices =  outVaralt(), selected=inVar4Selected(), multiple=TRUE)
-            } else if(input$radiocal!=3 | input$radiocal!=4 | input$radiocal!=6 | input$radiocal!=8){
+            } else if(input$radiocal!=3 | input$radiocal!=4 | input$radiocal!=6 | input$radiocal!=8 | input$radiocal!=10 | input$radiocal!=12){
                 NULL
             }
         })
@@ -2854,7 +2866,7 @@ shinyServer(function(input, output, session) {
         output$calTypeInput <- renderUI({
             req(input$calcurveelement)
             selectInput("radiocal", label = "Calibration Curve",
-            choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3, "Forest" = 4, "Rainforest"=5, "Neural Network Intensities"=6, "Neural Network Spectra"=7, "XGBoost Intensities"=8, "XGBoost Spectra"=9),
+            choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3, "Forest" = 4, "Rainforest"=5, "Neural Network Intensities"=6, "Neural Network Spectra"=7, "XGBoost Intensities"=8, "XGBoost Spectra"=9, "Bayes Intensities"=10, "Bayes Spectra"=11, "Support Vector Intensities"=12, "Support Vector Spectra"=13),
             selected = calTypeSelection())
             
             
@@ -2890,7 +2902,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- linearModelSet()$data[linearModelSet()$parameters$StandardsUsed,]
             
-            l.model <- tryCatch(lm(Concentration~Intensity, data=predict.frame, na.action=na.omit), error=function(e) NULL)
+            l.model <- lm(Concentration~Intensity, data=predict.frame, na.action=na.omit)
             
             l.model
             
@@ -2909,7 +2921,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- nonLinearModelSet()$data[nonLinearModelSet()$parameters$StandardsUsed,]
             
-            nl.model <- tryCatch(lm(Concentration~Intensity + I(Intensity^2), data=predict.frame, na.action=na.omit), error=function(e) NULL)
+            nl.model <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame, na.action=na.omit)
             
             nl.model
             
@@ -2928,8 +2940,8 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- lucasToothModelSet()$data[lucasToothModelSet()$parameters$StandardsUsed,]
             
-            lc.model <- tryCatch(lm(Concentration~., data=predict.frame, na.action=na.omit), error=function(e) NULL)
-
+            lc.model <- lm(Concentration~., data=predict.frame, na.action=na.omit)
+            
             lc.model
             
         })
@@ -2999,9 +3011,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            rf_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression",
-            trControl=tune_control, ntree=parameters$ForestTrees,
-            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
+            rf_model <- caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
             
             stopCluster(cl)
             rf_model
@@ -3066,9 +3076,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            rf_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression",
-            trControl=tune_control, ntree=parameters$ForestTrees,
-            prox=TRUE,allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE), error=function(e) NULL)
+            rf_model <- caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
             
             
             stopCluster(cl)
@@ -3137,7 +3145,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
+            nn_model <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
             
             
             stopCluster(cl)
@@ -3304,7 +3312,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            nn_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
+            nn_model <- caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
             
             
             stopCluster(cl)
@@ -3385,7 +3393,8 @@ shinyServer(function(input, output, session) {
             registerDoParallel(cl)
             
             f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
-            nn_model <- tryCatch(caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
+            
+            nn_model <- caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
             
             
             stopCluster(cl)
@@ -3422,7 +3431,7 @@ shinyServer(function(input, output, session) {
             gamma <- xgboostGammaSelection()
             subsample <- xgboostSubSampleSelection()
             colsample <- xgboostColSampleSelection()
-            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=xgboostMinChildSelection()), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=xgboostMinChildSelection()), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
         })
         xgbtreeIntensityModelData <- reactive(label="xgboostIntensityModelData", {
             predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=xgbtreeIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=xgbtreeIntensityParameters()$Intercept, slopes=xgbtreeIntensityParameters()$Slope, norm.type=xgbtreeIntensityParameters()$CalTable$NormType, norm.min=xgbtreeIntensityParameters()$CalTable$Min, norm.max=xgbtreeIntensityParameters()$CalTable$Max, data.type=dataType())
@@ -3503,10 +3512,10 @@ shinyServer(function(input, output, session) {
                     parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoParallel(cl)
-                xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
                 stopCluster(cl)
             } else if(get_os()=="linux"){
-                xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
             }
             
             xgb_model
@@ -3522,7 +3531,7 @@ shinyServer(function(input, output, session) {
             eta <- xgboostEtaSelection()
             alpha <- xgboostAlphaSelection()
             lambda <- xgboostLambdaSelection()
-            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgblambda=paste0(lambda[1], "-", lambda[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgblambda=paste0(lambda[1], "-", lambda[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
         })
         xgblinearIntensityModelData <- reactive(label="xgblinearIntensityModelData", {
             predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=xgblinearIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=xgblinearIntensityParameters()$Intercept, slopes=xgblinearIntensityParameters()$Slope, norm.type=xgblinearIntensityParameters()$CalTable$NormType, norm.min=xgblinearIntensityParameters()$CalTable$Min, norm.max=xgblinearIntensityParameters()$CalTable$Max, data.type=dataType())
@@ -3597,10 +3606,10 @@ shinyServer(function(input, output, session) {
                     parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoParallel(cl)
-                xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
                 stopCluster(cl)
             } else if(get_os()=="linux"){
-                xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
             }
             
             xgb_model
@@ -3616,7 +3625,7 @@ shinyServer(function(input, output, session) {
             }
         })
         
-        xgboostIntensityModel <- reactive({
+        xgboostIntensityModel <- reactive(label="xgboostIntensityModel", {
             
             if(xgboosthold$xgbtype=="Tree"){
                 xgbtreeIntensityModel()
@@ -3638,7 +3647,7 @@ shinyServer(function(input, output, session) {
             gamma <- xgboostGammaSelection()
             subsample <- xgboostSubSampleSelection()
             colsample <- xgboostColSampleSelection()
-            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=xgboostMinChildSelection()), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=xgboostMinChildSelection()), StandardsUsed=vals$keeprows)
         })
         xgbtreeSpectraModelData <- reactive(label="xgbtreeSpectraModelData", {
             rainforestDataGen(spectra=dataNormCal(), compress=xgbtreeSpectraParameters()$CalTable$Compress, transformation=xgbtreeSpectraParameters()$CalTable$Transformation, dependent.transformation=xgbtreeSpectraParameters()$CalTable$DepTrans,  energy.range=as.numeric(unlist(strsplit(as.character(xgbtreeSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=xgbtreeSpectraParameters()$CalTable$NormType, norm.min=xgbtreeSpectraParameters()$CalTable$Min, norm.max=xgbtreeSpectraParameters()$CalTable$Max, data.type=dataType())
@@ -3721,7 +3730,7 @@ shinyServer(function(input, output, session) {
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
                 stopCluster(cl)
             } else if(get_os()=="linux"){
-                xgb_model <- tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
             }
             
             xgb_model
@@ -3738,7 +3747,7 @@ shinyServer(function(input, output, session) {
             eta <- xgboostEtaSelection()
             alpha <- xgboostAlphaSelection()
             lambda <- xgboostLambdaSelection()
-            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgblambda=paste0(lambda[1], "-", lambda[2])), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgblambda=paste0(lambda[1], "-", lambda[2])), StandardsUsed=vals$keeprows)
         })
         xgblinearSpectraModelData <- reactive(label="xgblinearSpectraModelData", {
             rainforestDataGen(spectra=dataNormCal(), compress=xgblinearSpectraParameters()$CalTable$Compress, transformation=xgblinearSpectraParameters()$CalTable$Transformation, dependent.transformation=xgblinearSpectraParameters()$CalTable$DepTrans,  energy.range=as.numeric(unlist(strsplit(as.character(xgblinearSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=xgblinearSpectraParameters()$CalTable$NormType, norm.min=xgblinearSpectraParameters()$CalTable$Min, norm.max=xgblinearSpectraParameters()$CalTable$Max, data.type=dataType())
@@ -3813,10 +3822,10 @@ shinyServer(function(input, output, session) {
                     parallel::makeForkCluster(as.numeric(my.cores))
                 }
                 registerDoParallel(cl)
-                xgb_model <- tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
                 stopCluster(cl)
             } else if(get_os()=="linux"){
-                xgb_model <- tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
             }
             
             xgb_model
@@ -3831,12 +3840,1484 @@ shinyServer(function(input, output, session) {
             }
         })
         
-        xgboostSpectraModel <- reactive({
+        xgboostSpectraModel <- reactive(label="xgboostSpectraModel", {
             
             if(xgboosthold$xgbtype=="Tree"){
                 xgbtreeSpectraModel()
             } else if(xgboosthold$xgbtype=="Linear"){
                 xgblinearSpectraModel()
+            }
+            
+        })
+        
+        
+        bartMachineIntensityParameters <- reactive(label="bartMachineIntensityParameters", {
+            alpha <- xgboostAlphaSelection()
+            beta <- bartBetaSelection()
+            nu <- bartNuSelection()
+            k <- bartKSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection()), bartK <- paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2]), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+        })
+        bartMachineIntensityModelData <- reactive(label="bartMachineIntensityModelData", {
+            predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=bartMachineIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=bartMachineIntensityParameters()$Intercept, slopes=bartMachineIntensityParameters()$Slope, norm.type=bartMachineIntensityParameters()$CalTable$NormType, norm.min=bartMachineIntensityParameters()$CalTable$Min, norm.max=bartMachineIntensityParameters()$CalTable$Max, data.type=dataType())
+        })
+        bartMachineIntensityModelSet <- reactive(label="bartMachineIntensityModelSet", {
+            list(data=predictFrameCheck(bartMachineIntensityModelData()), parameters=bartMachineIntensityParameters())
+        })
+        bartMachineIntensityModel <- reactive(label="bartMachineIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- bartMachineIntensityModelSet()$data[bartMachineIntensityModelSet()$parameters$StandardsUsed,]
+            parameters <- bartMachineIntensityModelSet()$parameters$CalTable
+            
+            xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
+            k.vec <- dnorminv(1-(as.numeric(unlist(strsplit(as.character(parameters$bartK), "-")))/100))
+            bartbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartBeta), "-")))
+            bartnu.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartNu), "-")))
+            
+            bart.grid <- expand.grid(
+                num_trees=parameters$ForestTrees,
+                alpha=seq(xgbalpha.vec[1], xgbalpha.vec[2], by=0.1),
+                beta=seq(bartbeta.vec[1], bartbeta.vec[2], by=0.1),
+                nu=seq(bartnu.vec[1], bartnu.vec[2], by=0.1),
+                k=seq(k.vec[1], k.vec[2], by=0.5))
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        
+        bayesLinearIntensityParameters <- reactive(label="bayesLinearIntensityParameters", {
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+        })
+        bayesLinearIntensityModelData <- reactive(label="bayesLinearIntensityModelData", {
+            predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=bayesLinearIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=bayesLinearIntensityParameters()$Intercept, slopes=bayesLinearIntensityParameters()$Slope, norm.type=bayesLinearIntensityParameters()$CalTable$NormType, norm.min=bayesLinearIntensityParameters()$CalTable$Min, norm.max=bayesLinearIntensityParameters()$CalTable$Max, data.type=dataType())
+        })
+        bayesLinearIntensityModelSet <- reactive(label="bayesLinearIntensityModelSet", {
+            list(data=predictFrameCheck(bayesLinearIntensityModelData()), parameters=bayesLinearIntensityParameters())
+        })
+        bayesLinearIntensityModel <- reactive(label="bayesLinearIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- bayesLinearIntensityModelSet()$data[bayesLinearIntensityModelSet()$parameters$StandardsUsed,]
+            parameters <- bayesLinearIntensityModelSet()$parameters$CalTable
+            
+            
+            bart.grid <- NULL
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesNeuralNetIntensityParameters <- reactive(label="bayesNeuralNetIntensityParameters", {
+            hiddenunits <- neuralHiddenUnitsSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+        })
+        bayesNeuralNetModelData <- reactive(label="bayesNeuralNetModelData", {
+            predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=bayesNeuralNetIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=bayesNeuralNetIntensityParameters()$Intercept, slopes=bayesNeuralNetIntensityParameters()$Slope, norm.type=bayesNeuralNetIntensityParameters()$CalTable$NormType, norm.min=bayesNeuralNetIntensityParameters()$CalTable$Min, norm.max=bayesNeuralNetIntensityParameters()$CalTable$Max, data.type=dataType())
+        })
+        bayesNeuralNetIntensityModelSet <- reactive(label="bayesNeuralNetIntensityModelSet", {
+            list(data=predictFrameCheck(bayesNeuralNetModelData()), parameters=bayesNeuralNetIntensityParameters())
+        })
+        bayesNeuralNetIntensityModel <- reactive(label="bayesNeuralNetIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- bartMachineIntensityModelSet()$data[bartMachineIntensityModelSet()$parameters$StandardsUsed,]
+            parameters <- bartMachineIntensityModelSet()$parameters$CalTable
+            
+            
+            hiddenunits.vec <- as.numeric(unlist(strsplit(as.character(parameters$NeuralHU), "-")))
+            
+            
+            bart.grid <- expand.grid(
+            neurons = seq(hiddenunits.vec[1], hiddenunits.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesIntensityModelSet <- reactive(label="bayesIntensityModelSet", {
+            if(xgboosthold$xgbtype=="Tree"){
+                bartMachineIntensityModelSet()
+            } else if(xgboosthold$xgbtype=="Linear"){
+                bayesLinearIntensityModelSet()
+            } else if(xgboosthold$xgbtype=="Neural Net"){
+                bayesNeuralNetIntensityModelSet()
+            }
+        })
+        
+        bayesIntensityModel <- reactive(label="bayesIntensityModel", {
+            
+            if(xgboosthold$xgbtype=="Tree"){
+                bartMachineIntensityModel()
+            } else if(xgboosthold$xgbtype=="Linear"){
+                bayesLinearIntensityModel()
+            } else if(xgboosthold$xgbtype=="Neural Net"){
+                bayesNeuralNetIntensityModel()
+            }
+            
+        })
+        
+        
+        bartMachineSpectraParameters <- reactive(label="bartMachineSpectraParameters", {
+            alpha <- xgboostAlphaSelection()
+            beta <- bartBetaSelection()
+            nu <- bartNuSelection()
+            k <- bartKSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            energyrange <- basicEnergyRange()
+            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection()), bartK <- paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2]), StandardsUsed=vals$keeprows)
+        })
+        bartMachineSpectraModelData <- reactive(label="bartMachineSpectraModelData", {
+            rainforestDataGen(spectra=dataNormCal(), compress=bartMachineSpectraParameters()$CalTable$Compress, transformation=bartMachineSpectraParameters()$CalTable$Transformation, dependent.transformation=bartMachineSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(bartMachineSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=bartMachineSpectraParameters()$CalTable$NormType, norm.min=bartMachineSpectraParameters()$CalTable$Min, norm.max=bartMachineSpectraParameters()$CalTable$Max, data.type=dataType())
+        })
+        #rainforestModelSetlist <- reactiveValues()
+        #observeEvent(input$createcalelement, priority=150, {
+        #    rainforestModelSet$list <- list(data=rainforestModelData(), parameters=rainforestParameters())
+        #})
+        
+        bartMachineSpectraModelSet <- reactive(label="bartMachineSpectraModelSet", {
+            list(data=predictFrameCheck(bartMachineSpectraModelData()), parameters=bartMachineSpectraParameters())
+        })
+        bartMachineSpectraModel <- reactive(label="bartMachineSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- bartMachineSpectraModelSet()$data[bartMachineSpectraModelSet()$parameters$StandardsUsed,]
+            parameters <- bartMachineSpectraModelSet()$parameters$CalTable
+            
+            xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
+            k.vec <- dnorminv(1-(as.numeric(unlist(strsplit(as.character(parameters$bartK), "-")))/100))
+            bartbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartBeta), "-")))
+            bartnu.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartNu), "-")))
+            
+            bart.grid <- expand.grid(
+                num_trees=parameters$ForestTrees,
+                alpha=seq(xgbalpha.vec[1], xgbalpha.vec[2], by=0.1),
+                beta=seq(bartbeta.vec[1], bartbeta.vec[2], by=0.1),
+                nu=seq(bartnu.vec[1], bartnu.vec[2], by=0.1),
+                k=seq(k.vec[1], k.vec[2], by=0.5))
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+            
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesLinearSpectraParameters <- reactive(label="bayesLinearSpectraParameters", {
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            energyrange <- basicEnergyRange()
+            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype), StandardsUsed=vals$keeprows)
+        })
+        bayesLinearSpectraModelData <- reactive(label="bayesLinearSpectraModelData", {
+            rainforestDataGen(spectra=dataNormCal(), compress=bayesLinearSpectraParameters()$CalTable$Compress, transformation=bayesLinearSpectraParameters()$CalTable$Transformation, dependent.transformation=bayesLinearSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(bayesLinearSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=bayesLinearSpectraParameters()$CalTable$NormType, norm.min=bayesLinearSpectraParameters()$CalTable$Min, norm.max=bayesLinearSpectraParameters()$CalTable$Max, data.type=dataType())
+        })
+        #rainforestModelSetlist <- reactiveValues()
+        #observeEvent(input$createcalelement, priority=150, {
+        #    rainforestModelSet$list <- list(data=rainforestModelData(), parameters=rainforestParameters())
+        #})
+        
+        bayesLinearSpectraModelSet <- reactive(label="bayesLinearSpectraModelSet", {
+            list(data=predictFrameCheck(bayesLinearSpectraModelData()), parameters=bayesLinearSpectraParameters())
+        })
+        bayesLinearSpectraModel <- reactive(label="bayesLinearSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- bayesLinearSpectraModelSet()$data[bayesLinearSpectraModelSet()$parameters$StandardsUsed,]
+            parameters <- bayesLinearSpectraModelSet()$parameters$CalTable
+            
+            
+            bart.grid <- NULL
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
+            
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesNeuralNetSpectraParameters <- reactive(label="bayesNeuralNetSpectraParameters", {
+            hiddenunits <- neuralHiddenUnitsSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            energyrange <- basicEnergyRange()
+            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), xgbtype=xgboosthold$xgbtype, neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2]), cvrepeats=cvrepeats), StandardsUsed=vals$keeprows)
+        })
+        bayesNeuralNetSpectraModelData <- reactive(label="bayesNeuralNetSpectraModelData", {
+            rainforestDataGen(spectra=dataNormCal(), compress=bayesNeuralNetSpectraParameters()$CalTable$Compress, transformation=bayesNeuralNetSpectraParameters()$CalTable$Transformation, dependent.transformation=bayesNeuralNetSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(bayesNeuralNetSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=bayesNeuralNetSpectraParameters()$CalTable$NormType, norm.min=bayesNeuralNetSpectraParameters()$CalTable$Min, norm.max=bayesNeuralNetSpectraParameters()$CalTable$Max, data.type=dataType())
+        })
+        #rainforestModelSetlist <- reactiveValues()
+        #observeEvent(input$createcalelement, priority=150, {
+        #    rainforestModelSet$list <- list(data=rainforestModelData(), parameters=rainforestParameters())
+        #})
+        
+        bayesNeuralNetSpectraModelSet <- reactive(label="bayesNeuralNetSpectraModelSet", {
+            list(data=predictFrameCheck(bayesNeuralNetSpectraModelData()), parameters=bayesNeuralNetSpectraParameters())
+        })
+        bayesNeuralNetpectraModel <- reactive(label="bayesNeuralNetpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- bayesNeuralNetSpectraModelSet()$data[bayesNeuralNetSpectraModelSet()$parameters$StandardsUsed,]
+            parameters <- bayesNeuralNetSpectraModelSet()$parameters$CalTable
+            
+            
+            hiddenunits.vec <- as.numeric(unlist(strsplit(as.character(parameters$NeuralHU), "-")))
+            
+            
+            bart.grid <- expand.grid(
+            neurons = seq(hiddenunits.vec[1], hiddenunits.vec[2], 1))
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
+            
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesSpectraModelSet <- reactive(label="bayesSpectraModelSet", {
+            if(xgboosthold$xgbtype=="Tree"){
+                bartMachineSpectraModelSet()
+            } else if(xgboosthold$xgbtype=="Linear"){
+                bayesLinearSpectraModelSet()
+            } else if(xgboosthold$xgbtype=="Neural Net"){
+                bayesNeuralNetSpectraModelSet()
+            }
+        })
+        
+        bayesSpectraModel <- reactive(label="bayesSpectraModel", {
+            
+            if(xgboosthold$xgbtype=="Tree"){
+                bartMachineSpectraModel()
+            } else if(xgboosthold$xgbtype=="Linear"){
+                bayesLinearSpectraModel()
+            } else if(xgboosthold$xgbtype=="Neural Net"){
+                bayesNeuralNetSpectraModel()
+            }
+            
+        })
+        
+        
+        
+        svmLinearIntensityParameters <- reactive(label="svmLinearIntensityParameters", {
+            C <- svmCSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=12, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+        })
+        svmLinearIntensityModelData <- reactive(label="svmLinearIntensityModelData", {
+            predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=svmLinearIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=svmLinearIntensityParameters()$Intercept, slopes=svmLinearIntensityParameters()$Slope, norm.type=svmLinearIntensityParameters()$CalTable$NormType, norm.min=svmLinearIntensityParameters()$CalTable$Min, norm.max=svmLinearIntensityParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmLinearIntensityModelSet <- reactive(label="svmLinearIntensityModelSet", {
+            list(data=predictFrameCheck(svmLinearIntensityModelData()), parameters=svmLinearIntensityParameters())
+        })
+        svmLinearIntensityModel <- reactive(label="svmLinearIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmLinearIntensityModelSet()$data[svmLinearIntensityModelSet()$parameters$StandardsUsed,]
+            parameters <- svmLinearIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmPolyIntensityParameters <- reactive(label="svmPolyIntensityParameters", {
+            C <- svmCSelection()
+            degree <- svmDegreeSelection()
+            scale <- svmScaleSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=12, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmdegree=paste0(degree[1], "-", degree[2]), svmscale=paste0(scale[1], "-", scale[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+        })
+        svmPolyIntensityModelData <- reactive(label="svmPolyIntensityModelData", {
+            predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=svmPolyIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=svmPolyIntensityParameters()$Intercept, slopes=svmPolyIntensityParameters()$Slope, norm.type=svmPolyIntensityParameters()$CalTable$NormType, norm.min=svmPolyIntensityParameters()$CalTable$Min, norm.max=svmPolyIntensityParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmPolyIntensityModelSet <- reactive(label="svmPolyIntensityModelSet", {
+            list(data=predictFrameCheck(svmPolyIntensityModelData()), parameters=svmPolyIntensityParameters())
+        })
+        svmPolyIntensityModel <- reactive(label="svmPolyIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmPolyIntensityModelSet()$data[svmPolyIntensityModelSet()$parameters$StandardsUsed,]
+            parameters <- svmPolyIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmdegree.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmDegree), "-")))
+            svmscale.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmScale), "-")))
+
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            scale=seq(svmscale.vec[1], svmscale.vec[2], 1),
+            degree=seq(svmdegree.vec[1], svmdegree.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmRadialIntensityParameters <- reactive(label="svmRadialIntensityParameters", {
+            C <- svmCSelection()
+            sigma <- svmSigmaSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=12, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmsigma=paste0(sigma[1], "-", sigma[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+        })
+        svmRadialIntensityModelData <- reactive(label="svmRadialIntensityModelData", {
+            predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=svmRadialIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=svmRadialIntensityParameters()$Intercept, slopes=svmRadialIntensityParameters()$Slope, norm.type=svmRadialIntensityParameters()$CalTable$NormType, norm.min=svmRadialIntensityParameters()$CalTable$Min, norm.max=svmRadialIntensityParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmRadialIntensityModelSet <- reactive(label="svmRadialIntensityModelSet", {
+            list(data=predictFrameCheck(svmRadialIntensityModelData()), parameters=svmRadialIntensityParameters())
+        })
+        svmRadialIntensityModel <- reactive(label="svmRadialIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmRadialIntensityModelSet()$data[svmRadialIntensityModelSet()$parameters$StandardsUsed,]
+            parameters <- svmRadialIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmsigma.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmSigma), "-")))
+            
+            svm.grid <- if(parameters$xgbType!="Radial Cost"){
+                expand.grid(
+                C = seq(svmc.vec[1], svmc.vec[2], 1),
+                sigma=seq(svmsigma.vec[1], svmsigma.vec[2], 1))
+            } else if(parameters$xgbType=="Radial Cost"){
+                expand.grid(
+                C = seq(svmc.vec[1], svmc.vec[2], 1))
+            }
+            
+            svm.flavor <- if(parameters$xgbType=="Radial"){
+                "svmRadial"
+            } else if(parameters$xgbType=="Radial Cost"){
+                "svmRadialCost"
+            } else if(parameters$xgbType=="Radial Sigma"){
+                "svmRadialSigma"
+            }
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmBoundrangeIntensityParameters <- reactive(label="svmBoundrangeIntensityParameters", {
+            C <- svmCSelection()
+            length <- svmLengthSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=12, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]),  svmlength=paste0(length[1], "-", length[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+        })
+        svmBoundrangeIntensityModelData <- reactive(label="svmBoundrangeIntensityModelData", {
+            predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=svmBoundrangeIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=svmBoundrangeIntensityParameters()$Intercept, slopes=svmBoundrangeIntensityParameters()$Slope, norm.type=svmBoundrangeIntensityParameters()$CalTable$NormType, norm.min=svmBoundrangeIntensityParameters()$CalTable$Min, norm.max=svmBoundrangeIntensityParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmBoundrangeIntensityModelSet <- reactive(label="svmBoundrangeIntensityModelSet", {
+            list(data=predictFrameCheck(svmBoundrangeIntensityModelData()), parameters=svmBoundrangeIntensityParameters())
+        })
+        svmBoundrangeIntensityModel <- reactive(label="svmBoundrangeIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmBoundrangeIntensityModelSet()$data[svmBoundrangeIntensityModelSet()$parameters$StandardsUsed,]
+            parameters <- svmBoundrangeIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmlength.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmLength), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            length=seq(svmlength.vec[1], svmlength.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmExponentialIntensityParameters <- reactive(label="svmExponentialIntensityParameters", {
+            C <- svmCSelection()
+            lambda <- xgboostLambdaSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=12, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]),  xgblambda=paste0(lambda[1], "-", lambda[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+        })
+        svmExponentialIntensityModelData <- reactive(label="svmExponentialIntensityModelData", {
+            predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=svmExponentialIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=svmExponentialIntensityParameters()$Intercept, slopes=svmExponentialIntensityParameters()$Slope, norm.type=svmExponentialIntensityParameters()$CalTable$NormType, norm.min=svmExponentialIntensityParameters()$CalTable$Min, norm.max=svmExponentialIntensityParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmExponentialIntensityModelSet <- reactive(label="svmExponentialIntensityModelSet", {
+            list(data=predictFrameCheck(svmExponentialIntensityModelData()), parameters=svmExponentialIntensityParameters())
+        })
+        svmExponentialIntensityModel <- reactive(label="svmExponentialIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmExponentialIntensityModelSet()$data[svmExponentialIntensityModelSet()$parameters$StandardsUsed,]
+            parameters <- svmExponentialIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            lambda=seq(xgblambda.vec[1], xgblambda.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmSpectrumIntensityParameters <- reactive(label="svmSpectrumIntensityParameters", {
+            C <- svmCSelection()
+            lambda <- xgboostLambdaSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=12, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]),  xgblambda=paste0(lambda[1], "-", lambda[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows)
+        })
+        svmSpectrumIntensityModelData <- reactive(label="svmSpectrumIntensityModelData", {
+            predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=svmSpectrumIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=svmSpectrumIntensityParameters()$Intercept, slopes=svmSpectrumIntensityParameters()$Slope, norm.type=svmSpectrumIntensityParameters()$CalTable$NormType, norm.min=svmSpectrumIntensityParameters()$CalTable$Min, norm.max=svmSpectrumIntensityParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmSpectrumIntensityModelSet <- reactive(label="svmSpectrumIntensityModelSet", {
+            list(data=predictFrameCheck(svmSpectrumIntensityModelData()), parameters=svmSpectrumIntensityParameters())
+        })
+        svmSpectrumIntensityModel <- reactive(label="svmSpectrumIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmSpectrumIntensityModelSet()$data[svmSpectrumIntensityModelSet()$parameters$StandardsUsed,]
+            parameters <- svmSpectrumIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmlength.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmLength), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            length=seq(svmlength.vec[1], svmlength.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmIntensityModelSet <- reactive(label="svmIntensityModelSet", {
+            if(xgboosthold$xgbtype=="Linear"){
+                svmLinearIntensityModelSet()
+            } else if(xgboosthold$xgbtype=="Polynomial"){
+                svmPolyIntensityModelSet()
+            } else if(xgboosthold$xgbtype=="Exponential"){
+                svmExponentialIntensityModelSet()
+            } else if(xgboosthold$xgbtype=="Radial" | xgboosthold$xgbtype=="Radial Cost" | xgboosthold$xgbtype=="Radial Sigma"){
+                svmRadialIntensityModelSet()
+            } else if(xgboosthold$xgbtype=="Boundrange String"){
+                svmBoundrangeIntensityModelSet()
+            } else if(xgboosthold$xgbtype=="Spectrum String"){
+                svmSpectrumIntensityModelSet()
+            }
+        })
+        
+        svmIntensityModel <- reactive(label="svmIntensityModel", {
+            
+            if(xgboosthold$xgbtype=="Linear"){
+                svmLinearIntensityModel()
+            } else if(xgboosthold$xgbtype=="Polynomial"){
+                svmPolyIntensityModel()
+            } else if(xgboosthold$xgbtype=="Exponential"){
+                svmExponentialIntensityModel()
+            } else if(xgboosthold$xgbtype=="Radial" | xgboosthold$xgbtype=="Radial Cost" | xgboosthold$xgbtype=="Radial Sigma"){
+                svmRadialIntensityModel()
+            } else if(xgboosthold$xgbtype=="Boundrange String"){
+                svmBoundrangeIntensityModel()
+            } else if(xgboosthold$xgbtype=="Spectrum String"){
+                svmSpectrumIntensityModel()
+            }
+            
+        })
+        
+        svmLinearSpectraParameters <- reactive(label="svmLinearSpectraParameters", {
+            energyrange <- basicEnergyRange()
+            C <- svmCSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=13, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2])),  StandardsUsed=vals$keeprows)
+        })
+        svmLinearSpectraModelData <- reactive(label="svmLinearSpectraModelData", {
+            rainforestDataGen(spectra=dataNormCal(), compress=svmLinearSpectraParameters()$CalTable$Compress, transformation=svmLinearSpectraParameters()$CalTable$Transformation, dependent.transformation=svmLinearSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(svmLinearSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=svmLinearSpectraParameters()$CalTable$NormType, norm.min=svmLinearSpectraParameters()$CalTable$Min, norm.max=svmLinearSpectraParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmLinearSpectraModelSet <- reactive(label="svmLinearSpectraModelSet", {
+            list(data=predictFrameCheck(svmLinearSpectraModelData()), parameters=svmLinearSpectraParameters())
+        })
+        svmLinearSpectraModel <- reactive(label="svmLinearSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmLinearSpectraModelSet()$data[svmLinearSpectraModelSet()$parameters$StandardsUsed,]
+            parameters <- svmLinearSpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmPolySpectraParameters <- reactive(label="svmPolySpectraParameters", {
+            energyrange <- basicEnergyRange()
+            C <- svmCSelection()
+            degree <- svmDegreeSelection()
+            scale <- svmScaleSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=13, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmdegree=paste0(degree[1], "-", degree[2]), svmscale=paste0(scale[1], "-", scale[2])),  StandardsUsed=vals$keeprows)
+        })
+        svmPolySpectraModelData <- reactive(label="svmPolySpectraModelData", {
+            rainforestDataGen(spectra=dataNormCal(), compress=svmPolySpectraParameters()$CalTable$Compress, transformation=svmPolySpectraParameters()$CalTable$Transformation, dependent.transformation=svmPolySpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(svmPolySpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=svmPolySpectraParameters()$CalTable$NormType, norm.min=svmPolySpectraParameters()$CalTable$Min, norm.max=svmPolySpectraParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmPolySpectraModelSet <- reactive(label="svmPolySpectraModelSet", {
+            list(data=predictFrameCheck(svmPolySpectraModelData()), parameters=svmPolySpectraParameters())
+        })
+        svmPolySpectraModel <- reactive(label="svmPolyIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmPolySpectraModelSet()$data[svmPolySpectraModelSet()$parameters$StandardsUsed,]
+            parameters <- svmPolySpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmdegree.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmDegree), "-")))
+            svmscale.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmScale), "-")))
+
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            scale=seq(svmscale.vec[1], svmscale.vec[2], 1),
+            degree=seq(svmdegree.vec[1], svmdegree.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmRadialSpectraParameters <- reactive(label="svmRadialSpectraParameters", {
+            energyrange <- basicEnergyRange()
+            C <- svmCSelection()
+            sigma <- svmSigmaSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=13, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmsigma=paste0(sigma[1], "-", sigma[2])), StandardsUsed=vals$keeprows)
+        })
+        svmRadialSpectraModelData <- reactive(label="svmRadialSpectraModelData", {
+            rainforestDataGen(spectra=dataNormCal(), compress=svmRadialSpectraParameters()$CalTable$Compress, transformation=svmRadialSpectraParameters()$CalTable$Transformation, dependent.transformation=svmRadialSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(svmRadialSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=svmRadialSpectraParameters()$CalTable$NormType, norm.min=svmRadialSpectraParameters()$CalTable$Min, norm.max=svmRadialSpectraParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmRadialSpectraModelSet <- reactive(label="svmRadialSpectraModelSet", {
+            list(data=predictFrameCheck(svmRadialSpectraModelData()), parameters=svmRadialSpectraParameters())
+        })
+        svmRadialSpectraModel <- reactive(label="svmRadialSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmRadialSpectraModelSet()$data[svmRadialSpectraModelSet()$parameters$StandardsUsed,]
+            parameters <- svmRadialSpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmsigma.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmSigma), "-")))
+            
+            svm.grid <- if(parameters$xgbType!="Radial Cost"){
+                expand.grid(
+                C = seq(svmc.vec[1], svmc.vec[2], 1),
+                sigma=seq(svmsigma.vec[1], svmsigma.vec[2], 1))
+            } else if(parameters$xgbType=="Radial Cost"){
+                expand.grid(
+                C = seq(svmc.vec[1], svmc.vec[2], 1))
+            }
+            
+            svm.flavor <- if(parameters$xgbType=="Radial"){
+                "svmRadial"
+            } else if(parameters$xgbType=="Radial Cost"){
+                "svmRadialCost"
+            } else if(parameters$xgbType=="Radial Sigma"){
+                "svmRadialSigma"
+            }
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmBoundrangeSpectraParameters <- reactive(label="svmBoundrangeSpectraParameters", {
+            energyrange <- basicEnergyRange()
+            C <- svmCSelection()
+            length <- svmLengthSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=13, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]),  svmlength=paste0(length[1], "-", length[2])),  StandardsUsed=vals$keeprows)
+        })
+        svmBoundrangeSpectraModelData <- reactive(label="svmBoundrangeSpectraModelData", {
+            rainforestDataGen(spectra=dataNormCal(), compress=svmBoundrangeSpectraParameters()$CalTable$Compress, transformation=svmBoundrangeSpectraParameters()$CalTable$Transformation, dependent.transformation=svmBoundrangeSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(svmBoundrangeSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=svmBoundrangeSpectraParameters()$CalTable$NormType, norm.min=svmBoundrangeSpectraParameters()$CalTable$Min, norm.max=svmBoundrangeSpectraParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmBoundrangeSpectraModelSet <- reactive(label="svmBoundrangeSpectraModelSet", {
+            list(data=predictFrameCheck(svmBoundrangeSpectraModelData()), parameters=svmBoundrangeSpectraParameters())
+        })
+        svmBoundrangeSpectraModel <- reactive(label="svmBoundrangeSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmBoundrangeSpectraModelSet()$data[svmBoundrangeSpectraModelSet()$parameters$StandardsUsed,]
+            parameters <- svmBoundrangeSpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmlength.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmLength), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            length=seq(svmlength.vec[1], svmlength.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            x_train <- matrix(data[,-1], ncol=1)
+            colnames(x_train) <- "data"
+            y_train <- data$Concentration
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmExponentialSpectraParameters <- reactive(label="svmExponentialSpectraParameters", {
+            energyrange <- basicEnergyRange()
+            C <- svmCSelection()
+            lambda <- xgboostLambdaSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=13, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]),  xgblambda=paste0(lambda[1], "-", lambda[2])),  StandardsUsed=vals$keeprows)
+        })
+        svmExponentialSpectraModelData <- reactive(label="svmExponentialSpectraModelData", {
+            rainforestDataGen(spectra=dataNormCal(), compress=svmExponentialSpectraParameters()$CalTable$Compress, transformation=svmExponentialSpectraParameters()$CalTable$Transformation, dependent.transformation=svmExponentialSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(svmExponentialSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=svmExponentialSpectraParameters()$CalTable$NormType, norm.min=svmExponentialSpectraParameters()$CalTable$Min, norm.max=svmExponentialSpectraParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmExponentialSpectraModelSet <- reactive(label="svmExponentialSpectraModelSet", {
+            list(data=predictFrameCheck(svmExponentialSpectraModelData()), parameters=svmExponentialIntensityParameters())
+        })
+        svmExponentialSpectraModel <- reactive(label="svmExponentialSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmExponentialSpectraModelSet()$data[svmExponentialSpectraModelSet()$parameters$StandardsUsed,]
+            parameters <- svmExponentialSpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            lambda=seq(xgblambda.vec[1], xgblambda.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            x_train <- matrix(data[,-1], ncol=1)
+            colnames(x_train) <- "data"
+            y_train <- data$Concentration
+            
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmSpectrumSpectraParameters <- reactive(label="svmSpectrumSpectraParameters", {
+            energyrange <- basicEnergyRange()
+            C <- svmCSelection()
+            lambda <- xgboostLambdaSelection()
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            list(CalTable=calConditionsTable(cal.type=13, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]),  xgblambda=paste0(lambda[1], "-", lambda[2])),  StandardsUsed=vals$keeprows)
+        })
+        svmSpectrumSpectraModelData <- reactive(label="svmSpectrumSpectraModelData", {
+            rainforestDataGen(spectra=dataNormCal(), compress=svmSpectrumSpectraParameters()$CalTable$Compress, transformation=svmSpectrumSpectraParameters()$CalTable$Transformation, dependent.transformation=svmSpectrumSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(svmSpectrumSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=svmSpectrumSpectraParameters()$CalTable$NormType, norm.min=svmSpectrumSpectraParameters()$CalTable$Min, norm.max=svmSpectrumSpectraParameters()$CalTable$Max, data.type=dataType())
+        })
+        svmSpectrumSpectraModelSet <- reactive(label="svmSpectrumIntensityModelSet", {
+            list(data=predictFrameCheck(svmSpectrumSpectraModelData()), parameters=svmSpectrumSpectraParameters())
+        })
+        svmSpectrumSpectraModel <- reactive(label="svmSpectrumSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmSpectrumSpectraModelSet()$data[svmSpectrumSpectraModelSet()$parameters$StandardsUsed,]
+            parameters <- svmSpectrumSpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmlength.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmLength), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            length=seq(svmlength.vec[1], svmlength.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            x_train <- matrix(data[,-1], ncol=1)
+            colnames(x_train) <- "data"
+            y_train <- data$Concentration
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmSpectraModelSet <- reactive(label="svmSpectraModelSet", {
+            if(xgboosthold$xgbtype=="Linear"){
+                svmLinearSpectraModelSet()
+            } else if(xgboosthold$xgbtype=="Polynomial"){
+                svmPolySpectraModelSet()
+            } else if(xgboosthold$xgbtype=="Exponential"){
+                svmExponentialSpectraModelSet()
+            } else if(xgboosthold$xgbtype=="Radial" | xgboosthold$xgbtype=="Radial Cost" | xgboosthold$xgbtype=="Radial Sigma"){
+                svmRadialSpectraModelSet()
+            } else if(xgboosthold$xgbtype=="Boundrange String"){
+                svmBoundrangeSpectraModelSet()
+            } else if(xgboosthold$xgbtype=="Spectrum String"){
+                svmSpectrumSpectraModelSet()
+            }
+        })
+        
+        svmSpectraModel <- reactive(label="svmSpectraModel", {
+            
+            if(xgboosthold$xgbtype=="Linear"){
+                svmLinearSpectraModel()
+            } else if(xgboosthold$xgbtype=="Polynomial"){
+                svmPolySpectraModel()
+            } else if(xgboosthold$xgbtype=="Exponential"){
+                svmExponentialSpectraModel()
+            } else if(xgboosthold$xgbtype=="Radial" | xgboosthold$xgbtype=="Radial Cost" | xgboosthold$xgbtype=="Radial Sigma"){
+                svmRadialSpectraModel()
+            } else if(xgboosthold$xgbtype=="Boundrange String"){
+                svmBoundrangeSpectraModel()
+            } else if(xgboosthold$xgbtype=="Spectrum String"){
+                svmSpectrumSpectraModel()
             }
             
         })
@@ -3861,6 +5342,14 @@ shinyServer(function(input, output, session) {
                 TRUE
             } else if(input$radiocal==9){
                 TRUE
+            } else if(input$radiocal==10){
+                TRUE
+            } else if(input$radiocal==11){
+                TRUE
+            } else if(input$radiocal==12){
+                TRUE
+            } else if(input$radiocal==13){
+                TRUE
             }
         })
         
@@ -3884,7 +5373,7 @@ shinyServer(function(input, output, session) {
             
             spectra.data <- rainforestModelData()[,!colnames(rainforestModelData()) %in% c("Spectrum", "Concentration")]
             
-            
+            lucashold$slope <- outVaralt()
             
             predict.frame.lin <- linearModelSet()$data[vals$keeprows,]
             predict.frame.nonlin <- nonLinearModelSet()$data[vals$keeprows,]
@@ -3895,71 +5384,123 @@ shinyServer(function(input, output, session) {
             predict.frame.neural.shallow.spectra <- neuralNetworkSpectraShallowModelSet()$data[vals$keeprows,]
             predict.frame.xgboost.intens <- xgboostIntensityModelSet()$data[vals$keeprows,]
             predict.frame.xgboost.spectra <- xgboostSpectraModelSet()$data[vals$keeprows,]
-
+            predict.frame.bayes.intens <- bayesIntensityModelSet()$data[vals$keeprows,]
+            predict.frame.bayes.spectra <- bayesSpectraModelSet()$data[vals$keeprows,]
+            predict.frame.svm.intens <- svmIntensityModelSet()$data[vals$keeprows,]
+            predict.frame.svm.spectra <- svmSpectraModelSet()$data[vals$keeprows,]
             
-            cal.lm.simp <- tryCatch(linearModel(), error=function(e) NULL)
+            cal.lm.simp <- linearModel()
             lm.predict <- tryCatch(predict(cal.lm.simp, newdata=predict.frame.lin), error=function(e) rep(0, length(predict.frame.lin$Concentration)))
             lm.sum <- tryCatch(summary(lm(predict.frame.lin$Concentration~lm.predict, na.action=na.exclude)), error=function(e) NULL)
             lm.r2 <- tryCatch(as.numeric(lm.sum$adj.r.squared), error=function(e) 0)
+            lm.r2[!is.finite(lm.r2)] <- 0
             lm.slope <- tryCatch(as.numeric(lm.sum$coef[2]), error=function(e) 0)
-            
+            lm.slope[!is.finite(lm.slope)] <- 0
+
             cal.lm.two <- tryCatch(nonLinearModel(), error=function(e) NULL)
             lm2.predict <- tryCatch(predict(cal.lm.two, newdata=predict.frame.nonlin), error=function(e) rep(0, length(predict.frame.nonlin$Concentration)))
             lm2.sum <- tryCatch(summary(lm(predict.frame.lin$Concentration~lm2.predict, na.action=na.exclude)), error=function(e) NULL)
             lm2.r2 <- tryCatch(as.numeric(lm2.sum$adj.r.squared), error=function(e) 0)
+            lm2.r2[!is.finite(lm2.r2)] <- 0
             lm2.slope <- tryCatch(as.numeric(lm2.sum$coef[2]), error=function(e) 0)
-
+            lm2.slope[!is.finite(lm2.slope)] <- 0
             
-            cal.lm.luc <- tryCatch(lucasToothModel(), error=function(e) NULL)
+            cal.lm.luc <- lucasToothModel()
             lucas.predict <- tryCatch(predict(cal.lm.luc, newdata=predict.frame.luc), error=function(e) rep(0, length(predict.frame.luc$Concentration)))
             lucas.sum <- tryCatch(summary(lm(predict.frame.luc$Concentration~lucas.predict, na.action=na.exclude)), error=function(e) NULL)
             lucas.r2 <- tryCatch(as.numeric(lucas.sum$adj.r.squared), error=function(e) 0)
+            lucas.r2[!is.finite(lucas.r2)] <- 0
             lucas.slope <- tryCatch(as.numeric(lucas.sum$coef[2]), error=function(e) 0)
-
-            cal.lm.forest <- tryCatch(forestModel(), error=function(e) NULL)
+            lucas.slope[!is.finite(lucas.slope)] <- 0
+            
+            cal.lm.forest <- forestModel()
             forest.predict <- tryCatch(predict(cal.lm.forest, newdata=predict.frame.forest), error=function(e) rep(0, length(predict.frame.forest$Concentration)))
             forest.sum <- tryCatch(summary(lm(predict.frame.forest$Concentration~forest.predict, na.action=na.exclude)), error=function(e) NULL)
             forest.r2 <- tryCatch(as.numeric(max(cal.lm.forest[["results"]]$Rsquared)), error=function(e) 0)
+            forest.r2[!is.finite(forest.r2)] <- 0
             forest.slope <- tryCatch(as.numeric(forest.sum$coef[2]), error=function(e) 0)
-
-            cal.lm.rainforest <- tryCatch(rainforestModel(), error=function(e) NULL)
+            forest.slope[!is.finite(forest.slope)] <- 0
+            
+            cal.lm.rainforest <- rainforestModel()
             rainforest.predict <- tryCatch(predict(cal.lm.rainforest, newdata=predict.frame.rainforest), error=function(e) rep(0, length(predict.frame.rainforest$Concentration)))
             rainforest.sum <- tryCatch(summary(lm(predict.frame.rainforest$Concentration~rainforest.predict)), error=function(e) NULL)
             rainforest.r2 <- tryCatch(as.numeric(max(cal.lm.rainforest[["results"]]$Rsquared)), error=function(e) 0)
+            rainforest.r2[!is.finite(rainforest.r2)] <- 0
             rainforest.slope <- tryCatch(as.numeric(rainforest.sum$coef[2]), error=function(e) 0)
+            rainforest.slope[!is.finite(rainforest.slope)] <- 0
             
-            cal.lm.neural.shallow.intens <- tryCatch(neuralNetworkIntensityShallow(), error=function(e) NULL)
+            cal.lm.neural.shallow.intens <- neuralNetworkIntensityShallow()
             neural.shallow.intens.predict <- tryCatch(predict(cal.lm.neural.shallow.intens, newdata=predict.frame.neural.shallow.intens), error=function(e) rep(0, length(predict.frame.neural.shallow.intens$Concentration)))
             neural.shallow.intens.sum <- tryCatch(summary(lm(predict.frame.neural.shallow.intens$Concentration~neural.shallow.intens.predict, na.action=na.exclude)), error=function(e) NULL)
             neural.shallow.intens.r2 <- tryCatch(as.numeric(max(cal.lm.neural.shallow.intens[["results"]]$Rsquared)), error=function(e) 0)
+            neural.shallow.intens.r2[!is.finite(neural.shallow.intens.r2)] <- 0
             neural.shallow.intens.slope <- tryCatch(as.numeric(neural.shallow.intens.sum$coef[2]), error=function(e) 0)
+            neural.shallow.intens.slope[!is.finite(neural.shallow.intens.slope)] <- 0
             
-            cal.lm.neural.shallow.spectra <- tryCatch(neuralNetworkSpectraShallow(), error=function(e) NULL)
+            cal.lm.neural.shallow.spectra <- neuralNetworkSpectraShallow()
             neural.shallow.spectra.predict <- tryCatch(predict(cal.lm.neural.shallow.spectra, newdata=predict.frame.neural.shallow.spectra), error=function(e) rep(0, length(predict.frame.neural.shallow.spectra$Concentration)))
             neural.shallow.spectra.sum <- tryCatch(summary(lm(predict.frame.neural.shallow.spectra$Concentration~neural.shallow.spectra.predict, na.action=na.exclude)), error=function(e) NULL)
             neural.shallow.spectra.r2 <- tryCatch(as.numeric(max(cal.lm.neural.shallow.spectra[["results"]]$Rsquared)), error=function(e) 0)
+            neural.shallow.spectra.r2[!is.finite(neural.shallow.spectra.r2)] <- 0
             neural.shallow.spectra.slope <- tryCatch(as.numeric(neural.shallow.spectra.sum$coef[2]), error=function(e) 0)
+            neural.shallow.spectra.slope[!is.finite(neural.shallow.spectra.slope)] <- 0
             
-            cal.lm.xgboost.intens <- tryCatch(xgboostIntensityModel(), error=function(e) NULL)
+            cal.lm.xgboost.intens <- xgboostIntensityModel()
             xgboost.intens.predict <- tryCatch(predict(cal.lm.xgboost.intens, newdata=predict.frame.xgboost.intens), error=function(e) rep(0, length(predict.frame.xgboost.intens$Concentration)))
             xgboost.intens.sum <- tryCatch(summary(lm(predict.frame.xgboost.intens$Concentration~xgboost.intens.predict, na.action=na.exclude)), error=function(e) NULL)
             xgboost.intens.r2 <- tryCatch(as.numeric(max(cal.lm.xgboost.intens[["results"]]$Rsquared)), error=function(e) 0)
+            xgboost.intens.r2[!is.finite(xgboost.intens.r2)] <- 0
             xgboost.intens.slope <- tryCatch(as.numeric(xgboost.intens.sum$coef[2]), error=function(e) 0)
+            xgboost.intens.slope[!is.finite(xgboost.intens.slope)] <- 0
             
-            cal.lm.xgboost.spectra <- tryCatch(xgboostSpectraModel(), error=function(e) NULL)
+            cal.lm.xgboost.spectra <- xgboostSpectraModel()
             xgboost.spectra.predict <- tryCatch(predict(cal.lm.xgboost.spectra, newdata=predict.frame.xgboost.spectra), error=function(e) rep(0, length(predict.frame.xgboost.spectra$Concentration)))
             xgboost.spectra.sum <- tryCatch(summary(lm(predict.frame.xgboost.spectra$Concentration~xgboost.spectra.predict, na.action=na.exclude)), error=function(e) NULL)
             xgboost.spectra.r2 <- tryCatch(as.numeric(max(cal.lm.xgboost.spectra[["results"]]$Rsquared)), error=function(e) 0)
+            xgboost.spectra.r2[!is.finite(xgboost.spectra.r2)] <- 0
             xgboost.spectra.slope <- tryCatch(as.numeric(xgboost.spectra.sum$coef[2]), error=function(e) 0)
+            xgboost.spectra.slope[!is.finite(xgboost.spectra.slope)] <- 0
+            
+            cal.lm.bayes.intens <- bayesIntensityModel()
+            bayes.intens.predict <- tryCatch(predict(cal.lm.bayes.intens, newdata=predict.frame.bayes.intens), error=function(e) rep(0, length(predict.frame.bayes.intens$Concentration)))
+            bayes.intens.sum <- tryCatch(summary(lm(predict.frame.bayes.intens$Concentration~bayes.intens.predict, na.action=na.exclude)), error=function(e) NULL)
+            bayes.intens.r2 <- tryCatch(as.numeric(max(cal.lm.bayes.intens[["results"]]$Rsquared)), error=function(e) 0)
+            bayes.intens.r2[!is.finite(bayes.intens.r2)] <- 0
+            bayes.intens.slope <- tryCatch(as.numeric(bayes.intens.sum$coef[2]), error=function(e) 0)
+            bayes.intens.slope[!is.finite(bayes.intens.slope)] <- 0
+            
+            cal.lm.bayes.spectra <- bayesSpectraModel()
+            bayes.spectra.predict <- tryCatch(predict(cal.lm.bayes.spectra, newdata=predict.frame.bayes.spectra), error=function(e) rep(0, length(predict.frame.bayes.spectra$Concentration)))
+            bayes.spectra.sum <- tryCatch(summary(lm(predict.frame.bayes.spectra$Concentration~bayes.spectra.predict, na.action=na.exclude)), error=function(e) NULL)
+            bayes.spectra.r2 <- tryCatch(as.numeric(max(cal.lm.bayes.spectra[["results"]]$Rsquared)), error=function(e) 0)
+            bayes.spectra.r2[!is.finite(bayes.spectra.r2)] <- 0
+            bayes.spectra.slope <- tryCatch(as.numeric(bayes.spectra.sum$coef[2]), error=function(e) 0)
+            bayes.spectra.slope[!is.finite(bayes.spectra.slope)] <- 0
+            
+            cal.lm.svm.intens <- svmIntensityModel()
+            svm.intens.predict <- tryCatch(predict(cal.lm.svm.intens, newdata=predict.frame.svm.intens), error=function(e) rep(0, length(predict.frame.svm.intens$Concentration)))
+            svm.intens.sum <- tryCatch(summary(lm(predict.frame.svm.intens$Concentration~svm.intens.predict, na.action=na.exclude)), error=function(e) NULL)
+            svm.intens.r2 <- tryCatch(as.numeric(max(cal.lm.svm.intens[["results"]]$Rsquared)), error=function(e) 0)
+            svm.intens.r2[!is.finite(svm.intens.r2)] <- 0
+            svm.intens.slope <- tryCatch(as.numeric(svm.intens.sum$coef[2]), error=function(e) 0)
+            svm.intens.slope[!is.finite(svm.intens.slope)] <- 0
+
+            cal.lm.svm.spectra <- svmSpectraModel()
+            svm.spectra.predict <- tryCatch(predict(cal.lm.svm.spectra, newdata=predict.frame.svm.spectra), error=function(e) rep(0, length(predict.frame.svm.spectra$Concentration)))
+            svm.spectra.sum <- tryCatch(summary(lm(predict.frame.bayes.spectra$Concentration~svm.spectra.predict, na.action=na.exclude)), error=function(e) NULL)
+            svm.spectra.r2 <- tryCatch(as.numeric(max(cal.lm.svm.spectra[["results"]]$Rsquared)), error=function(e) 0)
+            svm.spectra.r2[!is.finite(svm.spectra.r2)] <- 0
+            svm.spectra.slope <- tryCatch(as.numeric(svm.spectra.sum$coef[2]), error=function(e) 0)
+            svm.spectra.slope[!is.finite(svm.spectra.slope)] <- 0
 
 
             
-            model.frame <- data.frame(Model = c("Linear", "Non-Linear", "Lucas-Tooth", "Forest", "Rainforest", "Neural Intensities Shallow", "Neural Spectra Shallow", "XGBoost Intensities", "XGBoost Spectra"),
-            valSlope = round(c(lm.slope, lm2.slope, lucas.slope, forest.slope, rainforest.slope, neural.shallow.intens.slope, neural.shallow.spectra.slope, xgboost.intens.slope, xgboost.spectra.slope), 2),
-            R2 = round(c(lm.r2, lm2.r2, lucas.r2, forest.r2, rainforest.r2, neural.shallow.intens.r2, neural.shallow.spectra.r2, xgboost.intens.r2, xgboost.spectra.r2), 2),
-            Score = round(c(lm.r2*lm.slope, lm2.r2*lm2.slope, lucas.r2*lucas.slope, forest.r2*forest.slope, rainforest.r2*rainforest.slope, neural.shallow.intens.r2*neural.shallow.intens.slope, neural.shallow.spectra.r2*neural.shallow.spectra.slope, xgboost.intens.r2*xgboost.intens.slope, xgboost.spectra.r2*xgboost.spectra.slope), 2),
-            Rank = round(abs(1-c(lm.r2*lm.slope, lm2.r2*lm2.slope, lucas.r2*lucas.slope, forest.r2*forest.slope, rainforest.r2*rainforest.slope, neural.shallow.intens.r2*neural.shallow.intens.slope, neural.shallow.spectra.r2*neural.shallow.spectra.slope, xgboost.intens.r2*xgboost.intens.slope, xgboost.spectra.r2*xgboost.spectra.slope)), 2),
-            Code=c(1, 2, 3, 4, 5, 6, 7, 8, 9),
+            model.frame <- data.frame(Model = c("Linear", "Non-Linear", "Lucas-Tooth", "Forest", "Rainforest", "Neural Intensities Shallow", "Neural Spectra Shallow", "XGBoost Intensities", "XGBoost Spectra", "Bayes Intensities", "Bayes Spectra", "SVM Intensities", "SVM Spectra"),
+            valSlope = round(c(lm.slope, lm2.slope, lucas.slope, forest.slope, rainforest.slope, neural.shallow.intens.slope, neural.shallow.spectra.slope, xgboost.intens.slope, xgboost.spectra.slope, bayes.intens.slope, bayes.spectra.slope, svm.intens.slope, svm.spectra.slope), 2),
+            R2 = round(c(lm.r2, lm2.r2, lucas.r2, forest.r2, rainforest.r2, neural.shallow.intens.r2, neural.shallow.spectra.r2, xgboost.intens.r2, xgboost.spectra.r2, bayes.intens.r2, bayes.spectra.r2, svm.intens.r2, svm.spectra.r2), 2),
+            Score = round(c(lm.r2*lm.slope, lm2.r2*lm2.slope, lucas.r2*lucas.slope, forest.r2*forest.slope, rainforest.r2*rainforest.slope, neural.shallow.intens.r2*neural.shallow.intens.slope, neural.shallow.spectra.r2*neural.shallow.spectra.slope, xgboost.intens.r2*xgboost.intens.slope, xgboost.spectra.r2*xgboost.spectra.slope, bayes.intens.r2*bayes.intens.slope, bayes.spectra.r2*bayes.spectra.slope, svm.intens.r2*svm.intens.slope, svm.spectra.r2*svm.spectra.slope), 2),
+            Rank = round(abs(1-c(lm.r2*lm.slope, lm2.r2*lm2.slope, lucas.r2*lucas.slope, forest.r2*forest.slope, rainforest.r2*rainforest.slope, neural.shallow.intens.r2*neural.shallow.intens.slope, neural.shallow.spectra.r2*neural.shallow.spectra.slope, xgboost.intens.r2*xgboost.intens.slope, xgboost.spectra.r2*xgboost.spectra.slope, bayes.intens.r2*bayes.intens.slope, bayes.spectra.r2*bayes.spectra.slope, svm.intens.r2*svm.intens.slope, svm.spectra.r2*svm.spectra.slope)), 2),
+            Code=c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13),
             stringsAsFactors=FALSE)
             
             for(i in 1:9){
@@ -4013,6 +5554,14 @@ shinyServer(function(input, output, session) {
                 xgboostIntensityParameters()
             } else if(bestCalType()==9){
                 xgboostSpectraParameters()
+            } else if(bestCalType()==10){
+                neuralNetworkIntensityShallowParameters()
+            } else if(bestCalType()==11){
+                neuralNetworkSpectraShallowParameters()
+            } else if(bestCalType()==12){
+                xgboostIntensityParameters()
+            } else if(bestCalType()==13){
+                xgboostSpectraParameters()
             }
             
         })
@@ -4037,6 +5586,14 @@ shinyServer(function(input, output, session) {
                 xgboostIntensityModel()
             } else if(bestCalType()==9){
                 xgboostSpectraModel()
+            } else if(bestCalType()==10){
+                bayesIntensityShallowModel()
+            } else if(bestCalType()==11){
+                bayesSpectraShallowModel()
+            } else if(bestCalType()==12){
+                svmIntensityModel()
+            } else if(bestCalType()==13){
+                svmSpectraModel()
             }
             
         })
@@ -4297,7 +5854,7 @@ shinyServer(function(input, output, session) {
             }
         })
         
-        calXGBLambdaSelectionpre <- reactive(label="calXGBLambdaSelectionpre", {
+        calxgboostLambdaSelectionpre <- reactive(label="calxgboostLambdaSelectionpre", {
             if(!"xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbLambda"]), "-")))
             } else if("xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -4329,12 +5886,77 @@ shinyServer(function(input, output, session) {
             }
         })
         
+        calBARTKSelectionpre <- reactive(label="calBARTKSelectionpre", {
+            if(!"bartK" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["bartK"]), "-")))
+            } else if("bartK" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$bartK[1]), "-")))
+            }
+        })
+        
+        calBARTBetaSelectionpre <- reactive(label="calBARTBetaSelectionpre", {
+            if(!"bartBeta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["bartBeta"]), "-")))
+            } else if("bartBeta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$bartBeta[1]), "-")))
+            }
+        })
+        
+        calBARTNuSelectionpre <- reactive(label="calBARTNuSelectionpre", {
+            if(!"bartNu" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["bartNu"]), "-")))
+            } else if("bartNu" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$bartNu[1]), "-")))
+            }
+        })
+        
+        calSVMCSelectionpre <- reactive(label="calSVMCSelectionpre", {
+            if(!"svmC" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["svmC"]), "-")))
+            } else if("svmC" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$svmC[1]), "-")))
+            }
+        })
+        
+        calSVMDegreeSelectionpre <- reactive(label="calSVMDegreeSelectionpre", {
+            if(!"svmDegree" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["svmDegree"]), "-")))
+            } else if("svmDegree" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$svmDegree[1]), "-")))
+            }
+        })
+        
+        calSVMScaleSelectionpre <- reactive(label="calSVMScaleSelectionpre", {
+            if(!"svmScale" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["svmScale"]), "-")))
+            } else if("svmScale" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$svmScale[1]), "-")))
+            }
+        })
+        
+        calSVMSigmaSelectionpre <- reactive(label="calSVMSigmaSelectionpre", {
+            if(!"svmSigma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["svmSigma"]), "-")))
+            } else if("svmSigma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$svmSigma[1]), "-")))
+            }
+        })
+        
+        calSVMLengthSelectionpre <- reactive(label="calSVMLengthSelectionpre", {
+            if(!"svmLength" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["svmLength"]), "-")))
+            } else if("svmLength" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$svmLength[1]), "-")))
+            }
+        })
+        
         basichold <- reactiveValues()
         foresthold <- reactiveValues()
         lucashold <- reactiveValues()
         neuralhold <- reactiveValues()
         xgboosthold <- reactiveValues()
-
+        barthold <- reactiveValues()
+        svmhold <- reactiveValues()
         
         observeEvent(input$calcurveelement, {
             basichold$normtype <- calNormSelectionpre()
@@ -4361,10 +5983,18 @@ shinyServer(function(input, output, session) {
             xgboosthold$xgbalpha <- calXGBAlphaSelectionpre()
             xgboosthold$xgbgamma <- calXGBGammaSelectionpre()
             xgboosthold$xgbeta <- calXGBEtaSelectionpre()
-            xgboosthold$xgblambda <- calXGBLambdaSelectionpre()
+            xgboosthold$xgblambda <- calxgboostLambdaSelectionpre()
             xgboosthold$xgbsubsample <- calXGBSubSampleSelectionpre()
             xgboosthold$xgbcolsample <- calXGBColSampleSelectionpre()
             xgboosthold$xgbminchild <- calXGBMinChildSelectionpre()
+            barthold$bartk <- calBARTKSelectionpre()
+            barthold$bartbeta <- calBARTBetaSelectionpre()
+            barthold$bartnu <- calBARTNuSelectionpre()
+            svmhold$svmc <- calSVMCSelectionpre()
+            svmhold$svmdegree <- calSVMDegreeSelectionpre()
+            svmhold$svmscale <- calSVMScaleSelectionpre()
+            svmhold$svmsigma <- calSVMSigmaSelectionpre()
+            svmhold$svmlength <- calSVMLengthSelectionpre()
         })
         
         
@@ -4491,6 +6121,38 @@ shinyServer(function(input, output, session) {
             xgboosthold$xgbminchild
         })
         
+        bartKSelection <- reactive(label="bartKSelection", {
+            barthold$bartk
+        })
+        
+        bartBetaSelection <- reactive(label="bartBetaSelection", {
+            barthold$bartbeta
+        })
+        
+        bartNuSelection <- reactive(label="bartNuSelection", {
+            barthold$bartnu
+        })
+        
+        svmCSelection <- reactive(label="svmCSelection", {
+            svmhold$svmc
+        })
+        
+        svmDegreeSelection <- reactive(label="svmDegreeSelection", {
+            svmhold$svmdegree
+        })
+        
+        svmScaleSelection <- reactive(label="svmScaleSelection", {
+            svmhold$svmscale
+        })
+        
+        svmSigmaSelection <- reactive(label="svmSigmaSelection", {
+            svmhold$svmsigma
+        })
+        
+        svmLengthSelection <- reactive(label="svmLengthSelection", {
+            svmhold$svmlength
+        })
+        
         observeEvent(input$normcal, {
             basichold$normtype <- input$normcal
         })
@@ -4612,6 +6274,39 @@ shinyServer(function(input, output, session) {
             xgboosthold$xgbminchild <- input$xgbminchild
         })
         
+        observeEvent(input$bartk, {
+            barthold$bartk <- input$bartk
+        })
+        
+        observeEvent(input$bartbeta, {
+            barthold$bartbeta <- input$bartbeta
+        })
+        
+        observeEvent(input$bartnu, {
+            barthold$bartnu <- input$bartnu
+        })
+        
+        observeEvent(input$svmc, {
+            svmhold$svmc <- input$svmc
+        })
+        
+        observeEvent(input$svmdegree, {
+            svmhold$svmdegree <- input$svmdegree
+        })
+        
+        observeEvent(input$svmscale, {
+            svmhold$svmscale <- input$svmscale
+        })
+        
+        observeEvent(input$svmsigma, {
+            svmhold$svmsigma <- input$svmsigma
+        })
+        
+        observeEvent(input$svmlength, {
+            svmhold$svmlength <- input$svmlength
+        })
+        
+        
         
 
         
@@ -4634,6 +6329,14 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==8){
                 actionButton("mclrun", "Run Model")
             } else if(input$radiocal==9){
+                actionButton("mclrun", "Run Model")
+            } else if(input$radiocal==10){
+                actionButton("mclrun", "Run Model")
+            } else if(input$radiocal==11){
+                actionButton("mclrun", "Run Model")
+            } else if(input$radiocal==12){
+                actionButton("mclrun", "Run Model")
+            }   else if(input$radiocal==13){
                 actionButton("mclrun", "Run Model")
             }
             
@@ -4677,6 +6380,8 @@ shinyServer(function(input, output, session) {
                 forestTreesUI(radiocal=input$radiocal, selection=calForestTreeSelectionpre())
             } else if(input$radiocal==8 | input$radiocal==9){
                 forestTreesUI(radiocal=input$radiocal, selection=calForestTreeSelectionpre(), xgbtype=input$xgbtype)
+            } else if(input$radiocal==10 | input$radiocal==11){
+                forestTreesUI(radiocal=input$radiocal, selection=calForestTreeSelectionpre(), xgbtype=input$xgbtype)
             }
             
         })
@@ -4688,7 +6393,18 @@ shinyServer(function(input, output, session) {
         
         output$neuralhiddenunitsui <- renderUI({
             req(input$radiocal)
-            neuralHiddenUnitsUi(radiocal=input$radiocal, selection=calHiddenUnitsSelectionpre())
+            if(input$radiocal==6){
+                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=calHiddenUnitsSelectionpre())
+            } else if(input$radiocal==7){
+                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=calHiddenUnitsSelectionpre())
+            } else if(input$radiocal==10){
+                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=calHiddenUnitsSelectionpre(), xgbtype=input$xgbtype)
+            } else if(input$radiocal==11){
+                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=calHiddenUnitsSelectionpre(), xgbtype=input$xgbtype)
+            } else {
+                NULL
+            }
+            
         })
         
         output$neuralweightdecayui <- renderUI({
@@ -4712,12 +6428,12 @@ shinyServer(function(input, output, session) {
         })
         
         output$xgbalphaui <- renderUI({
-            req(input$radiocal)
+            req(input$radiocal, input$xgbtype)
             xgbAlphaUI(radiocal=input$radiocal, selection=calXGBAlphaSelectionpre(), xgbtype=input$xgbtype)
         })
         
         output$xgbgammaui <- renderUI({
-            req(input$radiocal)
+            req(input$radiocal, input$xgbtype)
             xgbGammaUI(radiocal=input$radiocal, selection=calXGBGammaSelectionpre(), xgbtype=input$xgbtype)
         })
         
@@ -4727,23 +6443,63 @@ shinyServer(function(input, output, session) {
         })
         
         output$xgblambdaui <- renderUI({
-            req(input$radiocal)
-            xgbLambdaUI(radiocal=input$radiocal, selection=calXGBLambdaSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype)
+            xgbLambdaUI(radiocal=input$radiocal, selection=calxgboostLambdaSelectionpre(), xgbtype=input$xgbtype)
         })
         
         output$xgbsubsampleui <- renderUI({
-            req(input$radiocal)
+            req(input$radiocal, input$xgbtype)
             xgbSubSampleUI(radiocal=input$radiocal, selection=calXGBSubSampleSelectionpre(), xgbtype=input$xgbtype)
         })
         
         output$xgbcolsampleui <- renderUI({
-            req(input$radiocal)
+            req(input$radiocal, input$xgbtype)
             xgbColSampleUI(radiocal=input$radiocal, selection=calXGBColSampleSelectionpre(), xgbtype=input$xgbtype)
         })
         
         output$xgbminchildui <- renderUI({
-            req(input$radiocal)
+            req(input$radiocal, input$xgbtype)
             xgbMinChildUI(radiocal=input$radiocal, selection=calXGBMinChildSelectionpre(), xgbtype=input$xgbtype)
+        })
+        
+        output$bartkui <- renderUI({
+            req(input$radiocal, input$xgbtype)
+            bartKUI(radiocal=input$radiocal, selection=calBARTKSelectionpre(), xgbtype=input$xgbtype)
+        })
+        
+        output$bartbetaui <- renderUI({
+            req(input$radiocal, input$xgbtype)
+            bartBetaUI(radiocal=input$radiocal, selection=calBARTKSelectionpre(), xgbtype=input$xgbtype)
+        })
+        
+        output$bartnuui <- renderUI({
+            req(input$radiocal, input$xgbtype)
+            bartNuUI(radiocal=input$radiocal, selection=calBARTKSelectionpre(), xgbtype=input$xgbtype)
+        })
+        
+        output$svmcui <- renderUI({
+            req(input$radiocal, input$xgbtype)
+            svmCUI(radiocal=input$radiocal, selection=calSVMCSelectionpre())
+        })
+        
+        output$svmdegreeui <- renderUI({
+            req(input$radiocal, input$xgbtype)
+            svmDegreeUI(radiocal=input$radiocal, selection=calSVMDegreeSelectionpre(), xgbtype=input$xgbtype)
+        })
+        
+        output$svmscaleui <- renderUI({
+            req(input$radiocal, input$xgbtype)
+            svmScaleUI(radiocal=input$radiocal, selection=calSVMScaleSelectionpre(), xgbtype=input$xgbtype)
+        })
+        
+        output$svmsigmaui <- renderUI({
+            req(input$radiocal, input$xgbtype)
+            svmSigmaUI(radiocal=input$radiocal, selection=calSVMSigmaSelectionpre(), xgbtype=input$xgbtype)
+        })
+        
+        output$svmlengthui <- renderUI({
+            req(input$radiocal, input$xgbtype)
+            svmLengthUI(radiocal=input$radiocal, selection=calSVMLengthSelectionpre(), xgbtype=input$xgbtype)
         })
         
         
@@ -4790,6 +6546,14 @@ shinyServer(function(input, output, session) {
                 xgboostIntensityModelSet()$data[,!colnames(xgboostIntensityModelSet()$data) %in% c("Spectrum", "Concentration")]
             } else if(input$radiocal==9){
                 xgboostSpectraModelSet()$data[,!colnames(xgboostSpectraModelSet()$data) %in% c("Spectrum", "Concentration")]
+            } else if(input$radiocal==10){
+                bayesIntensityModelSet()$data[,!colnames(bayesIntensityModelSet()$data) %in% c("Spectrum", "Concentration")]
+            } else if(input$radiocal==11){
+                bayesSpectraModelSet()$data[,!colnames(bayesSpectraModelSet()$data) %in% c("Spectrum", "Concentration")]
+            } else if(input$radiocal==12){
+                svmIntensityModelSet()$data[,!colnames(svmIntensityModelSet()$data) %in% c("Spectrum", "Concentration")]
+            } else if(input$radiocal==13){
+                svmSpectraModelSet()$data[,!colnames(svmSpectraModelSet()$data) %in% c("Spectrum", "Concentration")]
             }
             predictFrameCheck(predict.intensity)
             
@@ -4797,7 +6561,7 @@ shinyServer(function(input, output, session) {
         
         
         output$testingagain <- renderDataTable({
-            concentrationTable()
+            predictFrame()
             
         })
         
@@ -4826,6 +6590,14 @@ shinyServer(function(input, output, session) {
                 xgboostIntensityModelSet()$data
             } else if(input$radiocal==9){
                 xgboostSpectraModelSet()$data
+            } else if(input$radiocal==10){
+                bayesIntensityModelSet()$data
+            } else if(input$radiocal==11){
+                bayesSpectraModelSet()$data
+            } else if(input$radiocal==12){
+                svmIntensityModelSet()$data
+            } else if(input$radiocal==13){
+                svmSpectraModelSet()$data
             }
         })
         
@@ -4853,6 +6625,14 @@ shinyServer(function(input, output, session) {
                 xgboostIntensityModelSet()$parameters
             } else if(input$radiocal==9){
                 xgboostSpectraModelSet()$parameters
+            } else if(input$radiocal==10){
+                bayesIntensityModelSet()$parameters
+            } else if(input$radiocal==11){
+                bayesSpectraModelSet()$parameters
+            } else if(input$radiocal==12){
+                svmIntensityModelSet()$parameters
+            } else if(input$radiocal==13){
+                svmSpectraModelSet()$parameters
             }, error=function(e) NULL)
         })
         
@@ -4897,6 +6677,14 @@ shinyServer(function(input, output, session) {
                 tryCatch(xgboostIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==9){
                 tryCatch(xgboostSpectraModel(), error=function(e) NULL)
+            } else if(input$radiocal==10){
+                tryCatch(bayesIntensityModel(), error=function(e) NULL)
+            } else if(input$radiocal==11){
+                bayesSpectraModel()
+            } else if(input$radiocal==12){
+                svmIntensityModel()
+            } else if(input$radiocal==13){
+                svmSpectraModel()
             }
         })
         
@@ -4999,6 +6787,14 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==8){
                 3
             } else if(input$radiocal==9){
+                5
+            } else if(input$radiocal==10){
+                3
+            } else if(input$radiocal==11){
+                5
+            } else if(input$radiocal==12){
+                3
+            } else if(input$radiocal==13){
                 5
             }
             
@@ -5192,6 +6988,106 @@ shinyServer(function(input, output, session) {
             }
             
             if(input$radiocal==9){
+                
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
+            }
+            
+            if(input$radiocal==10){
+                
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
+            }
+            
+            if(input$radiocal==11){
+                
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
+            }
+            
+            if(input$radiocal==12){
+                
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameVal$val.frame[!vals$keeprows, , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
+            }
+            
+            if(input$radiocal==13){
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
@@ -6284,6 +8180,1111 @@ shinyServer(function(input, output, session) {
             
         })
         
+        bartMachineIntensityModelRandomized <- reactive(label="bartMachineIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- bartMachineIntensityModelSet()$data[randomizeData(),]
+            parameters <- bartMachineIntensityModelSet()$parameters$CalTable
+            
+            xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
+            k.vec <- dnorminv(1-(as.numeric(unlist(strsplit(as.character(parameters$bartK), "-")))/100))
+            bartbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartBeta), "-")))
+            bartnu.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartNu), "-")))
+            
+            bart.grid <- expand.grid(
+                num_trees=parameters$ForestTrees,
+                alpha=seq(xgbalpha.vec[1], xgbalpha.vec[2], by=0.1),
+                beta=seq(bartbeta.vec[1], bartbeta.vec[2], by=0.1),
+                nu=seq(bartnu.vec[1], bartnu.vec[2], by=0.1),
+                k=seq(k.vec[1], k.vec[2], by=0.5))
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesLinearIntensityModelRandomized <- reactive(label="bayesLinearIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- bayesLinearIntensityModelSet()$data[randomizeData(),]
+            parameters <- bayesLinearIntensityModelSet()$parameters$CalTable
+            
+            
+            bart.grid <- NULL
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesNeuralNetIntensityModelRandomized <- reactive(label="bayesNeuralNetIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- bartMachineIntensityModelSet()$data[randomizeData(),]
+            parameters <- bartMachineIntensityModelSet()$parameters$CalTable
+            
+            
+            hiddenunits.vec <- as.numeric(unlist(strsplit(as.character(parameters$NeuralHU), "-")))
+            
+            
+            bart.grid <- expand.grid(
+            neurons = seq(hiddenunits.vec[1], hiddenunits.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesIntensityModelRandomized <- reactive(label="bayesIntensityModel", {
+            
+            if(xgboosthold$xgbtype=="Tree"){
+                bartMachineIntensityModelRandomized()
+            } else if(xgboosthold$xgbtype=="Linear"){
+                bayesLinearIntensityModelRaandomized()
+            } else if(xgboosthold$xgbtype=="Neural Net"){
+                bayesNeuralNetIntensityModelRandomized()
+            }
+            
+        })
+        
+        bartMachineSpectraModelRandomized <- reactive(label="bartMachineSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- bartMachineSpectraModelSet()$data[randomizeData(),]
+            parameters <- bartMachineSpectraModelSet()$parameters$CalTable
+            
+            xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
+            k.vec <- dnorminv(1-(as.numeric(unlist(strsplit(as.character(parameters$bartK), "-")))/100))
+            bartbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartBeta), "-")))
+            bartnu.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartNu), "-")))
+            
+            bart.grid <- expand.grid(
+                num_trees=parameters$ForestTrees,
+                alpha=seq(xgbalpha.vec[1], xgbalpha.vec[2], by=0.1),
+                beta=seq(bartbeta.vec[1], bartbeta.vec[2], by=0.1),
+                nu=seq(bartnu.vec[1], bartnu.vec[2], by=0.1),
+                k=seq(k.vec[1], k.vec[2], by=0.5))
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
+            
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesLinearSpectraModelRandomized <- reactive(label="bayesLinearSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- bayesLinearSpectraModelSet()$data[randomizeData(),]
+            parameters <- bayesLinearSpectraModelSet()$parameters$CalTable
+            
+            
+            bart.grid <- NULL
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+            
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesNeuralNetpectraModelRandomized <- reactive(label="bayesNeuralNetpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- bayesNeuralNetSpectraModelSet()$data[randomizeData(),]
+            parameters <- bayesNeuralNetSpectraModelSet()$parameters$CalTable
+            
+            
+            hiddenunits.vec <- as.numeric(unlist(strsplit(as.character(parameters$NeuralHU), "-")))
+            
+            
+            bart.grid <- expand.grid(
+            neurons = seq(hiddenunits.vec[1], hiddenunits.vec[2], 1))
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+            
+            
+            stopCluster(cl)
+            bart_model
+            
+        })
+        
+        bayesSpectraModelRandomized <- reactive(label="bayesSpectraModel", {
+            
+            if(xgboosthold$xgbtype=="Tree"){
+                bartMachineSpectraModelRandomized()
+            } else if(xgboosthold$xgbtype=="Linear"){
+                bayesLinearSpectraModelRandomized()
+            } else if(xgboosthold$xgbtype=="Neural Net"){
+                bayesNeuralNetSpectraModelRandomized()
+            }
+            
+        })
+        
+        svmLinearIntensityModelRandomized <- reactive(label="svmLinearIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmLinearIntensityModelSet()$data[randomizeData(),]
+            parameters <- svmLinearIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmPolyIntensityModelRandomized <- reactive(label="svmPolyIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmPolyIntensityModelSet()$data[randomizeData(),]
+            parameters <- svmPolyIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmdegree.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmDegree), "-")))
+            svmscale.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmScale), "-")))
+
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            scale=seq(svmscale.vec[1], svmscale.vec[2], 1),
+            degree=seq(svmdegree.vec[1], svmdegree.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmRadialIntensityModelRandomized <- reactive(label="svmRadialIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmRadialIntensityModelSet()$data[randomizeData(),]
+            parameters <- svmRadialIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmsigma.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmSigma), "-")))
+            
+            svm.grid <- if(parameters$xgbType!="Radial Cost"){
+                expand.grid(
+                C = seq(svmc.vec[1], svmc.vec[2], 1),
+                sigma=seq(svmsigma.vec[1], svmsigma.vec[2], 1))
+            } else if(parameters$xgbType=="Radial Cost"){
+                expand.grid(
+                C = seq(svmc.vec[1], svmc.vec[2], 1))
+            }
+            
+            svm.flavor <- if(parameters$xgbType=="Radial"){
+                "svmRadial"
+            } else if(parameters$xgbType=="Radial Cost"){
+                "svmRadialCost"
+            } else if(parameters$xgbType=="Radial Sigma"){
+                "svmRadialSigma"
+            }
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmBoundrangeIntensityModelRandomized <- reactive(label="svmBoundrangeIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmBoundrangeIntensityModelSet()$data[randomizeData(),]
+            parameters <- svmBoundrangeIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmlength.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmLength), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            length=seq(svmlength.vec[1], svmlength.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmExponentialIntensityModelRandomized <- reactive(label="svmExponentialIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmExponentialIntensityModelSet()$data[randomizeData(),]
+            parameters <- svmExponentialIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            lambda=seq(xgblambda.vec[1], xgblambda.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmSpectrumIntensityModelRandomized <- reactive(label="svmSpectrumIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            predict.frame <- svmSpectrumIntensityModelSet()$data[randomizeData(),]
+            parameters <- svmSpectrumIntensityModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmlength.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmLength), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            length=seq(svmlength.vec[1], svmlength.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmIntensityModelRandomized <- reactive(label="svmIntensityModel", {
+            
+            if(xgboosthold$xgbtype=="Linear"){
+                svmLinearIntensityModelRandomized()
+            } else if(xgboosthold$xgbtype=="Polynomial"){
+                svmPolyIntensityModelRandomized()
+            } else if(xgboosthold$xgbtype=="Exponential"){
+                svmExponentialIntensityModelRandomized()
+            } else if(xgboosthold$xgbtype=="Radial" | xgboosthold$xgbtype=="Radial Cost" | xgboosthold$xgbtype=="Radial Sigma"){
+                svmRadialIntensityModelRandomized()
+            } else if(xgboosthold$xgbtype=="Boundrange String"){
+                svmBoundrangeIntensityModelRandomized()
+            } else if(xgboosthold$xgbtype=="Spectrum String"){
+                svmSpectrumIntensityModelRandomized()
+            }
+            
+        })
+        
+        svmLinearSpectraModelRandomized <- reactive(label="svmLinearSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmLinearSpectraModelSet()$data[randomizeData(),]
+            parameters <- svmLinearSpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmPolySpectraModelRandomized <- reactive(label="svmPolyIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmPolySpectraModelSet()$data[randomizeData(),]
+            parameters <- svmPolySpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmdegree.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmDegree), "-")))
+            svmscale.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmScale), "-")))
+
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            scale=seq(svmscale.vec[1], svmscale.vec[2], 1),
+            degree=seq(svmdegree.vec[1], svmdegree.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmRadialSpectraModelRandomized <- reactive(label="svmRadialSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmRadialSpectraModelSet()$data[randomizeData(),]
+            parameters <- svmRadialSpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmsigma.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmSigma), "-")))
+            
+            svm.grid <- if(parameters$xgbType!="Radial Cost"){
+                expand.grid(
+                C = seq(svmc.vec[1], svmc.vec[2], 1),
+                sigma=seq(svmsigma.vec[1], svmsigma.vec[2], 1))
+            } else if(parameters$xgbType=="Radial Cost"){
+                expand.grid(
+                C = seq(svmc.vec[1], svmc.vec[2], 1))
+            }
+            
+            svm.flavor <- if(parameters$xgbType=="Radial"){
+                "svmRadial"
+            } else if(parameters$xgbType=="Radial Cost"){
+                "svmRadialCost"
+            } else if(parameters$xgbType=="Radial Sigma"){
+                "svmRadialSigma"
+            }
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmBoundrangeSpectraModelRandomized <- reactive(label="svmBoundrangeSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmBoundrangeSpectraModelSet()$data[randomizeData(),]
+            parameters <- svmBoundrangeSpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmlength.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmLength), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            length=seq(svmlength.vec[1], svmlength.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            x_train <- matrix(data[,-1], ncol=1)
+            colnames(x_train) <- "data"
+            y_train <- data$Concentration
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmExponentialSpectraModelRandomized <- reactive(label="svmExponentialSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmExponentialSpectraModelSet()$data[randomizeData(),]
+            parameters <- svmExponentialSpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            lambda=seq(xgblambda.vec[1], xgblambda.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            x_train <- matrix(data[,-1], ncol=1)
+            colnames(x_train) <- "data"
+            y_train <- data$Concentration
+            
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmSpectrumSpectraModelRandomized <- reactive(label="svmSpectrumSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            data <- svmSpectrumSpectraModelSet()$data[randomizeData(),]
+            parameters <- svmSpectrumSpectraModelSet()$parameters$CalTable
+            
+            
+            svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
+            svmlength.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmLength), "-")))
+            
+            svm.grid <- expand.grid(
+            C = seq(svmc.vec[1], svmc.vec[2], 1),
+            length=seq(svmlength.vec[1], svmlength.vec[2], 1))
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
+                verboseIter = TRUE,
+                allowParallel = TRUE)
+            }
+            
+            x_train <- matrix(data[,-1], ncol=1)
+            colnames(x_train) <- "data"
+            y_train <- data$Concentration
+            
+            
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            registerDoParallel(cl)
+            
+            svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            
+            stopCluster(cl)
+            svm_model
+            
+        })
+        
+        svmSpectraModelRandomized <- reactive(label="svmSpectraModel", {
+            
+            if(xgboosthold$xgbtype=="Linear"){
+                svmLinearSpectraModelRandomized()
+            } else if(xgboosthold$xgbtype=="Polynomial"){
+                svmPolySpectraModelRandomized()
+            } else if(xgboosthold$xgbtype=="Exponential"){
+                svmExponentialSpectraModelRandomized()
+            } else if(xgboosthold$xgbtype=="Radial" | xgboosthold$xgbtype=="Radial Cost" | xgboosthold$xgbtype=="Radial Sigma"){
+                svmRadialSpectraModelRandomized()
+            } else if(xgboosthold$xgbtype=="Boundrange String"){
+                svmBoundrangeSpectraModelRandomized()
+            } else if(xgboosthold$xgbtype=="Spectrum String"){
+                svmSpectrumSpectraModelRandomized()
+            }
+            
+        })
+        
         
         elementModelRandom <- reactive(label="elementModelRandom",{
 
@@ -6309,8 +9310,16 @@ shinyServer(function(input, output, session) {
                 xgboostIntensityModelRandom()
             } else if(input$radiocal==9){
                 xgboostSpectraModelRandom()
+            } else if(input$radiocal==10){
+                bayesIntensityModelRandomized()
+            } else if(input$radiocal==11){
+                bayesSpectraModelRandomized()
+            } else if(input$radiocal==12){
+                svmIntensityModelRandomized()
+            } else if(input$radiocal==13){
+                svmSpectraModelRandomized()
             }
-
+            
         })
         
         #randomHold <- reactiveValues()
@@ -6448,6 +9457,58 @@ shinyServer(function(input, output, session) {
                 colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
             }
             
+            if (input$radiocal==10){
+                
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+                #cal.est.conc.luc <- cal.est.conc.tab$fit
+                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+                
+                
+                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
+            }
+            
+            if (input$radiocal==11){
+                
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+                #cal.est.conc.luc <- cal.est.conc.tab$fit
+                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+                
+                
+                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
+            }
+            
+            if (input$radiocal==12){
+                
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+                #cal.est.conc.luc <- cal.est.conc.tab$fit
+                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+                
+                
+                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
+            }
+            
+            if (input$radiocal==13){
+                
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity)
+                #cal.est.conc.tab <- data.frame(cal.est.conc.pred.luc)
+                #cal.est.conc.luc <- cal.est.conc.tab$fit
+                #cal.est.conc.luc.up <- cal.est.conc.tab$upr
+                #cal.est.conc.luc.low <- cal.est.conc.tab$lwr
+                
+                
+                val.frame <- data.frame(predict.frame$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
+            }
+            
             
             
             
@@ -6555,17 +9616,39 @@ shinyServer(function(input, output, session) {
             }
             
             if (input$radiocal==9){
-                
-                
                 cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, na.action=na.omit)
-                
-                
                 
                 val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
                 colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
             }
             
+            if (input$radiocal==10){
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, na.action=na.omit)
+                
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
+            }
             
+            if (input$radiocal==11){
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, na.action=na.omit)
+                
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
+            }
+            
+            if (input$radiocal==12){
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, na.action=na.omit)
+                
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
+            }
+            
+            if (input$radiocal==13){
+                cal.est.conc.pred.luc <- predict(object=element.model , newdata=predict.intensity, na.action=na.omit)
+                
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
+            }
             
             
             val.frame
@@ -6701,6 +9784,58 @@ shinyServer(function(input, output, session) {
             }
             
             if(input$radiocal==9){
+                val.frame <- valFrameRandomizedRev()
+                
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
+                geom_point() +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+            }
+            
+            if(input$radiocal==10){
+                val.frame <- valFrameRandomizedRev()
+                
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
+                geom_point() +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+            }
+            
+            if(input$radiocal==11){
+                val.frame <- valFrameRandomizedRev()
+                
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
+                geom_point() +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+            }
+            
+            if(input$radiocal==12){
+                val.frame <- valFrameRandomizedRev()
+                
+                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
+                theme_light() +
+                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                geom_smooth() +
+                geom_point() +
+                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+            }
+            
+            if(input$radiocal==13){
                 val.frame <- valFrameRandomizedRev()
                 
                 calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
@@ -6862,7 +9997,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$weird <- renderDataTable({
-            predictIntensityForest()
+            modelParameters()$CalTable
             
         })
         
@@ -7263,6 +10398,14 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==8){
                 forestLM()
             } else if(input$radiocal==9){
+                forestLM()
+            } else if(input$radiocal==10){
+                forestLM()
+            } else if(input$radiocal==11){
+                forestLM()
+            } else if(input$radiocal==12){
+                forestLM()
+            } else if(input$radiocal==13){
                 forestLM()
             }
             
