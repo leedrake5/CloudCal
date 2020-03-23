@@ -43,7 +43,7 @@ if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 }
 #sourceCpp("pdz.cpp")
 
-library(rPDZ)
+tryCatch(library(rPDZ), error=function(e) NULL)
 library(reactlog)
 options(shiny.reactlog = TRUE)
 
