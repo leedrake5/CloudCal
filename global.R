@@ -14,7 +14,7 @@ get_os <- function(){
     tolower(os)
 }
 
-
+tryCatch(options(java.parameters = c("-XX:+UseConcMarkSweepGC", "-Xmx81920m")), error=function(e) NULL)
 #options(repos = BiocInstaller::biocinstallRepos())
 #getOption("repos")
 #options(download.file.method="libcurl", url.method="libcurl")
@@ -3840,9 +3840,9 @@ xgbTypeUI <- function(radiocal, selection){
     } else if(radiocal==9){
         selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Linear")
     } else if(radiocal==10){
-        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Linear", "Neural Net"), selected="Linear")
+        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
     } else if(radiocal==11){
-        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Linear", "Neural Net"), selected="Linear")
+        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
     } else if(radiocal==12){
         #selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Exponential", "Radial", "Radial Cost", "Radial Sigma", "Boundrange String", "Spectrum String"), selected="Linear")
         selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
@@ -4098,6 +4098,7 @@ xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 dnorminv<-function(y) sqrt(-2*log(sqrt(2*pi)*y))
+
 
 bartKUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==1){
@@ -5707,7 +5708,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     
     bartk <- if("bartK" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
-            paste0(calList[[element]][[2]]$bestTune$k, "-", calList[[element]][[2]]$bestTune$k)
+            paste0(pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)), "-", pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)))
         } else if(!cal.condition==10 | !cal.condition==11){
             as.character(imported.cal.conditions$CalTable$bartK[1])
         }
@@ -6105,7 +6106,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     
     bartk <- if("bartK" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
-            paste0(calList[[element]][[2]]$bestTune$k, "-", calList[[element]][[2]]$bestTune$k)
+            paste0(pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)), "-", pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)))
         } else if(!cal.condition==10 | !cal.condition==11){
             as.character(imported.cal.conditions$CalTable$bartK[1])
         }
