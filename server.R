@@ -3921,7 +3921,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            bart_model <- caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+            bart_model <- caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
             
             stopCluster(cl)
             bart_model
@@ -4162,7 +4162,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            bart_model <- caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+            bart_model <- caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
             
             
             stopCluster(cl)
@@ -8232,7 +8232,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+            bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, serialize = TRUE), error=function(e) NULL)
             
             stopCluster(cl)
             bart_model
@@ -8408,7 +8408,7 @@ shinyServer(function(input, output, session) {
             }
             registerDoParallel(cl)
             
-            bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
+            bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE), error=function(e) NULL)
             
             
             stopCluster(cl)
