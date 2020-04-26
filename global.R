@@ -35,11 +35,11 @@ if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, re
 
 
 if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    install.packages("http://www.xrf.guru/packages/rPDZ_1.0.zip", repos=NULL, type="win.binary")
+    tryCatch(install.packages("http://www.xrf.guru/packages/rPDZ_1.0.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
 } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tgz", repos=NULL)
+    tryCatch(install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tgz", repos=NULL), error=function(e) NULL)
 } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tar.gz", repos=NULL)
+    tryCatch(install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tar.gz", repos=NULL), error=function(e) NULL)
 }
 #sourceCpp("pdz.cpp")
 
@@ -7378,16 +7378,6 @@ calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extension
 
     }
     
-    if(null.strip==TRUE){
-        null.list <- sapply(Calibration$calList, function(x) is.null(x[[1]]$CalTable))
-        tryCatch(for(i in names(Calibration$calList)){
-            if(null.list[i]==TRUE){
-                Calibration$calList[[i]] <- NULL
-            }
-        }, error=function(e) NULL)
-
-    }
-    
     calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp), error=function(e) NULL))
     names(calpre) <- order_elements(names(Calibration[["calList"]]))
     
@@ -7405,43 +7395,71 @@ calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extension
     return(Calibration)
 }
 
-calConvert <- function(calibration, null.strip=TRUE){
+calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALSE){
     Calibration <- calibration
     
-    tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
     
-    Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
-        paste0(Calibration[["Notes"]], " Updated on ", Sys.time())
-    } else if(is.null(Calibration[["Notes"]])){
-        paste0("Updated on ", Sys.time())
-    }
-    
-    
-    string <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
-    Calibration[["Spectra"]]$Spectrum <- gsub(string, "", Calibration[["Spectra"]]$Spectrum)
-    Calibration[["Values"]]$Spectrum <- gsub(string, "", Calibration[["Values"]]$Spectrum)
-    
-    Calibration$Values <- valFrameCheck(Calibration$Values)
-    Calibration$Intensities <- intensityFrameCheck(Calibration$Intensities)
-    Calibration$Spectra <- spectraCheck(Calibration$Spectra)
-    
-    if(null.strip==TRUE){
-        null.list <- sapply(Calibration$calList, function(x) is.null(x[[2]]))
-        tryCatch(for(i in names(Calibration$calList)){
-            if(null.list[i]==TRUE){
-                Calibration$calList[[i]] <- NULL
-            }
-        }, error=function(e) NULL)
+        tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
         
-    }
-    
-    calpre <- lapply(names(Calibration[["calList"]]), function(x) list(Parameters=importCalConditions(element=x, calList=Calibration[["calList"]]), Model=Calibration[["calList"]][[x]][[2]]))
-    names(calpre) <- names(Calibration[["calList"]])
-    
-    Calibration$calList <- calpre
-    
-    
-    return(Calibration)
+        Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
+            paste0(Calibration[["Notes"]], " Updated on ", Sys.time())
+        } else if(is.null(Calibration[["Notes"]])){
+            paste0("Updated on ", Sys.time())
+        }
+        
+        
+        if(extensions==TRUE){
+            extensions <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
+            Calibration[["Spectra"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Spectra"]]$Spectrum))
+            Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Values"]]$Spectrum))
+        }
+        
+
+        
+        Calibration$Values <- valFrameCheck(Calibration$Values)
+        Calibration$Intensities <- intensityFrameCheck(Calibration$Intensities)
+        Calibration$Spectra <- spectraCheck(Calibration$Spectra)
+        #Calibration$LinePreference <- if(is.null(Calibration$LinePreference)){
+        #    "Narrow"
+        #} else if(!is.null(Calibration$LinePreference)){
+        #    Calibration$LinePreference
+        #}
+        
+        if(null.strip==TRUE){
+            null.list <- sapply(Calibration$calList, function(x) is.null(x[[2]]))
+            tryCatch(for(i in names(Calibration$calList)){
+                if(null.list[i]==TRUE){
+                    Calibration$calList[[i]] <- NULL
+                }
+            }, error=function(e) NULL)
+
+        }
+        
+        if(null.strip==TRUE){
+            null.list <- sapply(Calibration$calList, function(x) is.null(x[[1]]$CalTable))
+            tryCatch(for(i in names(Calibration$calList)){
+                if(null.list[i]==TRUE){
+                    Calibration$calList[[i]] <- NULL
+                }
+            }, error=function(e) NULL)
+
+        }
+        
+        calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp), error=function(e) NULL))
+        names(calpre) <- order_elements(names(Calibration[["calList"]]))
+        
+        Calibration$calList <- calpre
+        
+        if(is.null(Calibration$Definitions)){
+            Calibration$Definitions <- data.frame(
+            Name=as.vector(as.character(rep("", 75))),
+            EnergyMin=as.numeric(rep("", 75)),
+            EnergyMax=as.numeric(rep("", 75)),
+            stringsAsFactors = FALSE
+            )
+        }
+        
+        return(Calibration)
 }
 
 modelPackPre <- function(parameters, model, compress=TRUE){
