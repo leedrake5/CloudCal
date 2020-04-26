@@ -6141,7 +6141,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
             } else {
                 as.character(imported.cal.conditions$CalTable$svmC[1])
             }
-        } else if(cal.condition==12 | cal.condition==13){
+        } else if(!cal.condition==12 | !cal.condition==13){
             as.character(imported.cal.conditions$CalTable$svmC[1])
         }
     } else if(!"svmC" %in% colnames(imported.cal.conditions$CalTable)){
