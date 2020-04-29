@@ -15036,7 +15036,7 @@ content = function(file){
                 Sys.sleep(0.1)
             })
             
-            data$Energy <- data$Energy + gainshiftHold()
+            tryCatch(data$Energy <- data$Energy + gainshiftHold(), error=function(e) NULL)
             
             data
         })
