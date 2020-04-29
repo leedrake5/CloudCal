@@ -15267,7 +15267,7 @@ content = function(file){
         calVariables <- reactive({
             
 
-                calFileContents2()$Intensities
+                calFileContents2()$Intensities[!colnames(calFileContents2()$Intensities) %in% "Spectrum"]
 
             
             

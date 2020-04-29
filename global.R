@@ -6408,6 +6408,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     8
                 }  else if(the.cal[[element]][[1]]$CalTable$CalType[1]==9){
                     9
+                } else if(the.cal[[element]][[1]]$CalTable$CalType[1]==10){
+                    10
+                }  else if(the.cal[[element]][[1]]$CalTable$CalType[1]==11){
+                    11
+                } else if(the.cal[[element]][[1]]$CalTable$CalType[1]==12){
+                    12
+                }  else if(the.cal[[element]][[1]]$CalTable$CalType[1]==13){
+                    13
                 }
     
         }
