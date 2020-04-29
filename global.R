@@ -279,6 +279,27 @@ cal.lmsummary <-function(lm.object){
     return(res)}
 cal.lmsummary <- cmpfun(cal.lmsummary)
 
+cal.lmsummary2 <-function(element.model.list, model.name){
+    lm.object <- element.model.list[[2]]
+    n <- length(na.omit(element.model.list[[1]]$StandardsUsed))
+    res<-c(model.name,
+    n,
+    round(summary(lm.object)$r.squared, 2),
+    round(summary(lm.object)$adj.r.squared, 2),
+    round(summary(lm.object)$fstatistic, 2),
+    round(pf(summary(lm.object)$fstatistic[1],summary(lm.object)$fstatistic[2],summary(lm.object)$fstatistic[3],lower.tail=FALSE), 2))
+    names(res)<-c("Model","n", "R2","Adj. R2",
+    "F-statistic","numdf","dendf","p-value")
+    return(res)}
+cal.lmsummary2 <- cmpfun(cal.lmsummary2)
+
+calEvaluationSummary <- function(calList){
+    
+    model.list <- pblapply(names(calList), function(x) data.frame(t(cal.lmsummary2(element.model.list=calList[[x]], model.name=x)), stringsAsFactors=FALSE))
+    model.frame <- as.data.frame(rbindlist(model.list), stringsAsFactors=FALSE)
+}
+calEvaluationSummary <- cmpfun(calEvaluationSummary)
+
 
 val.lmsummary <-function(lm.object){
     res<-c(paste(as.character(summary(lm.object)$call),collapse=" "),

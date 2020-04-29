@@ -391,7 +391,8 @@ uiOutput('energyrangeui'),
 uiOutput('inVar3'),
 uiOutput('inVar4'),
 uiOutput('addallslopesui'),
-uiOutput('removeallslopesui')
+uiOutput('removeallslopesui'),
+uiOutput('multicore_behavior_ui')
 
 #sliderInput("nvariables", label = "# Elements", min=1, max=7, value=2)
 

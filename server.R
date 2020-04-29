@@ -2313,6 +2313,45 @@ shinyServer(function(input, output, session) {
         
         ####Machine Learning: Slope
         
+        output$multicore_behavior_ui <- renderUI({
+            require(input$radiocal)
+            default.behavior <- if(get_os()=="windows"){
+                "Serialize"
+            } else if(get_os()!="windows"){
+                "Fork"
+            }
+            
+            if(input$radiocal==1){
+                NULL
+            } else if(input$radiocal==2){
+                NULL
+            } else if(input$radiocal==3){
+                NULL
+            } else if(input$radiocal==4){
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected=default.behavior)
+            } else if(input$radiocal==5){
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected=default.behavior)
+            } else if(input$radiocal==6){
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected=default.behavior)
+            } else if(input$radiocal==7){
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected=default.behavior)
+            } else if(input$radiocal==8){
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork", "OpenMP"), selected=default.behavior)
+            } else if(input$radiocal==9){
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork", "OpenMP"), selected=default.behavior)
+            } else if(input$radiocal==10){
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
+            } else if(input$radiocal==11){
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
+            } else if(input$radiocal==12){
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
+            } else if(input$radiocal==13){
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
+            }
+                
+            
+        })
+        
         forestTemp <- reactive(label="forestModelData", {
             req(input$radiocal, input$calcurveelement)
             predictFrameForestGen(spectra=dataNorm(), hold.frame=holdFrame(), element=input$calcurveelement, intercepts=input$intercept_vars, norm.type=input$normcal, norm.min=input$comptonmin, norm.max=input$comptonmax, data.type=dataType())
@@ -2338,6 +2377,7 @@ shinyServer(function(input, output, session) {
                 } else if(get_os()!="windows"){
                     parallel::makeForkCluster(as.numeric(my.cores))
                 }
+                clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
                 rf_model <- tryCatch(caret::train(Concentration~.,data=predict.frame,method="rf", type="Regression",
@@ -2993,27 +3033,45 @@ shinyServer(function(input, output, session) {
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel)
+                number = parameters$ForestNumber)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel)
+                repeats=parameters$CVRepeats)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            rf_model <- caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
+            if(input$multicore_behavior=="Single Core"){
+                rf_model <- caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                rf_model <- caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
+                
+                stopCluster(cl)
+            }
             
-            stopCluster(cl)
             rf_model
             
         })
@@ -3058,28 +3116,45 @@ shinyServer(function(input, output, session) {
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel)
+                number = parameters$ForestNumber)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel)
+                repeats=parameters$CVRepeats)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
-            
-            rf_model <- caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
             
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                rf_model <- caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                rf_model <- caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
+
+                stopCluster(cl)
+            }
             rf_model
             
         })
@@ -3128,27 +3203,43 @@ shinyServer(function(input, output, session) {
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel)
+                number = parameters$ForestNumber)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel)
+                repeats=parameters$CVRepeats)
             }
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            nn_model <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
-            
-            
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                nn_model <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                nn_model <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+
+                stopCluster(cl)
+            }
             nn_model
             
         })
@@ -3205,32 +3296,48 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
+            
             
             f <- as.formula(paste("Concentration ~", paste(names(predict.frame)[!names(predict.frame) %in% "Concentration"], collapse = " + ")))
+
             
-            nn_model <- caret::train(data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
-            
-            
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                nn_model <- caret::train(data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                nn_model <- caret::train(data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, allowParallel=TRUE, linear.output=TRUE)
+
+                stopCluster(cl)
+            }
             nn_model
             
         })
@@ -3295,27 +3402,43 @@ shinyServer(function(input, output, session) {
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel)
+                number = parameters$ForestNumber)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel)
+                repeats=parameters$CVRepeats)
             }
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
-            
-            nn_model <- caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
             
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                nn_model <- caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                nn_model <- caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+                stopCluster(cl)
+            }
             nn_model
             
         })
@@ -3372,32 +3495,46 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
+            
             
             f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
             
-            nn_model <- caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
-            
-            
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                nn_model <- caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                nn_model <- caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE, allowParallel=TRUE)
+                stopCluster(cl)
+            }
             nn_model
             
         })
@@ -3473,49 +3610,50 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            tune_control <- if(parameters$ForestTC!="repeatedcv" && get_os()!="linux"){
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()!="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC!="repeatedcv" && get_os()=="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
+            } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
             
-
             
-            if(get_os()!="linux"){
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
                 }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+            if(input$multicore_behavior=="Single Core"){
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(get_os()=="linux"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(cores.to.use))
             }
             
             xgb_model
@@ -3567,49 +3705,51 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            tune_control <- if(parameters$ForestTC!="repeatedcv" && get_os()!="linux"){
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()!="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC!="repeatedcv" && get_os()=="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
+            } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
             
             
             
-            if(get_os()!="linux"){
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
                 }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+                
+            if(input$multicore_behavior=="Single Core"){
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(get_os()=="linux"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(cores.to.use))
             }
             
             xgb_model
@@ -3688,49 +3828,51 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            tune_control <- if(parameters$ForestTC!="repeatedcv" && get_os()!="linux"){
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()!="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC!="repeatedcv" && get_os()=="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
+            } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
             
-
             
-            if(get_os()!="linux"){
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
                 }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+                
+            if(input$multicore_behavior=="Single Core"){
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(get_os()=="linux"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(cores.to.use))
             }
             
             xgb_model
@@ -3783,49 +3925,50 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            tune_control <- if(parameters$ForestTC!="repeatedcv" && get_os()!="linux"){
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()!="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC!="repeatedcv" && get_os()=="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
+            } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
             
             
             
-            if(get_os()!="linux"){
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
                 }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            if(input$multicore_behavior=="Single Core"){
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(get_os()=="linux"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(cores.to.use))
             }
             
             xgb_model
@@ -3900,7 +4043,6 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
@@ -3908,18 +4050,11 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
-            }
-            registerDoParallel(cl)
             
             bart_model <- caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
             
@@ -3965,30 +4100,44 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
-            
-            bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
-            
-            stopCluster(cl)
+                        
+            if(input$multicore_behavior=="Single Core"){
+                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, allowParallel=TRUE)
+                stopCluster(cl)
+            }
             bart_model
             
         })
@@ -4035,30 +4184,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            bart_model <- caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                bart_model <- caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                bart_model <- caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             bart_model
             
         })
@@ -4097,7 +4261,7 @@ shinyServer(function(input, output, session) {
                 1
             }
             energyrange <- basicEnergyRange()
-            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection()), bartK <- paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2]), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=11, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection()), bartK <- paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2]), StandardsUsed=vals$keeprows)
         })
         bartMachineSpectraModelData <- reactive(label="bartMachineSpectraModelData", {
             rainforestDataGen(spectra=dataNormCal(), compress=bartMachineSpectraParameters()$CalTable$Compress, transformation=bartMachineSpectraParameters()$CalTable$Transformation, dependent.transformation=bartMachineSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(bartMachineSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=bartMachineSpectraParameters()$CalTable$NormType, norm.min=bartMachineSpectraParameters()$CalTable$Min, norm.max=bartMachineSpectraParameters()$CalTable$Max, data.type=dataType())
@@ -4141,7 +4305,6 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
@@ -4149,18 +4312,11 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
-            }
-            registerDoParallel(cl)
             
             bart_model <- caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
             
@@ -4177,7 +4333,7 @@ shinyServer(function(input, output, session) {
                 1
             }
             energyrange <- basicEnergyRange()
-            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=11, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype), StandardsUsed=vals$keeprows)
         })
         bayesLinearSpectraModelData <- reactive(label="bayesLinearSpectraModelData", {
             rainforestDataGen(spectra=dataNormCal(), compress=bayesLinearSpectraParameters()$CalTable$Compress, transformation=bayesLinearSpectraParameters()$CalTable$Transformation, dependent.transformation=bayesLinearSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(bayesLinearSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=bayesLinearSpectraParameters()$CalTable$NormType, norm.min=bayesLinearSpectraParameters()$CalTable$Min, norm.max=bayesLinearSpectraParameters()$CalTable$Max, data.type=dataType())
@@ -4212,31 +4368,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
-            
-            bart_model <- caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
             
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                bart_model <- caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                bart_model <- caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid)
+                stopCluster(cl)
+            }
             bart_model
             
         })
@@ -4249,20 +4419,15 @@ shinyServer(function(input, output, session) {
                 1
             }
             energyrange <- basicEnergyRange()
-            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), xgbtype=xgboosthold$xgbtype, neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2]), cvrepeats=cvrepeats), StandardsUsed=vals$keeprows)
+            list(CalTable=calConditionsTable(cal.type=11, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), xgbtype=xgboosthold$xgbtype, neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2]), cvrepeats=cvrepeats), StandardsUsed=vals$keeprows)
         })
         bayesNeuralNetSpectraModelData <- reactive(label="bayesNeuralNetSpectraModelData", {
             rainforestDataGen(spectra=dataNormCal(), compress=bayesNeuralNetSpectraParameters()$CalTable$Compress, transformation=bayesNeuralNetSpectraParameters()$CalTable$Transformation, dependent.transformation=bayesNeuralNetSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(bayesNeuralNetSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=bayesNeuralNetSpectraParameters()$CalTable$NormType, norm.min=bayesNeuralNetSpectraParameters()$CalTable$Min, norm.max=bayesNeuralNetSpectraParameters()$CalTable$Max, data.type=dataType())
         })
-        #rainforestModelSetlist <- reactiveValues()
-        #observeEvent(input$createcalelement, priority=150, {
-        #    rainforestModelSet$list <- list(data=rainforestModelData(), parameters=rainforestParameters())
-        #})
-        
         bayesNeuralNetSpectraModelSet <- reactive(label="bayesNeuralNetSpectraModelSet", {
             list(data=predictFrameCheck(bayesNeuralNetSpectraModelData()), parameters=bayesNeuralNetSpectraParameters())
         })
-        bayesNeuralNetpectraModel <- reactive(label="bayesNeuralNetpectraModel", {
+        bayesNeuralNetSpectraModel <- reactive(label="bayesNeuralNetSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             data <- bayesNeuralNetSpectraModelSet()$data[bayesNeuralNetSpectraModelSet()$parameters$StandardsUsed,]
             parameters <- bayesNeuralNetSpectraModelSet()$parameters$CalTable
@@ -4288,31 +4453,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
+            }
+            
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            
+            if(input$multicore_behavior=="Single Core"){
+                bart_model <- caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                bart_model <- caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+                stopCluster(cl)
             }
-            registerDoParallel(cl)
-            
-            bart_model <- caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
-            
-            
-            stopCluster(cl)
             bart_model
             
         })
@@ -4383,30 +4562,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -4459,7 +4653,6 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
@@ -4467,22 +4660,40 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -4545,29 +4756,46 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
                 summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -4616,30 +4844,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -4688,30 +4931,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -4760,30 +5018,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -4865,30 +5138,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -4942,30 +5230,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -5028,30 +5331,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -5101,17 +5419,13 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             x_train <- matrix(data[,-1], ncol=1)
@@ -5119,16 +5433,35 @@ shinyServer(function(input, output, session) {
             y_train <- data$Concentration
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -5178,17 +5511,13 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             x_train <- matrix(data[,-1], ncol=1)
@@ -5197,16 +5526,35 @@ shinyServer(function(input, output, session) {
             
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -5256,17 +5604,13 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             x_train <- matrix(data[,-1], ncol=1)
@@ -5274,16 +5618,35 @@ shinyServer(function(input, output, session) {
             y_train <- data$Concentration
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -7533,29 +7896,44 @@ shinyServer(function(input, output, session) {
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel)
+                number = parameters$ForestNumber)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel)
+                repeats=parameters$CVRepeats)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            rf_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression",
-            trControl=tune_control, ntree=parameters$ForestTrees,
-            prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                rf_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                rf_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
+                stopCluster(cl)
+            }
             rf_model
             
         })
@@ -7580,30 +7958,44 @@ shinyServer(function(input, output, session) {
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel)
+                number = parameters$ForestNumber)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel)
+                repeats=parameters$CVRepeats)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
-            
-            rf_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression",
-            trControl=tune_control, ntree=parameters$ForestTrees,
-            prox=TRUE,allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE), error=function(e) NULL)
             
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                rf_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                rf_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
+                stopCluster(cl)
+            }
             rf_model
             
         })
@@ -7635,27 +8027,43 @@ shinyServer(function(input, output, session) {
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel)
+                number = parameters$ForestNumber)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel)
+                repeats=parameters$CVRepeats)
             }
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
-            
-            nn_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
             
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                nn_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                nn_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
+                stopCluster(cl)
+            }
             nn_model
             
         })
@@ -7696,32 +8104,47 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
+            
             
             f <- as.formula(paste("Concentration ~", paste(names(predict.frame)[!names(predict.frame) %in% "Concentration"], collapse = " + ")))
             
-            nn_model <- tryCatch(caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
             
-            
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                nn_model <- tryCatch(caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                nn_model <- tryCatch(caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
+                stopCluster(cl)
+            }
             nn_model
             
         })
@@ -7752,27 +8175,43 @@ shinyServer(function(input, output, session) {
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel)
+                number = parameters$ForestNumber)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel)
+                repeats=parameters$CVRepeats)
             }
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
-            
-            nn_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
             
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                nn_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                nn_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
+                stopCluster(cl)
+            }
             nn_model
             
         })
@@ -7812,31 +8251,46 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
+            
             
             f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
-            nn_model <- tryCatch(caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
             
-            
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                nn_model <- tryCatch(caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                nn_model <- tryCatch(caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
+                stopCluster(cl)
+            }
             nn_model
             
         })
@@ -7874,49 +8328,51 @@ shinyServer(function(input, output, session) {
             min_child_weight = parameters$xgbMinChild
             )
             
-            tune_control <- if(parameters$ForestTC!="repeatedcv" && get_os()!="linux"){
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()!="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC!="repeatedcv" && get_os()=="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
+            } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
             
             
             
-            if(get_os()!="linux"){
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
                 }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+            if(input$multicore_behavior=="Single Core"){
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+                
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(get_os()=="linux"){
-                xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(cores.to.use))
             }
             
             xgb_model
@@ -7951,51 +8407,52 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            tune_control <- if(parameters$ForestTC!="repeatedcv" && get_os()!="linux"){
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()!="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC!="repeatedcv" && get_os()=="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
+            } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
             
             
             
-            if(get_os()!="linux"){
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
                 }
-                registerDoParallel(cl)
-                xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
-                stopCluster(cl)
-            } else if(get_os()=="linux"){
-                xgb_model <- tryCatch(caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
+                
             
+            if(input$multicore_behavior=="Single Core"){
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                stopCluster(cl)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(cores.to.use))
+            }
             xgb_model
             
         })
@@ -8043,49 +8500,51 @@ shinyServer(function(input, output, session) {
             min_child_weight = parameters$xgbMinChild
             )
             
-            tune_control <- if(parameters$ForestTC!="repeatedcv" && get_os()!="linux"){
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()!="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC!="repeatedcv" && get_os()=="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
+            } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
             
             
             
-            if(get_os()!="linux"){
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
                 }
-                registerDoParallel(cl)
-                xgb_model <- tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit), error=function(e) NULL)
-                stopCluster(cl)
-            } else if(get_os()=="linux"){
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+            if(input$multicore_behavior=="Single Core"){
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
+                stopCluster(cl)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(cores.to.use))
             }
             
             xgb_model
@@ -8121,49 +8580,51 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            tune_control <- if(parameters$ForestTC!="repeatedcv" && get_os()!="linux"){
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()!="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
-            } else if(parameters$ForestTC!="repeatedcv" && get_os()=="linux"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv" && get_os()=="linux"){
+            } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
             
             
             
-            if(get_os()!="linux"){
-                cl <- if(get_os()=="windows"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores))
-                } else if(get_os()!="windows"){
-                    parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
                 }
-                registerDoParallel(cl)
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+            if(input$multicore_behavior=="Single Core"){
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(get_os()=="linux"){
-                xgb_model <- tryCatch(caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit), error=function(e) NULL)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(cores.to.use))
             }
             
             xgb_model
@@ -8211,7 +8672,6 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
@@ -8219,18 +8679,11 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
-            }
-            registerDoParallel(cl)
             
             bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, serialize = TRUE), error=function(e) NULL)
             
@@ -8261,30 +8714,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric), error=function(e) NULL)
+                stopCluster(cl)
+            }
             bart_model
             
         })
@@ -8316,30 +8784,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            bart_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                bart_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                bart_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
+                stopCluster(cl)
+            }
             bart_model
             
         })
@@ -8387,7 +8870,6 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
@@ -8395,18 +8877,11 @@ shinyServer(function(input, output, session) {
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
                 verboseIter = TRUE,
                 allowParallel = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
-            }
-            registerDoParallel(cl)
             
             bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE), error=function(e) NULL)
             
@@ -8438,36 +8913,50 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
-            
-            bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
             
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+                stopCluster(cl)
+            }
             bart_model
             
         })
         
-        bayesNeuralNetpectraModelRandomized <- reactive(label="bayesNeuralNetpectraModel", {
+        bayesNeuralNetSpectraModelRandomized <- reactive(label="bayesNeuralNetSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             data <- bayesNeuralNetSpectraModelSet()$data[randomizeData(),]
             parameters <- bayesNeuralNetSpectraModelSet()$parameters$CalTable
@@ -8493,31 +8982,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
-            
-            bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
             
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+                stopCluster(cl)
+            }
             bart_model
             
         })
@@ -8561,30 +9064,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -8620,30 +9138,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -8689,30 +9222,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -8745,30 +9293,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -8801,30 +9364,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -8857,30 +9435,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -8930,30 +9523,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -8989,30 +9597,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -9058,30 +9681,45 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -9114,17 +9752,13 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             x_train <- matrix(data[,-1], ncol=1)
@@ -9132,16 +9766,35 @@ shinyServer(function(input, output, session) {
             y_train <- data$Concentration
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -9174,17 +9827,13 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             x_train <- matrix(data[,-1], ncol=1)
@@ -9193,16 +9842,35 @@ shinyServer(function(input, output, session) {
             
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -9235,17 +9903,13 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
-                summaryFunction=metricModel,
-                verboseIter = TRUE,
-                allowParallel = TRUE)
+                verboseIter = TRUE)
             }
             
             x_train <- matrix(data[,-1], ncol=1)
@@ -9253,16 +9917,35 @@ shinyServer(function(input, output, session) {
             y_train <- data$Concentration
             
             
-            cl <- if(get_os()=="windows"){
-                parallel::makePSOCKcluster(as.numeric(my.cores))
-            } else if(get_os()!="windows"){
-                parallel::makeForkCluster(as.numeric(my.cores))
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
             }
-            registerDoParallel(cl)
             
-            svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             
-            stopCluster(cl)
+            if(input$multicore_behavior=="Single Core"){
+                svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                stopCluster(cl)
+            }
             svm_model
             
         })
@@ -11849,11 +12532,13 @@ observeEvent(input$actionprocess2_multi, {
                 length(quantNames())
             }
             
+            
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
             } else if(get_os()!="windows"){
                 parallel::makeForkCluster(as.numeric(my.cores))
             }
+            clusterEvalQ(cl, library(foreach))
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
@@ -11986,6 +12671,7 @@ observeEvent(input$actionprocess2_multi, {
             } else if(get_os()!="windows"){
                 parallel::makeForkCluster(as.numeric(my.cores))
             }
+            clusterEvalQ(cl, library(foreach))
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=rainforestDataMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
@@ -12043,6 +12729,7 @@ observeEvent(input$actionprocess2_multi, {
             } else if(get_os()!="windows"){
                 parallel::makeForkCluster(as.numeric(my.cores))
             }
+            clusterEvalQ(cl, library(foreach))
             registerDoParallel(cl)
             cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
@@ -12174,6 +12861,7 @@ observeEvent(input$actionprocess2_multi, {
             } else if(get_os()!="windows"){
                 parallel::makeForkCluster(as.numeric(my.cores))
             }
+            clusterEvalQ(cl, library(foreach))
             registerDoParallel(cl)
             train_model <- lapply(quantNames(), function(x) caret::train(Concentration~., data=cal.table[[x]][,-1], method="rf", metric=metric, trControl=control, allowParallel=TRUE, prox=TRUE, importance=TRUE, trim=TRUE))
             
@@ -13115,6 +13803,7 @@ observeEvent(input$actionprocess2_multi, {
                 } else if(get_os()!="windows"){
                     parallel::makeForkCluster(as.numeric(my.cores))
                 }
+                clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
                 trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
@@ -13135,6 +13824,7 @@ observeEvent(input$actionprocess2_multi, {
                 } else if(get_os()!="windows"){
                     parallel::makeForkCluster(as.numeric(my.cores))
                 }
+                clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]][ vals_multi$keeprows[[x]], ,drop = FALSE], method="rf", type="Regression",
                 trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
