@@ -2041,16 +2041,16 @@ shinyServer(function(input, output, session) {
         
         
         calSlopeSelectionPre <- reactive({
-            req(input$radiocal)
+            req(input$radiocal, input$calcurveelement)
             if(input$radiocal==3){
                 calSettings$calList[[input$calcurveelement]][[1]]$Slope
-            } else if(input$radiocal==4 | input$radiocal==6 | input$radiocal==8){
+            } else if(input$radiocal==4 | input$radiocal==6 | input$radiocal==8 | input$radiocal==10 | input$radiocal==12){
                 if(!"Slope" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
-                    elementallinestouse()
+                    outVaralt()
                 } else if("Slope" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
-                    if(is.null(calSettings$calList[[input$calcurveelement]][[1]]$Slope) | length(calSettings$calList[[input$calcurveelement]][[1]]$Slope)<=1){
-                        elementallinestouse()
-                    } else if(!is.null(calSettings$calList[[input$calcurveelement]][[1]]$Slope) | length(calSettings$calList[[input$calcurveelement]][[1]]$Slope)>1){
+                    if( length(calSettings$calList[[input$calcurveelement]][[1]]$Slope)<=1){
+                        outVaralt()
+                    } else if( length(calSettings$calList[[input$calcurveelement]][[1]]$Slope)>1){
                         calSettings$calList[[input$calcurveelement]][[1]]$Slope
                     }
                 }
@@ -2836,7 +2836,13 @@ shinyServer(function(input, output, session) {
             req(input$radiocal)
             
             if(is.null(lucashold$slope)){
-                lucashold$slope <- input$calcurveelement
+                lucashold$slope <- if(input$radiocal==3){
+                    input$calcurveelement
+                } else if(input$radiocal==4 | input$radiocal==6 | input$radiocal==8 | input$radiocal==10 | input$radiocal==12){
+                    outVaralt()
+                }
+                
+                
             }
             
             lucashold$slope
@@ -3968,7 +3974,7 @@ shinyServer(function(input, output, session) {
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
             } else if(input$multicore_behavior=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(cores.to.use))
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear",  na.action=na.omit, nthread=as.numeric(cores.to.use))
             }
             
             xgb_model
