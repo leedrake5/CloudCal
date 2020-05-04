@@ -1569,12 +1569,17 @@ shinyServer(function(input, output, session) {
             hotable.new$Spectrum <- gsub(".mca", "", hotable.new$Spectrum)
             hotable.new$Spectrum <- gsub(".spx", "", hotable.new$Spectrum)
             
+            #hotable.new <- hotable.new[hotable.new$Spectrum %in% unique(calMemory$Calibration$Spectra$Spectrum)]
+            old.vals <- calMemory$Calibration$Values
+            old.vals <- old.vals[old.vals$Spectrum %in% hotable.new$Spectrum,]
+            
+            
             hotable.new <- if(is.null(calMemory$Calibration$Values)){
                 data.frame(Include=rep(TRUE, length(hotable.new$Spectrum)), hotable.new, stringsAsFactors=FALSE)
             } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Spectrum"){
                 data.frame(Include=rep(TRUE, length(hotable.new$Spectrum)), hotable.new, stringsAsFactors=FALSE)
             } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Include"){
-                data.frame(Include=calMemory$Calibration$Values$Include, hotable.new, stringsAsFactors=FALSE)
+                data.frame(Include=rep(TRUE, nrow(hotable.new)), hotable.new, stringsAsFactors=FALSE)
             }
             
             hotable.new
