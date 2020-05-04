@@ -86,8 +86,8 @@ library(taRifx)
 library(strip)
 tryCatch(library(mgsub), error=function(e) NULL)
 tryCatch(library(bartMachine), error=function(e) NULL)
-library(arm)
-library(brnn)
+tryCatch(library(arm), error=function(e) NULL)
+tryCatch(library(brnn), error=function(e) NULL)
 library(kernlab)
 enableJIT(3)
 
@@ -175,7 +175,12 @@ order_elements <- function(elements){
     
     elements.simp <- mgsub::mgsub(pattern=c(".K.alpha", ".K.beta", ".L.alpha", ".L.beta", ".M.line"), replacement=c("", "", "", "", ""), string=elements)
     
-    elements <- as.vector(as.character(elements[match(as.character(fluorescence.lines$Symbol), elements.simp)]))
+    element.frame.1 <- data.frame(Line=elements, Symbol=elements.simp)
+    element.frame.2 <- merge(element.frame.1, fluorescence.lines[fluorescence.lines$Symbol %in% elements.simp, c("Symbol", "AtomicNumber")], by="Symbol")
+    element.frame <- element.frame.2[order(element.frame.2$AtomicNumber),]
+    
+    
+    elements <- element.frame$Line
     
     return(c(elements[complete.cases(elements)], not.elements))
 }
