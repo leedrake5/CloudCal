@@ -2326,7 +2326,7 @@ shinyServer(function(input, output, session) {
                 "Fork"
             }
             
-            if(input$radiocal==1){
+            tryCatch(if(input$radiocal==1){
                 NULL
             } else if(input$radiocal==2){
                 NULL
@@ -2352,7 +2352,7 @@ shinyServer(function(input, output, session) {
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
             } else if(input$radiocal==13){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
-            }
+            }, error=function(e)                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core"))
                 
             
         })
