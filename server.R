@@ -15032,8 +15032,6 @@ content = function(file){
                 if (is.null(inFile)) return(NULL)
                 data <- pbmapply(function(datapath, name) { csvFrame(datapath,name) }, inFile$datapath, inFile$name)
                 data <- do.call("rbind", data)
-                incProgress(1/n)
-                Sys.sleep(0.1)
             })
             
             tryCatch(data$Energy <- data$Energy + gainshiftHold(), error=function(e) NULL)
