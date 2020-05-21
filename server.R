@@ -15030,21 +15030,8 @@ content = function(file){
                 
                 inFile <- input$loadvaldata
                 if (is.null(inFile)) return(NULL)
-                temp = inFile$name
-                temp <- gsub(".csv", "", temp)
-                id.seq <- seq(1, 2048,1)
-                
-                n <- length(temp)*id.seq
-                
-                n.seq <- seq(1, length(inFile$name), 1)
-                
-                
-                data <- pblapply(n.seq, function(x) csvFrame(filepath=inFile$datapath[x], filename=inFile$name[x]))
+                data <- pbmapply(function(datapath, name) { csvFrame(datapath,name) }, inFile$datapath, inFile$name)
                 data <- do.call("rbind", data)
-                
-                
-                incProgress(1/n)
-                Sys.sleep(0.1)
             })
             
             tryCatch(data$Energy <- data$Energy + gainshiftHold(), error=function(e) NULL)
