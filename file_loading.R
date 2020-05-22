@@ -21,6 +21,7 @@ csvFrame <- function(filepath, filename=NULL){
     if(is.null(filename)){
         filename <- as.character(basename(filepath))
     }
+    filename <- make.names(filename)
     filename <- gsub(".csv", "", filename, ignore.case=TRUE)
     return(data.frame(Energy=read_csv_filename_x(filepath), CPS=read_csv_filename_y(filepath), Spectrum=rep(filename, length(read_csv_filename_x(filepath))), stringsAsFactors=FALSE))
 }
@@ -166,7 +167,7 @@ importCSVFrameDetailed <- cmpfun(importCSVFrameDetailed)
 
 
 readTXTData <- function(filepath, filename){
-    filename <- gsub(".txt", "", filename, ignore.case=TRUE)
+    filename <- make.names(gsub(".txt", "", filename, ignore.case=TRUE))
     text <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
     channels <- seq(1, length(text$V1)-4, 1)
     counts <- as.numeric(as.character(text$V1[5:length(text$V1)]))
@@ -220,7 +221,7 @@ read_csv_net <- cmpfun(read_csv_net)
 
 
 readSPTData <- function(filepath, filename){
-    filename <- gsub(".spt", "", filename)
+    filename <- make.names(gsub(".spt", "", filename))
     filename.vector <- rep(filename, 4096)
     
     meta <- paste0(readLines(filepath, n=16),collapse=" ")
@@ -271,7 +272,7 @@ readElioProcess <- function(inFile=NULL, gainshiftvalue=0){
 
 
 readMCAData <- function(filepath, filename){
-    filename <- gsub(".mca", "", filename)
+    filename <- make.names(gsub(".mca", "", filename))
     filename.vector <- rep(filename, 4096)
     
     full <- read.csv(filepath, row.names=NULL)
@@ -328,7 +329,7 @@ readMCAProcess <- function(inFile=NULL, gainshiftvalue=0){
 
 readSPXData <- function(filepath, filename){
     
-    filename <- gsub(".spx", "", filename)
+    filename <- make.names(gsub(".spx", "", filename))
     filename.vector <- rep(filename, 4096)
     
     xmlfile <- xmlTreeParse(filepath)
@@ -371,7 +372,7 @@ readSPXProcess <- function(inFile=NULL, gainshiftvalue=0){
 
 readPDZ25DataExpiremental <- function(filepath, filename){
     
-    filename <- gsub(".pdz", "", filename)
+    filename <- make.names(gsub(".pdz", "", filename))
     filename.vector <- rep(filename, 2048)
     
     nbrOfRecords <- 3000
@@ -395,7 +396,7 @@ readPDZ25DataExpiremental <- cmpfun(readPDZ25DataExpiremental)
 
 readPDZ24DataExpiremental <- function(filepath, filename){
     
-    filename <- gsub(".pdz", "", filename)
+    filename <- make.names(gsub(".pdz", "", filename))
     filename.vector <- rep(filename, 2048)
     
     nbrOfRecords <- 3000
@@ -420,7 +421,7 @@ readPDZ24DataExpiremental <- cmpfun(readPDZ24DataExpiremental)
 
 readPDZ25Data <- function(filepath, filename){
     
-    filename <- gsub(".pdz", "", filename)
+    filename <- make.names(gsub(".pdz", "", filename))
     filename.vector <- rep(filename, 2020)
     
     nbrOfRecords <- 2020
@@ -442,7 +443,7 @@ readPDZ25Data <- cmpfun(readPDZ25Data)
 
 readPDZ25DataManual <- function(filepath, filename, binaryshift){
     
-    filename <- gsub(".pdz", "", filename)
+    filename <- make.names(gsub(".pdz", "", filename))
     filename.vector <- rep(filename, 2020)
     
     nbrOfRecords <- 2020
@@ -464,7 +465,7 @@ readPDZ25DataManual <- cmpfun(readPDZ25DataManual)
 
 readPDZ24Data<- function(filepath, filename){
     
-    filename <- gsub(".pdz", "", filename)
+    filename <- make.names(gsub(".pdz", "", filename))
     filename.vector <- rep(filename, 2020)
     
     nbrOfRecords <- 2020
