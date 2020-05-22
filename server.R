@@ -164,53 +164,10 @@ shinyServer(function(input, output, session) {
     
     
     fullSpectraDataTable <- reactive(label="fullSpectraDataTable", {
+        req(input$file1)
         
+        fullSpectraDataTableProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
         
-        withProgress(message = 'Processing Data', value = 0, {
-            
-            inFile <- input$file1
-            if (is.null(inFile)) return(NULL)
-            temp = inFile$name
-            temp <- gsub(".csv", "", temp)
-            id.seq <- seq(1, 2048,1)
-            
-            n <- length(temp)*id.seq
-            
-            myfiles.x = pblapply(inFile$datapath, read_csv_filename_x)
-            
-            
-            
-            myfiles.y = pblapply(inFile$datapath, read_csv_filename_y)
-            
-            
-            
-            
-            xrf.x <- data.frame(id.seq, myfiles.x)
-            colnames(xrf.x) <- c("ID", temp)
-            xrf.y <- data.frame(id.seq, myfiles.y)
-            colnames(xrf.y) <- c("ID", temp)
-            
-            
-            xrf.x <- data.table(xrf.x)
-            xrf.y <- data.table(xrf.y)
-            
-            
-            energy.m <- xrf.x[, list(variable = names(.SD), value = unlist(.SD, use.names = F)), by = ID]
-            cps.m <- xrf.y[, list(variable = names(.SD), value = unlist(.SD, use.names = F)), by = ID]
-            
-            
-            spectra.frame <- data.frame(energy.m$value, cps.m$value, cps.m$variable)
-            colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
-            data <- spectra.frame
-            
-            
-            incProgress(1/n)
-            Sys.sleep(0.1)
-        })
-        
-        data$Energy <- data$Energy + gainshiftHold()
-        
-        data
     })
     
     
@@ -218,30 +175,8 @@ shinyServer(function(input, output, session) {
     fullSpectra <- reactive(label="fullSpectra", {
         req(input$file1)
         
-        withProgress(message = 'Processing Data', value = 0, {
-            
-            inFile <- input$file1
-            if (is.null(inFile)) return(NULL)
-            temp = inFile$name
-            temp <- gsub(".csv", "", temp)
-            id.seq <- seq(1, 2048,1)
-            
-            n <- length(temp)*id.seq
-            
-            n.seq <- seq(1, length(inFile$name), 1)
-            
-            
-            data <- pblapply(n.seq, function(x) csvFrame(filepath=inFile$datapath[x], filename=inFile$name[x]))
-            data <- do.call("rbind", data)
-            
-            
-            incProgress(1/n)
-            Sys.sleep(0.1)
-        })
-        
-        data$Energy <- data$Energy + gainshiftHold()
-        
-        data
+        fullSpectraProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
+
     })
     
     importedCSV <- reactive(label="importedCSV", {
@@ -256,171 +191,49 @@ shinyServer(function(input, output, session) {
     
     netCounts <- reactive(label="netCounts", {
         req(input$file1)
-        withProgress(message = 'Processing Data', value = 0, {
-            
-            
-            inFile <- input$file1
-            if (is.null(inFile)) return(NULL)
-            
-            #inName <- inFile$name
-            #inPath <- inFile$datapath
-            
-            #inList <- list(inName, inPath)
-            #names(inList) <- c("inName", "inPath")
-            
-            
-            n <- length(inFile$name)
-            net.names <- gsub("\\@.*","",inFile$name)
-            
-            myfiles = pblapply(inFile$datapath,  read_csv_net)
-            
-            
-            myfiles.frame.list <- pblapply(myfiles, data.frame, stringsAsFactors=FALSE)
-            nms = unique(unlist(pblapply(myfiles.frame.list, names)))
-            myfiles.frame <- as.data.frame(do.call(rbind, lapply(myfiles.frame.list, "[", nms)))
-            myfiles.frame <- as.data.frame(sapply(myfiles.frame, as.numeric))
-            
-            
-            #myfiles.frame$Spectrum <- net.names
-            
-            united.frame <- data.frame(net.names, myfiles.frame)
-            colnames(united.frame) <- c("Spectrum", names(myfiles.frame))
-            #united.frame$None <- rep(1, length(united.frame$Spectrum))
-            
-            
-            incProgress(1/n)
-            Sys.sleep(0.1)
-        })
         
-        united.frame <- as.data.frame(united.frame)
-        united.frame
+        netCountsProcess(ineFile=input$file1)
         
     })
     
     
     readTXT <- reactive(label="readTXT", {
         req(input$file1)
-        withProgress(message = 'Processing Data', value = 0, {
-            
-            inFile <- input$file1
-            if (is.null(inFile)) return(NULL)
-            
-            n <- length(inFile$datapath)
-            names <- inFile$name
-            
-            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readTXTData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
-            
-            incProgress(1/n)
-            Sys.sleep(0.1)
-        })
         
-        myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
-        
-        myfiles.frame
+        readTXTProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
         
     })
     
     readElio <- reactive(label="readElio", {
         req(input$file1)
-        withProgress(message = 'Processing Data', value = 0, {
-            
-            inFile <- input$file1
-            if (is.null(inFile)) return(NULL)
-            
-            n <- length(inFile$datapath)
-            names <- inFile$name
-            
-            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPTData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
-            
-            
-            incProgress(1/n)
-            Sys.sleep(0.1)
-        })
         
-        myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
-        
-        myfiles.frame
-        
+        readElioProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
         
     })
     
     
     readMCA <- reactive(label="readMCA", {
         req(input$file1)
-        withProgress(message = 'Processing Data', value = 0, {
-            
-            inFile <- input$file1
-            if (is.null(inFile)) return(NULL)
-            
-            n <- length(inFile$datapath)
-            names <- inFile$name
-            
-            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readMCAData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
-            
-            
-            incProgress(1/n)
-            Sys.sleep(0.1)
-        })
-        
-        myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
-        
-        myfiles.frame
-        
+       
+       readMCAProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
         
     })
     
     
     readSPX <- reactive(label="readSPX", {
         req(input$file1)
-        withProgress(message = 'Processing Data', value = 0, {
-            
-            inFile <- input$file1
-            if (is.null(inFile)) return(NULL)
-            
-            n <- length(inFile$datapath)
-            names <- inFile$name
-            
-            myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPXData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
-            
-            
-            incProgress(1/n)
-            Sys.sleep(0.1)
-        })
         
-        myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
-        
-        myfiles.frame
-        
+        readSPXProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
         
     })
     
     
     readPDZ <- reactive(label="readPDZ", {
         req(input$file1)
-        withProgress(message = 'Processing Data', value = 0, {
-            
-            inFile <- input$file1
-            if (is.null(inFile)) return(NULL)
-            
-            n <- length(inFile$datapath)
-            names <- inFile$name
-            
-            if(input$advanced==FALSE){
-                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
-            } else if(input$advanced==TRUE){
-                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZ25DataManual(filepath=inFile$datapath[x], filename=inFile$name[x], binaryshift=binaryHold()))))
-                
-            }
-            
-            
-            incProgress(1/n)
-            Sys.sleep(0.1)
-        })
         
-        myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
+        binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
         
-        myfiles.frame
-        
+        readPDZProcess(inFile=input$file1, gainshiftvalue=gainshiftHold(), advanced=input$advanced, binaryshift=binaryshiftvalue)
         
     })
     
@@ -3335,7 +3148,7 @@ shinyServer(function(input, output, session) {
 
             
             if(input$multicore_behavior=="Single Core"){
-                nn_model <- caret::train(data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
+                nn_model <- caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -3345,7 +3158,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                nn_model <- caret::train(data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, allowParallel=TRUE, linear.output=TRUE)
+                nn_model <- caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, allowParallel=TRUE, linear.output=TRUE)
 
                 stopCluster(cl)
             }
@@ -4332,7 +4145,6 @@ shinyServer(function(input, output, session) {
             bart_model <- caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
             
             
-            stopCluster(cl)
             bart_model
             
         })
@@ -15025,31 +14837,8 @@ content = function(file){
         
         fullValSpectra <- reactive({
             
-            
-            withProgress(message = 'Processing Data', value = 0, {
-                
-                inFile <- input$loadvaldata
-                if (is.null(inFile)) return(NULL)
-                temp = inFile$name
-                temp <- gsub(".csv", "", temp)
-                id.seq <- seq(1, 2048,1)
-                
-                n <- length(temp)*id.seq
-                
-                n.seq <- seq(1, length(inFile$name), 1)
-                
-                
-                data <- pblapply(n.seq, function(x) csvFrame(filepath=inFile$datapath[x], filename=inFile$name[x]))
-                data <- do.call("rbind", data)
-                
-                
-                incProgress(1/n)
-                Sys.sleep(0.1)
-            })
-            
-            tryCatch(data$Energy <- data$Energy + gainshiftHold(), error=function(e) NULL)
-            
-            data
+            fullSpectraProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
+                    
         })
         
         valImportedCSV <- reactive(label="importedCSV", {
@@ -15063,23 +14852,8 @@ content = function(file){
         
         readValTXT <- reactive({
             
-            withProgress(message = 'Processing Data', value = 0, {
-                
-                inFile <- input$loadvaldata
-                if (is.null(inFile)) return(NULL)
-                
-                n <- length(inFile$datapath)
-                names <- inFile$name
-                
-                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readTXTData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
-                
-                incProgress(1/n)
-                Sys.sleep(0.1)
-            })
-            
-            myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
-            
-            myfiles.frame
+            readTXTProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
+
             
         })
         
@@ -15129,93 +14903,29 @@ content = function(file){
         
         readValElio <- reactive({
             
-            withProgress(message = 'Processing Data', value = 0, {
-                
-                inFile <- input$loadvaldata
-                if (is.null(inFile)) return(NULL)
-                
-                n <- length(inFile$datapath)
-                names <- inFile$name
-                
-                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPTData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
-                
-                
-                incProgress(1/n)
-                Sys.sleep(0.1)
-            })
-            
-            
-            myfiles.frame
+            readElioProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
             
             
         })
         
         readValMCA <- reactive({
             
-            withProgress(message = 'Processing Data', value = 0, {
-                
-                inFile <- input$loadvaldata
-                if (is.null(inFile)) return(NULL)
-                
-                n <- length(inFile$datapath)
-                names <- inFile$name
-                
-                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readMCAData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
-                
-                
-                incProgress(1/n)
-                Sys.sleep(0.1)
-            })
-            
-            
-            myfiles.frame
-            
+            readMCAProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
             
         })
         
         readValSPX <- reactive({
             
-            withProgress(message = 'Processing Data', value = 0, {
-                
-                inFile <- input$loadvaldata
-                if (is.null(inFile)) return(NULL)
-                
-                n <- length(inFile$datapath)
-                names <- inFile$name
-                
-                myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readSPXData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
-                
-                
-                incProgress(1/n)
-                Sys.sleep(0.1)
-            })
-            
-            myfiles.frame
-            
+            readSPXProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
             
         })
             
             
             readvalPDZ <- reactive({
                 
-                withProgress(message = 'Processing Data', value = 0, {
-                    
-                    inFile <- input$loadvaldata
-                    if (is.null(inFile)) return(NULL)
-                    
-                    n <- length(inFile$datapath)
-                    names <- inFile$name
-                    
-                    myfiles.frame <- as.data.frame(do.call(rbind, lapply(seq(1, n, 1), function(x) readPDZData(filepath=inFile$datapath[x], filename=inFile$name[x]))))
-                    
-                    
-                    incProgress(1/n)
-                    Sys.sleep(0.1)
-                })
+            binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
                 
-                myfiles.frame$Energy <- myfiles.frame$Energy + gainshiftHold()
-                
-                myfiles.frame
+            readPDZProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold(), advanced=input$advanced, binaryshift=binaryshiftvalue)
                 
                 
             })

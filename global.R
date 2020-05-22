@@ -99,6 +99,7 @@ my.cores <- if(parallel::detectCores()>=3){
     "1"
 }
 
+source('file_loading.R')
 
 spectralLines <- c("Ne.K.alpha", "Ne.K.beta", "Na.K.alpha", "Na.K.beta", "Mg.K.alpha", "Mg.K.beta", "Al.K.alpha", "Al.K.beta", "Si.K.alpha", "Si.K.beta", "P.K.alpha", "P.K.beta", "S.K.alpha", "S.K.beta", "Cl.K.alpha", "Cl.K.beta", "Ar.K.alpha", "Ar.K.beta", "K.K.alpha", "K.K.beta", "Ca.K.alpha", "Ca.K.beta", "Sc.K.alpha", "Sc.K.beta", "Ti.K.alpha", "Ti.K.beta", "V.K.alpha", "V.K.beta", "Cr.K.alpha", "Cr.K.beta", "Mn.K.alpha", "Mn.K.beta", "Fe.K.alpha", "Fe.K.beta", "Co.K.alpha", "Co.K.beta", "Ni.K.alpha", "Ni.K.beta", "Cu.K.alpha", "Cu.K.beta", "Zn.K.alpha", "Zn.K.beta", "Ga.K.alpha", "Ga.K.beta", "Ge.K.alpha", "Ge.K.beta", "As.K.alpha", "As.K.beta", "Se.K.alpha", "Se.K.beta", "Br.K.alpha", "Br.K.beta", "Kr.K.alpha", "Kr.K.beta", "Rb.K.alpha", "Rb.K.beta", "Sr.K.alpha", "Sr.K.beta", "Y.K.alpha", "Y.K.beta", "Zr.K.alpha", "Zr.K.beta", "Nb.K.alpha", "Nb.K.beta", "Mo.K.alpha", "Mo.K.beta", "Mo.L.alpha", "Mo.L.beta", "Ru.K.alpha", "Ru.K.beta", "Ru.L.alpha", "Ru.L.beta", "Rh.K.alpha", "Rh.K.beta", "Rh.L.alpha", "Rh.L.beta", "Pd.K.alpha", "Pd.K.beta", "Pd.L.alpha", "Pd.L.beta", "Ag.K.alpha", "Ag.K.beta", "Ag.L.alpha", "Ag.L.beta", "Cd.K.alpha", "Cd.K.beta", "Cd.L.alpha", "Cd.L.beta", "In.K.alpha", "In.K.beta", "In.L.alpha", "Sn.K.alpha", "Sn.K.beta", "Sn.L.alpha", "Sn.L.beta", "Sb.K.alpha", "Sb.K.beta", "Sb.L.alpha", "Sb.L.beta", "Te.K.alpha", "Te.K.beta", "Te.L.alpha", "Te.L.beta", "I.K.alpha", "I.K.beta", "I.L.alpha", "I.L.beta", "Xe.K.alpha", "Xe.K.beta", "Xe.L.alpha", "Xe.L.beta", "Cs.K.alpha", "Cs.K.beta", "Cs.L.alpha", "Cs.L.beta", "Ba.K.alpha", "Ba.K.beta", "Ba.L.alpha", "Ba.L.beta", "La.K.alpha", "La.K.beta", "La.L.alpha", "La.L.beta", "Ce.K.alpha", "Ce.K.beta", "Ce.L.alpha", "Ce.L.beta", "Pr.K.alpha", "Pr.K.beta", "Pr.L.alpha", "Pr.L.beta", "Nd.K.alpha", "Nd.K.beta", "Nd.L.alpha", "Nd.L.beta", "Pm.L.alpha", "Pm.L.beta", "Sm.L.alpha", "Sm.L.beta", "Eu.L.alpha", "Eu.L.beta", "Gd.L.alpha", "Gd.L.beta", "Tb.L.alpha", "Tb.L.beta", "Dy.L.alpha", "Dy.L.beta", "Ho.L.alpha", "Ho.L.beta", "Er.L.alpha", "Er.L.beta", "Tm.L.alpha", "Tm.L.beta", "Yb.L.alpha", "Yb.L.beta", "Lu.L.alpha", "Lu.L.beta", "Hf.L.alpha", "Hf.L.beta", "Ta.L.alpha", "Ta.L.beta", "W.L.alpha", "W.L.beta", "Re.L.alpha", "Re.L.beta", "Os.L.alpha", "Os.L.beta", "Ir.L.alpha", "Ir.L.beta", "Pt.L.alpha", "Pt.L.beta", "Au.L.alpha", "Au.L.beta", "Hg.L.alpha", "Hg.L.beta", "Tl.L.alpha", "Tl.L.beta", "Pb.L.alpha", "Pb.L.beta", "Bi.L.alpha", "Bi.L.beta", "Po.L.alpha", "Po.L.beta", "At.L.alpha", "At.L.beta", "Rn.L.alpha", "Rn.L.beta", "Fr.L.alpha", "Fr.L.beta", "Ra.L.alpha", "Ra.L.beta", "Ac.L.alpha", "Ac.L.beta", "Th.L.alpha", "Th.L.beta", "Pa.L.alpha", "Pa.L.beta", "U.L.alpha", "U.L.beta", "Pu.L.alpha", "Pu.L.beta", "Au.M.line", "Hg.M.line", "Pb.M.line", "U.M.line")
 
@@ -3338,6 +3339,39 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
         NULL
     } else if(radiocal==13){
         sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step, value=selection)
+    }
+}
+
+lineTypeUI <- function(radiocal=3, selection="Narrow"){
+    
+    
+    if(radiocal==1){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+    } else if(radiocal==2){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+    } else if(radiocal==3){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+    } else if(radiocal==4){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+    } else if(radiocal==13){
+        NULL
+
     }
 }
 
@@ -7332,102 +7366,6 @@ predictFrameCheck <- function(predict.frame){
     return(new.frame)
 }
 
-
-calPre <- function(element.model.list, element, temp){
-    
-    temp.list <- list(element.model.list)
-    names(temp.list) <- element
-    
-    new.element.model.list <-
-    #tryCatch(
-        list(Parameters=importCalConditions(element=element,
-        calList=temp.list, temp=temp),
-        Model=element.model.list[[2]])
-        #, error=function(e) NULL)
-        
-        if(is.na(new.element.model.list$Parameters$CalTable$LineType[1])){
-            new.element.model.list$Parameters$CalTable$LineType[1] <- "Narrow"
-        }
-        
-        if("ValidationSet" %in% names(element.model.list)){
-            new.element.model.list$ValidationSet <- element.model.list$ValidationSet
-        }
-        
-        if("Backup" %in% names(element.model.list)){
-            new.element.model.list$Backup <- element.model.list$Backup
-        }
-        
-        if("Score" %in% names(element.model.list)){
-            new.element.model.list$Score <- element.model.list$Score
-        }
-        
-        if("SystemicAdjust" %in% names(element.model.list)){
-            new.element.model.list$SystemicAdjust <- element.model.list$SystemicAdjust
-        }
-        
-        if(nrow(new.element.model.list$Parameters$CalTable)>1){
-            new.element.model.list$Parameters$CalTable <- new.element.model.list$Parameters$CalTable[!duplicated(new.element.model.list$Parameters$CalTable), ]
-        }
-            
-    return(new.element.model.list)
-        
-}
-
-calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extensions=FALSE){
-    Calibration <- readRDS(calibration.directory)
-    
-    tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
-    
-    Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
-        paste0(Calibration[["Notes"]], " Updated on ", Sys.time())
-    } else if(is.null(Calibration[["Notes"]])){
-        paste0("Updated on ", Sys.time())
-    }
-    
-    
-    if(extensions==TRUE){
-        extensions <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
-        Calibration[["Spectra"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Spectra"]]$Spectrum))
-        Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Values"]]$Spectrum))
-    }
-    
-
-    
-    Calibration$Values <- valFrameCheck(Calibration$Values)
-    Calibration$Intensities <- intensityFrameCheck(Calibration$Intensities)
-    Calibration$Spectra <- spectraCheck(Calibration$Spectra)
-    #Calibration$LinePreference <- if(is.null(Calibration$LinePreference)){
-    #    "Narrow"
-    #} else if(!is.null(Calibration$LinePreference)){
-    #    Calibration$LinePreference
-    #}
-    
-    if(null.strip==TRUE){
-        null.list <- sapply(Calibration$calList, function(x) is.null(x[[2]]))
-        tryCatch(for(i in names(Calibration$calList)){
-            if(null.list[i]==TRUE){
-                Calibration$calList[[i]] <- NULL
-            }
-        }, error=function(e) NULL)
-
-    }
-    
-    calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp), error=function(e) NULL))
-    names(calpre) <- order_elements(names(Calibration[["calList"]]))
-    
-    Calibration$calList <- calpre
-    
-    if(is.null(Calibration$Definitions)){
-        Calibration$Definitions <- data.frame(
-        Name=as.vector(as.character(rep("", 75))),
-        EnergyMin=as.numeric(rep("", 75)),
-        EnergyMax=as.numeric(rep("", 75)),
-        stringsAsFactors = FALSE
-        )
-    }
-    
-    return(Calibration)
-}
 
 calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALSE){
     Calibration <- calibration
