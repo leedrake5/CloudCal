@@ -181,7 +181,7 @@ order_elements <- function(elements){
     element.frame <- element.frame.2[order(element.frame.2$AtomicNumber),]
     
     
-    elements <- element.frame$Line
+    elements <- as.vector(element.frame$Line)
     
     return(c(elements[complete.cases(elements)], not.elements))
 }
