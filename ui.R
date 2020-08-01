@@ -325,6 +325,8 @@ uiOutput('calTypeInput'),
 
 uiOutput('xgbtypeui'),
 
+uiOutput('bayesparameterui'),
+
 uiOutput('forestmetricui'),
 
 uiOutput('foresttrainui'),

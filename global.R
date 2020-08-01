@@ -25,7 +25,7 @@ new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.p
 if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
-list.of.packages <- c("mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab")
+list.of.packages <- c("mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE))
 
@@ -89,6 +89,7 @@ tryCatch(library(bartMachine), error=function(e) NULL)
 tryCatch(library(arm), error=function(e) NULL)
 tryCatch(library(brnn), error=function(e) NULL)
 library(kernlab)
+library(rBayesianOptimization)
 enableJIT(3)
 
 options(digits=12)
@@ -3985,9 +3986,9 @@ xgbEtaUI <- function(radiocal, selection){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8){
-        sliderInput("xgbeta", label="Eta", min=0.05, max=0.95, step=0.05, value=selection)
+        sliderInput("xgbeta", label="Eta", min=0.01, max=0.99, step=0.01, value=selection)
     } else if(radiocal==9){
-        sliderInput("xgbeta", label="Eta", min=0.05, max=0.95, step=0.05, value=selection)
+        sliderInput("xgbeta", label="Eta", min=0.01, max=0.99, step=0.01, value=selection)
     } else if(radiocal==10){
         NULL
     } else if(radiocal==11){
@@ -4579,6 +4580,32 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercept
     return(predict.intensity)
 }
 
+predictFrameXGBoostGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    
+    spectra.line.table <- hold.frame
+    
+    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, element=element, slopes=slopes, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+
+    
+    
+    
+    predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=spectra.line.table[,"Concentration"])
+    predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
+    
+    predict.frame.forest$Concentration <- if(dependent.transformation=="None"){
+        predict.frame.forest$Concentration
+    } else if(dependent.transformation=="Log"){
+        log(predict.frame.forest$Concentration)
+    }
+    
+    return(as.matrix(predictFrameCheck(predict.frame.forest)))
+    
+}
+
+predictIntensityXGBoost <- function(predict.frame){
+    as.matrix(predict.frame[,!(colnames(predict.frame) %in% "Concentration")])
+}
+
 
 predictFrameForestGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
     
@@ -4663,6 +4690,29 @@ rainforestDataPreGen <- function(spectra, compress="100 eV", transformation="Non
     }
     
     return(spectra.data)
+}
+
+
+xgboostDataGen <- function(spectra, compress="100 eV", transformation="None", dependent.transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    
+    spectra.line.table <- hold.frame
+    
+    spectra.data <- rainforestDataPreGen(spectra=spectra, compress=compress, transformation=transformation, energy.range=energy.range, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    
+    spectra.data <- merge(spectra.data, hold.frame[,c("Spectrum", "Concentration")], by="Spectrum")
+    spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
+    
+    spectra.data$Concentration <- if(dependent.transformation=="None"){
+        spectra.data$Concentration
+    } else if(dependent.transformation=="Log"){
+        log(spectra.data$Concentration)
+    }
+    
+    return(as.matrix(predictFrameCheck(spectra.data)))
+}
+
+xgboostIntensity <- function(rainforest.data){
+    as.matrix(rainforest.data[,!(colnames(rainforest.data) %in% "Concentration")])
 }
 
 
@@ -6479,7 +6529,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     object=the.cal[[x]][[2]],
                     newdata=general_prep_xrf(
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                             element.line=x),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
@@ -6490,7 +6540,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=simple_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x
                         ),
@@ -6502,7 +6552,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         newdata=simple_comp_prep_xrf(
                             data=valdata,
                             spectra.line.table=as.data.frame(
-                                count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                                count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                                 ),
                             element.line=x,
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
@@ -6515,7 +6565,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
@@ -6529,7 +6579,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
@@ -6543,7 +6593,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_comp_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
@@ -6558,7 +6608,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6572,7 +6622,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6586,7 +6636,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_comp_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6636,7 +6686,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6650,7 +6700,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6664,7 +6714,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_comp_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6713,7 +6763,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf(
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6727,7 +6777,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_tc_prep_xrf(
                     data=valdata,
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6741,7 +6791,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_comp_prep_xrf(
                     data=valdata,
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6790,7 +6840,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6804,7 +6854,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6818,7 +6868,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_comp_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6867,7 +6917,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf(
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6881,7 +6931,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_tc_prep_xrf(
                     data=valdata,
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6895,7 +6945,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_comp_prep_xrf(
                     data=valdata,
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -7286,6 +7336,28 @@ mclValGen <- function(model, data, predict.frame, dependent.transformation){
     return(val.frame)
 }
 
+xgbValGen <- function(model, data, predict.frame, dependent.transformation){
+    cal.est.conc.pred.luc <- if(dependent.transformation=="None"){
+        predict(object=model, newdata=xgb.DMatrix(as.matrix(data)))
+    } else if(dependent.transformation=="Log"){
+        exp(predict(object=model, newdata=xgb.DMatrix(as.matrix(data))))
+    } else if(dependent.transformation=="e"){
+        log(predict(object=model, newdata=xgb.DMatrix(as.matrix(data))))
+    }
+    
+    concentration <- if(dependent.transformation=="None"){
+        predict.frame$Concentration
+    } else if(dependent.transformation=="Log"){
+        exp(predict.frame$Concentration)
+    } else if(dependent.transformation=="e"){
+        log(predict.frame$Concentration)
+    }
+    
+    val.frame <- data.frame(Concentration=concentration, Intensity=as.vector(cal.est.conc.pred.luc), Prediction=as.vector(cal.est.conc.pred.luc))
+    
+    return(val.frame)
+}
+
 mclPred <- function(object, newdata, dependent.transformation){
     if(dependent.transformation=="None"){
         predict(object=object, newdata=newdata,
@@ -7421,6 +7493,19 @@ calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALS
 }
 
 modelPackPre <- function(parameters, model, compress=TRUE){
+    
+    if(parameters$CalTable$CalType==8 | parameters$CalTable$CalType==9){
+        model.raw <-
+        tryCatch(
+            xgb.save.raw(
+                tryCatch(
+                    xgb.Booster.complete(model$finalModel)
+                    , error=function(e) model$finalModel))
+                , error=function(e) NULL)
+    } else {
+        model.raw <- NULL
+    }
+    
     model <- if(compress==TRUE){
         if(parameters$CalTable$CalType==1){
             strip(model, keep=c("predict", "summary"))
@@ -7453,7 +7538,18 @@ modelPackPre <- function(parameters, model, compress=TRUE){
         model
     }
     
-    return(list(Parameters=parameters, Model=model))
+    result.list <- if(parameters$CalTable$CalType!=8 | parameters$CalTable$CalType!=9){
+        list(Parameters=parameters, Model=model, rawModel=model.raw)
+    } else if(parameters$CalTable$CalType==8 | parameters$CalTable$CalType==9){
+        list(Parameters=parameters, Model=model, rawModel=model.raw)
+    }
+    
+    if(is.null(result.list$rawModel)){
+        result.list$rawModel <- NULL
+    }
+    
+    return(result.list)
+    
 }
 
 modelPack <- function(parameters, model, compress=TRUE){
@@ -7559,10 +7655,11 @@ valCurve <- function(element, unit="%", loglinear="Linear", val.frame, rangesval
     return(valcurve.plot)
 }
 
-#lmSEapprox <- function(calibration, element){
-    #predictions <- cloudCalPredict(Calibration=calibration, count.list=list(calibration$), elements.cal=element, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Intensities[,names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"]], rounding=4, multiplier=1)
+lmSEapprox <- function(calibration){
+    elements <- names(calibration$calList)
+    predictions <- cloudCalPredict(Calibration=calibration, count.list=list(Narrow=calibration$Intensities, Wide=calibration$WideIntensities), elements.cal=element, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=4, multiplier=1)
 
-#}
+}
 
 #error_estimation <- function(element_model_list){
     #model <- element_model_list$Model
@@ -7573,3 +7670,6 @@ valCurve <- function(element, unit="%", loglinear="Linear", val.frame, rangesval
     #}
     
 #}
+
+
+

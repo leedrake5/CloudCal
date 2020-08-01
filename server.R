@@ -37,7 +37,7 @@ shinyServer(function(input, output, session) {
         if (is.null(existingCalFile)) return(NULL)
         
         
-        Calibration <- calRDS(existingCalFile$datapath)
+        Calibration <- calRDS(existingCalFile$datapath, xgb_raw=FALSE)
         
         Calibration
         
@@ -3463,24 +3463,119 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$multicore_behavior=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
-                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
-                    parallel::makeForkCluster(as.numeric(cores.to.use))
+            if(input$bayesparameter==FALSE){
+                if(input$multicore_behavior=="Single Core"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                    cl <- if(input$multicore_behavior=="Serialize"){
+                        parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                    } else if(input$multicore_behavior=="Fork"){
+                        parallel::makeForkCluster(as.numeric(cores.to.use))
+                    }
+                    clusterEvalQ(cl, library(foreach))
+                    registerDoParallel(cl)
+                    
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
+                    stopCluster(cl)
+                } else if(input$multicore_behavior=="OpenMP"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores))
                 }
-                clusterEvalQ(cl, library(foreach))
-                registerDoParallel(cl)
+            } else if(input$bayesparameter==TRUE){
+                forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
+                    "rmse"
+                } else if(parameters$ForestMetric=="MAE"){
+                    "mae"
+                } else if(parameters$ForestMetric!="RMSE" | parameters$ForestMetric!="MAE"){
+                    "rmse"
+                }
+                fold_samples <- round(nrow(predict.frame)/10, 0)+2
+                if(fold_samples>30){
+                    fold_samples <- 30
+                }
+                parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
+                if(parameter_space_dimensions>100){
+                    parameter_space_dimensions <- 100
+                }
+                concentration <- "Concentration"
+                x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
+                x_train <- as.matrix(x_train)
+                y_train <- as.vector(predict.frame[,concentration])
+                dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
+                cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+                          xgb_cv_bayes <- function(max_depth, min_child_weight, subsample, eta, gamma, colsample_bytree) {
+                              param <- list(booster = "gbtree",
+                              max_depth = max_depth,
+                              min_child_weight = min_child_weight,
+                              eta=eta,
+                              gamma=gamma,
+                              subsample = subsample,
+                              colsample_bytree = colsample_bytree,
+                              objective = "reg:squarederror",
+                              eval_metric = forest.metric.mod)
+                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nround = 500, early_stopping_rounds = 75, tree_method = tree_method, nthread=as.numeric(my.cores), maximize = TRUE, verbose = FALSE)
+                              
+                              if(forest.metric.mod=="rmse"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              } else if(forest.metric.mod=="mae"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              }
+                          }
+                          
+                OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                bounds = list(max_depth = as.integer(tree.depth.vec),
+                           min_child_weight = c(1L, 9L),
+                               subsample = xgbsubsample.vec,
+                               eta = xgbeta.vec,
+                               gamma = c(0L, xgbgamma.vec[2]),
+                               colsample_bytree=xgbcolsample.vec),
+                           init_grid_dt = NULL,
+                           init_points = parameter_space_dimensions,
+                           n_iter = round(parameter_space_dimensions/20, 0)+1,
+                           acq = "ucb",
+                           kappa = 2.576,
+                           eps = 0.0,
+                           verbose = TRUE)
+                           
+                best_param <- list(
+                    booster = "gbtree",
+                    eval.metric = forest.metric.mod,
+                    objective = "reg:squarederror",
+                    max_depth = OPT_Res$Best_Par["max_depth"],
+                    eta = OPT_Res$Best_Par["eta"],
+                    gamma = OPT_Res$Best_Par["gamma"],
+                    subsample = OPT_Res$Best_Par["subsample"],
+                    colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
+                    min_child_weight = OPT_Res$Best_Par["min_child_weight"])
                 
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
-                stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(cores.to.use))
+                xgbGridBayes <- expand.grid(
+                    nrounds = parameters$ForestTrees,
+                    max_depth = best_param$max_depth,
+                    colsample_bytree = best_param$colsample_bytree,
+                    eta = best_param$eta,
+                    gamma = best_param$gamma,
+                    min_child_weight = best_param$min_child_weight,
+                    subsample = best_param$subsample
+                )
+                
+                if(input$multicore_behavior=="Single Core"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                    cl <- if(input$multicore_behavior=="Serialize"){
+                        parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                    } else if(input$multicore_behavior=="Fork"){
+                        parallel::makeForkCluster(as.numeric(cores.to.use))
+                    }
+                    clusterEvalQ(cl, library(foreach))
+                    registerDoParallel(cl)
+                    
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
+                    stopCluster(cl)
+                } else if(input$multicore_behavior=="OpenMP"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores))
+                }
             }
             
-            xgb_model
+            xgb_model_train
             
         })
         
@@ -3558,25 +3653,109 @@ shinyServer(function(input, output, session) {
                 }
             }
                 
-                
-            if(input$multicore_behavior=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
-                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
-                    parallel::makeForkCluster(as.numeric(cores.to.use))
+                if(input$bayesparameter==FALSE){
+                    if(input$multicore_behavior=="Single Core"){
+                        xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                    } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                        cl <- if(input$multicore_behavior=="Serialize"){
+                            parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                        } else if(input$multicore_behavior=="Fork"){
+                            parallel::makeForkCluster(as.numeric(cores.to.use))
+                        }
+                        clusterEvalQ(cl, library(foreach))
+                        registerDoParallel(cl)
+                        
+                        xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                        stopCluster(cl)
+                    } else if(input$multicore_behavior=="OpenMP"){
+                        xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores))
+                    }
+                } else if(input$bayesparameter==TRUE){
+                    forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
+                        "rmse"
+                    } else if(parameters$ForestMetric=="MAE"){
+                        "mae"
+                    } else if(parameters$ForestMetric!="RMSE" | parameters$ForestMetric!="MAE"){
+                        "rmse"
+                    }
+                    fold_samples <- round(nrow(predict.frame)/10, 0)+2
+                    if(fold_samples>30){
+                        fold_samples <- 30
+                    }
+                    parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
+                    if(parameter_space_dimensions>100){
+                        parameter_space_dimensions <- 100
+                    }
+                    concentration <- "Concentration"
+                    x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
+                    x_train <- as.matrix(x_train)
+                    y_train <- as.vector(predict.frame[,concentration])
+                    dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
+                                cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+                              xgb_cv_bayes <- function(alpha, eta, lambda) {
+                                  param <- list(booster = "gblinear",
+                                  alpha = alpha,
+                                  eta=eta,
+                                  lambda=lambda,
+                                  objective = "reg:squarederror",
+                                  eval_metric = forest.metric.mod)
+                                  cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nround = 500, early_stopping_rounds = 75, nthread=as.numeric(my.cores), maximize = TRUE, verbose = FALSE)
+                                  
+                                  if(forest.metric.mod=="rmse"){
+                                      tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  } else if(forest.metric.mod=="mae"){
+                                      tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  }
+                              }
+                              
+                    OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                    bounds = list(
+                                   alpha = xgbalpha.vec,
+                                   eta = xgbeta.vec,
+                                   lambda = xgblambda.vec),
+                               init_grid_dt = NULL,
+                               init_points = parameter_space_dimensions,
+                               n_iter = round(parameter_space_dimensions/20, 0)+1,
+                               acq = "ucb",
+                               kappa = 2.576,
+                               eps = 0.0,
+                               verbose = TRUE)
+                               
+                    best_param <- list(
+                    booster = "gblinear",
+                    eval.metric = forest.metric.mod,
+                    objective = "reg:squarederror",
+                    alpha = OPT_Res$Best_Par["alpha"],
+                    eta = OPT_Res$Best_Par["eta"],
+                    lambda = OPT_Res$Best_Par["lambda"])
+                    
+                    xgbGridBayes <- expand.grid(
+                    nrounds = parameters$ForestTrees,
+                    alpha = OPT_Res$Best_Par["alpha"],
+                    eta = OPT_Res$Best_Par["eta"],
+                    lambda = OPT_Res$Best_Par["lambda"]
+                    )
+                    
+                    if(input$multicore_behavior=="Single Core"){
+                        xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                    } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                        cl <- if(input$multicore_behavior=="Serialize"){
+                            parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                        } else if(input$multicore_behavior=="Fork"){
+                            parallel::makeForkCluster(as.numeric(cores.to.use))
+                        }
+                        clusterEvalQ(cl, library(foreach))
+                        registerDoParallel(cl)
+                        
+                        xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                        stopCluster(cl)
+                    } else if(input$multicore_behavior=="OpenMP"){
+                        xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores))
+                    }
                 }
-                clusterEvalQ(cl, library(foreach))
-                registerDoParallel(cl)
-                
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
-                stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(cores.to.use))
-            }
             
-            xgb_model
+            
+            xgb_model_train
             
         })
         
@@ -3682,21 +3861,117 @@ shinyServer(function(input, output, session) {
                 
             
                 
-            if(input$multicore_behavior=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
-                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
-                    parallel::makeForkCluster(as.numeric(cores.to.use))
+            if(input$bayesparameter==FALSE){
+                if(input$multicore_behavior=="Single Core"){
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                    cl <- if(input$multicore_behavior=="Serialize"){
+                        parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                    } else if(input$multicore_behavior=="Fork"){
+                        parallel::makeForkCluster(as.numeric(cores.to.use))
+                    }
+                    clusterEvalQ(cl, library(foreach))
+                    registerDoParallel(cl)
+                    
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
+                    stopCluster(cl)
+                } else if(input$multicore_behavior=="OpenMP"){
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores))
                 }
-                clusterEvalQ(cl, library(foreach))
-                registerDoParallel(cl)
+            } else if(input$bayesparameter==TRUE){
+                predict.frame <- data[,-1]
+                forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
+                    "rmse"
+                } else if(parameters$ForestMetric=="MAE"){
+                    "mae"
+                } else if(parameters$ForestMetric!="RMSE" | parameters$ForestMetric!="MAE"){
+                    "rmse"
+                }
+                fold_samples <- round(nrow(predict.frame)/10, 0)+2
+                if(fold_samples>30){
+                    fold_samples <- 30
+                }
+                parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
+                if(parameter_space_dimensions>100){
+                    parameter_space_dimensions <- 100
+                }
+                concentration <- "Concentration"
+                x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
+                x_train <- as.matrix(x_train)
+                y_train <- as.vector(predict.frame[,concentration])
+                dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
+                cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+                          xgb_cv_bayes <- function(max_depth, min_child_weight, subsample, eta, gamma, colsample_bytree) {
+                              param <- list(booster = "gbtree",
+                              max_depth = max_depth,
+                              min_child_weight = min_child_weight,
+                              eta=eta,
+                              gamma=gamma,
+                              subsample = subsample,
+                              colsample_bytree = colsample_bytree,
+                              objective = "reg:squarederror",
+                              eval_metric = forest.metric.mod)
+                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nround = 500, early_stopping_rounds = 75, tree_method = tree_method, nthread=as.numeric(my.cores), maximize = TRUE, verbose = FALSE)
+                              
+                              if(forest.metric.mod=="rmse"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              } else if(forest.metric.mod=="mae"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              }
+                          }
+                          
+                OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                bounds = list(max_depth = as.integer(tree.depth.vec),
+                           min_child_weight = c(1L, 9L),
+                               subsample = xgbsubsample.vec,
+                               eta = xgbeta.vec,
+                               gamma = c(0L, xgbgamma.vec[2]),
+                               colsample_bytree=xgbcolsample.vec),
+                           init_grid_dt = NULL,
+                           init_points = parameter_space_dimensions,
+                           n_iter = round(parameter_space_dimensions/20, 0)+1,
+                           acq = "ucb",
+                           kappa = 2.576,
+                           eps = 0.0,
+                           verbose = TRUE)
+                           
+                best_param <- list(
+                    booster = "gbtree",
+                    eval.metric = forest.metric.mod,
+                    objective = "reg:squarederror",
+                    max_depth = OPT_Res$Best_Par["max_depth"],
+                    eta = OPT_Res$Best_Par["eta"],
+                    gamma = OPT_Res$Best_Par["gamma"],
+                    subsample = OPT_Res$Best_Par["subsample"],
+                    colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
+                    min_child_weight = OPT_Res$Best_Par["min_child_weight"])
                 
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
-                stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(cores.to.use))
+                xgbGridBayes <- expand.grid(
+                    nrounds = parameters$ForestTrees,
+                    max_depth = best_param$max_depth,
+                    colsample_bytree = best_param$colsample_bytree,
+                    eta = best_param$eta,
+                    gamma = best_param$gamma,
+                    min_child_weight = best_param$min_child_weight,
+                    subsample = best_param$subsample
+                )
+                
+                if(input$multicore_behavior=="Single Core"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                    cl <- if(input$multicore_behavior=="Serialize"){
+                        parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                    } else if(input$multicore_behavior=="Fork"){
+                        parallel::makeForkCluster(as.numeric(cores.to.use))
+                    }
+                    clusterEvalQ(cl, library(foreach))
+                    registerDoParallel(cl)
+                    
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
+                    stopCluster(cl)
+                } else if(input$multicore_behavior=="OpenMP"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores))
+                }
             }
             
             xgb_model
@@ -3778,24 +4053,109 @@ shinyServer(function(input, output, session) {
                 }
             }
                 
-            if(input$multicore_behavior=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
-                    parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
-                    parallel::makeForkCluster(as.numeric(cores.to.use))
+            if(input$bayesparameter==FALSE){
+                if(input$multicore_behavior=="Single Core"){
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                    cl <- if(input$multicore_behavior=="Serialize"){
+                        parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                    } else if(input$multicore_behavior=="Fork"){
+                        parallel::makeForkCluster(as.numeric(cores.to.use))
+                    }
+                    clusterEvalQ(cl, library(foreach))
+                    registerDoParallel(cl)
+                    
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                    stopCluster(cl)
+                } else if(input$multicore_behavior=="OpenMP"){
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores))
                 }
-                clusterEvalQ(cl, library(foreach))
-                registerDoParallel(cl)
+            } else if(input$bayesparameter==TRUE){
+                predict.frame <- data[,-1]
+                forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
+                    "rmse"
+                } else if(parameters$ForestMetric=="MAE"){
+                    "mae"
+                } else if(parameters$ForestMetric!="RMSE" | parameters$ForestMetric!="MAE"){
+                    "rmse"
+                }
+                fold_samples <- round(nrow(predict.frame)/10, 0)+2
+                if(fold_samples>30){
+                    fold_samples <- 30
+                }
+                parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
+                if(parameter_space_dimensions>100){
+                    parameter_space_dimensions <- 100
+                }
+                concentration <- "Concentration"
+                x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
+                x_train <- as.matrix(x_train)
+                y_train <- as.vector(predict.frame[,concentration])
+                dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
+                            cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+                          xgb_cv_bayes <- function(alpha, eta, lambda) {
+                              param <- list(booster = "gblinear",
+                              alpha = alpha,
+                              eta=eta,
+                              lambda=lambda,
+                              objective = "reg:squarederror",
+                              eval_metric = forest.metric.mod)
+                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nround = 500, early_stopping_rounds = 75, nthread=as.numeric(my.cores), maximize = TRUE, verbose = FALSE)
+                              
+                              if(forest.metric.mod=="rmse"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              } else if(forest.metric.mod=="mae"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              }
+                          }
+                          
+                OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                bounds = list(
+                               alpha = xgbalpha.vec,
+                               eta = xgbeta.vec,
+                               lambda = xgblambda.vec),
+                           init_grid_dt = NULL,
+                           init_points = parameter_space_dimensions,
+                           n_iter = round(parameter_space_dimensions/20, 0)+1,
+                           acq = "ucb",
+                           kappa = 2.576,
+                           eps = 0.0,
+                           verbose = TRUE)
+                           
+                best_param <- list(
+                booster = "gblinear",
+                eval.metric = forest.metric.mod,
+                objective = "reg:squarederror",
+                alpha = OPT_Res$Best_Par["alpha"],
+                eta = OPT_Res$Best_Par["eta"],
+                lambda = OPT_Res$Best_Par["lambda"])
                 
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
-                stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear",  na.action=na.omit, nthread=as.numeric(cores.to.use))
+                xgbGridBayes <- expand.grid(
+                nrounds = parameters$ForestTrees,
+                alpha = OPT_Res$Best_Par["alpha"],
+                eta = OPT_Res$Best_Par["eta"],
+                lambda = OPT_Res$Best_Par["lambda"]
+                )
+                
+                if(input$multicore_behavior=="Single Core"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                    cl <- if(input$multicore_behavior=="Serialize"){
+                        parallel::makePSOCKcluster(as.numeric(cores.to.use))
+                    } else if(input$multicore_behavior=="Fork"){
+                        parallel::makeForkCluster(as.numeric(cores.to.use))
+                    }
+                    clusterEvalQ(cl, library(foreach))
+                    registerDoParallel(cl)
+                    
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                    stopCluster(cl)
+                } else if(input$multicore_behavior=="OpenMP"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores))
+                }
             }
             
-            xgb_model
+            xgb_model_train
             
         })
         
@@ -6009,58 +6369,88 @@ shinyServer(function(input, output, session) {
         })
         
         calTreeDepthSelectionpre <- reactive(label="calTreeDepthSelectionpre", {
-            if(!"TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["TreeDepth"]), "-")))
-            } else if("TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$TreeDepth[1]), "-")))
+            if(input$bayesparameter==FALSE){
+                if(!"TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["TreeDepth"]), "-")))
+                } else if("TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$TreeDepth[1]), "-")))
+                }
+            } else if(input$bayesparameter==TRUE){
+                c(2, 50)
             }
+
         })
         
         calXGBAlphaSelectionpre <- reactive(label="calXGBAlphaSelectionpre", {
-            if(!"xgbAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbAlpha"]), "-")))
-            } else if("xgbAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbAlpha[1]), "-")))
+            if(input$bayesparameter==FALSE){
+                if(!"xgbAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbAlpha"]), "-")))
+                } else if("xgbAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbAlpha[1]), "-")))
+                }
+            } else if(input$bayesparameter==TRUE){
+                c(0, 10)
             }
         })
         
         calXGBGammaSelectionpre <- reactive(label="calXGBGammaSelectionpre", {
-            if(!"xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbGamma"]), "-")))
-            } else if("xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbGamma[1]), "-")))
+            if(input$bayesparameter==FALSE){
+                if(!"xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbGamma"]), "-")))
+                } else if("xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbGamma[1]), "-")))
+                }
+            } else if(input$bayesparameter==TRUE){
+                c(0, 10)
             }
         })
         
         calXGBEtaSelectionpre <- reactive(label="calXGBEtaSelectionpre", {
-            if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
-            } else if("xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
+            if(input$bayesparameter==FALSE){
+                if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
+                } else if("xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
+                }
+            } else if(input$bayesparameter==TRUE){
+                c(0.01, 0.99)
             }
+            
         })
         
         calxgboostLambdaSelectionpre <- reactive(label="calxgboostLambdaSelectionpre", {
-            if(!"xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbLambda"]), "-")))
-            } else if("xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbLambda[1]), "-")))
+            if(input$bayesparameter==FALSE){
+                if(!"xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbLambda"]), "-")))
+                } else if("xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbLambda[1]), "-")))
+                }
+            } else if(input$bayesparameter==TRUE){
+                c(0, 10)
             }
         })
         
         calXGBSubSampleSelectionpre <- reactive(label="calXGBSubSampleSelectionpre", {
-            if(!"xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbSubSample"]), "-")))
-            } else if("xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbSubSample[1]), "-")))
+            if(input$bayesparameter==FALSE){
+                if(!"xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbSubSample"]), "-")))
+                } else if("xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbSubSample[1]), "-")))
+                }
+            } else if(input$bayesparameter==TRUE){
+                c(0.05, 0.95)
             }
         })
         
         calXGBColSampleSelectionpre <- reactive(label="calXGBColSampleSelectionpre", {
-            if(!"xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbColSample"]), "-")))
-            } else if("xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbColSample[1]), "-")))
+            if(input$bayesparameter==FALSE){
+                if(!"xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbColSample"]), "-")))
+                } else if("xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbColSample[1]), "-")))
+                }
+            } else if(input$bayesparameter==TRUE){
+                c(0.05, 0.95)
             }
         })
         
@@ -6613,6 +7003,15 @@ shinyServer(function(input, output, session) {
             xgbTypeUI(radiocal=input$radiocal, selection=calXGBTypeSelectionpre())
         })
         
+        output$bayesparameterui <- renderUI({
+            req(input$radiocal)
+            if(input$radiocal==8 | input$radiocal==9){
+                checkboxInput("bayesparameter", "Bayesian Parameter Search", value=TRUE)
+            } else if(input$radiocal!=8 | input$radiocal!=9){
+                NULL
+            }
+        })
+        
         output$xgbalphaui <- renderUI({
             req(input$radiocal, input$xgbtype)
             xgbAlphaUI(radiocal=input$radiocal, selection=calXGBAlphaSelectionpre(), xgbtype=input$xgbtype)
@@ -6860,17 +7259,17 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==7){
                 tryCatch(neuralNetworkSpectraModel(), error=function(e) NULL)
             } else if(input$radiocal==8){
-                tryCatch(xgboostIntensityModel(), error=function(e) NULL)
+                xgboostIntensityModel()
             } else if(input$radiocal==9){
                 tryCatch(xgboostSpectraModel(), error=function(e) NULL)
             } else if(input$radiocal==10){
                 tryCatch(bayesIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==11){
-                bayesSpectraModel()
+                tryCatch(bayesSpectraModel(), error=function(e) NULL)
             } else if(input$radiocal==12){
-                svmIntensityModel()
+                tryCatch(svmIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==13){
-                svmSpectraModel()
+                tryCatch(svmSpectraModel(), error=function(e) NULL)
             }
         })
         
@@ -6886,7 +7285,8 @@ shinyServer(function(input, output, session) {
             calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
                 calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelGen(), compress=TRUE))
                 calSettings$calList[[input$calcurveelement]] <- NULL
-                    calSettings$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=NULL, compress=TRUE))
+                calSettings$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=NULL, compress=TRUE))
+
         })
         
         output$usecalsep <- renderUI({
@@ -8124,11 +8524,6 @@ shinyServer(function(input, output, session) {
             parameters <- xgbtreeIntensityModelSet()$parameters$CalTable
             
             
-            tree.depth.vec <- as.numeric(unlist(strsplit(as.character(parameters$TreeDepth), "-")))
-            xgbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbEta), "-")))
-            xgbgamma.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbGamma), "-")))
-            xgbsubsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbSubSample), "-")))
-            xgbcolsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbColSample), "-")))
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
@@ -8143,12 +8538,12 @@ shinyServer(function(input, output, session) {
             
             xgbGrid <- expand.grid(
             nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
-            max_depth = seq(tree.depth.vec[1], tree.depth.vec[2], by=5),
-            eta = seq(xgbeta.vec[1], xgbeta.vec[2], by=0.1),
-            gamma=seq(xgbgamma.vec[1], xgbgamma.vec[2], by=0.1),
+            max_depth = elementModel()$bestTune$max_depth,
+            eta = elementModel()$bestTune$eta,
+            gamma=elementModel()$bestTune$gamma,
             colsample_bytree = seq(xgbcolsample.vec[1], xgbcolsample.vec[2], by=0.1),
-            subsample = seq(xgbsubsample.vec[1], xgbsubsample.vec[2], by=0.1),
-            min_child_weight = parameters$xgbMinChild
+            subsample = elementModel()$bestTune$subsample,
+            min_child_weight = elementModel()$bestTune$min_child_weight
             )
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
@@ -8182,7 +8577,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(input$multicore_behavior=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8192,10 +8587,10 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
             } else if(input$multicore_behavior=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(cores.to.use))
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores))
             }
             
             xgb_model
@@ -8209,15 +8604,12 @@ shinyServer(function(input, output, session) {
             parameters <- xgblinearIntensityModelSet()$parameters$CalTable
             
             
-            xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
-            xgbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbEta), "-")))
-            xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
             
             xgbGrid <- expand.grid(
             nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
-            alpha=seq(xgbalpha.vec[1], xgbalpha.vec[2], by=0.1),
-            eta = seq(xgbeta.vec[1], xgbeta.vec[2], by=0.1),
-            lambda = seq(xgblambda.vec[1], xgblambda.vec[2], by=0.1)
+            alpha=elementModel()$bestTune$alpha,
+            eta = elementModel()$bestTune$alpha,
+            lambda = elementModel()$bestTune$alpha
             )
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
@@ -8261,7 +8653,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(input$multicore_behavior=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8271,12 +8663,12 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
             } else if(input$multicore_behavior=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(cores.to.use))
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores))
             }
-            xgb_model
+            xgb_model_train
             
         })
         
@@ -8296,11 +8688,6 @@ shinyServer(function(input, output, session) {
             data <- xgbtreeSpectraModelSet()$data[randomizeData(),]
             parameters <- xgbtreeSpectraModelSet()$parameters$CalTable
             
-            tree.depth.vec <- as.numeric(unlist(strsplit(as.character(parameters$TreeDepth), "-")))
-            xgbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbEta), "-")))
-            xgbgamma.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbGamma), "-")))
-            xgbsubsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbSubSample), "-")))
-            xgbcolsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbColSample), "-")))
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
@@ -8315,12 +8702,12 @@ shinyServer(function(input, output, session) {
             
             xgbGrid <- expand.grid(
             nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
-            max_depth = seq(tree.depth.vec[1], tree.depth.vec[2], by=5),
-            eta = seq(xgbeta.vec[1], xgbeta.vec[2], by=0.1),
-            gamma=seq(xgbgamma.vec[1], xgbgamma.vec[2], by=0.1),
+            max_depth = elementModel()$bestTune$max_depth,
+            eta = elementModel()$bestTune$eta,
+            gamma=elementModel()$bestTune$gamma,
             colsample_bytree = seq(xgbcolsample.vec[1], xgbcolsample.vec[2], by=0.1),
-            subsample = seq(xgbsubsample.vec[1], xgbsubsample.vec[2], by=0.1),
-            min_child_weight = parameters$xgbMinChild
+            subsample = elementModel()$bestTune$subsample,
+            min_child_weight = elementModel()$bestTune$min_child_weight
             )
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
@@ -8354,7 +8741,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(input$multicore_behavior=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8364,13 +8751,13 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
             } else if(input$multicore_behavior=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(cores.to.use))
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores))
             }
             
-            xgb_model
+            xgb_model_train
             
             
         })
@@ -8381,16 +8768,13 @@ shinyServer(function(input, output, session) {
             data <- xgblinearSpectraModelSet()$data[randomizeData(),]
             parameters <- xgblinearSpectraModelSet()$parameters$CalTable
             
-            xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
-            xgbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbEta), "-")))
-            xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
             
             
             xgbGrid <- expand.grid(
             nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
-            alpha=seq(xgbalpha.vec[1], xgbalpha.vec[2], by=0.1),
-            eta = seq(xgbeta.vec[1], xgbeta.vec[2], by=0.1),
-            lambda = seq(xgblambda.vec[1], xgblambda.vec[2], by=0.1)
+            alpha=elementModel()$bestTune$alpha,
+            eta = elementModel()$bestTune$alpha,
+            lambda = elementModel()$bestTune$alpha
             )
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
@@ -8434,7 +8818,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(input$multicore_behavior=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8444,13 +8828,13 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
             } else if(input$multicore_behavior=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(cores.to.use))
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores))
             }
             
-            xgb_model
+            xgb_model_train
             
         })
         
@@ -10073,8 +10457,8 @@ shinyServer(function(input, output, session) {
                 
                 
                 
-                val.frame <- data.frame(na.omit(predict.frame)$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction")
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
             }
             
             if (input$radiocal==5){
@@ -10095,8 +10479,8 @@ shinyServer(function(input, output, session) {
                 
                 
                 
-                val.frame <- data.frame(na.omit(predict.frame)$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction")
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration", "Intensity", "Prediction")
             }
             
             if (input$radiocal==7){
@@ -10117,8 +10501,8 @@ shinyServer(function(input, output, session) {
                 
                 
                 
-                val.frame <- data.frame(na.omit(predict.frame)$Concentration, predict.intensity$Intensity, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
-                colnames(val.frame) <- c("Concentration", "IntensityOrg", "Intensity", "Prediction")
+                val.frame <- data.frame(na.omit(predict.frame)$Concentration, as.vector(cal.est.conc.pred.luc), as.vector(cal.est.conc.pred.luc))
+                colnames(val.frame) <- c("Concentration",  "Intensity", "Prediction")
             }
             
             if (input$radiocal==9){
@@ -11509,11 +11893,20 @@ shinyServer(function(input, output, session) {
         })
         
         calExport <- reactive({
-            if(input$modelcompress==TRUE){
+            new.cal <- if(input$modelcompress==TRUE){
                 calBundle(filetype=input$filetype, units=input$unit, spectra=spectraExport(), intensities=spectraLineTableExport(), definitions=linevalues[["DF"]], values=values[["DF"]], notes=input$notes, calList=calListCompress(calMemory$Calibration$calList))
             } else if(input$modelcompress==FALSE){
                 calBundle(filetype=input$filetype, units=input$unit, spectra=spectraExport(), intensities=spectraLineTableExport(), definitions=linevalues[["DF"]], values=values[["DF"]], notes=input$notes, calList=calMemory$Calibration$calList)
             }
+            
+            other_elements <- names(calMemory$Calibration)[!names(calMemory$Calibration) %in% names(new.cal)]
+            if(length(other_elements)>0){
+                for(i in other_elements){
+                    new.cal[[i]] <- calMemory$Calibration[[i]]
+                }
+            }
+            
+            new.cal
         })
         
         

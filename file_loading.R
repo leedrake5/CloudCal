@@ -586,20 +586,59 @@ wideLineTable <- function(spectra, definition.table, elements){
 }
 
 ###Calibration Loading
-calPre <- function(element.model.list, element, temp){
+calPre <- function(element.model.list, element, temp, xgb_raw=FALSE){
     
     temp.list <- list(element.model.list)
     names(temp.list) <- element
-    
-    new.element.model.list <-
-    #tryCatch(
-        list(Parameters=importCalConditions(element=element,
-        calList=temp.list, temp=temp),
-        Model=element.model.list[[2]])
-        #, error=function(e) NULL)
+        
+        if(xgb_raw==TRUE){
+            if(element.model.list[[1]]$CalTable$CalType==8 | element.model.list[[1]]$CalTable$CalType==9){
+                if("Model" %in% names(element.model.list)){
+                    model.raw <-
+                        tryCatch(
+                            xgb.save.raw(
+                                tryCatch(
+                                    xgb.Booster.complete(element.model.list$Model$finalModel)
+                                    , error=function(e) element.model.list$Model$finalModel))
+                                , error=function(e) NULL)
+                    } else {
+                        model.raw <- NULL
+                    }
+                } else if(!"Model" %in% names(element.model.list)){
+                    model.raw <-
+                        tryCatch(
+                            xgb.save.raw(
+                                tryCatch(
+                                    xgb.Booster.complete(element.model.list[[2]]$finalModel)
+                                    , error=function(e) element.model.list[[2]]$finalModel))
+                                , error=function(e) NULL)
+                    } else {
+                        model.raw <- NULL
+                    }
+                    
+            element.model.list$rawModel <- model.raw
+        }
+        
+        new.element.model.list <- if(!"Model" %in% names(element.model.list)){
+            tryCatch(
+            list(Parameters=importCalConditions(element=element,
+                    calList=temp.list, temp=temp),
+                    Model=element.model.list[[2]])
+                    , error=function(e) NULL)
+        } else if("Model" %in% names(element.model.list)){
+            tryCatch(
+            list(Parameters=importCalConditions(element=element,
+                    calList=temp.list, temp=temp),
+                    Model=element.model.list$Model)
+                    , error=function(e) NULL)
+        }
         
         if(is.na(new.element.model.list$Parameters$CalTable$LineType[1])){
             new.element.model.list$Parameters$CalTable$LineType[1] <- "Narrow"
+        }
+        
+        if("rawModel" %in% names(element.model.list)){
+            new.element.model.list$rawModel <- element.model.list$rawModel
         }
         
         if("ValidationSet" %in% names(element.model.list)){
@@ -626,7 +665,7 @@ calPre <- function(element.model.list, element, temp){
         
 }
 
-calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extensions=FALSE){
+calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE){
     Calibration <- readRDS(calibration.directory)
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
@@ -666,7 +705,7 @@ calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extension
 
     }
     
-    calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp), error=function(e) NULL))
+    calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, xgb_raw=xgb_raw), error=function(e) NULL))
     names(calpre) <- order_elements(names(Calibration[["calList"]]))
     
     Calibration$calList <- calpre
@@ -681,8 +720,24 @@ calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extension
     }
     
     if(!"WideIntensities" %in% names(Calibration)){
-        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=names(Calibration$Intensities))
+        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=names(Calibration$Intensities))[,-1]
     }
+    
     
     return(Calibration)
 }
+
+#lmSEapprox <- function(calibration, element){
+   #predictions <- cloudCalPredict(Calibration=calibration, count.list=list(calibration$), elements.cal=element, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Intensities[,names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"]], rounding=4, multiplier=1)
+
+#}
+
+#error_estimation <- function(element_model_list){
+   #model <- element_model_list$Model
+   #cal.type <- element_model_list$CalTable$CalType[1]
+
+    #if(cal.type==1){
+
+    #}
+
+#}
