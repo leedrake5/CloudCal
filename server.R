@@ -6415,6 +6415,40 @@ shinyServer(function(input, output, session) {
             } else if(input$bayesparameter==TRUE){
                 c(0.01, 0.99)
             }
+        })
+        
+        calXGBEtaSelectionpredraft <- reactive(label="calXGBEtaSelectionpre", {
+            if(input$bayesparameter==FALSE){
+                if("Model" %in% names(calMemory$Calibration$calList[[input$calcurveelement]])){
+                    if(calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==8 | calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==9){
+                        c(calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$eta, calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$eta)
+                    } else if(calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType!=8 | calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType!=9){
+                        if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                            as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
+                        } else if("xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                            as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
+                        }
+                    }
+                    
+                } else if(!"Model" %in% names(calMemory$Calibration$calList[[input$calcurveelement]])){
+                    if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                        as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
+                    } else if("xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                        as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
+                    }
+                }
+            } else if(input$bayesparameter==TRUE){
+                c(0.01, 0.99)
+            }
+            if(input$bayesparameter==FALSE){
+                if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
+                } else if("xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
+                }
+            } else if(input$bayesparameter==TRUE){
+                c(0.01, 0.99)
+            }
             
         })
         
@@ -6424,6 +6458,31 @@ shinyServer(function(input, output, session) {
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbLambda"]), "-")))
                 } else if("xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbLambda[1]), "-")))
+                }
+            } else if(input$bayesparameter==TRUE){
+                c(0, 10)
+            }
+        })
+        
+        calxgboostLambdaSelectionpredraft <- reactive(label="calxgboostLambdaSelectionpre", {
+            if(input$bayesparameter==FALSE){
+                if("Model" %in% names(calMemory$Calibration$calList[[input$calcurveelement]])){
+                    if(calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==8 | calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==9){
+                        c(calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$alpha, calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$alpha)
+                    } else if(calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType!=8 | calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType!=9){
+                        if(!"xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                            as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbLambda"]), "-")))
+                        } else if("xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                            as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbLambda[1]), "-")))
+                        }
+                    }
+                    
+                } else if(!"Model" %in% names(calMemory$Calibration$calList[[input$calcurveelement]])){
+                    if(!"xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                        as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbLambda"]), "-")))
+                    } else if("xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                        as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbLambda[1]), "-")))
+                    }
                 }
             } else if(input$bayesparameter==TRUE){
                 c(0, 10)
@@ -6535,6 +6594,45 @@ shinyServer(function(input, output, session) {
         svmhold <- reactiveValues()
         
         observeEvent(input$calcurveelement, {
+            basichold$normtype <- calNormSelectionpre()
+            basichold$normmin <- normMinPre()
+            basichold$normmax <- normMaxPre()
+            basichold$compress <- calCompressPre()
+            basichold$transformation <- calTransformationPre()
+            basichold$deptransformation <- calDependentTransformationPre()
+            basichold$energyrange <- calEnergyRangePre()
+            lucashold$intercept <- calInterceptSelectionPre()
+            lucashold$slope <- calSlopeSelectionPre()
+            foresthold$foresttry <- calForestTrySelectionpre()
+            foresthold$forestmetric <- calForestMetricSelectionpre()
+            foresthold$foresttrain <- calForestTCSelectionpre()
+            foresthold$forestnumber <- calForestNumberSelectionpre()
+            foresthold$cvrepeats <- calCVRepeatsSelectionpre()
+            foresthold$foresttrees <- calForestTreeSelectionpre()
+            neuralhold$neuralhiddenlayers <- calHiddenLayersSelectionpre()
+            neuralhold$neuralhiddenunits <- calHiddenUnitsSelectionpre()
+            neuralhold$neuralweightdecay <- calWeightDecaySelectionpre()
+            neuralhold$neuralmaxiterations <- calMaxIterationsSelectionpre()
+            xgboosthold$xgbtype <- calXGBTypeSelectionpre()
+            xgboosthold$treedepth <- calTreeDepthSelectionpre()
+            xgboosthold$xgbalpha <- calXGBAlphaSelectionpre()
+            xgboosthold$xgbgamma <- calXGBGammaSelectionpre()
+            xgboosthold$xgbeta <- calXGBEtaSelectionpre()
+            xgboosthold$xgblambda <- calxgboostLambdaSelectionpre()
+            xgboosthold$xgbsubsample <- calXGBSubSampleSelectionpre()
+            xgboosthold$xgbcolsample <- calXGBColSampleSelectionpre()
+            xgboosthold$xgbminchild <- calXGBMinChildSelectionpre()
+            barthold$bartk <- calBARTKSelectionpre()
+            barthold$bartbeta <- calBARTBetaSelectionpre()
+            barthold$bartnu <- calBARTNuSelectionpre()
+            svmhold$svmc <- calSVMCSelectionpre()
+            svmhold$svmdegree <- calSVMDegreeSelectionpre()
+            svmhold$svmscale <- calSVMScaleSelectionpre()
+            svmhold$svmsigma <- calSVMSigmaSelectionpre()
+            svmhold$svmlength <- calSVMLengthSelectionpre()
+        })
+        
+        observeEvent(input$bayesparameter, {
             basichold$normtype <- calNormSelectionpre()
             basichold$normmin <- normMinPre()
             basichold$normmax <- normMaxPre()
@@ -8080,6 +8178,7 @@ shinyServer(function(input, output, session) {
         })
         
         
+        
         linearModelRandom <- reactive(label="linearModelRandom",{
             predict.frame <- calCurveFrameRandomized()
             cal.lm <- lm(Concentration~Intensity, data=predict.frame)
@@ -8541,7 +8640,7 @@ shinyServer(function(input, output, session) {
             max_depth = elementModel()$bestTune$max_depth,
             eta = elementModel()$bestTune$eta,
             gamma=elementModel()$bestTune$gamma,
-            colsample_bytree = seq(xgbcolsample.vec[1], xgbcolsample.vec[2], by=0.1),
+            colsample_bytree = elementModel()$bestTune$colsample_bytree,
             subsample = elementModel()$bestTune$subsample,
             min_child_weight = elementModel()$bestTune$min_child_weight
             )
@@ -8593,7 +8692,7 @@ shinyServer(function(input, output, session) {
                 xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores)/2)
             }
             
-            xgb_model
+            xgb_model_train
             
         })
         
@@ -8705,7 +8804,7 @@ shinyServer(function(input, output, session) {
             max_depth = elementModel()$bestTune$max_depth,
             eta = elementModel()$bestTune$eta,
             gamma=elementModel()$bestTune$gamma,
-            colsample_bytree = seq(xgbcolsample.vec[1], xgbcolsample.vec[2], by=0.1),
+            colsample_bytree = elementModel()$bestTune$colsample_bytree,
             subsample = elementModel()$bestTune$subsample,
             min_child_weight = elementModel()$bestTune$min_child_weight
             )
@@ -10220,8 +10319,21 @@ shinyServer(function(input, output, session) {
         #    randomHold$calList[[input$calcurveelement]] <- isolate(list(Parameters=modelParameters(), Model=elementModelRandom()))
         #})
         
+        valFrameRandomized <- reactive(label="valFrame",{
+            req(input$calcurveelement, input$radiocal)
+            
+            val.frame <- tryCatch(mclValGen(model=elementModelRandom(), data=predictIntensity()[ vals$keeprows, , drop = FALSE], predict.frame=predictFrame()[ vals$keeprows, , drop = FALSE], dependent.transformation=basichold$deptransformation), error=function(e) NULL)
+            
+            if(is.null(val.frame)){
+                data.frame(Concentration=predictFrame()$Concentration[ vals$keeprows, , drop = FALSE], Intensity=rep(0, length(predictFrame()$Concentration))[ vals$keeprows, , drop = FALSE], Prediction=rep(0, length(predictFrame()$Concentration))[ vals$keeprows, , drop = FALSE], stringsAsFactors=FALSE)
+            } else if(!is.null(val.frame)){
+                val.frame
+            }
+            
+        })
         
-        valFrameRandomized <- reactive(label="valFrameRandomized",{
+        
+        valFrameRandomizedold <- reactive(label="valFrameRandomized",{
             
             predict.intensity <- predictIntensity()[ vals$keeprows, , drop = FALSE]
             predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
@@ -10548,195 +10660,313 @@ shinyServer(function(input, output, session) {
         rangescalcurverandom <- reactiveValues(x = NULL, y = NULL)
         
         
-        calCurvePlotRandom <- reactive(label="valFrameRandomizedRev",{
-            
-            predict.frame <- calCurveFrameRandomized()
-            element.model <- elementModelRandom()
-            
-            
+        calCurvePlotRandom <- reactive(label="calCurvePlotRandomized",{
+            req(input$calcurveelement, input$radiocal)
             element.name <- if(input$calcurveelement %in% spectralLines){
                 gsub("[.]", "", substr(input$calcurveelement, 1, 2))
             } else {
                 input$calcurveelement
             }
+            
             intens <- " Counts per Second"
             norma <- " Normalized"
             norma.comp <- " Compton Normalized"
             norma.tc <- " Valid Counts Normalized"
             conen <- paste0(" ", input$plotunit)
             predi <- paste0(" Estimate ", input$plotunit)
+            log <- "Log "
+            
             
             intensity.name <- c(element.name, intens)
             concentration.name <- c(element.name, conen)
             prediction.name <- c(element.name, predi)
             
             
-            if(input$radiocal==1){
-                calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                stat_smooth(method="lm", fullrange = TRUE) +
-                geom_point() +
-                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
-                
-            }
+
             
+            
+            if(input$radiocal==1){
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    stat_smooth(method="lm", fullrange = TRUE) +
+                    geom_point() +
+                    geom_point(data = calCurveFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~Intensity, calCurveFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    stat_smooth(method="lm", fullrange = TRUE) +
+                    geom_point() +
+                    geom_point(data = calCurveFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
+            }
+
             if(input$radiocal==2){
                 
-                calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn_poly(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                stat_smooth(method="lm", formula=y~poly(x,2)) +
-                geom_point() +
-                scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn_poly(lm(Concentration~Intensity + I(Intensity^2), data=predictFrame()[ vals$keeprows, , drop = FALSE])), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    stat_smooth(method="lm", formula=y~poly(x,2), fullrange = TRUE) +
+                    geom_point() +
+                    geom_point(data = calCurveFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~Intensity, calCurveFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    stat_smooth(method="lm", fullrange = TRUE) +
+                    geom_point() +
+                    geom_point(data = calCurveFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==3){
-                val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(element.model), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==4){
-                val.frame <- valFrameRandomizedRev()
-                
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==5){
-                val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==6){
-                val.frame <- valFrameRandomizedRev()
-                
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- tryCatch(print(grobTree(plot.nnet(elementModel(),nid=T))), error=function(e) NULL)
             }
             
             if(input$radiocal==7){
-                val.frame <- valFrameRandomizedRev()
-                
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- tryCatch(print(grobTree(plot.nnet(elementModel(),nid=T))), error=function(e) NULL)
             }
             
             if(input$radiocal==8){
-                val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==9){
-                val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==10){
-                val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==11){
-                val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==12){
-                val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
             
             if(input$radiocal==13){
-                val.frame <- valFrameRandomizedRev()
                 
-                calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration)) +
-                theme_light() +
-                annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
-                geom_smooth() +
-                geom_point() +
-                scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
-                scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
-                coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE)
+                calcurve.plot <- if(input$loglinear=="Linear"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                } else if(input$loglinear=="Log"){
+                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration)) +
+                    theme_light() +
+                    annotate("text", label=lm_eqn(lm(Concentration~., valFrameRandomized())), x=0, y=Inf, hjust=0, vjust=1, parse=TRUE)+
+                    geom_smooth() +
+                    geom_point() +
+                    geom_point(aes(Intensity, Concentration), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
+                    coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
+                }
             }
+            
+            
             
             calcurve.plot
             
