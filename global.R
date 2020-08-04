@@ -89,7 +89,7 @@ tryCatch(library(bartMachine), error=function(e) NULL)
 tryCatch(library(arm), error=function(e) NULL)
 tryCatch(library(brnn), error=function(e) NULL)
 library(kernlab)
-library(rBayesianOptimization)
+tryCatch(library(rBayesianOptimization), error=function(e) NULL)
 enableJIT(3)
 
 options(digits=12)
@@ -6451,7 +6451,11 @@ calBundle <- function(filetype, units, spectra, intensities, definitions, values
 }
 
 
-cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, count.list, rounding=4, multiplier=1){
+cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1){
+    
+    if(is.null(count.list)){
+        count.list <- list(Narrow=narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), Wide=wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables))
+    }
 
     #count.table <- data.frame(fullInputValCounts())
     the.cal <- Calibration[["calList"]]
@@ -7657,8 +7661,37 @@ valCurve <- function(element, unit="%", loglinear="Linear", val.frame, rangesval
 
 lmSEapprox <- function(calibration){
     elements <- names(calibration$calList)
-    predictions <- cloudCalPredict(Calibration=calibration, count.list=list(Narrow=calibration$Intensities, Wide=calibration$WideIntensities), elements.cal=element, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=4, multiplier=1)
-
+    predictions <- cloudCalPredict(Calibration=calibration, elements.cal=elements, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=4, multiplier=1)
+    
+    lm.list <- list()
+       for(i in elements){
+           lm.list[[i]] <- lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i])
+       }
+       
+       mse.list <- list()
+       for(i in elements){
+           mse.list[[i]] <- if(calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
+               mean(lm.list[[i]]$residuals^2)
+       } else {
+           calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[i]][["Model"]]$results[, "RMSE"]), ]
+       }
+       }
+       
+       mae.list <- list()
+       for(i in elements){
+           mae.list[[i]] <- if(calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
+               MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i])
+       } else {
+           calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[i]][["Model"]]$results[, "MAE"]), ]
+       }
+       }
+       
+       mape.list <- list()
+       for(i in elements){
+           mape.list[[i]] <- mae.list[[i]]/mean(predictions[complete.cases(calibration[["Values"]][i]),i])
+       }
+       
+       return(list(Models=lm.list, MSE=mse.list, MAE=mae.list, MAPE=mape.list))
 }
 
 #error_estimation <- function(element_model_list){
