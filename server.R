@@ -15818,9 +15818,15 @@ content = function(file){
         
         
         tableInputValQuant <- reactive({
-            suppressWarnings({
-                cloudCalPredict(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier=input$multiplier)
-            })
+            if(input$error==FALSE){
+                suppressWarnings({
+                    cloudCalPredict(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier=input$multiplier)
+                })
+            } else if(input$error==TRUE){
+                suppressWarnings({
+                    cloudCalPredictError(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier=input$multiplier)
+                })
+            }
         })
         
         

@@ -6451,7 +6451,7 @@ calBundle <- function(filetype, units, spectra, intensities, definitions, values
 }
 
 
-cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1){
+cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1, confidence=FALSE){
     
     if(is.null(count.list)){
         count.list <- list(Narrow=narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), Wide=wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables))
@@ -6536,7 +6536,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                             element.line=x),
-                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
                 mclPred(
@@ -6548,7 +6549,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             ),
                         element.line=x
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
                 mclPred(
@@ -6562,7 +6564,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                             ),
-                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                  mclPred(
@@ -6575,7 +6578,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence
                  )
             } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6589,7 +6593,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6605,7 +6610,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6618,7 +6624,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6632,7 +6640,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6648,7 +6658,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6660,7 +6672,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                         transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                         )[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6671,7 +6685,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                         transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                         )[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6683,7 +6699,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6696,7 +6714,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6710,7 +6730,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6726,7 +6748,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6737,7 +6761,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                     transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                     )[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6748,7 +6774,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6760,7 +6788,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6773,22 +6803,45 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 slope.element.lines=variables,
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
-                mclPred(
-                object=the.cal[[x]][[2]],
-                newdata=lucas_tc_prep_xrf(
-                    data=valdata,
-                    spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
-                ),
-                element.line=x,
-                slope.element.lines=variables,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
-                )
+                if(confidence==FALSE){
+                    mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                    ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=FALSE
+                    )
+                } else if(confidence==TRUE){
+                    mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=xgb.DMatrix(as.matrix(lucas_tc_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)])]
+                    ),
+                    element.line=x,
+                    slope.element.lines=colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)]),
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ))),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
+                    )
+                }
+                
             } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
@@ -6803,7 +6856,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                 norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                 ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6814,7 +6869,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6825,7 +6882,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6837,7 +6896,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6850,7 +6911,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6864,7 +6927,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6880,7 +6945,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6891,7 +6958,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                     transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                     )[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6902,7 +6971,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6914,7 +6985,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6927,7 +7000,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 slope.element.lines=variables,
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6941,7 +7016,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 slope.element.lines=variables,
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6957,7 +7034,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                 norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                 ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6968,7 +7047,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6979,7 +7060,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6991,7 +7074,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -7001,7 +7086,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             count.table
                             ),
                             element.line=x),
-                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
                 mclPred(
@@ -7013,7 +7099,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             ),
                             element.line=x
                             ),
-                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
                 mclPred(
@@ -7027,7 +7114,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -7040,7 +7128,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -7054,7 +7143,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -7070,7 +7160,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence
                 )
         } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             mclPred(
@@ -7083,7 +7174,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             mclPred(
@@ -7097,7 +7190,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence,
+                        finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             mclPred(
@@ -7113,7 +7208,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         }  else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             mclPred(
@@ -7126,7 +7223,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             mclPred(
@@ -7140,7 +7239,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence,
+                        finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             mclPred(
@@ -7156,7 +7257,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         }  else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             mclPred(
@@ -7169,7 +7272,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             mclPred(
@@ -7183,7 +7288,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence,
+                        finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             mclPred(
@@ -7199,7 +7306,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         }  else if(val.data.type=="Net" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             mclPred(
@@ -7212,7 +7321,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             mclPred(
@@ -7226,7 +7337,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence,
+                        finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             mclPred(
@@ -7242,7 +7355,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         }  else if(val.data.type=="Net" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             mclPred(
@@ -7255,7 +7370,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             mclPred(
@@ -7269,7 +7386,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence,
+                        finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             mclPred(
@@ -7285,7 +7404,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         }        #, error=function(e) NULL)
         if(!is.null(values)){
@@ -7317,6 +7438,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         
         
 }
+
 
 mclValGen <- function(model, data, predict.frame, dependent.transformation){
     cal.est.conc.pred.luc <- if(dependent.transformation=="None"){
@@ -7362,17 +7484,44 @@ xgbValGen <- function(model, data, predict.frame, dependent.transformation){
     return(val.frame)
 }
 
-mclPred <- function(object, newdata, dependent.transformation){
-    if(dependent.transformation=="None"){
-        predict(object=object, newdata=newdata,
-        na.action=na.pass)
-    } else if(dependent.transformation=="Log"){
-        exp(predict(object=object, newdata=newdata,
-        na.action=na.pass))
-    } else if(dependent.transformation=="e"){
-        log(predict(object=object, newdata=newdata,
-        na.action=na.pass))
+mclPred <- function(object, newdata, dependent.transformation, confidence=TRUE, finalModel=TRUE){
+    if(confidence==FALSE){
+        if(dependent.transformation=="None"){
+            predict(object=object, newdata=newdata,
+            na.action=na.pass)
+        } else if(dependent.transformation=="Log"){
+            exp(predict(object=object, newdata=newdata,
+            na.action=na.pass))
+        } else if(dependent.transformation=="e"){
+            log(predict(object=object, newdata=newdata,
+            na.action=na.pass))
+        }
+    } else if(confidence==TRUE){
+        if(finalModel==TRUE){
+            if(dependent.transformation=="None"){
+                predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence")
+            } else if(dependent.transformation=="Log"){
+                exp(predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence"))
+            } else if(dependent.transformation=="e"){
+                log(predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence"))
+            }
+        } else if(finalModel==FALSE){
+            if(dependent.transformation=="None"){
+                predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence")
+            } else if(dependent.transformation=="Log"){
+                exp(predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence"))
+            } else if(dependent.transformation=="e"){
+                log(predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence"))
+            }
+        }
     }
+    
 }
 
 valFrameCheck <- function(val.frame){
@@ -7661,37 +7810,70 @@ valCurve <- function(element, unit="%", loglinear="Linear", val.frame, rangesval
 
 lmSEapprox <- function(calibration){
     elements <- names(calibration$calList)
-    predictions <- cloudCalPredict(Calibration=calibration, elements.cal=elements, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=4, multiplier=1)
+    predictions <- cloudCalPredict(Calibration=calibration, elements.cal=elements, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE)
     
     lm.list <- list()
        for(i in elements){
            lm.list[[i]] <- lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i])
        }
        
-       mse.list <- list()
+       r2.list <- list()
        for(i in elements){
-           mse.list[[i]] <- if(calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
-               mean(lm.list[[i]]$residuals^2)
+           r2.list[[i]] <- if(calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
+               tryCatch(summary(lm.list[[i]])$r.squared, error=function(e) NULL)
        } else {
-           calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[i]][["Model"]]$results[, "RMSE"]), ]
+           tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[i]][["Model"]]$results[, "Rsquared"]), ]$Rsquared, error=function(e) tryCatch(summary(lm.list[[i]])$r.squared, error=function(e) NULL), error=function(e) NULL)
        }
        }
+       
+       rmse.list <- list()
+       for(i in elements){
+           rmse.list[[i]] <- if(calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
+               tryCatch(mean(lm.list[[i]]$residuals^2), error=function(e) NULL)
+       } else {
+           tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[i]][["Model"]]$results[, "RMSE"]), ]$RMSE, error=function(e) tryCatch(mean(lm.list[[i]]$residuals^2), error=function(e) NULL), error=function(e) NULL)
+       }
+       }
+       
+       rmspe.list <- list()
+       for(i in elements){
+           rmspe.list[[i]] <- tryCatch(MLmetrics::RMSPE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i]), error=function(e) NULL)
+       }
+       
+       
        
        mae.list <- list()
        for(i in elements){
            mae.list[[i]] <- if(calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
-               MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i])
+               tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i]), error=function(e) NULL)
        } else {
-           calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[i]][["Model"]]$results[, "MAE"]), ]
+           tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[i]][["Model"]]$results[, "MAE"]), ]$MAE, error=function(e) tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i]), error=function(e) NULL), error=function(e) NULL)
        }
        }
        
        mape.list <- list()
        for(i in elements){
-           mape.list[[i]] <- mae.list[[i]]/mean(predictions[complete.cases(calibration[["Values"]][i]),i])
+           mape.list[[i]] <- tryCatch(MLmetrics::MAPE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i]), error=function(e) NULL)
        }
        
-       return(list(Models=lm.list, MSE=mse.list, MAE=mae.list, MAPE=mape.list))
+       return(list(Models=lm.list, Predictions=predictions, RMSE=rmse.list, RMSPE=rmspe.list, MAE=mae.list, MAPE=mape.list))
+}
+
+cloudCalPredictError <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1){
+    error_list <- lmSEapprox(calibration=Calibration)
+    
+    predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
+    
+    ####possibly 1.96*rmse
+    prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=error_list$RMSE[[x]]*1.96))
+    names(prediction_list) <- names(Calibration$calList)
+    
+    for(i in names(prediction_list)){
+        colnames(prediction_list[[i]]) <- c("Spectrum", i, paste0(i, " Error"))
+    }
+    
+    results <- Reduce(function(...) merge(..., by="Spectrum", all=F), prediction_list)
+    return(results)
 }
 
 #error_estimation <- function(element_model_list){
@@ -7705,4 +7887,57 @@ lmSEapprox <- function(calibration){
 #}
 
 
+###From https://stackoverflow.com/questions/58015605/getting-confidence-intervals-on-prediction-from-carettrain
 
+caretTrainNewdata <- function(object, newdata, na.action = na.omit){
+    if (!is.null(object$modelInfo$library))
+        for (i in object$modelInfo$library) do.call("requireNamespaceQuietStop",
+                                                    list(package = i))
+    if (!is.null(newdata)) {
+        if (inherits(object, "train.formula")) {
+            newdata <- as.data.frame(newdata)
+            rn <- row.names(newdata)
+            Terms <- delete.response(object$terms)
+            m <- model.frame(Terms, newdata, na.action = na.action,
+                             xlev = object$xlevels)
+            if (!is.null(cl <- attr(Terms, "dataClasses")))
+                .checkMFClasses(cl, m)
+            keep <- match(row.names(m), rn)
+            newdata <- model.matrix(Terms, m, contrasts = object$contrasts)
+            xint <- match("(Intercept)", colnames(newdata),
+                          nomatch = 0)
+            if (xint > 0)
+                newdata <- newdata[, -xint, drop = FALSE]
+        }
+    }
+    else if (object$control$method != "oob") {
+        if (!is.null(object$trainingData)) {
+            if (object$method == "pam") {
+                newdata <- object$finalModel$xData
+            }
+            else {
+                newdata <- object$trainingData
+                newdata$.outcome <- NULL
+                if ("train.formula" %in% class(object) &&
+                    any(unlist(lapply(newdata, is.factor)))) {
+                    newdata <- model.matrix(~., data = newdata)[,
+                                                                -1]
+                    newdata <- as.data.frame(newdata)
+                }
+            }
+        }
+        else stop("please specify data via newdata")
+    } else
+        stop("please specify data data via newdata")
+    if ("xNames" %in% names(object$finalModel) & is.null(object$preProcess$method$pca) &
+        is.null(object$preProcess$method$ica))
+        newdata <- newdata[, colnames(newdata) %in% object$finalModel$xNames,
+                           drop = FALSE]
+    if(!is.null(object$preProcess))
+       newdata <- predict(preProc, newdata)
+    if(!is.data.frame(newdata) &&
+      !is.null(object$modelInfo$predict) &&
+      any(grepl("as.data.frame", as.character(body(object$modelInfo$predict)))))
+           newdata <- as.data.frame(newdata)
+    newdata
+}
