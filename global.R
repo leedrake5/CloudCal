@@ -850,8 +850,8 @@ resid_leverage <- function(model){
 
 cooksdist_leverage <- function(model){
     p6<-ggplot(model, aes(as.vector(.hat), as.vector(.cooksd)))+geom_point(na.rm=TRUE)+stat_smooth(method="loess", na.rm=TRUE)
-    p6<-p6+xlab("Leverage hii")+ylab("Cook's Distance")
-    p6<-p6+ggtitle("Cook's dist vs Leverage hii/(1-hii)")
+    p6<-p6+xlab("Leverage")+ylab("Cook's Distance")
+    p6<-p6+ggtitle("Cook's dist vs Leverage")
     p6<-p6+geom_abline(slope=seq(0,3,0.5), color="gray", linetype="dashed")
     p6<-p6+theme_light()
     return(p6)
