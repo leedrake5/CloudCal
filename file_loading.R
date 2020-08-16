@@ -705,10 +705,13 @@ calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extension
 
     }
     
-    calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, xgb_raw=xgb_raw), error=function(e) NULL))
-    names(calpre) <- order_elements(names(Calibration[["calList"]]))
+    if(length(Calibration$calList > 0)){
+        calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, xgb_raw=xgb_raw), error=function(e) NULL))
+        names(calpre) <- order_elements(names(Calibration[["calList"]]))
+        
+        Calibration$calList <- calpre
+    }
     
-    Calibration$calList <- calpre
     
     if(is.null(Calibration$Definitions)){
         Calibration$Definitions <- data.frame(
