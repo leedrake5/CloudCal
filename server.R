@@ -6369,7 +6369,7 @@ shinyServer(function(input, output, session) {
         })
         
         calTreeDepthSelectionpre <- reactive(label="calTreeDepthSelectionpre", {
-            req(input$bayesparameter)
+            #req(input$bayesparameter)
             if(input$bayesparameter==FALSE){
                 if(!"TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["TreeDepth"]), "-")))
@@ -6383,7 +6383,7 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBAlphaSelectionpre <- reactive(label="calXGBAlphaSelectionpre", {
-            req(input$bayesparameter)
+            #req(input$bayesparameter)
             if(input$bayesparameter==FALSE){
                 if(!"xgbAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbAlpha"]), "-")))
@@ -6396,7 +6396,7 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBGammaSelectionpre <- reactive(label="calXGBGammaSelectionpre", {
-            req(input$bayesparameter)
+            #req(input$bayesparameter)
             if(input$bayesparameter==FALSE){
                 if(!"xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbGamma"]), "-")))
@@ -6409,7 +6409,7 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBEtaSelectionpre <- reactive(label="calXGBEtaSelectionpre", {
-            req(input$bayesparameter)
+            #req(input$bayesparameter)
             if(input$bayesparameter==FALSE){
                 if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
@@ -6422,7 +6422,7 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBEtaSelectionpredraft <- reactive(label="calXGBEtaSelectionpre", {
-            req(input$bayesparameter)
+            #req(input$bayesparameter)
             if(input$bayesparameter==FALSE){
                 if("Model" %in% names(calMemory$Calibration$calList[[input$calcurveelement]])){
                     if(calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==8 | calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==9){
@@ -6458,7 +6458,7 @@ shinyServer(function(input, output, session) {
         })
         
         calxgboostLambdaSelectionpre <- reactive(label="calxgboostLambdaSelectionpre", {
-            req(input$bayesparameter)
+            #req(input$bayesparameter)
             if(input$bayesparameter==FALSE){
                 if(!"xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbLambda"]), "-")))
@@ -6471,7 +6471,7 @@ shinyServer(function(input, output, session) {
         })
         
         calxgboostLambdaSelectionpredraft <- reactive(label="calxgboostLambdaSelectionpre", {
-            req(input$bayesparameter)
+            #req(input$bayesparameter)
             if(input$bayesparameter==FALSE){
                 if("Model" %in% names(calMemory$Calibration$calList[[input$calcurveelement]])){
                     if(calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==8 | calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==9){
@@ -6497,7 +6497,7 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBSubSampleSelectionpre <- reactive(label="calXGBSubSampleSelectionpre", {
-            req(input$bayesparameter)
+            #req(input$bayesparameter)
             if(input$bayesparameter==FALSE){
                 if(!"xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbSubSample"]), "-")))
@@ -6510,7 +6510,7 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBColSampleSelectionpre <- reactive(label="calXGBColSampleSelectionpre", {
-            req(input$bayesparameter)
+            #req(input$bayesparameter)
             if(input$bayesparameter==FALSE){
                 if(!"xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbColSample"]), "-")))
