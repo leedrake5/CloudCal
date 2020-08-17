@@ -6369,61 +6369,65 @@ shinyServer(function(input, output, session) {
         })
         
         calTreeDepthSelectionpre <- reactive(label="calTreeDepthSelectionpre", {
-            #req(input$bayesparameter)
-            if(input$bayesparameter==FALSE){
+            req(input$bayesparameter)
+            if(input$bayesparameter=="GridSearch"){
                 if(!"TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["TreeDepth"]), "-")))
                 } else if("TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$TreeDepth[1]), "-")))
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 c(2, 50)
             }
 
         })
         
         calXGBAlphaSelectionpre <- reactive(label="calXGBAlphaSelectionpre", {
-            #req(input$bayesparameter)
-            if(input$bayesparameter==FALSE){
+            req(input$bayesparameter)
+            req(input$radiocal)
+            if(input$bayesparameter=="GridSearch"){
                 if(!"xgbAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbAlpha"]), "-")))
                 } else if("xgbAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbAlpha[1]), "-")))
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 c(0, 10)
             }
         })
         
         calXGBGammaSelectionpre <- reactive(label="calXGBGammaSelectionpre", {
-            #req(input$bayesparameter)
-            if(input$bayesparameter==FALSE){
+            req(input$bayesparameter)
+            req(input$radiocal)
+            if(input$bayesparameter=="GridSearch"){
                 if(!"xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbGamma"]), "-")))
                 } else if("xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbGamma[1]), "-")))
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 c(0, 10)
             }
         })
         
         calXGBEtaSelectionpre <- reactive(label="calXGBEtaSelectionpre", {
-            #req(input$bayesparameter)
-            if(input$bayesparameter==FALSE){
+            req(input$bayesparameter)
+            req(input$radiocal)
+            if(input$bayesparameter=="GridSearch"){
                 if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
                 } else if("xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 c(0.01, 0.99)
             }
         })
         
         calXGBEtaSelectionpredraft <- reactive(label="calXGBEtaSelectionpre", {
-            #req(input$bayesparameter)
-            if(input$bayesparameter==FALSE){
+            req(input$bayesparameter)
+            req(input$radiocal)
+            if(input$bayesparameter=="GridSearch"){
                 if("Model" %in% names(calMemory$Calibration$calList[[input$calcurveelement]])){
                     if(calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==8 | calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==9){
                         c(calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$eta, calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$eta)
@@ -6442,37 +6446,39 @@ shinyServer(function(input, output, session) {
                         as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
                     }
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 c(0.01, 0.99)
             }
-            if(input$bayesparameter==FALSE){
+            if(input$bayesparameter=="GridSearch"){
                 if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
                 } else if("xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbEta[1]), "-")))
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 c(0.01, 0.99)
             }
             
         })
         
         calxgboostLambdaSelectionpre <- reactive(label="calxgboostLambdaSelectionpre", {
-            #req(input$bayesparameter)
-            if(input$bayesparameter==FALSE){
+            req(input$bayesparameter)
+            req(input$radiocal)
+            if(input$bayesparameter=="GridSearch"){
                 if(!"xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbLambda"]), "-")))
                 } else if("xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbLambda[1]), "-")))
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 c(0, 10)
             }
         })
         
         calxgboostLambdaSelectionpredraft <- reactive(label="calxgboostLambdaSelectionpre", {
-            #req(input$bayesparameter)
-            if(input$bayesparameter==FALSE){
+            req(input$bayesparameter)
+            req(input$radiocal)
+            if(input$bayesparameter=="GridSearch"){
                 if("Model" %in% names(calMemory$Calibration$calList[[input$calcurveelement]])){
                     if(calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==8 | calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==9){
                         c(calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$alpha, calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$alpha)
@@ -6491,33 +6497,35 @@ shinyServer(function(input, output, session) {
                         as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbLambda[1]), "-")))
                     }
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 c(0, 10)
             }
         })
         
         calXGBSubSampleSelectionpre <- reactive(label="calXGBSubSampleSelectionpre", {
-            #req(input$bayesparameter)
-            if(input$bayesparameter==FALSE){
+            req(input$bayesparameter)
+            req(input$radiocal)
+            if(input$bayesparameter=="GridSearch"){
                 if(!"xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbSubSample"]), "-")))
                 } else if("xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbSubSample[1]), "-")))
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 c(0.05, 0.95)
             }
         })
         
         calXGBColSampleSelectionpre <- reactive(label="calXGBColSampleSelectionpre", {
-            #req(input$bayesparameter)
-            if(input$bayesparameter==FALSE){
+            req(input$bayesparameter)
+            req(input$radiocal)
+            if(input$bayesparameter=="GridSearch"){
                 if(!"xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbColSample"]), "-")))
                 } else if("xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbColSample[1]), "-")))
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 c(0.05, 0.95)
             }
         })
@@ -7113,7 +7121,7 @@ shinyServer(function(input, output, session) {
         output$bayesparameterui <- renderUI({
             req(input$radiocal)
             if(input$radiocal==8 | input$radiocal==9){
-                checkboxInput("bayesparameter", "Bayesian Parameter Search", value=TRUE)
+                selectInput("bayesparameter", "Bayesian Parameter Search", choices=c("GridSearch", "Bayesian"), selected="Bayesian")
             } else if(input$radiocal!=8 | input$radiocal!=9){
                 NULL
             }
