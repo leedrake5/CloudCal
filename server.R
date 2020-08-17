@@ -1230,6 +1230,14 @@ shinyServer(function(input, output, session) {
             
         })
         
+        lineTableForDownload <- reactive({
+            if(input$linetype=="Narrow"){
+                tableInput()
+            } else if(input$linetype=="Wide"){
+                wideTableInput()
+            }
+        })
+        
         output$download_covarlines <- downloadHandler(
         filename = function() { paste(paste(c(input$calname, "Line_Correlations"), collapse=''), '.tiff',  sep='') },
         content = function(file) {
@@ -1239,10 +1247,10 @@ shinyServer(function(input, output, session) {
         
         
         output$downloadData <- downloadHandler(
-        filename = function() { paste(input$dataset, '.csv', sep=',') },
+        filename = function() { paste0(input$calname, "_", input$linetype, "_IntensityTable", '.csv') },
         content = function(file
         ) {
-            write.csv(spectraData(), file)
+            write.csv(lineTableForDownload(), file)
         }
         )
         
