@@ -755,7 +755,7 @@ shinyServer(function(input, output, session) {
             if(is.null(calMemory$Calibration$Intensities)){
                 NULL
             } else if(!is.null(calMemory$Calibration$Intensities)){
-                as.vector(subset(selectedElementsCalpre(), Orbital=="M" & Line=="line")$Element)
+                as.vector(subset(selectedElementsCalpre(), Orbital=="M" & Line=="line")$ElementLine)
             }
             
         })
