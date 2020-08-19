@@ -3471,7 +3471,7 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$bayesparameter==FALSE){
+            if(input$bayesparameter=="GridSearch"){
                 if(input$multicore_behavior=="Single Core"){
                     xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
@@ -3488,7 +3488,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$multicore_behavior=="OpenMP"){
                     xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores)/2)
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
                 } else if(parameters$ForestMetric=="MAE"){
@@ -3501,8 +3501,8 @@ shinyServer(function(input, output, session) {
                     fold_samples <- 30
                 }
                 parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
-                if(parameter_space_dimensions>100){
-                    parameter_space_dimensions <- 100
+                if(parameter_space_dimensions>50){
+                    parameter_space_dimensions <- 50
                 }
                 concentration <- "Concentration"
                 x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
@@ -3661,7 +3661,7 @@ shinyServer(function(input, output, session) {
                 }
             }
                 
-                if(input$bayesparameter==FALSE){
+                if(input$bayesparameter=="GridSearch"){
                     if(input$multicore_behavior=="Single Core"){
                         xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
                     } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
@@ -3678,7 +3678,7 @@ shinyServer(function(input, output, session) {
                     } else if(input$multicore_behavior=="OpenMP"){
                         xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores)/2)
                     }
-                } else if(input$bayesparameter==TRUE){
+                } else if(input$bayesparameter=="Bayesian"){
                     forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                         "rmse"
                     } else if(parameters$ForestMetric=="MAE"){
@@ -3691,8 +3691,8 @@ shinyServer(function(input, output, session) {
                         fold_samples <- 30
                     }
                     parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
-                    if(parameter_space_dimensions>100){
-                        parameter_space_dimensions <- 100
+                    if(parameter_space_dimensions>50){
+                        parameter_space_dimensions <- 50
                     }
                     concentration <- "Concentration"
                     x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
@@ -3869,7 +3869,7 @@ shinyServer(function(input, output, session) {
                 
             
                 
-            if(input$bayesparameter==FALSE){
+            if(input$bayesparameter=="GridSearch"){
                 if(input$multicore_behavior=="Single Core"){
                     xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
@@ -3886,7 +3886,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$multicore_behavior=="OpenMP"){
                     xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores)/2)
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 predict.frame <- data[,-1]
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
@@ -3900,8 +3900,8 @@ shinyServer(function(input, output, session) {
                     fold_samples <- 30
                 }
                 parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
-                if(parameter_space_dimensions>100){
-                    parameter_space_dimensions <- 100
+                if(parameter_space_dimensions>50){
+                    parameter_space_dimensions <- 50
                 }
                 concentration <- "Concentration"
                 x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
@@ -3965,7 +3965,7 @@ shinyServer(function(input, output, session) {
                 )
                 
                 if(input$multicore_behavior=="Single Core"){
-                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                     cl <- if(input$multicore_behavior=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -3975,10 +3975,10 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
                     
-                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                 } else if(input$multicore_behavior=="OpenMP"){
-                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores)/2)
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores)/2)
                 }
             }
             
@@ -4061,7 +4061,7 @@ shinyServer(function(input, output, session) {
                 }
             }
                 
-            if(input$bayesparameter==FALSE){
+            if(input$bayesparameter=="GridSearch"){
                 if(input$multicore_behavior=="Single Core"){
                     xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
@@ -4078,7 +4078,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$multicore_behavior=="OpenMP"){
                     xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores)/2)
                 }
-            } else if(input$bayesparameter==TRUE){
+            } else if(input$bayesparameter=="Bayesian"){
                 predict.frame <- data[,-1]
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
@@ -4092,8 +4092,8 @@ shinyServer(function(input, output, session) {
                     fold_samples <- 30
                 }
                 parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
-                if(parameter_space_dimensions>100){
-                    parameter_space_dimensions <- 100
+                if(parameter_space_dimensions>50){
+                    parameter_space_dimensions <- 50
                 }
                 concentration <- "Concentration"
                 x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
@@ -4146,7 +4146,7 @@ shinyServer(function(input, output, session) {
                 )
                 
                 if(input$multicore_behavior=="Single Core"){
-                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                     cl <- if(input$multicore_behavior=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -4156,10 +4156,10 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
                     
-                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                 } else if(input$multicore_behavior=="OpenMP"){
-                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores)/2)
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores)/2)
                 }
             }
             
