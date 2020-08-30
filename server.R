@@ -1475,8 +1475,10 @@ shinyServer(function(input, output, session) {
         #})
         
         covarPlotValues <- reactive({
-            data.table <- values[["DF"]]
-            correlations <- cor(data.table[,3:length(data.table)], use="pairwise.complete.obs")
+            data.stuff <- values[["DF"]][,sapply(values[["DF"]], is.numeric)]
+            data.stuff <- data.stuff[, !sapply(data.stuff, function(k) all(is.na(k)))]
+            data.stuff <- data.stuff[,colSums(data.stuff, na.rm=TRUE)>0]
+            correlations <- cor(data.stuff, use="pairwise.complete.obs")
             if(input$conccovarnumber==FALSE){
                 corrplot::corrplot(correlations, method="circle")
             } else if(input$conccovarnumber==TRUE){
@@ -2166,14 +2168,14 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==9){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork", "OpenMP"), selected=default.behavior)
             } else if(input$radiocal==10){
-                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Serialize")
             } else if(input$radiocal==11){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
             } else if(input$radiocal==12){
-                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Serialize")
             } else if(input$radiocal==13){
-                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
-            }, error=function(e)                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core"))
+                selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Serialize")
+            }, error=function(e)                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Serialize"))
                 
             
         })
@@ -10383,12 +10385,12 @@ shinyServer(function(input, output, session) {
             
             val.frame <- tryCatch(mclValGen(model=elementModelRandom(), data=predictIntensity()[ vals$keeprows, , drop = FALSE], predict.frame=predictFrame()[ vals$keeprows, , drop = FALSE], dependent.transformation=basichold$deptransformation), error=function(e) NULL)
             
-            if(is.null(val.frame)){
+            val.frame <- if(is.null(val.frame)){
                 data.frame(Concentration=predictFrame()$Concentration[ vals$keeprows, , drop = FALSE], Intensity=rep(0, length(predictFrame()$Concentration))[ vals$keeprows, , drop = FALSE], Prediction=rep(0, length(predictFrame()$Concentration))[ vals$keeprows, , drop = FALSE], stringsAsFactors=FALSE)
             } else if(!is.null(val.frame)){
                 val.frame
             }
-            
+            val.frame[!(randomizeData()), , drop = FALSE]
         })
         
         
@@ -10810,22 +10812,22 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==3){
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                     scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
                     scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
@@ -10834,22 +10836,22 @@ shinyServer(function(input, output, session) {
             
             if(input$radiocal==4){
                 calcurve.plot <- if(input$loglinear=="Linear"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                     scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
                     scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
@@ -10859,22 +10861,22 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==5){
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                     scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
                     scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
@@ -10892,22 +10894,22 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==8){
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                     scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
                     scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
@@ -10917,22 +10919,22 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==9){
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                     scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
                     scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
@@ -10942,22 +10944,22 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==10){
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                     scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
                     scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
@@ -10967,22 +10969,22 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==11){
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                     scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
                     scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
@@ -10992,22 +10994,22 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==12){
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                     scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
                     scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
@@ -11017,22 +11019,22 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==13){
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
-                    tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
+                    tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                     scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
                     theme_light() +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
-                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                    geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
                     scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
                     scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks()) +
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
