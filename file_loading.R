@@ -649,13 +649,13 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, tra
     }
     
     forestmetric <- if(is.null(forestmetric)){
-        "RMSE"
+        "MAE"
     } else if(!is.null(forestmetric)){
         forestmetric
     }
     
     foresttrain <- if(is.null(foresttrain)){
-        "repeatedcv"
+        "boot"
     } else if(!is.null(foresttrain)){
         foresttrain
     }
@@ -918,8 +918,8 @@ deleteCalConditions <- function(element, number.of.standards){
     dependent.transformation <- as.character("None")
     
     foresttry <- as.numeric(7)
-    forestmetric <- as.character("RMSE")
-    foresttrain <- as.character("repeatedcv")
+    forestmetric <- as.character("MAE")
+    foresttrain <- as.character("boot")
     forestnumber <- as.numeric(10)
     cvrepeats <- as.numeric(1)
     foresttrees <- as.numeric(100)
@@ -1009,8 +1009,8 @@ defaultCalConditions <- function(element, number.of.standards){
     dependent.transformation <- as.character("None")
 
     foresttry <- as.numeric(7)
-    forestmetric <- as.character("RMSE")
-    foresttrain <- as.character("repeatedcv")
+    forestmetric <- as.character("MAE")
+    foresttrain <- as.character("boot")
     forestnumber <- as.numeric(10)
     cvrepeats <- as.numeric(1)
     foresttrees <- as.numeric(100)
