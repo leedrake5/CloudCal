@@ -27,7 +27,12 @@ if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
+if(get_os()!="linux"){
+    if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
+} else if(get_os()=="linux"){
+    if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="source"))
+}
+
 
 
 #if(packageVersion("ggplot2")!="2.2.1") devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
@@ -912,6 +917,15 @@ strip_glm <- function(cm) {
     cm
 }
 strip_glm <- cmpfun(strip_glm)
+
+
+strip_env <- function(cm) {
+    attr(cm$terms,".Environment") = c()
+    attr(cm$formula,".Environment") = c()
+    
+    cm
+}
+strip_env <- cmpfun(strip_env)
 
 
 merge_Sum <- function(.df1, .df2, .id_Columns, .match_Columns){

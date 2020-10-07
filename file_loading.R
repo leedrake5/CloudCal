@@ -1887,7 +1887,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     return(cal.mode.list)
 }
 
-calPre <- function(element.model.list, element, temp, xgb_raw=FALSE){
+calPre <- function(element.model.list, element, temp, env.strip=TRUE, xgb_raw=FALSE){
     
     temp.list <- list(element.model.list)
     names(temp.list) <- element
@@ -1961,12 +1961,16 @@ calPre <- function(element.model.list, element, temp, xgb_raw=FALSE){
         if(nrow(new.element.model.list$Parameters$CalTable)>1){
             new.element.model.list$Parameters$CalTable <- new.element.model.list$Parameters$CalTable[!duplicated(new.element.model.list$Parameters$CalTable), ]
         }
+        
+        if(env.strip==TRUE){
+            new.element.model.list$Model <- strip_env(new.element.model.list$Model)
+        }
             
     return(new.element.model.list)
         
 }
 
-calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE){
+calRDS <- function(calibration.directory, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE){
     Calibration <- readRDS(calibration.directory)
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
@@ -2009,7 +2013,7 @@ calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extension
     if(length(Calibration$calList) > 0){
         calpre <- list()
         for(x in order_elements(names(Calibration[["calList"]]))){
-            calpre[[x]] <- tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, xgb_raw=xgb_raw), error=function(e) NULL)
+            calpre[[x]] <- tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, env.strip=env.strip, xgb_raw=xgb_raw), error=function(e) NULL)
         }
         
         #calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, xgb_raw=xgb_raw), error=function(e) NULL))
