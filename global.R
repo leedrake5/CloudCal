@@ -3194,7 +3194,9 @@ compressUI <- function(radiocal=3, selection=NULL){
         selection
     }
     
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput('compress', label="Compress", choices=c("100 eV", "50 eV", "25 eV"), selected=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3232,7 +3234,9 @@ transformationUI <- function(radiocal=3, selection=NULL){
         selection
     }
     
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput('transformation', label="Spectra Transformation", choices=c("None", "Log", "e", "Velocity"), selected=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3269,7 +3273,9 @@ dependentTransformationUI <- function(radiocal=3, selection=NULL){
         selection
     }
     
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+    } else if(radiocal==1){
         selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
     } else if(radiocal==2){
         selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
@@ -3315,6 +3321,8 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
     }
     
     if(radiocal==1){
+        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step,  value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3346,7 +3354,9 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
 lineTypeUI <- function(radiocal=3, selection="Narrow"){
     
     
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+    } else if(radiocal==1){
         selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
     } else if(radiocal==2){
         selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
@@ -3379,7 +3389,9 @@ lineTypeUI <- function(radiocal=3, selection="Narrow"){
 interceptUI <- function(radiocal=3, selection=NULL, elements){
     
 
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput(inputId = "intercept_vars", label = "Intercept", choices=elements, selected=selection, multiple=TRUE)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3412,7 +3424,9 @@ slopeUI <- function(radiocal=3, selection=NULL, elements){
     
     elements.mod <- elements
 
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput(inputId = "slope_vars", label = "Slope", choices=elements.mod, selected=selection, multiple=TRUE)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3442,17 +3456,17 @@ slopeUI <- function(radiocal=3, selection=NULL, elements){
 }
 
 addAllSlopeUI <- function(radiocal=3){
-    if(radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
+    if(radiocal==0 | radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
         actionButton(inputId = "addallslopes", label = "Add All Slopes")
-    } else if(radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
+    } else if(radiocal!=0 | radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
         NULL
     }
 }
 
 removeAllSlopeUI <- function(radiocal=3){
-    if(radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
+    if(radiocal==0 | radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
         actionButton(inputId = "removeallslopes", label = "Remove All Slopes")
-        } else if(radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
+        } else if(radiocal!=0 | radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
         NULL
     }
 }
@@ -3479,7 +3493,9 @@ forestTryUI <- function(radiocal=3, neuralhiddenlayers=NULL, selection=NULL, max
         maxsample
     }
     
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("foresttry", label="Sampling", min=2, max=maxsample-2, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3537,7 +3553,9 @@ model = NULL) {
 }
 
 forestMetricUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3567,7 +3585,9 @@ forestMetricUI <- function(radiocal, selection){
 }
 
 forestTrainUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3597,7 +3617,9 @@ forestTrainUI <- function(radiocal, selection){
 }
 
 forestNumberUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3628,7 +3650,9 @@ forestNumberUI <- function(radiocal, selection){
 }
 
 cvRepeatsUI <- function(radiocal, foresttrain, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3678,7 +3702,9 @@ cvRepeatsUI <- function(radiocal, foresttrain, selection){
 }
 
 forestTreesUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("foresttrees", label="Trees", min=50, max=2000, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3716,7 +3742,9 @@ forestTreesUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 neuralHiddenLayersUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("neuralhiddenlayers", label="Hidden Layers", min=1, max=3, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3746,7 +3774,9 @@ neuralHiddenLayersUI <- function(radiocal, selection){
 }
 
 neuralHiddenUnitsUi <- function(radiocal, selection, xgbtype="Neural Net"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("neuralhiddenunits", label="Hidden Units", min=1, max=10, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3780,7 +3810,9 @@ neuralHiddenUnitsUi <- function(radiocal, selection, xgbtype="Neural Net"){
 }
 
 neuralWeightDecayUI <- function(radiocal, selection, neuralhiddenlayers){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("neuralweightdecay", label="Weight Decay", min=0.1, max=0.7, step=0.1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3814,7 +3846,9 @@ neuralWeightDecayUI <- function(radiocal, selection, neuralhiddenlayers){
 }
 
 neuralMaxIterationsUI <- function(radiocal, selection, neuralhiddenlayers){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("neuralmaxiterations", label="Max Iterations", min=50, max=2000, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3848,7 +3882,9 @@ neuralMaxIterationsUI <- function(radiocal, selection, neuralhiddenlayers){
 }
 
 treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3882,7 +3918,9 @@ treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbTypeUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        NULL
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3913,7 +3951,9 @@ xgbTypeUI <- function(radiocal, selection){
 }
 
 xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3951,7 +3991,9 @@ xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbgamma", label="Gamma", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3985,7 +4027,9 @@ xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbEtaUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbeta", label="Eta", min=0.01, max=0.99, step=0.01, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4015,7 +4059,9 @@ xgbEtaUI <- function(radiocal, selection){
 }
 
 xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4057,7 +4103,9 @@ xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbSubSampleUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbsubsample", label="Sub Sample", min=0.05, max=0.95, step=0.05, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4091,7 +4139,9 @@ xgbSubSampleUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbColSampleUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbcolsample", label="Col Sample", min=0.05, max=0.95, step=0.05, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4125,7 +4175,9 @@ xgbColSampleUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbminchild", label="Min Child", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4162,7 +4214,9 @@ dnorminv<-function(y) sqrt(-2*log(sqrt(2*pi)*y))
 
 
 bartKUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("bartk", label="Prior Probability", min=61, max=99, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4196,7 +4250,9 @@ bartKUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 bartBetaUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("bartbeta", label="Beta", min=1, max=2, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4230,7 +4286,9 @@ bartBetaUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 bartNuUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("bartnu", label="Degrees of Freedom", min=1, max=2, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4264,7 +4322,9 @@ bartNuUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 svmCUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("svmc", label="Cost", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4294,7 +4354,9 @@ svmCUI <- function(radiocal, selection){
 }
 
 svmDegreeUI <- function(radiocal, selection, xgbtype="Linear"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("svmdegree", label="Degree", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4332,7 +4394,9 @@ svmDegreeUI <- function(radiocal, selection, xgbtype="Linear"){
 }
 
 svmScaleUI <- function(radiocal, selection, xgbtype="Linear"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("svmscale", label="Scale", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4370,7 +4434,9 @@ svmScaleUI <- function(radiocal, selection, xgbtype="Linear"){
 }
 
 svmSigmaUI <- function(radiocal, selection, xgbtype="Linear"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("svmsigma", label="Sigma", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4408,7 +4474,9 @@ svmSigmaUI <- function(radiocal, selection, xgbtype="Linear"){
 }
 
 svmLengthUI <- function(radiocal, selection, xgbtype="Linear"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("svmlength", label="Length", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
