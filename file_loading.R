@@ -2001,7 +2001,7 @@ calRDS <- function(calibration.directory, null.strip=TRUE, env.strip=TRUE, temp=
     #}
     
     if(null.strip==TRUE){
-        null.list <- sapply(Calibration$calList, function(x) is.null(x[[2]]))
+        null.list <- pbsapply(Calibration$calList, function(x) tryCatch(is.null(x[[2]]), error=function(e) NULL))
         tryCatch(for(i in names(Calibration$calList)){
             if(null.list[i]==TRUE){
                 Calibration$calList[[i]] <- NULL
