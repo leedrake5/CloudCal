@@ -15559,7 +15559,7 @@ content = function(file){
     output$fanowindowui <- renderUI({
         
         if(input$error==TRUE){
-            sliderInput('fanowindow', "Fano Window", min=0.5, max=40, value=c(0.7, 0.9))
+            sliderInput('fanowindow', "Fano Window", min=0.5, max=40, step=0.1, value=c(0.7, 0.9))
         } else if(input$error==FALSE){
             NULL
         }
