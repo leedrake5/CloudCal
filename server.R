@@ -15554,7 +15554,17 @@ content = function(file){
         
         }
     
-})
+        })
+    
+    output$fanowindowui <- renderUI({
+        
+        if(input$error==TRUE){
+            sliderInput('fanowindow', "Fano Window", min=0.5, max=40, value=c(0.7, 0.9))
+        } else if(input$error==FALSE){
+            NULL
+        }
+        
+    })
     
     calFileContents2 <- reactive({
         
@@ -15933,7 +15943,7 @@ content = function(file){
                 })
             } else if(input$error==TRUE){
                 suppressWarnings({
-                    cloudCalPredictError(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier=input$multiplier)
+                    cloudCalPredictError(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier=input$multiplier, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2])
                 })
             }
         })

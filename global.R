@@ -6641,10 +6641,39 @@ lmSEapprox <- function(calibration){
        return(list(Models=lm.list, Predictions=predictions, RMSE=rmse.list, RMSPE=rmspe.list, MAE=mae.list, MAPE=mape.list))
 }
 
-cloudCalPredictError <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1){
+fanoFactor <- function(data, energy.min=0.7, energy.max=0.9){
+    data_window <- data[data$Energy > energy.min & data$Energy < energy.max,]
+    data_window <- data.table::data.table(data_window)
+    data_sd <- data_window[, list(CPS=sd(CPS, na.rm = TRUE)), by = list(Spectrum)]
+    colnames(data_sd) <- c("Spectrum", "SD")
+    data_mean <- data_window[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum)]
+    colnames(data_mean) <- c("Spectrum", "Mean")
+    
+    data_aggregate <- merge(data_mean, data_sd, by="Spectrum")
+    data_aggregate$Fano <- (data_aggregate$SD^2)/data_aggregate$Mean
+    
+    return(data_aggregate)
+}
+
+cloudCalPredictError <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL){
+    
+    energy.min <- if(is.null(energy.min)){
+        0.7
+    } else if(!is.null(energy.min)){
+        energy.min
+    }
+    
+    energy.max <- if(is.null(energy.max)){
+        0.9
+    } else if(!is.null(energy.max)){
+        energy.max
+    }
+    
     error_list <- lmSEapprox(calibration=Calibration)
     
     predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
+    
+    data_fano <- fanoFactor(data=valdata, energy.min=energy.min, energy.max=energy.max)
     
     ####possibly 1.96*rmse
     prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=error_list$RMSE[[x]]*1.96))
@@ -6652,6 +6681,7 @@ cloudCalPredictError <- function(Calibration, elements.cal, elements, variables,
     
     for(i in names(prediction_list)){
         colnames(prediction_list[[i]]) <- c("Spectrum", i, paste0(i, " Error"))
+        prediction_list[[i]][,paste0(i, " Error")] <- prediction_list[[i]][,paste0(i, " Error")]*data_fano$Fano + prediction_list[[i]][,paste0(i, " Error")]
     }
     
     results <- Reduce(function(...) merge(..., by="Spectrum", all=F), prediction_list)
