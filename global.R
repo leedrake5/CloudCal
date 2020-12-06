@@ -6590,14 +6590,18 @@ valCurve <- function(element, unit="%", loglinear="Linear", val.frame, rangesval
     return(valcurve.plot)
 }
 
-lmSEapprox <- function(calibration){
+lmSEapprox <- function(calibration, predictions=TRUE){
     elements <- names(calibration$calList)
-    predictions <- cloudCalPredict(Calibration=calibration, elements.cal=elements, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE)
     
-    lm.list <- list()
-       for(i in elements){
-           lm.list[[i]] <- lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i])
-       }
+    if(predictions==TRUE){
+        predictions <-  cloudCalPredict(Calibration=calibration, elements.cal=elements, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE)
+    
+        lm.list <- list()
+            for(i in elements){
+                lm.list[[i]] <- lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i])
+            }
+    }
+    
        
        r2.list <- list()
        for(i in elements){
@@ -6638,7 +6642,11 @@ lmSEapprox <- function(calibration){
            mape.list[[i]] <- tryCatch(MLmetrics::MAPE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i]), error=function(e) NULL)
        }
        
-       return(list(Models=lm.list, Predictions=predictions, RMSE=rmse.list, RMSPE=rmspe.list, MAE=mae.list, MAPE=mape.list))
+       if(predictions==TRUE){
+           return(list(Models=lm.list, Predictions=predictions, RMSE=rmse.list, RMSPE=rmspe.list, MAE=mae.list, MAPE=mape.list))
+        } else if(predictions==FALSE){
+            return(list(RMSE=rmse.list, RMSPE=rmspe.list, MAE=mae.list, MAPE=mape.list))
+        }
 }
 
 fanoFactor <- function(data, energy.min=0.7, energy.max=0.9){
@@ -6669,7 +6677,7 @@ cloudCalPredictError <- function(Calibration, elements.cal, elements, variables,
         energy.max
     }
     
-    error_list <- lmSEapprox(calibration=Calibration)
+    error_list <- lmSEapprox(calibration=Calibration, predictions=FALSE)
     
     predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
     
@@ -6678,13 +6686,18 @@ cloudCalPredictError <- function(Calibration, elements.cal, elements, variables,
     ####possibly 1.96*rmse
     prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=error_list$RMSE[[x]]*1.96))
     names(prediction_list) <- names(Calibration$calList)
-    
+    prediction_list_short <- list()
     for(i in names(prediction_list)){
         colnames(prediction_list[[i]]) <- c("Spectrum", i, paste0(i, " Error"))
         prediction_list[[i]][,paste0(i, " Error")] <- prediction_list[[i]][,paste0(i, " Error")]*data_fano$Fano + prediction_list[[i]][,paste0(i, " Error")]
+        prediction_list_short[[i]] <- prediction_list[[i]][,-1]
     }
     
-    results <- Reduce(function(...) merge(..., by="Spectrum", all=F), prediction_list)
+    results <- prediction_list %>% reduce(left_join, by="Spectrum")
+    #results <- join_all(prediction_list, by="Spectrum")
+    #results <- prediction_list %>% reduce(inner_join, by="Spectrum")
+    #results <- prediction_list %>% bind_cols
+    #results <- data.frame(Spectrum=prediction_list[[1]]$Spectrum, as.data.frame(prediction_list_short))
     return(results)
 }
 
