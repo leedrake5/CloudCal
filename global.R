@@ -6634,7 +6634,7 @@ mape_gather <- function(calibration, lm.list, element){
     }
 }
 
-lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE){
+lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE, cores=2){
     elements <- names(calibration$calList)
     
     if(use_predictions==TRUE){
@@ -6655,7 +6655,7 @@ lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE){
                 lm.list[[i]] <- lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i])
             }
         } else if(parallel==TRUE){
-            lm.list <- pblapply(lm_model_names, function(i) lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i]), cl=as.numeric(my.cores))
+            lm.list <- pblapply(lm_model_names, function(i) lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i]), cl=as.numeric(cores))
             names(lm.list) <- lm_model_names
         }
     }
@@ -6666,7 +6666,7 @@ lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE){
                rmse.list[[i]] <- rmse_gather(calibration=calibration, lm.list=lm.list, element=i)
            }
        } else if(parallel==TRUE){
-           rmse.list <- pblapply(elements, function(i) rmse_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(my.cores))
+           rmse.list <- pblapply(elements, function(i) rmse_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(cores))
            names(rmse.list) <- elements
        }
        
@@ -6676,7 +6676,7 @@ lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE){
                rmspe.list[[i]] <- rmspe_gather(calibration=calibration, element=i)
            }
        } else if(parallel==TRUE){
-           rmspe.list <- pblapply(elements, function(i) rmspe_gather(calibration=calibration, element=i), cl=as.numeric(my.cores))
+           rmspe.list <- pblapply(elements, function(i) rmspe_gather(calibration=calibration, element=i), cl=as.numeric(cores))
            names(rmspe.list) <- elements
        }
        
@@ -6686,7 +6686,7 @@ lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE){
                mae.list[[i]] <- mae_gather(calibration=calibration, lm.list=lm.list, element=i)
            }
        } else if(parallel==TRUE){
-           mae.list <- pblapply(elements, function(i) mae_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(my.cores))
+           mae.list <- pblapply(elements, function(i) mae_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(cores))
            names(mae.list) <- elements
        }
        
@@ -6696,7 +6696,7 @@ lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE){
                mape.list[[i]] <- mape_gather(calibration=calibration, lm.list=lm.list, element=i)
            }
        } else if(parallel==TRUE){
-           mape.list <- pblapply(elements, function(i) mape_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(my.cores))
+           mape.list <- pblapply(elements, function(i) mape_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(cores))
            names(mape.list) <- elements
        }
           
