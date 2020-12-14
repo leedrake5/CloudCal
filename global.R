@@ -6598,7 +6598,43 @@ is_lm <- function(element_model){
     }
 }
 
-lmSEapprox <- function(calibration, use_predictions=TRUE){
+r2_gather <- function(calibration, lm.list, element){
+    if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[element]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[element]]==3){
+        tryCatch(summary(lm.list[[element]])$r.squared, error=function(e) NULL)
+    } else {
+        tryCatch(calibration[["calList"]][[element]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "Rsquared"]), ]$Rsquared, error=function(e) tryCatch(summary(lm.list[[element]])$r.squared, error=function(e) NULL), error=function(e) NULL)
+    }
+}
+
+rmse_gather <- function(calibration, lm.list, element){
+    if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
+        tryCatch(mean(lm.list[[element]]$residuals^2), error=function(e) NULL)
+    } else {
+        tryCatch(calibration[["calList"]][[element]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "RMSE"]), ]$RMSE, error=function(e) tryCatch(mean(lm.list[[element]]$residuals^2), error=function(e) NULL), error=function(e) NULL)
+    }
+}
+
+rmspe_gather <- function(calibration, element){
+    tryCatch(MLmetrics::RMSPE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL)
+}
+
+mae_gather <- function(calibration, lm.list, element){
+        if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
+            tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL)
+    } else {
+        tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "MAE"]), ]$MAE, error=function(e) tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL), error=function(e) NULL)
+    }
+}
+
+mape_gather <- function(calibration, lm.list, element){
+       if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
+            tryCatch(MLmetrics::MAPE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL)
+    } else {
+        tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "MAE"]), ]$MAPE, error=function(e) tryCatch(MLmetrics::MAPE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL), error=function(e) NULL)
+    }
+}
+
+lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE){
     elements <- names(calibration$calList)
     
     if(use_predictions==TRUE){
@@ -6606,54 +6642,64 @@ lmSEapprox <- function(calibration, use_predictions=TRUE){
         lm_check <- sapply(calibration$calList, is_lm)
         lm_model_names <- names(lm_check[lm_check==TRUE])
         
-        predictions <-  cloudCalPredict(Calibration=calibration, elements.cal=lm_model_names, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE)
-    
-        lm.list <- list()
+        #if(parallel==FALSE){
+            predictions <-  cloudCalPredict(Calibration=calibration, elements.cal=lm_model_names, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE)
+        #} else if(parallel==TRUE){
+            #prediction_list <- pblapply(lm_model_names, function(x) cloudCalPredict(Calibration=calibration, elements.cal=x, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE), cl=as.numeric(my.cores))
+            #predictions <- Reduce(function(...) merge(..., by="Spectrum", all=F), prediction_list)
+        #}
+            
+        if(parallel==FALSE){
+            lm.list <- list()
             for(i in lm_model_names){
                 lm.list[[i]] <- lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i])
             }
+        } else if(parallel==TRUE){
+            lm.list <- pblapply(lm_model_names, function(i) lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i]), cl=as.numeric(my.cores))
+            names(lm.list) <- lm_model_names
+        }
     }
     
-       
-       r2.list <- list()
-       for(i in elements){
-           r2.list[[i]] <- if(calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
-               tryCatch(summary(lm.list[[i]])$r.squared, error=function(e) NULL)
-       } else {
-           tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[i]][["Model"]]$results[, "Rsquared"]), ]$Rsquared, error=function(e) tryCatch(summary(lm.list[[i]])$r.squared, error=function(e) NULL), error=function(e) NULL)
-       }
-       }
-       
-       rmse.list <- list()
-       for(i in elements){
-           rmse.list[[i]] <- if(calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
-               tryCatch(mean(lm.list[[i]]$residuals^2), error=function(e) NULL)
-       } else {
-           tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[i]][["Model"]]$results[, "RMSE"]), ]$RMSE, error=function(e) tryCatch(mean(lm.list[[i]]$residuals^2), error=function(e) NULL), error=function(e) NULL)
-       }
+       if(parallel==FALSE){
+           rmse.list <- list()
+           for(i in elements){
+               rmse.list[[i]] <- rmse_gather(calibration=calibration, lm.list=lm.list, element=i)
+           }
+       } else if(parallel==TRUE){
+           rmse.list <- pblapply(elements, function(i) rmse_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(my.cores))
+           names(rmse.list) <- elements
        }
        
-       rmspe.list <- list()
-       for(i in elements){
-           rmspe.list[[i]] <- tryCatch(MLmetrics::RMSPE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i]), error=function(e) NULL)
+       if(parallel==FALSE){
+           rmspe.list <- list()
+           for(i in elements){
+               rmspe.list[[i]] <- rmspe_gather(calibration=calibration, element=i)
+           }
+       } else if(parallel==TRUE){
+           rmspe.list <- pblapply(elements, function(i) rmspe_gather(calibration=calibration, element=i), cl=as.numeric(my.cores))
+           names(rmspe.list) <- elements
        }
        
-       
-       
-       mae.list <- list()
-       for(i in elements){
-           mae.list[[i]] <- if(calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[i]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
-               tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i]), error=function(e) NULL)
-       } else {
-           tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[i]][["Model"]]$results[, "MAE"]), ]$MAE, error=function(e) tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i]), error=function(e) NULL), error=function(e) NULL)
-       }
-       }
-       
-       mape.list <- list()
-       for(i in elements){
-           mape.list[[i]] <- tryCatch(MLmetrics::MAPE(y_pred = predictions[complete.cases(calibration[["Values"]][i]),i], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,i]),i]), error=function(e) NULL)
+       if(parallel==FALSE){
+           mae.list <- list()
+           for(i in elements){
+               mae.list[[i]] <- mae_gather(calibration=calibration, lm.list=lm.list, element=i)
+           }
+       } else if(parallel==TRUE){
+           mae.list <- pblapply(elements, function(i) mae_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(my.cores))
+           names(mae.list) <- elements
        }
        
+       if(parallel==FALSE){
+           mape.list <- list()
+           for(i in elements){
+               mape.list[[i]] <- mape_gather(calibration=calibration, lm.list=lm.list, element=i)
+           }
+       } else if(parallel==TRUE){
+           mape.list <- pblapply(elements, function(i) mape_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(my.cores))
+           names(mape.list) <- elements
+       }
+          
        if(use_predictions==TRUE){
            return(list(Models=lm.list, Predictions=predictions, RMSE=rmse.list, RMSPE=rmspe.list, MAE=mae.list, MAPE=mape.list))
         } else if(use_predictions==FALSE){
@@ -6689,7 +6735,7 @@ cloudCalPredictError <- function(Calibration, elements.cal, elements, variables,
         energy.max
     }
     
-    error_list <- lmSEapprox(calibration=Calibration, use_predictions=TRUE)
+    error_list <- lmSEapprox(calibration=Calibration, use_predictions=TRUE, parallel=FALSE)
     
     predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
     
