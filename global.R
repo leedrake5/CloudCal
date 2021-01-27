@@ -6606,11 +6606,23 @@ r2_gather <- function(calibration, lm.list, element){
     }
 }
 
+mse_calc <- function(res){
+    RSS <- c(crossprod(res$residuals))
+    MSE <- RSS / length(res$residuals)
+    return(MSE)
+}
+
+rmse_calc <- function(res){
+    MSE <- mse_calc(res)
+    RMSE <- sqrt(MSE)
+    return(RMSE)
+}
+
 rmse_gather <- function(calibration, lm.list, element){
     if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
-        tryCatch(mean(lm.list[[element]]$residuals^2), error=function(e) NULL)
+        tryCatch(rmse_calc(lm.list[[element]]), error=function(e) NULL)
     } else {
-        tryCatch(calibration[["calList"]][[element]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "RMSE"]), ]$RMSE, error=function(e) tryCatch(mean(lm.list[[element]]$residuals^2), error=function(e) NULL), error=function(e) NULL)
+        tryCatch(calibration[["calList"]][[element]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "RMSE"]), ]$RMSE, error=function(e) tryCatch(rmse_calc(lm.list[[element]]), error=function(e) NULL), error=function(e) NULL)
     }
 }
 
@@ -6721,7 +6733,13 @@ fanoFactor <- function(data, energy.min=0.7, energy.max=0.9){
     return(data_aggregate)
 }
 
-cloudCalPredictError <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL){
+cloudCalPredictError <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
+    
+    if(se==FALSE){
+        se_val <- 1
+    } else if(se==TRUE){
+        se_val <- 1.96
+    }
     
     energy.min <- if(is.null(energy.min)){
         0.7
@@ -6742,7 +6760,7 @@ cloudCalPredictError <- function(Calibration, elements.cal, elements, variables,
     data_fano <- fanoFactor(data=valdata, energy.min=energy.min, energy.max=energy.max)
     
     ####possibly 1.96*rmse
-    prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=error_list$RMSE[[x]]*1.96))
+    prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=error_list$RMSE[[x]]*se_val))
     names(prediction_list) <- names(Calibration$calList)
     prediction_list_short <- list()
     for(i in names(prediction_list)){
@@ -6825,3 +6843,88 @@ caretTrainNewdata <- function(object, newdata, na.action = na.omit){
            newdata <- as.data.frame(newdata)
     newdata
 }
+
+background_error <- function(data, element.line, background, slope, norm.type=1, norm.min=9, norm.max=9.2){
+    
+    data <- just_spectra_summary_apply(spectra.frame=data, normalization=norm.type, min=norm.min, max=norm.max)
+
+    
+    element_symbol <- strsplit(x=element.line, split="\\.")[[1]][1]
+    destination <- strsplit(x=element.line, split="\\.")[[1]][2]
+    distance <- strsplit(x=element.line, split="\\.")[[1]][3]
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element_symbol)
+    
+    
+    if(destination=="K" && distance=="alpha"){
+        element_line_boundary <- c(elementLine[6][1,]-0.02, elementLine[5][1,]+0.02)
+    } else if(destination=="K" && distance=="beta"){
+        element_line_boundary <- c(elementLine[7][1,]-0.02, elementLine[8][1,]+0.02)
+    } else if(destination=="L" && distance=="alpha"){
+        element_line_boundary <- c(elementLine[11][1,]-0.02, elementLine[10][1,]+0.02)
+    } else if (destination=="L" && distance=="beta"){
+        element_line_boundary <- c(elementLine[12][1,]-0.02, elementLine[14][1,]+0.02)
+    } else if (destination=="M" && distance=="line"){
+        element_line_boundary <- c(elementLine[20][1,]-0.02, elementLine[22][1,]+0.02)
+    }
+    
+    
+    
+    range.table <- data.frame(Name="Background", EnergyMin=background[1], EnergyMax=background[2])
+    
+    element_results <- elementGrab(element.line=element.line, data=data, range.table=range.table)
+    
+    background_results <- elementGrab(element.line="Background", data=data, range.table=range.table)
+    
+    window_adjust <- (background[2]-background[1])/(element_line_boundary[2]-element_line_boundary[1])
+    background_results$Background <- background_results$Background*window_adjust
+    
+    
+    lod <- ((2*sqrt(2))/slope) * sqrt(mean(background_results$Background))
+    
+    return(lod)
+}
+
+background_error_alt <- function(data, element.line, background, slope, norm.type=1, norm.min=9, norm.max=9.2){
+    
+    data <- just_spectra_summary_apply(spectra.frame=data, normalization=norm.type, min=norm.min, max=norm.max)
+
+    
+    element_symbol <- strsplit(x=element.line, split="\\.")[[1]][1]
+    destination <- strsplit(x=element.line, split="\\.")[[1]][2]
+    distance <- strsplit(x=element.line, split="\\.")[[1]][3]
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element_symbol)
+    
+    
+    if(destination=="K" && distance=="alpha"){
+        element_line_boundary <- c(elementLine[6][1,]-0.02, elementLine[5][1,]+0.02)
+    } else if(destination=="K" && distance=="beta"){
+        element_line_boundary <- c(elementLine[7][1,]-0.02, elementLine[8][1,]+0.02)
+    } else if(destination=="L" && distance=="alpha"){
+        element_line_boundary <- c(elementLine[11][1,]-0.02, elementLine[10][1,]+0.02)
+    } else if (destination=="L" && distance=="beta"){
+        element_line_boundary <- c(elementLine[12][1,]-0.02, elementLine[14][1,]+0.02)
+    } else if (destination=="M" && distance=="line"){
+        element_line_boundary <- c(elementLine[20][1,]-0.02, elementLine[22][1,]+0.02)
+    }
+    
+    
+    
+    range.table <- data.frame(Name="Background", EnergyMin=background[1], EnergyMax=background[2])
+    
+    element_results <- elementGrab(element.line=element.line, data=data, range.table=range.table)
+    
+    background_results <- elementGrab(element.line="Background", data=data, range.table=range.table)
+    
+    window_adjust <- (background[2]-background[1])/(element_line_boundary[2]-element_line_boundary[1])
+    background_results$Background <- background_results$Background*window_adjust
+    
+    
+    #lod <- ((2*sqrt(2))/slope) * sqrt(mean(background_results$Background))
+    
+    lod <- slope*mean(background_results$Background)
+    
+    return(lod)
+}
+

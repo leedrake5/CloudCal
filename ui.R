@@ -566,6 +566,7 @@ sidebarPanel(width=3,
 actionButton('processvalspectra', "Quantify"),
 numericInput("multiplier", "Multiply Values By", min=1, max=10000, value=1),
 checkboxInput("error", "Include Error", value=TRUE),
+checkboxInput("se_error", "Use 95% bounds", value=FALSE),
 uiOutput('fanowindowui'),
 
 tags$hr(),
