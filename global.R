@@ -6622,7 +6622,11 @@ rmse_gather <- function(calibration, lm.list, element){
     if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
         tryCatch(rmse_calc(lm.list[[element]]), error=function(e) NULL)
     } else {
-        tryCatch(calibration[["calList"]][[element]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "RMSE"]), ]$RMSE, error=function(e) tryCatch(rmse_calc(lm.list[[element]]), error=function(e) NULL), error=function(e) NULL)
+        if("result" %in% names(calibration[["calList"]][[element]][["Model"]])){
+            tryCatch(calibration[["calList"]][[element]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "RMSE"]), ]$RMSE, error=function(e) tryCatch(rmse_calc(lm.list[[element]]), error=function(e) NULL), error=function(e) NULL)
+        } else if(!"result" %in% names(calibration[["calList"]][[element]][["Model"]])){
+            tryCatch(rmse_calc(lm.list[[element]]), error=function(e) NULL)
+        }
     }
 }
 
@@ -6655,7 +6659,7 @@ lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE, cores=
         lm_model_names <- names(lm_check[lm_check==TRUE])
         
         #if(parallel==FALSE){
-            predictions <-  cloudCalPredict(Calibration=calibration, elements.cal=lm_model_names, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE)
+            predictions <-  cloudCalPredict(Calibration=calibration, elements.cal=names(calibration$calList), variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE)
         #} else if(parallel==TRUE){
             #prediction_list <- pblapply(lm_model_names, function(x) cloudCalPredict(Calibration=calibration, elements.cal=x, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE), cl=as.numeric(my.cores))
             #predictions <- Reduce(function(...) merge(..., by="Spectrum", all=F), prediction_list)
@@ -6663,12 +6667,12 @@ lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE, cores=
             
         if(parallel==FALSE){
             lm.list <- list()
-            for(i in lm_model_names){
+            for(i in names(calibration$calList)){
                 lm.list[[i]] <- lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i])
             }
         } else if(parallel==TRUE){
-            lm.list <- pblapply(lm_model_names, function(i) lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i]), cl=as.numeric(cores))
-            names(lm.list) <- lm_model_names
+            lm.list <- pblapply(names(calibration$calList), function(i) lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i]), cl=as.numeric(cores))
+            names(lm.list) <- names(calibration$calList)
         }
     }
     
@@ -6760,12 +6764,12 @@ cloudCalPredictError <- function(Calibration, elements.cal, elements, variables,
     data_fano <- fanoFactor(data=valdata, energy.min=energy.min, energy.max=energy.max)
     
     ####possibly 1.96*rmse
-    prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=error_list$RMSE[[x]]*se_val))
+    prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=error_list$RMSE[[x]]))
     names(prediction_list) <- names(Calibration$calList)
     prediction_list_short <- list()
     for(i in names(prediction_list)){
         colnames(prediction_list[[i]]) <- c("Spectrum", i, paste0(i, " Error"))
-        prediction_list[[i]][,paste0(i, " Error")] <- round(prediction_list[[i]][,paste0(i, " Error")]*data_fano$Fano + prediction_list[[i]][,paste0(i, " Error")], rounding)
+        prediction_list[[i]][,paste0(i, " Error")] <- round(sqrt((prediction_list[[i]][,paste0(i, " Error")]*data_fano$Fano)^2 + (prediction_list[[i]][,paste0(i, " Error")])^2), rounding)*se_val
         prediction_list_short[[i]] <- prediction_list[[i]][,-1]
     }
     
