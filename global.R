@@ -6737,7 +6737,7 @@ fanoFactor <- function(data, energy.min=0.7, energy.max=0.9){
     return(data_aggregate)
 }
 
-cloudCalPredictError <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
+cloudCalPredictErrorEQM <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
     
     if(se==FALSE){
         se_val <- 1
@@ -6765,6 +6765,63 @@ cloudCalPredictError <- function(Calibration, elements.cal, elements, variables,
     
     ####possibly 1.96*rmse
     prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=error_list$RMSE[[x]]))
+    names(prediction_list) <- names(Calibration$calList)
+    prediction_list_short <- list()
+    for(i in names(prediction_list)){
+        colnames(prediction_list[[i]]) <- c("Spectrum", i, paste0(i, " Error"))
+        prediction_list[[i]][,paste0(i, " Error")] <- round(sqrt((prediction_list[[i]][,paste0(i, " Error")]*data_fano$Fano)^2 + (prediction_list[[i]][,paste0(i, " Error")])^2), rounding)*se_val
+        prediction_list_short[[i]] <- prediction_list[[i]][,-1]
+    }
+    
+    results <- Reduce(function(...) merge(..., by="Spectrum", all=F), prediction_list)
+    #results <- prediction_list %>% reduce(left_join, by="Spectrum")
+    #results <- join_all(prediction_list, by="Spectrum")
+    #results <- prediction_list %>% reduce(inner_join, by="Spectrum")
+    #results <- prediction_list %>% bind_cols
+    #results <- data.frame(Spectrum=prediction_list[[1]]$Spectrum, as.data.frame(prediction_list_short))
+    return(results)
+}
+
+y_hat_value <- function(prediction){
+    sqrt(abs(prediction)*(1-abs(prediction)))
+}
+
+y_hat <- function(prediction.string){
+    as.numeric(sapply(prediction.string, y_hat_value))
+}
+
+cloudCalPredictErrorYHat <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
+    
+    if(se==FALSE){
+        se_val <- 1
+    } else if(se==TRUE){
+        se_val <- 1.96
+    }
+    
+    energy.min <- if(is.null(energy.min)){
+        0.7
+    } else if(!is.null(energy.min)){
+        energy.min
+    }
+    
+    energy.max <- if(is.null(energy.max)){
+        0.9
+    } else if(!is.null(energy.max)){
+        energy.max
+    }
+    
+    error_list <- lmSEapprox(calibration=Calibration, use_predictions=TRUE, parallel=FALSE)
+    
+    predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
+    yhat_est <- list()
+    for(i in names(Calibration$calList)){
+        yhat_est[[i]] <- y_hat(predictions[,i])
+    }
+    
+    data_fano <- fanoFactor(data=valdata, energy.min=energy.min, energy.max=energy.max)
+    
+    ####possibly 1.96*rmse
+    prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=yhat_est[[x]]))
     names(prediction_list) <- names(Calibration$calList)
     prediction_list_short <- list()
     for(i in names(prediction_list)){

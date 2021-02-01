@@ -15937,16 +15937,20 @@ content = function(file){
         
         
         tableInputValQuant <- reactive({
-            if(input$error==FALSE){
+            if(input$error=="None"){
                 suppressWarnings({
                     cloudCalPredict(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier=input$multiplier)
                 })
-            } else if(input$error==TRUE){
+            } else if(input$error=="eqm"){
                 suppressWarnings({
-                    cloudCalPredictError(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier=input$multiplier, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
+                    cloudCalPredictErrorEQM(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier=input$multiplier, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
                 })
-            }
-        })
+            } else if(input$error=="y hat"){
+                suppressWarnings({
+                    cloudCalPredictErrorYHat(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), rounding=input$resultrounding, multiplier=input$multiplier, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
+                })
+                }
+            })
         
         
         output$roundingui <- renderUI({
