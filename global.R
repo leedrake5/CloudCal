@@ -6769,7 +6769,7 @@ cloudCalPredictErrorEQM <- function(Calibration, elements.cal, elements, variabl
     prediction_list_short <- list()
     for(i in names(prediction_list)){
         colnames(prediction_list[[i]]) <- c("Spectrum", i, paste0(i, " Error"))
-        prediction_list[[i]][,paste0(i, " Error")] <- round(sqrt((prediction_list[[i]][,paste0(i, " Error")]*data_fano$Fano)^2 + (prediction_list[[i]][,paste0(i, " Error")])^2), rounding)*se_val
+        prediction_list[[i]][,paste0(i, " Error")] <- round((prediction_list[[i]][,paste0(i, " Error")]*data_fano$Fano) + (prediction_list[[i]][,paste0(i, " Error")]), rounding)*se_val
         prediction_list_short[[i]] <- prediction_list[[i]][,-1]
     }
     
@@ -6826,7 +6826,7 @@ cloudCalPredictErrorYHat <- function(Calibration, elements.cal, elements, variab
     prediction_list_short <- list()
     for(i in names(prediction_list)){
         colnames(prediction_list[[i]]) <- c("Spectrum", i, paste0(i, " Error"))
-        prediction_list[[i]][,paste0(i, " Error")] <- round(sqrt((prediction_list[[i]][,paste0(i, " Error")]*data_fano$Fano)^2 + (prediction_list[[i]][,paste0(i, " Error")])^2), rounding)*se_val
+        prediction_list[[i]][,paste0(i, " Error")] <- round(sqrt((prediction_list[[i]][,paste0(i, " Error")])^2*data_fano$Fano + (prediction_list[[i]][,paste0(i, " Error")])^2), rounding)*se_val
         prediction_list_short[[i]] <- prediction_list[[i]][,-1]
     }
     
