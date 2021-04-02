@@ -33,6 +33,10 @@ if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="source"))
 }
 
+if(!"xrftools" %in% installed.packages()[,"Package"]){
+    devtools::install_github("paleolimbot/xrftools")
+}
+
 
 
 #if(packageVersion("ggplot2")!="2.2.1") devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
@@ -95,6 +99,7 @@ tryCatch(library(arm), error=function(e) NULL)
 tryCatch(library(brnn), error=function(e) NULL)
 library(kernlab)
 tryCatch(library(rBayesianOptimization), error=function(e) NULL)
+tryCatch(library(xrftools), error=function(e) NULL)
 enableJIT(3)
 
 options(digits=12)
@@ -6269,37 +6274,37 @@ xgbValGen <- function(model, data, predict.frame, dependent.transformation){
 mclPred <- function(object, newdata, dependent.transformation, confidence=TRUE, finalModel=TRUE){
     if(confidence==FALSE){
         if(dependent.transformation=="None"){
-            predict(object=object, newdata=newdata,
-            na.action=na.pass)
+            tryCatch(predict(object=object, newdata=newdata,
+            na.action=na.pass), error=function(e) NA)
         } else if(dependent.transformation=="Log"){
-            exp(predict(object=object, newdata=newdata,
-            na.action=na.pass))
+            tryCatch(exp(predict(object=object, newdata=newdata,
+            na.action=na.pass)), error=function(e) NA)
         } else if(dependent.transformation=="e"){
-            log(predict(object=object, newdata=newdata,
-            na.action=na.pass))
+            tryCatch(log(predict(object=object, newdata=newdata,
+            na.action=na.pass)), error=function(e) NA)
         }
     } else if(confidence==TRUE){
         if(finalModel==TRUE){
             if(dependent.transformation=="None"){
-                predict(object=object$finalModel, newdata=newdata,
-                na.action=na.pass, interval="confidence")
+                tryCatch(predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence"), error=function(e) NA)
             } else if(dependent.transformation=="Log"){
-                exp(predict(object=object$finalModel, newdata=newdata,
-                na.action=na.pass, interval="confidence"))
+                tryCatch(exp(predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence")), error=function(e) NA)
             } else if(dependent.transformation=="e"){
-                log(predict(object=object$finalModel, newdata=newdata,
-                na.action=na.pass, interval="confidence"))
+                tryCatch(log(predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence")), error=function(e) NA)
             }
         } else if(finalModel==FALSE){
             if(dependent.transformation=="None"){
-                predict(object=object, newdata=newdata,
-                na.action=na.pass, interval="confidence")
+                tryCatch(predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence"), error=function(e) NA)
             } else if(dependent.transformation=="Log"){
-                exp(predict(object=object, newdata=newdata,
-                na.action=na.pass, interval="confidence"))
+                tryCatch(exp(predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence")), error=function(e) NA)
             } else if(dependent.transformation=="e"){
-                log(predict(object=object, newdata=newdata,
-                na.action=na.pass, interval="confidence"))
+                tryCatch(log(predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence")), error=function(e) NA)
             }
         }
     }
@@ -6650,7 +6655,7 @@ mape_gather <- function(calibration, lm.list, element){
     }
 }
 
-lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE, cores=2){
+lmSEapprox <- function(calibration, use_predictions=TRUE, predictions=NULL, parallel=FALSE, cores=2){
     elements <- names(calibration$calList)
     
     if(use_predictions==TRUE){
@@ -6659,7 +6664,9 @@ lmSEapprox <- function(calibration, use_predictions=TRUE, parallel=FALSE, cores=
         lm_model_names <- names(lm_check[lm_check==TRUE])
         
         #if(parallel==FALSE){
+        if(is.null(predictions)){
             predictions <-  cloudCalPredict(Calibration=calibration, elements.cal=names(calibration$calList), variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE)
+        }
         #} else if(parallel==TRUE){
             #prediction_list <- pblapply(lm_model_names, function(x) cloudCalPredict(Calibration=calibration, elements.cal=x, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE), cl=as.numeric(my.cores))
             #predictions <- Reduce(function(...) merge(..., by="Spectrum", all=F), prediction_list)
@@ -6905,9 +6912,9 @@ caretTrainNewdata <- function(object, newdata, na.action = na.omit){
     newdata
 }
 
-background_error <- function(data, element.line, background, slope, norm.type=1, norm.min=9, norm.max=9.2){
+background_error <- function(data, element.line, values=NULL, background, slope=NULL, intercept=NULL, norm.type=1, norm.min=9, norm.max=9.2, compress="100 eV", conversion=1){
     
-    data <- just_spectra_summary_apply(spectra.frame=data, normalization=norm.type, min=norm.min, max=norm.max)
+    data <- just_spectra_summary_apply(spectra.frame=data, normalization=norm.type, min=norm.min, max=norm.max, compress=compress)
 
     
     element_symbol <- strsplit(x=element.line, split="\\.")[[1]][1]
@@ -6929,63 +6936,131 @@ background_error <- function(data, element.line, background, slope, norm.type=1,
         element_line_boundary <- c(elementLine[20][1,]-0.02, elementLine[22][1,]+0.02)
     }
     
+    increment <- if(compress=="100 eV"){
+        0.1
+    } else if(compress=="50 eV"){
+        0.05
+    } else if(compress=="25 eV"){
+        0.025
+    }
+    
+    background_width <- length(seq(background[1], background[2], increment))
+    element_width <- length(seq(element_line_boundary[1], element_line_boundary[2], increment))
     
     
     range.table <- data.frame(Name="Background", EnergyMin=background[1], EnergyMax=background[2])
     
     element_results <- elementGrab(element.line=element.line, data=data, range.table=range.table)
+    colnames(element_results) <- make.names(colnames(element_results))
+    element_results[,element.line] <- element_results[,element.line]
     
     background_results <- elementGrab(element.line="Background", data=data, range.table=range.table)
+    background_results$Background <- background_results$Background*(element_width/background_width)
     
-    window_adjust <- (background[2]-background[1])/(element_line_boundary[2]-element_line_boundary[1])
-    background_results$Background <- background_results$Background*window_adjust
+    #window_adjust <- (element_line_boundary[2]-element_line_boundary[1])/(background[2]-background[1])
+    #background_results$Background <- background_results$Background*window_adjust
+    
+    merged_table <- merge(values[,c("Spectrum", element.line)], element_results, by="Spectrum")
+    colnames(merged_table) <- c("Spectrum", "Concentration", "Intensity")
+    
+    slope_used <- if(!is.null(slope)){
+        slope
+    } else if(is.null(slope)){
+        lm(Concentration~Intensity, data=merged_table)$coef[2]
+    }
+    
+    intercept_used <- if(!is.null(intercept)){
+        intercept
+    } else if(is.null(intercept)){
+        lm(Concentration~Intensity, data=merged_table)$coef[1]
+    }
     
     
-    lod <- ((2*sqrt(2))/slope) * sqrt(mean(background_results$Background))
+    lld <- (((2*sqrt(2)))/slope_used) * sqrt(mean(background_results$Background))
     
-    return(lod)
+    ild <- (4.65/slope_used) * sqrt(mean(background_results$Background))
+    
+    mvr <- slope_used*(mean(background_results$Background)+sd(background_results$Background)*3) + intercept_used
+    
+    results_table <- data.frame(LLD=lld*conversion, ILD=ild*conversion, MVR=mvr*conversion)
+    return(results_table)
 }
 
-background_error_alt <- function(data, element.line, background, slope, norm.type=1, norm.min=9, norm.max=9.2){
+ldm_calc <- function(prediction.vector, as_percent=FALSE){
     
-    data <- just_spectra_summary_apply(spectra.frame=data, normalization=norm.type, min=norm.min, max=norm.max)
-
+    prediction.vector <- na.omit(prediction.vector)
     
-    element_symbol <- strsplit(x=element.line, split="\\.")[[1]][1]
-    destination <- strsplit(x=element.line, split="\\.")[[1]][2]
-    distance <- strsplit(x=element.line, split="\\.")[[1]][3]
+    c_bar <- mean(prediction.vector)
     
-    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element_symbol)
-    
-    
-    if(destination=="K" && distance=="alpha"){
-        element_line_boundary <- c(elementLine[6][1,]-0.02, elementLine[5][1,]+0.02)
-    } else if(destination=="K" && distance=="beta"){
-        element_line_boundary <- c(elementLine[7][1,]-0.02, elementLine[8][1,]+0.02)
-    } else if(destination=="L" && distance=="alpha"){
-        element_line_boundary <- c(elementLine[11][1,]-0.02, elementLine[10][1,]+0.02)
-    } else if (destination=="L" && distance=="beta"){
-        element_line_boundary <- c(elementLine[12][1,]-0.02, elementLine[14][1,]+0.02)
-    } else if (destination=="M" && distance=="line"){
-        element_line_boundary <- c(elementLine[20][1,]-0.02, elementLine[22][1,]+0.02)
+    if(as_percent==FALSE){
+        2 * sqrt((sum((prediction.vector-c_bar)^2))/(length(prediction.vector)-1))
+    } else if(as_percent==TRUE){
+        (2 * sqrt((sum((prediction.vector-c_bar)^2))/(length(prediction.vector)-1)))/c_bar
     }
     
+}
+
+ldm_sequence <- function(predictions, conversion=1, as_percent=FALSE){
     
+    predictions$Sample <- sapply(predictions$Spectrum, function(x) strsplit(x, "_")[[1]][1])
+    predictions$Sample <- sapply(predictions$Sample, function(x) strsplit(x, "-")[[1]][1])
     
-    range.table <- data.frame(Name="Background", EnergyMin=background[1], EnergyMax=background[2])
+    predictions_list <- list()
+    for(i in unique(predictions$Sample)){
+        predictions_list[[i]] <- predictions[predictions$Sample %in% i,]
+        if(nrow(predictions_list[[i]]) <=1){
+            predictions_list[[i]] <- NULL
+        }
+    }
     
-    element_results <- elementGrab(element.line=element.line, data=data, range.table=range.table)
+    elements <- colnames(predictions)[!colnames(predictions) %in% c("Sample", "Spectrum", "X")]
     
-    background_results <- elementGrab(element.line="Background", data=data, range.table=range.table)
+    ldm_list <- list()
+    for(i in names(predictions_list)){
+        ldm_temp_list <- list()
+        predictions_frame_temp <- predictions_list[[i]]
+        for(x in elements){
+            ldm_temp_list[[x]] <- if(as_percent==FALSE){
+                ldm_calc(predictions_frame_temp[,x])*conversion
+            } else if(as_percent==TRUE){
+                ldm_calc(predictions_frame_temp[,x], as_percent=TRUE)
+            }
+        }
+        ldm_list[[i]] <- data.frame(Sample=i, ldm_temp_list)
+    }
     
-    window_adjust <- (background[2]-background[1])/(element_line_boundary[2]-element_line_boundary[1])
-    background_results$Background <- background_results$Background*window_adjust
+    results <- as.data.frame(rbindlist(ldm_list), use_names=TRUE, fill=TRUE)
     
+    return(results)
+}
+
+sd_sequence <- function(predictions, conversion=1){
     
-    #lod <- ((2*sqrt(2))/slope) * sqrt(mean(background_results$Background))
+    predictions$Sample <- sapply(predictions$Spectrum, function(x) strsplit(x, "_")[[1]][1])
+    predictions$Sample <- sapply(predictions$Sample, function(x) strsplit(x, "-")[[1]][1])
     
-    lod <- slope*mean(background_results$Background)
+    predictions_list <- list()
+    for(i in unique(predictions$Sample)){
+        predictions_list[[i]] <- predictions[predictions$Sample %in% i,]
+        if(nrow(predictions_list[[i]]) <=1){
+            predictions_list[[i]] <- NULL
+        }
+    }
     
-    return(lod)
+    elements <- colnames(predictions)[!colnames(predictions) %in% c("Sample", "Spectrum", "X")]
+    
+    ldm_list <- list()
+    for(i in names(predictions_list)){
+        ldm_temp_list <- list()
+        predictions_frame_temp <- predictions_list[[i]]
+        for(x in elements){
+            ldm_temp_list[[x]] <- sd(predictions_frame_temp[,x])*conversion
+        }
+        ldm_list[[i]] <- data.frame(Sample=i, ldm_temp_list)
+    }
+    
+    results <- as.data.frame(rbindlist(ldm_list), use_names=TRUE, fill=TRUE)
+    
+    return(results)
 }
 

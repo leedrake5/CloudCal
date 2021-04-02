@@ -1970,8 +1970,46 @@ calPre <- function(element.model.list, element, temp, env.strip=TRUE, xgb_raw=FA
         
 }
 
-calRDS <- function(calibration.directory, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE){
-    Calibration <- readRDS(calibration.directory)
+all_slopes <- function(calibration){
+    slope_list <- list()
+    for(i in names(calibration$calList)){
+        slope_list[[i]] <- calibration$calList[[i]]$Parameters$Slope
+    }
+    intercept_list <- list()
+    for(i in names(calibration$calList)){
+        intercept_list[[i]] <- calibration$calList[[i]]$Parameters$Intercept
+    }
+    elements <- names(calibration$calList)
+    
+    unique(unlist(list(elements, slope_list, intercept_list)))
+}
+
+intensity_fix <- function(calibration){
+    
+    slope_list <- all_slopes(calibration)
+    intensity_names <- names(calibration$Intensities)
+    
+    missing_elements <- slope_list[!slope_list %in% intensity_names]
+    variables <- c(intensity_names, missing_elements)
+    variable_elements <- variables[variables %in% spectralLines]
+    variable_custom <- variables[!variables %in% spectralLines]
+    
+    element.frame <- data.frame(elements=variable_elements, order=atomic_order_vector(variable_elements))
+    organized_elements <- as.vector(element.frame[order(element.frame$order),]$elements)
+    
+    if(length(missing_elements>=1)){
+        calibration$Intensities <- narrowLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))[,-1]
+        calibration$WideIntensities <- wideLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))[,-1]
+
+    }
+    return(calibration)
+}
+
+calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE){
+    if(is.null(Calibration)){
+        Calibration <- readRDS(calibration.directory)
+    }
+    
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
     
@@ -2031,6 +2069,8 @@ calRDS <- function(calibration.directory, null.strip=TRUE, env.strip=TRUE, temp=
         stringsAsFactors = FALSE
         )
     }
+    
+    Calibration <- intensity_fix(Calibration)
     
     if(!"WideIntensities" %in% names(Calibration)){
         Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=names(Calibration$Intensities))[,-1]
