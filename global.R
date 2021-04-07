@@ -34,7 +34,7 @@ if(get_os()!="linux"){
 }
 
 if(!"xrftools" %in% installed.packages()[,"Package"]){
-    devtools::install_github("paleolimbot/xrftools")
+    tryCatch(devtools::install_github("paleolimbot/xrftools"), error=function(e) NULL)
 }
 
 
