@@ -42,14 +42,24 @@ if(!"xrftools" %in% installed.packages()[,"Package"]){
 #if(packageVersion("ggplot2")!="2.2.1") devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
 
 
-
-if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    tryCatch(install.packages("http://www.xrf.guru/packages/rPDZ_1.0.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
-} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    tryCatch(install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tgz", repos=NULL), error=function(e) NULL)
-} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    tryCatch(install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tar.gz", repos=NULL), error=function(e) NULL)
+if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]=="3"){
+    if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
+        tryCatch(install.packages("Packages/rPDZ_1.0.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
+    } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
+        tryCatch(install.packages("Packages/rPDZ_1.0.tgz", repos=NULL), error=function(e) NULL)
+    } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
+        tryCatch(install.packages("Packages/rPDZ_1.0.tar.gz", repos=NULL), error=function(e) NULL)
+    }
+} else if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]=="4"){
+    if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
+        tryCatch(install.packages("Packages/rPDZ_1.1.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
+    } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
+        tryCatch(install.packages("Packages/rPDZ_1.1.tgz", repos=NULL), error=function(e) NULL)
+    } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
+        tryCatch(install.packages("Packages/rPDZ_1.1.tar.gz", repos=NULL), error=function(e) NULL)
+    }
 }
+
 #sourceCpp("pdz.cpp")
 
 tryCatch(library(rPDZ), error=function(e) NULL)
@@ -637,7 +647,8 @@ readPDZ24Data<- function(filepath, filename){
     filename <- gsub(".pdz", "", filename)
     filename.vector <- rep(filename, 2020)
     
-    nbrOfRecords <- 2020
+    nbrOfRecords <- 20200
+    #integers <- readBin(con=filepath, what="integer", size=4, n=nbrOfRecords, endian="little")[361:2407]
     integers <- readPDZ24(filepath, start=361, size=nbrOfRecords)
     sequence <- seq(1, length(integers), 1)
     
