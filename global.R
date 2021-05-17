@@ -1263,17 +1263,17 @@ elementGrab <- function(element.line, data, range.table=NULL){
 elementGrab <- cmpfun(elementGrab)
 
 
-elementFrame <- function(data, elements){
+elementFrame <- function(data, range.table=NULL, elements){
     
     spectra.line.list <- if(get_os()=="windows"){
-        lapply(elements, function(x) elementGrab(element.line=x, data=data))
+        lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table))
     } else if(get_os()!="windows"){
         core.mod <- if(length(elements)>=as.numeric(my.cores)){
             as.numeric(my.cores)
         } else if(length(elements)<as.numeric(my.cores)){
             length(elements)
         }
-        pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data))
+        pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table))
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
@@ -1351,10 +1351,10 @@ wideElementGrab <- function(element.line, data, range.table=NULL){
 }
 wideElementGrab <- cmpfun(wideElementGrab)
 
-wideElementFrame <- function(data, elements){
+wideElementFrame <- function(data, elements, range.table=NULL){
     
     spectra.line.list <- if(get_os()=="windows"){
-        lapply(elements, function(x) wideElementGrab(element.line=x, data=data))
+        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table))
     }else if(get_os()!="windows"){
         core.mod <- if(length(elements)>=as.numeric(my.cores)){
             as.numeric(my.cores)
@@ -1362,7 +1362,7 @@ wideElementFrame <- function(data, elements){
             length(elements)
         }
         #pblapply(cl=core.mod, X=elements, function(x) wideElementGrab(element.line=x, data=data))
-        lapply(elements, function(x) wideElementGrab(element.line=x, data=data))
+        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table))
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)

@@ -549,39 +549,43 @@ readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binary
 
 narrowLineTable <- function(spectra, definition.table, elements){
     
-    not.elements <- elements[!elements %in% spectralLines]
-    elements <- elements[elements %in% spectralLines]
-    line.data <- elementFrame(data=spectra, elements=elements)
+    #not.elements <- elements[!elements %in% spectralLines]
+    #elements <- elements[elements %in% spectralLines]
+    #line.data <- elementFrame(data=spectra, elements=elements)
 
     
-    definition.table <- definition.table[complete.cases(definition.table),]
-    not.line.data <- tryCatch(xrf_parse(range.table = definition.table, data=spectra), error=function(e) NULL)
+    #definition.table <- definition.table[complete.cases(definition.table),]
+    #not.line.data <- tryCatch(xrf_parse(range.table = definition.table, data=spectra), error=function(e) NULL)
 
     
-    if(is.null(not.line.data)){
-        line.data
-    } else if(!is.null(not.line.data)){
-        merge(line.data, not.line.data, by="Spectrum")
-    }
+    #if(is.null(not.line.data)){
+        #line.data
+    #} else if(!is.null(not.line.data)){
+        #merge(line.data, not.line.data, by="Spectrum")
+    #}
+   narrowElementFrame(data=spectra, range.table=definition.table, elements=elements)
+
     
 }
 
 wideLineTable <- function(spectra, definition.table, elements){
     
-    not.elements <- elements[!elements %in% spectralLines]
-    elements <- elements[elements %in% spectralLines]
-    line.data <- wideElementFrame(data=spectra, elements=elements)
+    #not.elements <- elements[!elements %in% spectralLines]
+    #elements <- elements[elements %in% spectralLines]
+    #line.data <- wideElementFrame(data=spectra, elements=elements)
 
     
-    definition.table <- definition.table[complete.cases(definition.table),]
-    not.line.data <- tryCatch(xrf_parse(range.table = definition.table, data=spectra), error=function(e) NULL)
+    #definition.table <- definition.table[complete.cases(definition.table),]
+    #not.line.data <- tryCatch(xrf_parse(range.table = definition.table, data=spectra), error=function(e) NULL)
 
     
-    if(is.null(not.line.data)){
-        line.data
-    } else if(!is.null(not.line.data)){
-        merge(line.data, not.line.data, by="Spectrum")
-    }
+    #if(is.null(not.line.data)){
+    #    line.data
+    #} else if(!is.null(not.line.data)){
+    #    merge(line.data, not.line.data, by="Spectrum")
+    #}
+    
+    wideElementFrame(data=spectra, range.table=definition.table, elements=elements)
     
 }
 
@@ -1994,14 +1998,18 @@ intensity_fix <- function(calibration){
     variable_elements <- variables[variables %in% spectralLines]
     variable_custom <- variables[!variables %in% spectralLines]
     
-    element.frame <- data.frame(elements=variable_elements, order=atomic_order_vector(variable_elements))
-    organized_elements <- as.vector(element.frame[order(element.frame$order),]$elements)
-    
-    if(length(missing_elements>=1)){
-        calibration$Intensities <- narrowLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))[,-1]
-        calibration$WideIntensities <- wideLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))[,-1]
+    if(length(variable_elements)>0){
+        element.frame <- data.frame(elements=variable_elements, order=atomic_order_vector(variable_elements))
+        organized_elements <- as.vector(element.frame[order(element.frame$order),]$elements)
+        
+        if(length(missing_elements>=1)){
+            calibration$Intensities <- narrowLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))[,-1]
+            calibration$WideIntensities <- wideLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))[,-1]
 
+        }
     }
+    
+
     return(calibration)
 }
 
@@ -2070,10 +2078,14 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         )
     }
     
-    Calibration <- intensity_fix(Calibration)
+    if(any(names(Calibration$calList) %in% spectralLines)){
+        Calibration <- intensity_fix(Calibration)
+    }
+    
     
     if(!"WideIntensities" %in% names(Calibration)){
-        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=names(Calibration$Intensities))[,-1]
+        elements <- names(Calibration$Intensities)[!names(Calibration$Intensities) %in% "Spectrum"]
+        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)[,-1]
     }
     
     
