@@ -563,7 +563,7 @@ narrowLineTable <- function(spectra, definition.table, elements){
     #} else if(!is.null(not.line.data)){
         #merge(line.data, not.line.data, by="Spectrum")
     #}
-   narrowElementFrame(data=spectra, range.table=definition.table, elements=elements)
+   elementFrame(data=spectra, range.table=definition.table, elements=elements)
 
     
 }
