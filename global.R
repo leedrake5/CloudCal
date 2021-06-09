@@ -3290,33 +3290,33 @@ dependentTransformationUI <- function(radiocal=3, selection=NULL){
     }
     
     if(radiocal==0){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==1){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==2){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==3){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==4){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     }  else if(radiocal==5){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==6){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==7){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==8){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==9){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==10){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==11){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==12){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==13){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     }
 }
 
@@ -4618,8 +4618,24 @@ predictIntensitySimpPreGen <- function(spectra, hold.frame, element, norm.type, 
     return(predict.intensity)
 }
 
+scaleTransform <- function(values, y_min, y_max){
+    
+    y_min <- my.min(values)
+    y_max <- my.max(values)
+    y_train_scale <- ((values-y_min)/(y_max-y_min))
 
-predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="None", element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    return(y_train_scale)
+}
+
+scaleDecode <- function(values, y_min, y_max){
+    
+    y_train_decoded <- (values*(y_max-y_min)) + y_min
+
+    return(y_train_decoded)
+}
+
+
+predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="None", element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
     
     data <- spectra
     spectra.line.table <- hold.frame
@@ -4634,6 +4650,8 @@ predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="N
         predict.frame.simp$Concentration
     } else if(dependent.transformation=="Log"){
         log(predict.frame.simp$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=predict.frame.simp$Concentration, y_min=y_min, y_max=y_max)
     }
     
     predictFrameCheck(predict.frame.simp)
@@ -4678,7 +4696,7 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercept
     return(predict.intensity)
 }
 
-predictFrameXGBoostGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictFrameXGBoostGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
     
     spectra.line.table <- hold.frame
     
@@ -4694,6 +4712,8 @@ predictFrameXGBoostGen <- function(spectra, hold.frame, slopes=NULL, dependent.t
         predict.frame.forest$Concentration
     } else if(dependent.transformation=="Log"){
         log(predict.frame.forest$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=predict.frame.forest$Concentration, y_min=y_min, y_max=y_max)
     }
     
     return(as.matrix(predictFrameCheck(predict.frame.forest)))
@@ -4705,7 +4725,7 @@ predictIntensityXGBoost <- function(predict.frame){
 }
 
 
-predictFrameForestGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictFrameForestGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
     
     spectra.line.table <- hold.frame
     
@@ -4721,6 +4741,8 @@ predictFrameForestGen <- function(spectra, hold.frame, slopes=NULL, dependent.tr
         predict.frame.forest$Concentration
     } else if(dependent.transformation=="Log"){
         log(predict.frame.forest$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=predict.frame.forest$Concentration, y_min=y_min, y_max=y_max)
     }
     
     return(predictFrameCheck(predict.frame.forest))
@@ -4739,12 +4761,11 @@ predictIntensityLucPreGen <- function(spectra, hold.frame, element, intercepts=N
     
 }
 
-predictFrameLucGen <- function(spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictFrameLucGen <- function(spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
     
     data <- spectra
     spectra.line.table <- hold.frame
-    
-    
+
     predict.intensity.luc <- predictIntensityLucPreGen(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, slopes=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
     
     predict.frame.luc <- data.frame(predict.intensity.luc, spectra.line.table[,"Concentration"])
@@ -4756,6 +4777,8 @@ predictFrameLucGen <- function(spectra, hold.frame, element, intercepts=NULL, sl
         predict.frame.luc$Concentration
     } else if(dependent.transformation=="Log"){
         log(predict.frame.luc$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=predict.frame.luc$Concentration, y_min=y_min, y_max=y_max)
     }
     
     return(predictFrameCheck(predict.frame.luc))
@@ -4791,7 +4814,7 @@ rainforestDataPreGen <- function(spectra, compress="100 eV", transformation="Non
 }
 
 
-xgboostDataGen <- function(spectra, compress="100 eV", transformation="None", dependent.transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+xgboostDataGen <- function(spectra, compress="100 eV", transformation="None", dependent.transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=0){
     
     spectra.line.table <- hold.frame
     
@@ -4804,6 +4827,8 @@ xgboostDataGen <- function(spectra, compress="100 eV", transformation="None", de
         spectra.data$Concentration
     } else if(dependent.transformation=="Log"){
         log(spectra.data$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=spectra.data$Concentration, y_min=y_min, y_max=y_max)
     }
     
     return(as.matrix(predictFrameCheck(spectra.data)))
@@ -4814,7 +4839,7 @@ xgboostIntensity <- function(rainforest.data){
 }
 
 
-rainforestDataGen <- function(spectra, compress="100 eV", transformation="None", dependent.transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+rainforestDataGen <- function(spectra, compress="100 eV", transformation="None", dependent.transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
     
     spectra.line.table <- hold.frame
     
@@ -4827,6 +4852,8 @@ rainforestDataGen <- function(spectra, compress="100 eV", transformation="None",
         spectra.data$Concentration
     } else if(dependent.transformation=="Log"){
         log(spectra.data$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=spectra.data$Concentration, y_min=y_min, y_max=y_max)
     }
     
     return(predictFrameCheck(spectra.data))
@@ -5335,6 +5362,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             ),
                             element.line=x),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
                             confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
@@ -5348,6 +5377,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         element.line=x
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
@@ -5363,6 +5394,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                             ),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
                             confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
@@ -5377,6 +5410,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                  )
             } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
@@ -5392,6 +5427,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
@@ -5409,6 +5446,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
@@ -5423,6 +5462,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5439,6 +5480,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5457,6 +5500,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5471,6 +5516,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                         )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5498,6 +5545,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5513,6 +5562,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5529,6 +5580,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5547,6 +5600,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5560,6 +5615,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                     )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5573,6 +5630,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -5587,6 +5646,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5602,6 +5663,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -5619,6 +5682,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=FALSE
                     )
@@ -5635,6 +5700,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ))),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                     )
@@ -5655,6 +5722,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                 ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -5668,6 +5737,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5681,6 +5752,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -5695,6 +5768,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -5710,6 +5785,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5726,6 +5803,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5744,6 +5823,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5757,6 +5838,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                     )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5770,6 +5853,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -5784,6 +5869,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5799,6 +5886,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -5833,6 +5922,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                 ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -5846,6 +5937,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -5859,6 +5952,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -5873,6 +5968,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -5898,6 +5995,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             element.line=x
                             ),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
                             confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
@@ -5913,6 +6012,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
@@ -5927,6 +6028,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
@@ -5942,6 +6045,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
@@ -5959,6 +6064,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                 )
         } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
@@ -5973,6 +6080,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -6007,6 +6116,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -6022,6 +6133,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -6038,6 +6151,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence,
                         finalModel=TRUE
             )
@@ -6056,6 +6171,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -6071,6 +6188,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -6087,6 +6206,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence,
                         finalModel=TRUE
             )
@@ -6105,6 +6226,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -6120,6 +6243,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -6136,6 +6261,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence,
                         finalModel=TRUE
             )
@@ -6154,6 +6281,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -6169,6 +6298,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -6185,6 +6316,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence,
                         finalModel=TRUE
             )
@@ -6203,6 +6336,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -6238,13 +6373,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
 }
 
 
-mclValGen <- function(model, data, predict.frame, dependent.transformation){
+mclValGen <- function(model, data, predict.frame, dependent.transformation, y_min=0, y_max=1){
     cal.est.conc.pred.luc <- if(dependent.transformation=="None"){
         predict(object=model, newdata=data)
     } else if(dependent.transformation=="Log"){
         exp(predict(object=model, newdata=data))
     } else if(dependent.transformation=="e"){
         log(predict(object=model, newdata=data))
+    } else if(dependent.transformation=="Scale"){
+        scaleDecode(values=predict(object=model, newdata=data), y_min=y_min, y_max=y_max)
     }
     
     concentration <- if(dependent.transformation=="None"){
@@ -6253,6 +6390,8 @@ mclValGen <- function(model, data, predict.frame, dependent.transformation){
         exp(predict.frame$Concentration)
     } else if(dependent.transformation=="e"){
         log(predict.frame$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleDecode(values=predict.frame$Concentration, y_min=y_min, y_max=y_max)
     }
     
     val.frame <- data.frame(Concentration=concentration, Intensity=as.vector(cal.est.conc.pred.luc), Prediction=as.vector(cal.est.conc.pred.luc))
@@ -6260,13 +6399,15 @@ mclValGen <- function(model, data, predict.frame, dependent.transformation){
     return(val.frame)
 }
 
-xgbValGen <- function(model, data, predict.frame, dependent.transformation){
+xgbValGen <- function(model, data, predict.frame, dependent.transformation, y_min=0, y_max=1){
     cal.est.conc.pred.luc <- if(dependent.transformation=="None"){
         predict(object=model, newdata=xgb.DMatrix(as.matrix(data)))
     } else if(dependent.transformation=="Log"){
         exp(predict(object=model, newdata=xgb.DMatrix(as.matrix(data))))
     } else if(dependent.transformation=="e"){
         log(predict(object=model, newdata=xgb.DMatrix(as.matrix(data))))
+    } else if(dependent.transformation=="Scale"){
+        scaleDecode(values=predict(object=model, newdata=xgb.DMatrix(as.matrix(data))), y_min=y_min, y_max=y_max)
     }
     
     concentration <- if(dependent.transformation=="None"){
@@ -6275,6 +6416,8 @@ xgbValGen <- function(model, data, predict.frame, dependent.transformation){
         exp(predict.frame$Concentration)
     } else if(dependent.transformation=="e"){
         log(predict.frame$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleDecode(values=predict.frame$Concentration, y_min=y_min, y_max=y_max)
     }
     
     val.frame <- data.frame(Concentration=concentration, Intensity=as.vector(cal.est.conc.pred.luc), Prediction=as.vector(cal.est.conc.pred.luc))
@@ -6282,7 +6425,7 @@ xgbValGen <- function(model, data, predict.frame, dependent.transformation){
     return(val.frame)
 }
 
-mclPred <- function(object, newdata, dependent.transformation, confidence=TRUE, finalModel=TRUE){
+mclPred <- function(object, newdata, dependent.transformation, ymin=0, ymax=1, confidence=TRUE, finalModel=TRUE, y_min=0, y_max=1){
     if(confidence==FALSE){
         if(dependent.transformation=="None"){
             tryCatch(predict(object=object, newdata=newdata,
@@ -6293,6 +6436,9 @@ mclPred <- function(object, newdata, dependent.transformation, confidence=TRUE, 
         } else if(dependent.transformation=="e"){
             tryCatch(log(predict(object=object, newdata=newdata,
             na.action=na.pass)), error=function(e) NA)
+        } else if(dependent.transformation=="Scale"){
+            tryCatch(scaleDecode(predict(object=object, newdata=newdata,
+            na.action=na.pass), y_min=y_min, y_max=y_max), error=function(e) NA)
         }
     } else if(confidence==TRUE){
         if(finalModel==TRUE){
@@ -6305,6 +6451,9 @@ mclPred <- function(object, newdata, dependent.transformation, confidence=TRUE, 
             } else if(dependent.transformation=="e"){
                 tryCatch(log(predict(object=object$finalModel, newdata=newdata,
                 na.action=na.pass, interval="confidence")), error=function(e) NA)
+            } else if(dependent.transformation=="Scale"){
+                tryCatch(scaleDecode(predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence"), y_min=y_min, y_max=y_max), error=function(e) NA)
             }
         } else if(finalModel==FALSE){
             if(dependent.transformation=="None"){
@@ -6316,6 +6465,9 @@ mclPred <- function(object, newdata, dependent.transformation, confidence=TRUE, 
             } else if(dependent.transformation=="e"){
                 tryCatch(log(predict(object=object, newdata=newdata,
                 na.action=na.pass, interval="confidence")), error=function(e) NA)
+            } else if(dependent.transformation=="Scale"){
+                tryCatch(scaleDecode(predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence"), y_min=y_min, y_max=y_max), error=function(e) NA)
             }
         }
     }

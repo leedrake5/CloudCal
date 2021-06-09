@@ -853,7 +853,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, tra
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -898,7 +898,8 @@ calConditionsList <- function(cal.type=NULL, line.type=NULL, compress=NULL, tran
                     CalTable=cal.table,
                     Slope=slopes,
                     Intercept=intercept,
-                    StandardsUsed=use.standards)
+                    StandardsUsed=use.standards,
+                    Scale=scale)
                     
         return(cal.mode.list)
 }
@@ -995,9 +996,11 @@ deleteCalConditions <- function(element, number.of.standards){
     
     standards.used <- rep(TRUE, number.of.standards)
     
+    scale <- list(Min=0, Max=1)
+    
     #standards.used <- vals$keeprows
     
-    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
+    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used, Scale=scale)
     return(cal.mode.list)
 }
 
@@ -1085,9 +1088,11 @@ defaultCalConditions <- function(element, number.of.standards){
     
     standards.used <- rep(TRUE, number.of.standards)
     
+    scale <- list(Min=0, Max=1)
+    
     #standards.used <- vals$keeprows
     
-    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
+    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used, Scale=scale)
     return(cal.mode.list)
 }
 
@@ -1844,6 +1849,11 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         default.cal.conditions$StandardsUsed
     }
     
+    scale <- if("Scale" %in% names(imported.cal.conditions)){
+        imported.cal.conditions$Scale
+    } else if(!"Scale" %in% names(imported.cal.conditions)){
+        default.cal.conditions$Scale
+    }
     cal.table <- data.frame(
     CalType=cal.condition,
     LineType=line.condition,
@@ -1887,11 +1897,11 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         cal.table$Delete <- TRUE
     }
     
-    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
+    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used, Scale=scale)
     return(cal.mode.list)
 }
 
-calPre <- function(element.model.list, element, temp, env.strip=TRUE, xgb_raw=FALSE){
+calPre <- function(element.model.list, element, temp, env.strip=TRUE, xgb_raw=FALSE, xgb_unserialize=FALSE){
     
     temp.list <- list(element.model.list)
     names(temp.list) <- element
@@ -1922,6 +1932,14 @@ calPre <- function(element.model.list, element, temp, env.strip=TRUE, xgb_raw=FA
                     }
                     
             element.model.list$rawModel <- model.raw
+        }
+        
+        if(xgb_unserialize==TRUE){
+            if(element.model.list[[1]]$CalTable$CalType==8 | element.model.list[[1]]$CalTable$CalType==9){
+                    if("rawModel" %in% names(element.model.list)){
+                        element.model.list$Model$finalModel$raw <- element.model.list$rawModel
+                    }
+            }
         }
         
         new.element.model.list <- if(!"Model" %in% names(element.model.list)){
@@ -1961,6 +1979,10 @@ calPre <- function(element.model.list, element, temp, env.strip=TRUE, xgb_raw=FA
         if("SystemicAdjust" %in% names(element.model.list)){
             new.element.model.list$SystemicAdjust <- element.model.list$SystemicAdjust
         }
+        
+        #if(!"Scale" %in% names(element.model.list[[1]])){
+        #    element.model.list[[1]][["Scale"]] <- list(Min=0, Max=1)
+        #}
                 
         if(nrow(new.element.model.list$Parameters$CalTable)>1){
             new.element.model.list$Parameters$CalTable <- new.element.model.list$Parameters$CalTable[!duplicated(new.element.model.list$Parameters$CalTable), ]
@@ -2013,7 +2035,7 @@ intensity_fix <- function(calibration){
     return(calibration)
 }
 
-calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE){
+calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE){
     if(is.null(Calibration)){
         Calibration <- readRDS(calibration.directory)
     }
@@ -2059,7 +2081,7 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     if(length(Calibration$calList) > 0){
         calpre <- list()
         for(x in order_elements(names(Calibration[["calList"]]))){
-            calpre[[x]] <- tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, env.strip=env.strip, xgb_raw=xgb_raw), error=function(e) NULL)
+            calpre[[x]] <- tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, env.strip=env.strip, xgb_raw=xgb_raw, xgb_unserialize=xgb_unserialize), error=function(e) NULL)
         }
         
         #calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, xgb_raw=xgb_raw), error=function(e) NULL))
