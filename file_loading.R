@@ -2035,11 +2035,15 @@ intensity_fix <- function(calibration){
     return(calibration)
 }
 
-calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE){
+calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE){
     if(is.null(Calibration)){
         Calibration <- readRDS(calibration.directory)
     }
     
+    if(sort==TRUE){
+        Calibration$Values <- Calibration$Values[order(Calibration$Values$Spectrum),]
+        Calibration$Spectra <- Calibration$Spectra[order(Calibration$Spectra$Spectrum, Calibration$Spectra$Energy),]
+    }
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
     
