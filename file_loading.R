@@ -2010,7 +2010,7 @@ all_slopes <- function(calibration){
     unique(unlist(list(elements, slope_list, intercept_list)))
 }
 
-intensity_fix <- function(calibration){
+intensity_fix <- function(calibration, keep_labels=TRUE){
     
     slope_list <- all_slopes(calibration)
     intensity_names <- names(calibration$Intensities)
@@ -2018,17 +2018,26 @@ intensity_fix <- function(calibration){
     missing_elements <- slope_list[!slope_list %in% intensity_names]
     variables <- c(intensity_names, missing_elements)
     variable_elements <- variables[variables %in% spectralLines]
-    variable_custom <- variables[!variables %in% spectralLines]
+    variable_custom <- variables[!variables %in% c(spectralLines, "Spectrum")]
     
     if(length(variable_elements)>0){
         element.frame <- data.frame(elements=variable_elements, order=atomic_order_vector(variable_elements))
         organized_elements <- as.vector(element.frame[order(element.frame$order),]$elements)
         
-        if(length(missing_elements>=1)){
-            calibration$Intensities <- narrowLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))[,-1]
-            calibration$WideIntensities <- wideLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))[,-1]
+        if(keep_labels==FALSE){
+            if(length(missing_elements>=1)){
+                calibration$Intensities <- narrowLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))[,-1]
+                calibration$WideIntensities <- wideLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))[,-1]
 
+            }
+        } else if(keep_labels==TRUE){
+            if(length(missing_elements>=1)){
+                calibration$Intensities <- narrowLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))
+                calibration$WideIntensities <- wideLineTable(spectra=calibration$Spectra, definition.table=calibration$Definitions, elements=c(organized_elements, variable_custom))
+
+            }
         }
+        
     }
     
 
@@ -2043,6 +2052,8 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     if(sort==TRUE){
         Calibration$Values <- Calibration$Values[order(Calibration$Values$Spectrum),]
         Calibration$Spectra <- Calibration$Spectra[order(Calibration$Spectra$Spectrum, Calibration$Spectra$Energy),]
+        Calibration$Values <- Calibration$Values[Calibration$Values$Spectrum %in% unique(Calibration$Spectra$Spectrum),]
+        Calibration$Spectra <- Calibration$Spectra[Calibration$Spectra$Spectrum %in% unique(Calibration$Values$Spectrum),]
     }
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
