@@ -104,7 +104,7 @@ library(Metrics)
 library(taRifx)
 library(strip)
 tryCatch(library(mgsub), error=function(e) NULL)
-tryCatch(library(bartMachine), error=function(e) NULL)
+#tryCatch(library(bartMachine), error=function(e) NULL)
 tryCatch(library(arm), error=function(e) NULL)
 tryCatch(library(brnn), error=function(e) NULL)
 library(kernlab)
@@ -3336,7 +3336,7 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
         0.025
     }
     
-    if(radiocal==1){
+    if(radiocal==0){
         sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step,  value=selection)
     } else if(radiocal==1){
         NULL

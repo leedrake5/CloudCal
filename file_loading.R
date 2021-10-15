@@ -18,8 +18,9 @@ mLines <- c("Au"="Au.M.line","Hg"="Hg.M.line", "Pb"="Pb.M.line", "U"="U.M.line")
 ###Spectra Loading
 read_csv_filename_x <- function(filename){
     ret <- read.csv(file=filename, sep=",", header=FALSE)
-    return.res <- as.numeric(as.vector(ret$V2[18]))/1000
-    return.chan.counts <-as.numeric(as.vector(ret$V1[22:2069]))
+    return.res <- as.numeric(as.vector(ret[ret$V1 %in% "eV per channel",]$V2))/1000
+    n <- nrow(ret)
+    return.chan.counts <-as.numeric(as.vector(ret$V1[(n-2047):n]))
     return.energy <- return.chan.counts*return.res
     return(return.energy)
 }
@@ -27,8 +28,9 @@ read_csv_filename_x <- cmpfun(read_csv_filename_x)
 
 read_csv_filename_y <- function(filename){
     ret <- read.csv(file=filename, sep=",", header=FALSE)
-    return.live.time <- as.numeric(as.vector(ret$V2[10]))
-    return.counts <- as.numeric(as.vector(ret$V2[22:2069]))
+    return.live.time <- as.numeric(as.vector(ret[ret$V1 %in% "Live Time",]$V2))
+    n <- nrow(ret)
+    return.counts <-as.numeric(as.vector(ret$V2[(n-2047):n]))
     return.cps <- return.counts/return.live.time
     return(return.cps)
 }
