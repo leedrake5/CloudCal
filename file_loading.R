@@ -36,7 +36,7 @@ read_csv_filename_y <- function(filename){
 }
 read_csv_filename_y <- cmpfun(read_csv_filename_y)
 
-csvFrame <- function(filepath, filename=NULL){
+csvFrameOld <- function(filepath, filename=NULL){
     if(is.null(filename)){
         filename <- as.character(basename(filepath))
     }
@@ -44,7 +44,28 @@ csvFrame <- function(filepath, filename=NULL){
     filename <- gsub(".csv", "", filename, ignore.case=TRUE)
     return(data.frame(Energy=read_csv_filename_x(filepath), CPS=read_csv_filename_y(filepath), Spectrum=rep(filename, length(read_csv_filename_x(filepath))), stringsAsFactors=FALSE))
 }
-csvFrame <- cmpfun(csvFrame)
+csvFrameOld <- cmpfun(csvFrameOld)
+
+csvFrame <- function(filepath, filename=NULL){
+    if(is.null(filename)){
+        filename <- as.character(basename(filepath))
+    }
+    filename <- make.names(filename)
+    filename <- gsub(".csv", "", filename, ignore.case=TRUE)
+    
+    ret <- read.csv(file=filepath, sep=",", header=FALSE)
+    n <- nrow(ret)
+    
+    return.res <- as.numeric(as.vector(ret[ret$V1 %in% "eV per channel",]$V2))/1000
+    return.chan.counts <-as.numeric(as.vector(ret$V1[(n-2047):n]))
+    return.energy <- return.chan.counts*return.res
+    
+    return.live.time <- as.numeric(as.vector(ret[ret$V1 %in% "Live Time",]$V2))
+    return.counts <-as.numeric(as.vector(ret$V2[(n-2047):n]))
+    return.cps <- return.counts/return.live.time
+    
+    data.frame(Energy=return.energy, CPS=return.cps, Spectrum=filename)
+}
 
 fullSpectraDataTableProcess <- function(inFile=NULL, gainshiftvalue=0){
     
