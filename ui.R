@@ -304,7 +304,7 @@ actionButton('createcalelement', "Update"),
 tags$hr(),
 
 downloadButton('downloadModel', "Model"),
-checkboxInput('modelcompress', label="Reduce Fie Size", value=TRUE),
+checkboxInput('modelcompress', label="Reduce File Size", value=TRUE),
 #downloadButton('downloadReport', "Report"),
 #uiOutput('usecalsep'),
 #uiOutput('usecalui'),
