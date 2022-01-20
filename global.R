@@ -25,7 +25,7 @@ new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.p
 if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
-list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization")
+list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "tidyverse")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
@@ -110,6 +110,7 @@ tryCatch(library(brnn), error=function(e) NULL)
 library(kernlab)
 tryCatch(library(rBayesianOptimization), error=function(e) NULL)
 tryCatch(library(xrftools), error=function(e) NULL)
+library(tidyverse)
 enableJIT(3)
 
 options(digits=12)
@@ -7227,3 +7228,32 @@ sd_sequence <- function(predictions, conversion=1){
     return(results)
 }
 
+tibble_convert <- function(spectra_frame){
+
+    new_frame <- data.frame(energy_kev=spectra_frame$Energy, counts=spectra_frame$CPS, background=0, fit=0, cps=spectra_frame$CPS, baseline=0, smooth=0)
+    new_tibble <- as_tibble(new_frame)
+    new_tibble_list <- list(.path=unique(spectra_frame$Spectrum), .position <- 1, .spectra=list(new_tibble))
+    return(new_tibble_list)
+}
+
+spectra_frame_deconvolution_convert <- function(a_tibble){
+    
+    spectra_frame <- data.frame(Spectrum=a_tibble$.path, Energy=a_tibble$.deconvolution_response[[1]]$energy_kev, CPS=a_tibble$.deconvolution_response[[1]]$response_fit)
+    
+}
+
+spectra_gls_deconvolute <- function(spectra_frame, cores=1){
+    
+    spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
+    if(cores==1){
+        new_spectra_list <- list()
+        for(i in names(spectra_list)){
+            new_spectra_list[[i]] <- spectra_frame_deconvolution_convert(tibble_convert(spectra_list[[i]]) %>% xrf_add_deconvolution_gls)
+        }
+    } else if(cores > 1){
+        new_spectra_list_pre <- lapply(spectra_list, tibble_convert)
+        new_spectra_list <- pblapply(new_spectra_list_pre, function(x) spectra_frame_deconvolution_convert(x %>% xrf_add_deconvolution_gls), cl=cores)
+    }
+    new_spectra_frame <- as.data.frame(rbindlist(new_spectra_list))
+    return(new_spectra_frame)
+}

@@ -495,8 +495,12 @@ shinyServer(function(input, output, session) {
             #  2) Its output type is a plot
             ranges <- reactiveValues(x = NULL, y = NULL)
             
+            dataHoldDeconvolution <- reactive({
+                spectra_gls_deconvolute(dataHold())
+            })
             
-            spectraSummary <- reactive({
+            
+            spectraSummaryNormal <- reactive({
                 
                 spectra_stats(
                     spectra.frame=dataHold(),
@@ -505,13 +509,45 @@ shinyServer(function(input, output, session) {
                     norm.max=input$comptonmaxspectra,
                     compress="100 eV"
                     )
+            })
+            
+            spectraSummaryDeconvolution <- reactive({
+                spectra_stats(
+                    spectra.frame=dataHoldDeconvolution(),
+                    norm.type=input$normspectra,
+                    norm.min=input$comptonminspectra,
+                    norm.max=input$comptonmaxspectra,
+                    compress="100 eV"
+                    )
+            })
+            
+            spectraSummary <- reactive({
+                
+                if(input$deconvolutespectra==FALSE){
+                    spectraSummaryNormal()
+                } else if(input$deconvolutespectra==TRUE){
+                    spectraSummaryDeconvolution()
+                }
 
+            })
+            
+            spectraPlotDataNormal <- reactive({
+                 just_spectra_summary_apply(spectra.frame=dataHold(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra)
+            })
+            
+            spectraPlotDataDeconvolution <- reactive({
+                just_spectra_summary_apply(spectra.frame=dataHoldDeconvolution(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra)
             })
             
             
             spectraPlotData <- reactive({
-                just_spectra_summary_apply(spectra.frame=dataHold(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra)
-
+                
+                if(input$deconvolutespectra==FALSE){
+                    spectraPlotDataNormal()
+                } else if(input$deconvolutespectra==TRUE){
+                    spectraPlotDataDeconvolution()
+                }
+                
             })
             
             spectraWithLabels <- reactive({
