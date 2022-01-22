@@ -613,7 +613,7 @@ wideLineTable <- function(spectra, definition.table, elements){
 }
 
 ###Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -625,6 +625,12 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, tra
         "Narrow"
     } else if(!is.null(line.type) && !is.na(line.type)){
         line.type
+    }
+    
+    deconvolution <- if(is.null(deconvolution) | is.na(deconvolution)){
+        "None"
+    } else if(!is.null(deconvolution) && !is.na(deconvolution)){
+        deconvolution
     }
     
     compress <- if(is.null(compress)){
@@ -836,6 +842,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, tra
     cal.table <- data.frame(
                 CalType=cal.type,
                 LineType=line.type,
+                Deconvolution=deconvolution,
                 Compress=compress,
                 Transformation=transformation,
                 EnergyRange=energy.range,
@@ -876,11 +883,12 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, tra
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
                 LineType=line.type,
+                Deconvolution=deconvolution,
                 Compress=compress,
                 Transformation=transformation,
                 EnergyRange=energy.range,
@@ -937,6 +945,7 @@ calConditionCompare <- function(cal.conditions.first, cal.conditions.second){
 deleteCalConditions <- function(element, number.of.standards){
     cal.condition <- as.numeric(3)
     line.type=as.character("Narrow")
+    deconvolution="None"
     compress <- as.character("100 eV")
     transformation <- as.character("None")
     energy.range <- as.character("0.7-37")
@@ -976,6 +985,7 @@ deleteCalConditions <- function(element, number.of.standards){
     cal.table <- data.frame(
     CalType=cal.condition,
     LineType=line.type,
+    Deconvolution=deconvolution,
     Compress=compress,
     Transformation=transformation,
     EnergyRange=energy.range,
@@ -1030,6 +1040,7 @@ deleteCalConditions <- function(element, number.of.standards){
 defaultCalConditions <- function(element, number.of.standards){
     cal.condition <- as.numeric(3)
     line.type=as.character("Narrow")
+    deconvolution="None"
     compress <- as.character("100 eV")
     transformation <- as.character("None")
     energy.range <- as.character("0.7-37")
@@ -1069,6 +1080,7 @@ defaultCalConditions <- function(element, number.of.standards){
     cal.table <- data.frame(
         CalType=cal.condition,
         LineType=line.type,
+        Deconvolution=deconvolution,
         Compress=compress,
         Transformation=transformation,
         EnergyRange=energy.range,
@@ -1141,6 +1153,12 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
          as.character(imported.cal.conditions$CalTable$LineType[1])
     } else if(!"LineType" %in% colnames(imported.cal.conditions$CalTable)){
        default.cal.conditions$CalTable$LineType
+    }
+    
+    deconvolution <- if("Deconvolution" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$Deconvolution[1])
+    } else if(!"Deconvolution" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$Deconvolution
     }
     
     compress.condition <- if("Compress" %in% colnames(imported.cal.conditions$CalTable)){
@@ -1477,6 +1495,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     cal.table <- data.frame(
         CalType=cal.condition,
         LineType=line.condition,
+        Deconvolution=deconvolution,
         Compress=compress.condition,
         Transformation=transformation.condition,
         EnergyRange=energyrange.condition,
@@ -1539,6 +1558,12 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         as.character(imported.cal.conditions$CalTable$LineType[1])
     } else if(!"LineType" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$LineType
+    }
+    
+    deconvolution <- if("Deconvolution" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$Deconvolution[1])
+    } else if(!"Deconvolution" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$Deconvolution
     }
     
     compress.condition <- if("Compress" %in% colnames(imported.cal.conditions$CalTable)){
@@ -1880,6 +1905,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     cal.table <- data.frame(
     CalType=cal.condition,
     LineType=line.condition,
+    Deconvolution=deconvolution,
     Compress=compress.condition,
     Transformation=transformation.condition,
     EnergyRange=energyrange.condition,
@@ -2067,7 +2093,7 @@ intensity_fix <- function(calibration, keep_labels=TRUE){
     return(calibration)
 }
 
-calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE){
+calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE, deconvolution=FALSE){
     if(is.null(Calibration)){
         Calibration <- readRDS(calibration.directory)
     }
@@ -2080,6 +2106,17 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     }
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
+    
+    elements <- names(Calibration$Intensities)[!names(Calibration$Intensities) %in% "Spectrum"]
+
+    
+    if(deconvolution==TRUE){
+        if(!"Deconvoluted" %in% names(Calibration)){
+            Calibration$Deconvoluted$Spectra <- spectra_gls_deconvolute(Calibration$Spectra)
+            Calibration$Deconvoluted$Intensities <- narrowLineTable(spectra=Calibration$Deconvoluted$Spectra, definition.table=Calibration$Definitions, elements=elements)[,-1]
+            Calibration$Deconvoluted$WideIntensities <- wideLineTable(spectra=Calibration$Deconvoluted$Spectra, definition.table=Calibration$Definitions, elements=elements)[,-1]
+        }
+    }
     
     Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
         paste0(Calibration[["Notes"]], " Updated on ", Sys.time())
@@ -2144,7 +2181,6 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     
     
     if(!"WideIntensities" %in% names(Calibration)){
-        elements <- names(Calibration$Intensities)[!names(Calibration$Intensities) %in% "Spectrum"]
         Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)[,-1]
     }
     

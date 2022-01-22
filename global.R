@@ -3203,6 +3203,19 @@ plot.nnet <- cmpfun(plot.nnet)
 
 ###UI Choices
 
+deconvolutionUI <- function(selection=NULL){
+    
+    selection <- if(is.null(selection)){
+        "None"
+    } else if(!is.null(selection)){
+        selection
+    }
+    
+    renderUI({
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    })
+}
+
 compressUI <- function(radiocal=3, selection=NULL){
     
     selection <- if(is.null(selection)){
@@ -5277,12 +5290,31 @@ calBundle <- function(filetype, units, spectra, intensities, definitions, values
 }
 
 
-cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1, confidence=FALSE){
+cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, deconvoluted.count.list=NULL, rounding=4, multiplier=1, confidence=FALSE){
+    
+    if(any(unlist(sapply(Calibration$calList, function(x) x[[1]][["CalTable"]][["Deconvolution"]]!="None")))){
+        if(is.null(deconvoluted_valdata)){
+            deconvoluted_valdata <- spectra_gls_deconvolute(valdata)
+        }
+        
+        if(is.null(deconvoluted.count.list)){
+            deconvoluted.count.list <- list(
+                Narrow=narrowLineTable(spectra=deconvoluted_valdata, definition.table=Calibration$Definitions, elements=variables),
+                Wide=wideLineTable(spectra=deconvoluted_valdata, definition.table=Calibration$Definitions, elements=variables)
+                )
+        }
+    }
     
     if(is.null(count.list)){
-        count.list <- list(Narrow=narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), Wide=wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables))
+        count.list <- list(
+            Narrow=narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables),
+            Wide=wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables)
+            )
     }
+    
 
+    
+    
     #count.table <- data.frame(fullInputValCounts())
     the.cal <- Calibration[["calList"]]
     #elements.cal <- calValElements()
@@ -5354,7 +5386,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         
         for(x in elements){
             values <-
-            if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=general_prep_xrf(
@@ -5367,7 +5399,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             ymax=the.cal[[x]][[1]][1]$Scale$Max,
                             confidence=confidence
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=simple_tc_prep_xrf(
@@ -5382,7 +5414,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
                 mclPred(
                     object=the.cal[[x]][[2]],
                         newdata=simple_comp_prep_xrf(
@@ -5399,7 +5431,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             ymax=the.cal[[x]][[1]][1]$Scale$Max,
                             confidence=confidence
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                  mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
@@ -5415,7 +5447,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                  )
-            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
@@ -5432,7 +5464,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
@@ -5451,7 +5483,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
                         confidence=confidence
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None"  && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
@@ -5468,7 +5500,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
@@ -5486,7 +5518,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
@@ -5506,7 +5538,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=spectra_simp_prep_xrf(
@@ -5522,7 +5554,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
@@ -5535,7 +5567,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
@@ -5551,7 +5583,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
@@ -5568,7 +5600,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
@@ -5586,7 +5618,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
@@ -5606,7 +5638,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=spectra_simp_prep_xrf(spectra=valdata,
@@ -5621,7 +5653,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
@@ -5636,7 +5668,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
@@ -5652,7 +5684,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf(
@@ -5669,7 +5701,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 if(confidence==FALSE){
                     mclPred(
                     object=the.cal[[x]][[2]],
@@ -5708,7 +5740,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     )
                 }
                 
-            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_comp_prep_xrf(
@@ -5728,7 +5760,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_simp_prep_xrf(spectra=valdata,
@@ -5743,7 +5775,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
@@ -5758,7 +5790,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
@@ -5774,7 +5806,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
@@ -5791,7 +5823,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
@@ -5809,7 +5841,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
@@ -5829,7 +5861,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=spectra_simp_prep_xrf(spectra=valdata,
@@ -5844,7 +5876,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
@@ -5859,7 +5891,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
@@ -5875,7 +5907,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf(
@@ -5892,7 +5924,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_tc_prep_xrf(
@@ -5908,7 +5940,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_comp_prep_xrf(
@@ -5928,7 +5960,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_simp_prep_xrf(spectra=valdata,
@@ -5943,7 +5975,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     confidence=confidence,
                     finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
@@ -5958,10 +5990,630 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 confidence=confidence,
                 finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=general_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            ),
+                            element.line=x),
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            confidence=confidence
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=simple_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            ),
+                        element.line=x
+                        ),
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                        newdata=simple_comp_prep_xrf(
+                            data=deconvoluted_valdata,
+                            spectra.line.table=as.data.frame(
+                            deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                                ),
+                            element.line=x,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                            ),
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            confidence=confidence
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                 mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
+                 )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares"  && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=spectra_simp_prep_xrf(
+                        spectra=deconvoluted_valdata,
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                        )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=deconvoluted_valdata,
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                        )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=deconvoluted_valdata,
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=spectra_simp_prep_xrf(spectra=deconvoluted_valdata,
+                    energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                    energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                    compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                    transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                    )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf(
+                    spectra.line.table=as.data.frame(
+                    deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                if(confidence==FALSE){
+                    mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                    ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=FALSE
+                    )
+                } else if(confidence==TRUE){
+                    mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=xgb.DMatrix(as.matrix(lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)])]
+                    ),
+                    element.line=x,
+                    slope.element.lines=colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)]),
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ))),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                    )
+                }
+                
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf(
+                    data=deconvoluted_valdata,
+                    spectra.line.table=as.data.frame(
+                    deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_simp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=spectra_simp_prep_xrf(spectra=deconvoluted_valdata,
+                    energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                    energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                    compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                    transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                    )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf(
+                    spectra.line.table=as.data.frame(
+                    deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_tc_prep_xrf(
+                    data=deconvoluted_valdata,
+                    spectra.line.table=as.data.frame(
+                    deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf(
+                    data=deconvoluted_valdata,
+                    spectra.line.table=as.data.frame(
+                    deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_simp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=deconvoluted_valdata,
                 energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
                 energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
@@ -6908,7 +7560,7 @@ fanoFactor <- function(data, energy.min=0.7, energy.max=0.9){
     return(data_aggregate)
 }
 
-cloudCalPredictErrorEQM <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
+cloudCalPredictErrorEQM <- function(Calibration, predictions=NULL, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, deconvoluted.count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
     
     if(se==FALSE){
         se_val <- 1
@@ -6930,8 +7582,9 @@ cloudCalPredictErrorEQM <- function(Calibration, elements.cal, elements, variabl
     
     error_list <- lmSEapprox(calibration=Calibration, use_predictions=TRUE, parallel=FALSE)
     
-    predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
-    
+    if(is.null(predictions)){
+        predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, deconvoluted_valdata=deconvoluted_valdata, count.list=count.list, deconvoluted.count.list=deconvoluted.count.list, rounding=rounding, multiplier=multiplier)
+    }
     data_fano <- fanoFactor(data=valdata, energy.min=energy.min, energy.max=energy.max)
     
     ####possibly 1.96*rmse
@@ -6961,7 +7614,7 @@ y_hat <- function(prediction.string){
     as.numeric(sapply(prediction.string, y_hat_value))
 }
 
-cloudCalPredictErrorYHat <- function(Calibration, elements.cal, elements, variables, valdata, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
+cloudCalPredictErrorYHat <- function(Calibration, predictions=NULL, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, deconvoluted.count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
     
     if(se==FALSE){
         se_val <- 1
@@ -6983,7 +7636,9 @@ cloudCalPredictErrorYHat <- function(Calibration, elements.cal, elements, variab
     
     error_list <- lmSEapprox(calibration=Calibration, use_predictions=TRUE, parallel=FALSE)
     
-    predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
+    if(is.null(predictions)){
+        predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, deconvoluted_valdata=deconvoluted_valdata, count.list=count.list, deconvoluted.count.list=deconvoluted.count.list, rounding=rounding, multiplier=multiplier)
+    }
     yhat_est <- list()
     for(i in names(Calibration$calList)){
         yhat_est[[i]] <- y_hat(predictions[,i])

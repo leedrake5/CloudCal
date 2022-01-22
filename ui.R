@@ -30,11 +30,11 @@ uiOutput('binaryui'),
              tags$hr(),
 
 #actionButton("actionprocess", label = "Process Data"),
-actionButton("actionplot", label = "Plot Spectrum"),
+#actionButton("actionplot", label = "Plot Spectrum"),
 
 
 
-tags$hr(),
+#tags$hr(),
 
 uiOutput('filegrab'),
 
@@ -155,7 +155,7 @@ downloadButton('downloadPlot', "Plot"),
 checkboxInput('showlegend', "Show Legend", value=FALSE),
 uiOutput('variancespectrumui'),
 tags$hr(),
-checkboxInput('deconvolutespectra', "Deconvolution"),
+selectInput('deconvolutespectra', "Deconvolution", choices=c("None", "Least Squares"), selected="None"),
 selectInput("normspectra", label = "Normalization",
 choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3)),
 numericInput('comptonminspectra', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%'),
@@ -211,6 +211,7 @@ sidebarPanel(width=3,
 
 actionButton('linecommit', "Confirm Elements"),
 downloadButton('downloadData', "Table"),
+downloadButton('downloadDataDeconvoluted', "Deconvoluted Table"),
 
 
 tags$hr(),
@@ -235,10 +236,14 @@ id = 'dataset',
 tabPanel('Custom Lines', rHandsontableOutput('hotline')),
 tabPanel('Narrow Lines', dataTableOutput('mytable1')),
 tabPanel('Wide Lines', dataTableOutput('mytable2')),
+tabPanel('Narrow Deconvoluted', dataTableOutput('mytable3')),
+tabPanel('Wide Deconvoluted', dataTableOutput('mytable4')),
 tabPanel('Covariance',
 tabsetPanel(
     tabPanel('Narrow', plotOutput('covarianceplot', height=800)),
-    tabPanel('Wide', plotOutput('widecovarianceplot', height=800))
+    tabPanel('Wide', plotOutput('widecovarianceplot', height=800)),
+    tabPanel('Narrow Deconvoluted', plotOutput('covarianceplotdeconvoluted', height=800)),
+    tabPanel('Wide Deconvoluted', plotOutput('widecovarianceplotdeconvoluted', height=800))
 ),
 
 tags$hr(),
@@ -321,6 +326,8 @@ tags$hr(),
 uiOutput('inVar2'),
 
 uiOutput('linepreferenceelementui'),
+
+uiOutput('deconvolutionui'),
 
 uiOutput('calTypeInput'),
 
@@ -602,7 +609,9 @@ downloadButton('downloadValData', "Results")
 tabPanel('Counts',
 tabsetPanel(
 tabPanel('Narrow', dataTableOutput('myvaltable1')),
-tabPanel('Wide', dataTableOutput('myvaltablewide'))
+tabPanel('Wide', dataTableOutput('myvaltablewide')),
+tabPanel('Narrow Deconvoluted', dataTableOutput('myvaltabledeconvoluted')),
+tabPanel('Wide Deconvoluted', dataTableOutput('myvaltablewidedeconvoluted'))
 ))
 
 ))
