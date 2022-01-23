@@ -7901,10 +7901,18 @@ spectra_frame_deconvolution_convert <- function(a_tibble){
     return(spectra_frame)
 }
 
+#intensity_frame_deconvolution_convert <- function(deconvolution_tibble){
+    
+#}
+
 deconvolute_complete <- function(spectra_frame){
     
     spectra_tibble <- tibble_convert(spectra_frame)
-    deconvoluted_spectra_tibble <- xrf_add_deconvolution_gls(spectra_tibble)
+    deconvoluted_spectra_tibble <-spectra_tibble %>%
+        xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = 5), .iter = 20) %>%
+        xrf_add_baseline_snip(.values = .spectra$smooth, iterations = 20) %>%
+        xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = 40, peaks = xrf_energies("everything"))
+        
     deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
     return(deconvoluted_spectra)
 }
@@ -7913,10 +7921,7 @@ spectra_gls_deconvolute <- function(spectra_frame, cores=1){
     
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
     if(cores==1){
-        new_spectra_list <- list()
-        new_spectra_frame <- foreach(i=1:length(spectra_list), .combine="rbind") %do% {
-            spectra_frame_deconvolution_convert(tibble_convert(spectra_list[[i]]) %>% xrf_add_deconvolution_gls)
-        }
+        new_spectra_list <- pblapply(spectra_list, deconvolute_complete)
     } else if(cores > 1){
         if(get_os()=="windows"){
             my.cluster <- parallel::makeCluster(
@@ -7932,8 +7937,6 @@ spectra_gls_deconvolute <- function(spectra_frame, cores=1){
               )
               doParallel::registerDoParallel(cl = my.cluster)
         }
-
-        new_spectra_list <- list()
         #new_spectra_frame <- foreach(i=1:length(spectra_list), .combine="rbind") %dopar% {
             #deconvolute_complete(spectra_list[[i]])
         #}
