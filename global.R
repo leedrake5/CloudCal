@@ -5290,11 +5290,15 @@ calBundle <- function(filetype, units, spectra, intensities, definitions, values
 }
 
 
-cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, deconvoluted.count.list=NULL, rounding=4, multiplier=1, confidence=FALSE){
+cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, deconvoluted.count.list=NULL, rounding=4, multiplier=1, confidence=FALSE, cores=NULL){
+    
+    if(is.null(cores)){
+        cores = parallel::detectCores()-2
+    }
     
     if(any(unlist(sapply(Calibration$calList, function(x) x[[1]][["CalTable"]][["Deconvolution"]]!="None")))){
         if(is.null(deconvoluted_valdata)){
-            deconvoluted_valdata <- spectra_gls_deconvolute(valdata)
+            deconvoluted_valdata <- spectra_gls_deconvolute(valdata, cores=cores)
         }
         
         if(is.null(deconvoluted.count.list)){
@@ -7894,7 +7898,15 @@ tibble_convert <- function(spectra_frame){
 spectra_frame_deconvolution_convert <- function(a_tibble){
     
     spectra_frame <- data.frame(Spectrum=a_tibble$.path, Energy=a_tibble$.deconvolution_response[[1]]$energy_kev, CPS=a_tibble$.deconvolution_response[[1]]$response_fit)
+    return(spectra_frame)
+}
+
+deconvolute_complete <- function(spectra_frame){
     
+    spectra_tibble <- tibble_convert(spectra_frame)
+    deconvoluted_spectra_tibble <- xrf_add_deconvolution_gls(spectra_tibble)
+    deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
+    return(deconvoluted_spectra)
 }
 
 spectra_gls_deconvolute <- function(spectra_frame, cores=1){
@@ -7902,12 +7914,29 @@ spectra_gls_deconvolute <- function(spectra_frame, cores=1){
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
     if(cores==1){
         new_spectra_list <- list()
-        for(i in names(spectra_list)){
-            new_spectra_list[[i]] <- spectra_frame_deconvolution_convert(tibble_convert(spectra_list[[i]]) %>% xrf_add_deconvolution_gls)
+        new_spectra_frame <- foreach(i=1:length(spectra_list), .combine="rbind") %do% {
+            spectra_frame_deconvolution_convert(tibble_convert(spectra_list[[i]]) %>% xrf_add_deconvolution_gls)
         }
     } else if(cores > 1){
-        new_spectra_list_pre <- lapply(spectra_list, tibble_convert)
-        new_spectra_list <- pblapply(new_spectra_list_pre, function(x) spectra_frame_deconvolution_convert(x %>% xrf_add_deconvolution_gls), cl=cores)
+        if(get_os()=="windows"){
+            my.cluster <- parallel::makeCluster(
+              cores,
+              type = "PSOCK"
+              )
+        } else if(get_os()!="windows"){
+            my.cluster <- parallel::makeCluster(
+              cores,
+              type = "PSOCK"
+              )
+        }
+        doParallel::registerDoParallel(cl = my.cluster)
+        clusterExport(my.cluster, list("as_tibble", "tibble_convert", "spectra_frame_deconvolution_convert", "deconvolute_complete", "xrf_add_deconvolution_gls"))
+        new_spectra_list <- list()
+        #new_spectra_frame <- foreach(i=1:length(spectra_list), .combine="rbind") %dopar% {
+            #deconvolute_complete(spectra_list[[i]])
+        #}
+        new_spectra_list <- pblapply(spectra_list, deconvolute_complete, cl=my.cluster)
+        parallel::stopCluster(cl = my.cluster)
     }
     new_spectra_frame <- as.data.frame(rbindlist(new_spectra_list))
     return(new_spectra_frame)

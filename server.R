@@ -385,15 +385,16 @@ shinyServer(function(input, output, session) {
         })
         
         dataHoldDeconvolution <- reactive({
+            
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                 }
-                spectra_gls_deconvolute(dataHold())
+                spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores))
             } else if("Deconvoluted" %in% names(calMemory$Calibration)){
                 if("Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                     calMemory$Calibration$Deconvoluted$Spectra
                 } else if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
-                    spectra_gls_deconvolute(dataHold())
+                    spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores))
                 }
             }
             
@@ -16189,7 +16190,7 @@ content = function(file){
         
         myDeconvolutedValData <- reactive({
             
-            spectra_gls_deconvolute(myValData())
+            spectra_gls_deconvolute(myValData(), cores=as.numeric(my.cores))
             
         })
         
