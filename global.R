@@ -7923,14 +7923,16 @@ spectra_gls_deconvolute <- function(spectra_frame, cores=1){
               cores,
               type = "PSOCK"
               )
+            doParallel::registerDoParallel(cl = my.cluster)
+            clusterExport(my.cluster, list("as_tibble", "tibble_convert", "spectra_frame_deconvolution_convert", "deconvolute_complete", "xrf_add_deconvolution_gls"))
         } else if(get_os()!="windows"){
             my.cluster <- parallel::makeCluster(
               cores,
-              type = "PSOCK"
+              type = "FORK"
               )
+              doParallel::registerDoParallel(cl = my.cluster)
         }
-        doParallel::registerDoParallel(cl = my.cluster)
-        clusterExport(my.cluster, list("as_tibble", "tibble_convert", "spectra_frame_deconvolution_convert", "deconvolute_complete", "xrf_add_deconvolution_gls"))
+
         new_spectra_list <- list()
         #new_spectra_frame <- foreach(i=1:length(spectra_list), .combine="rbind") %dopar% {
             #deconvolute_complete(spectra_list[[i]])
