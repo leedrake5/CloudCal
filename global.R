@@ -65,6 +65,7 @@ if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]==
 tryCatch(library(rPDZ), error=function(e) NULL)
 library(reactlog)
 options(shiny.reactlog = TRUE)
+shiny::devmode(TRUE)
 
 ###update packages
 #update.packages(repos='http://cran.rstudio.com/', ask=FALSE)
@@ -192,6 +193,20 @@ order_elements <- function(elements){
     elements <- as.vector(element.frame$Line)
     
     return(c(elements[complete.cases(elements)], not.elements))
+}
+
+order_elements_simple <- function(elements){
+
+    elements.simp <- mgsub::mgsub(pattern=c(".K.alpha", ".K.beta", ".L.alpha", ".L.beta", ".M.line"), replacement=c("", "", "", "", ""), string=elements)
+    
+    element.frame.1 <- data.frame(Line=elements, Symbol=elements.simp)
+    element.frame.2 <- merge(element.frame.1, fluorescence.lines[fluorescence.lines$Symbol %in% elements.simp, c("Symbol", "AtomicNumber")], by="Symbol")
+    element.frame <- element.frame.2[order(element.frame.2$AtomicNumber),]
+    
+    
+    elements <- as.vector(element.frame$Line)
+    
+    return(c(elements[complete.cases(elements)]))
 }
 
 element_line_pull <- function(element.line){
@@ -3203,7 +3218,7 @@ plot.nnet <- cmpfun(plot.nnet)
 
 ###UI Choices
 
-deconvolutionUI <- function(selection=NULL){
+deconvolutionUI <- function(radiocal=3, selection=NULL){
     
     selection <- if(is.null(selection)){
         "None"
@@ -3211,9 +3226,36 @@ deconvolutionUI <- function(selection=NULL){
         selection
     }
     
-    renderUI({
+    if(radiocal==0){
         selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
-    })
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    }
+    
 }
 
 compressUI <- function(radiocal=3, selection=NULL){
@@ -3252,7 +3294,6 @@ compressUI <- function(radiocal=3, selection=NULL){
         NULL
     } else if(radiocal==13){
         selectInput('compress', label="Compress", choices=c("100 eV", "50 eV", "25 eV"), selected=selection)
-
     }
 }
 
@@ -3385,31 +3426,31 @@ lineTypeUI <- function(radiocal=3, selection="Narrow"){
     
     
     if(radiocal==0){
-        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
     } else if(radiocal==1){
-        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
     } else if(radiocal==2){
-        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
     } else if(radiocal==3){
-        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
     } else if(radiocal==4){
-        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
     }  else if(radiocal==5){
         NULL
     } else if(radiocal==6){
-        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8){
-        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
     } else if(radiocal==9){
         NULL
     } else if(radiocal==10){
-        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
     } else if(radiocal==11){
         NULL
     } else if(radiocal==12){
-        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide"), selected=selection)
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
     } else if(radiocal==13){
         NULL
 
@@ -5290,7 +5331,7 @@ calBundle <- function(filetype, units, spectra, intensities, definitions, values
 }
 
 
-cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, deconvoluted.count.list=NULL, rounding=4, multiplier=1, confidence=FALSE, cores=NULL){
+cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, rounding=4, multiplier=1, confidence=FALSE, cores=NULL){
     
     if(is.null(cores)){
         cores = parallel::detectCores()-2
@@ -5298,22 +5339,19 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
     
     if(any(unlist(sapply(Calibration$calList, function(x) x[[1]][["CalTable"]][["Deconvolution"]]!="None")))){
         if(is.null(deconvoluted_valdata)){
-            deconvoluted_valdata <- spectra_gls_deconvolute(valdata, cores=cores)
+            deconvoluted_data <-spectra_gls_deconvolute(valdata, cores=cores)
+            deconvoluted_valdata <- deconvoluted_data$Spectra
+            
+        }
         }
         
-        if(is.null(deconvoluted.count.list)){
-            deconvoluted.count.list <- list(
-                Narrow=narrowLineTable(spectra=deconvoluted_valdata, definition.table=Calibration$Definitions, elements=variables),
-                Wide=wideLineTable(spectra=deconvoluted_valdata, definition.table=Calibration$Definitions, elements=variables)
-                )
-        }
-    }
     
     if(is.null(count.list)){
         count.list <- list(
             Narrow=narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables),
             Wide=wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables)
             )
+        count.list$Deconvoluted <- deconvoltuionIntensityFrame(deconvoluted_data$Areas, count.list$Narrow)
     }
     
 
@@ -6015,7 +6053,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     object=the.cal[[x]][[2]],
                     newdata=general_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                             element.line=x),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
@@ -6029,7 +6067,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=simple_tc_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x
                         ),
@@ -6044,7 +6082,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         newdata=simple_comp_prep_xrf(
                             data=deconvoluted_valdata,
                             spectra.line.table=as.data.frame(
-                            deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                                 ),
                             element.line=x,
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
@@ -6060,7 +6098,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
@@ -6077,7 +6115,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_tc_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
@@ -6094,7 +6132,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_comp_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
@@ -6112,7 +6150,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6130,7 +6168,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_tc_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6148,7 +6186,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_comp_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6212,7 +6250,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6230,7 +6268,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_tc_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6248,7 +6286,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_comp_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6313,7 +6351,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf(
                     spectra.line.table=as.data.frame(
-                    deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6332,7 +6370,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_tc_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                     ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6350,7 +6388,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=xgb.DMatrix(as.matrix(lucas_tc_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)])]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)])]
                     ),
                     element.line=x,
                     slope.element.lines=colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)]),
@@ -6363,14 +6401,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     finalModel=TRUE
                     )
                 }
-                
             } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_comp_prep_xrf(
                     data=deconvoluted_valdata,
                     spectra.line.table=as.data.frame(
-                    deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6435,7 +6472,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6453,7 +6490,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_tc_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6471,7 +6508,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_comp_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
-                        deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6536,7 +6573,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf(
                     spectra.line.table=as.data.frame(
-                    deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6554,7 +6591,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_tc_prep_xrf(
                     data=deconvoluted_valdata,
                     spectra.line.table=as.data.frame(
-                    deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6570,7 +6607,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_comp_prep_xrf(
                     data=deconvoluted_valdata,
                     spectra.line.table=as.data.frame(
-                    deconvoluted.count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -7564,7 +7601,7 @@ fanoFactor <- function(data, energy.min=0.7, energy.max=0.9){
     return(data_aggregate)
 }
 
-cloudCalPredictErrorEQM <- function(Calibration, predictions=NULL, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, deconvoluted.count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
+cloudCalPredictErrorEQM <- function(Calibration, predictions=NULL, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
     
     if(se==FALSE){
         se_val <- 1
@@ -7587,7 +7624,7 @@ cloudCalPredictErrorEQM <- function(Calibration, predictions=NULL, elements.cal,
     error_list <- lmSEapprox(calibration=Calibration, use_predictions=TRUE, parallel=FALSE)
     
     if(is.null(predictions)){
-        predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, deconvoluted_valdata=deconvoluted_valdata, count.list=count.list, deconvoluted.count.list=deconvoluted.count.list, rounding=rounding, multiplier=multiplier)
+        predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, deconvoluted_valdata=deconvoluted_valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
     }
     data_fano <- fanoFactor(data=valdata, energy.min=energy.min, energy.max=energy.max)
     
@@ -7618,7 +7655,7 @@ y_hat <- function(prediction.string){
     as.numeric(sapply(prediction.string, y_hat_value))
 }
 
-cloudCalPredictErrorYHat <- function(Calibration, predictions=NULL, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, deconvoluted.count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
+cloudCalPredictErrorYHat <- function(Calibration, predictions=NULL, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
     
     if(se==FALSE){
         se_val <- 1
@@ -7641,7 +7678,7 @@ cloudCalPredictErrorYHat <- function(Calibration, predictions=NULL, elements.cal
     error_list <- lmSEapprox(calibration=Calibration, use_predictions=TRUE, parallel=FALSE)
     
     if(is.null(predictions)){
-        predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, deconvoluted_valdata=deconvoluted_valdata, count.list=count.list, deconvoluted.count.list=deconvoluted.count.list, rounding=rounding, multiplier=multiplier)
+        predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, deconvoluted_valdata=deconvoluted_valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
     }
     yhat_est <- list()
     for(i in names(Calibration$calList)){
@@ -7901,20 +7938,30 @@ spectra_frame_deconvolution_convert <- function(a_tibble){
     return(spectra_frame)
 }
 
-#intensity_frame_deconvolution_convert <- function(deconvolution_tibble){
+intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
     
-#}
+    deconvolution_frame <- as.data.frame(deconvolution_tibble)
+    deconvolution_frame$order <- atomic_order_vector(deconvolution_frame$element)
+    deconvolution_frame <- deconvolution_frame[order(deconvolution_frame$order),]
+    #elements <- deconvolution_frame$element
+    #elements[1:51] <- paste0(elements[1:51], ".K.alpha")
+    #elements[52:length(elements)] <- paste0(elements[52:length(elements)], ".L.alpha")
+    deconvolution_t_frame <- t(deconvolution_frame[,"peak_area"])
+    result_frame <- data.frame(Spectrum=name, deconvolution_t_frame)
+    colnames(result_frame) <- c("Spectrum", deconvolution_frame$element)
+    return(result_frame)
+}
 
 deconvolute_complete <- function(spectra_frame){
-    
+    spectrum_name <- unique(spectra_frame$Spectrum)
     spectra_tibble <- tibble_convert(spectra_frame)
     deconvoluted_spectra_tibble <-spectra_tibble %>%
         xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = 5), .iter = 20) %>%
         xrf_add_baseline_snip(.values = .spectra$smooth, iterations = 20) %>%
         xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = 40, peaks = xrf_energies("everything"))
-        
     deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
-    return(deconvoluted_spectra)
+    deconvoluted_peaks <- intensity_frame_deconvolution_convert(deconvoluted_spectra_tibble$.deconvolution_peaks[[1]], name=spectrum_name)
+    return(list(Spectra=deconvoluted_spectra, Areas=deconvoluted_peaks))
 }
 
 spectra_gls_deconvolute <- function(spectra_frame, cores=1){
@@ -7943,6 +7990,49 @@ spectra_gls_deconvolute <- function(spectra_frame, cores=1){
         new_spectra_list <- pblapply(spectra_list, deconvolute_complete, cl=my.cluster)
         parallel::stopCluster(cl = my.cluster)
     }
-    new_spectra_frame <- as.data.frame(rbindlist(new_spectra_list))
-    return(new_spectra_frame)
+    only_spectra_list <- list()
+    only_areas_list <- list()
+    for(i in 1:length(new_spectra_list)){
+        only_spectra_list[[i]] <- new_spectra_list[[i]]$Spectra
+        only_areas_list[[i]] <- new_spectra_list[[i]]$Areas
+    }
+    new_spectra_frame <- as.data.frame(rbindlist(only_spectra_list))
+    new_area_frame <- as.data.frame(rbindlist(only_areas_list))
+    return(list(Spectra=new_spectra_frame, Areas=new_area_frame))
 }
+
+deconvoltuionIntensityFrame <- function(deconvolution_areas, intensity_frame){
+    
+    k_alpha <- deconvolution_areas
+    colnames(k_alpha) <- paste0(colnames(k_alpha), ".K.alpha")
+    colnames(k_alpha)[1] <- gsub(".K.alpha", "", colnames(k_alpha)[1])
+    k_beta <- deconvolution_areas
+    colnames(k_beta) <- paste0(colnames(k_beta), ".K.beta")
+    colnames(k_beta)[1] <- gsub(".K.beta", "", colnames(k_beta)[1])
+    l_alpha <- deconvolution_areas
+    colnames(l_alpha) <- paste0(colnames(l_alpha), ".L.alpha")
+    colnames(l_alpha)[1] <- gsub(".L.alpha", "", colnames(l_alpha)[1])
+    l_beta <- deconvolution_areas
+    colnames(l_beta) <- paste0(colnames(l_beta), ".L.beta")
+    colnames(l_beta)[1] <- gsub(".L.beta", "", colnames(l_beta)[1])
+    m_lines <- deconvolution_areas
+    colnames(m_lines) <- paste0(colnames(m_lines), ".M.line")
+    colnames(m_lines)[1] <- gsub(".M.line", "", colnames(m_lines)[1])
+    
+    all_intensities <- Reduce(function(...) merge(..., all=T, by="Spectrum"), list(k_alpha, k_beta, l_alpha, l_beta, m_lines))
+    elements <- colnames(intensity_frame)[!colnames(intensity_frame) %in% "Spectrum"]
+    not.elements <- elements[!elements %in% spectralLines]
+    elements <- elements[elements %in% spectralLines]
+    
+    reduced_intensities <- all_intensities[,c("Spectrum", elements)]
+    
+    deconvoluted_intensities <- intensity_frame
+    for(i in colnames(intensity_frame)){
+        if(i %in% colnames(reduced_intensities)){
+            deconvoluted_intensities[,i] <- reduced_intensities[,i]
+        }
+    }
+    return(deconvoluted_intensities)
+}
+
+

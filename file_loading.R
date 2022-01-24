@@ -621,15 +621,15 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
         cal.type
     }
     
-    line.type <- if(is.null(line.type) | is.na(line.type)){
+    line.type <- if(is.null(line.type)){
         "Narrow"
-    } else if(!is.null(line.type) && !is.na(line.type)){
+    } else if(!is.null(line.type)){
         line.type
     }
     
-    deconvolution <- if(is.null(deconvolution) | is.na(deconvolution)){
+    deconvolution <- if(is.null(deconvolution)){
         "None"
-    } else if(!is.null(deconvolution) && !is.na(deconvolution)){
+    } else if(!is.null(deconvolution)){
         deconvolution
     }
     

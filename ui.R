@@ -236,14 +236,14 @@ id = 'dataset',
 tabPanel('Custom Lines', rHandsontableOutput('hotline')),
 tabPanel('Narrow Lines', dataTableOutput('mytable1')),
 tabPanel('Wide Lines', dataTableOutput('mytable2')),
-tabPanel('Narrow Deconvoluted', dataTableOutput('mytable3')),
-tabPanel('Wide Deconvoluted', dataTableOutput('mytable4')),
+tabPanel('Deconvoluted', dataTableOutput('mytable3')),
+#tabPanel('Wide Deconvoluted', dataTableOutput('mytable4')),
 tabPanel('Covariance',
 tabsetPanel(
     tabPanel('Narrow', plotOutput('covarianceplot', height=800)),
     tabPanel('Wide', plotOutput('widecovarianceplot', height=800)),
-    tabPanel('Narrow Deconvoluted', plotOutput('covarianceplotdeconvoluted', height=800)),
-    tabPanel('Wide Deconvoluted', plotOutput('widecovarianceplotdeconvoluted', height=800))
+    tabPanel('Deconvoluted', plotOutput('covarianceplotdeconvoluted', height=800))
+    #tabPanel('Wide Deconvoluted', plotOutput('widecovarianceplotdeconvoluted', height=800))
 ),
 
 tags$hr(),
@@ -327,8 +327,6 @@ uiOutput('inVar2'),
 
 uiOutput('linepreferenceelementui'),
 
-uiOutput('deconvolutionui'),
-
 uiOutput('calTypeInput'),
 
 uiOutput('xgbtypeui'),
@@ -395,6 +393,7 @@ uiOutput('comptonMaxInput'),
 
 uiOutput('dependenttransformationui'),
 
+uiOutput('deconvolutionui'),
 uiOutput('transformationui'),
 uiOutput('compressui'),
 uiOutput('energyrangeui'),
@@ -541,7 +540,7 @@ tabPanel("Variables",
     downloadButton("variablePlot", "Plot"),
     uiOutput('varelementui')),
 
-#tabPanel("test", dataTableOutput('testingagain')),
+tabPanel("test", dataTableOutput('holdframetest')),
 
 #tabPanel("Testing", dataTableOutput('testtable')),
 #tabPanel("Testing2", dataTableOutput('testtable2')),
@@ -610,8 +609,8 @@ tabPanel('Counts',
 tabsetPanel(
 tabPanel('Narrow', dataTableOutput('myvaltable1')),
 tabPanel('Wide', dataTableOutput('myvaltablewide')),
-tabPanel('Narrow Deconvoluted', dataTableOutput('myvaltabledeconvoluted')),
-tabPanel('Wide Deconvoluted', dataTableOutput('myvaltablewidedeconvoluted'))
+tabPanel('Deconvoluted', dataTableOutput('myvaltabledeconvoluted'))
+#tabPanel('Wide Deconvoluted', dataTableOutput('myvaltablewidedeconvoluted'))
 ))
 
 ))
