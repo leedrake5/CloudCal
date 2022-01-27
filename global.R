@@ -7938,6 +7938,12 @@ spectra_frame_deconvolution_convert <- function(a_tibble){
     return(spectra_frame)
 }
 
+spectra_frame_baseline_convert <- function(a_tibble){
+    
+    spectra_frame <- data.frame(Spectrum=a_tibble$.path, Energy=a_tibble$.spectra[[1]]$energy_kev, CPS=a_tibble$.spectra[[1]]$baseline)
+    return(spectra_frame)
+}
+
 intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
     
     deconvolution_frame <- as.data.frame(deconvolution_tibble)
@@ -7959,12 +7965,13 @@ deconvolute_complete <- function(spectra_frame){
         xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = 5), .iter = 20) %>%
         xrf_add_baseline_snip(.values = .spectra$smooth, iterations = 20) %>%
         xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = 40, peaks = xrf_energies("everything"))
+    baseline_spectra <- spectra_frame_baseline_convert(deconvoluted_spectra_tibble)
     deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
     deconvoluted_peaks <- intensity_frame_deconvolution_convert(deconvoluted_spectra_tibble$.deconvolution_peaks[[1]], name=spectrum_name)
-    return(list(Spectra=deconvoluted_spectra, Areas=deconvoluted_peaks))
+    return(list(Spectra=deconvoluted_spectra, Areas=deconvoluted_peaks, Baseline=baseline_spectra))
 }
 
-spectra_gls_deconvolute <- function(spectra_frame, cores=1){
+spectra_gls_deconvolute <- function(spectra_frame, baseline=FALSE, cores=1){
     
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
     if(cores==1){
@@ -7992,13 +7999,21 @@ spectra_gls_deconvolute <- function(spectra_frame, cores=1){
     }
     only_spectra_list <- list()
     only_areas_list <- list()
+    only_background_list <- list()
     for(i in 1:length(new_spectra_list)){
         only_spectra_list[[i]] <- new_spectra_list[[i]]$Spectra
         only_areas_list[[i]] <- new_spectra_list[[i]]$Areas
+        if(baseline==TRUE){only_background_list[[i]] <- new_spectra_list[[i]]$Baseline}
     }
     new_spectra_frame <- as.data.frame(rbindlist(only_spectra_list))
     new_area_frame <- as.data.frame(rbindlist(only_areas_list))
-    return(list(Spectra=new_spectra_frame, Areas=new_area_frame))
+    if(baseline==TRUE){new_baseline_frame <- as.data.frame(rbindlist(only_background_list))}
+    if(baseline==FALSE){
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame))
+    } else if(baseline==TRUE){
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Baseline=new_baseline_frame))
+    }
+    
 }
 
 deconvoltuionIntensityFrame <- function(deconvolution_areas, intensity_frame){
