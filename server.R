@@ -389,12 +389,12 @@ shinyServer(function(input, output, session) {
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                 }
-                spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores))
+                tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1))
             } else if("Deconvoluted" %in% names(calMemory$Calibration)){
                 if("Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                     calMemory$Calibration$Deconvoluted
                 } else if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
-                    spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores))
+                    tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1))
                 }
             }
             
