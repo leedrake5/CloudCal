@@ -25,7 +25,7 @@ new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.p
 if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
-list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr")
+list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
@@ -60,13 +60,23 @@ if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]==
     }
 }
 
+if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
+    tryCatch(install.packages("Packages/Peaks_0.2.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
+} else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
+    tryCatch(install.packages("Packages/Peaks_0.2.tar.gz", repos=NULL), error=function(e) NULL)
+} else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
+    tryCatch(install.packages("Packages/Peaks_0.2.tar.gz", repos=NULL), error=function(e) NULL)
+}
+
 if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
     tryCatch(install.packages("Packages/xrftools_0.0.1.9000.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    tryCatch(install.packages("xrftools_0.0.1.9000.tar.gz", repos=NULL), error=function(e) NULL)
+    tryCatch(install.packages("Packages/xrftools_0.0.1.9000.tar.gz", repos=NULL), error=function(e) NULL)
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    tryCatch(install.packages("xrftools_0.0.1.9000.tar.gz", repos=NULL), error=function(e) NULL)
+    tryCatch(install.packages("Packages/xrftools_0.0.1.9000.tar.gz", repos=NULL), error=function(e) NULL)
 }
+
+
 
 #sourceCpp("pdz.cpp")
 
@@ -118,8 +128,10 @@ tryCatch(library(arm), error=function(e) NULL)
 tryCatch(library(brnn), error=function(e) NULL)
 library(kernlab)
 tryCatch(library(rBayesianOptimization), error=function(e) NULL)
-tryCatch(library(xrftools), error=function(e) NULL)
-library(tidyverse)
+library(xrftools)
+#tryCatch(library(tidyverse))
+library(magrittr)
+library(Peaks)
 enableJIT(3)
 
 options(digits=12)
