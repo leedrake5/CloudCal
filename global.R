@@ -25,7 +25,7 @@ new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.p
 if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
-list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "tidyverse")
+list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
@@ -33,9 +33,9 @@ if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="source"))
 }
 
-if(!"xrftools" %in% installed.packages()[,"Package"]){
-    tryCatch(devtools::install_github("paleolimbot/xrftools"), error=function(e) NULL)
-}
+#if(!"xrftools" %in% installed.packages()[,"Package"]){
+#    tryCatch(devtools::install_github("paleolimbot/xrftools"), error=function(e) NULL)
+#}
 
 
 
@@ -58,6 +58,14 @@ if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]==
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
         tryCatch(install.packages("Packages/rPDZ_1.1.tar.gz", repos=NULL), error=function(e) NULL)
     }
+}
+
+if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
+    tryCatch(install.packages("Packages/xrftools_0.0.1.9000.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
+} else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
+    tryCatch(install.packages("xrftools_0.0.1.9000.tar.gz", repos=NULL), error=function(e) NULL)
+} else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
+    tryCatch(install.packages("xrftools_0.0.1.9000.tar.gz", repos=NULL), error=function(e) NULL)
 }
 
 #sourceCpp("pdz.cpp")
@@ -7959,16 +7967,21 @@ intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
 }
 
 deconvolute_complete <- function(spectra_frame){
-    spectrum_name <- unique(spectra_frame$Spectrum)
-    spectra_tibble <- tibble_convert(spectra_frame)
-    deconvoluted_spectra_tibble <-spectra_tibble %>%
-        xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = 5), .iter = 20) %>%
-        xrf_add_baseline_snip(.values = .spectra$smooth, iterations = 20) %>%
-        xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = 40, peaks = xrf_energies("everything"))
-    baseline_spectra <- spectra_frame_baseline_convert(deconvoluted_spectra_tibble)
-    deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
-    deconvoluted_peaks <- intensity_frame_deconvolution_convert(deconvoluted_spectra_tibble$.deconvolution_peaks[[1]], name=spectrum_name)
-    return(list(Spectra=deconvoluted_spectra, Areas=deconvoluted_peaks, Baseline=baseline_spectra))
+    if(is.data.frame(spectra_frame)){
+        spectrum_name <- unique(spectra_frame$Spectrum)
+        spectra_tibble <- tibble_convert(spectra_frame)
+        deconvoluted_spectra_tibble <-spectra_tibble %>%
+            xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = 5), .iter = 20) %>%
+            xrf_add_baseline_snip(.values = .spectra$smooth, iterations = 20) %>%
+            xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = 40, peaks = xrf_energies("everything"))
+        baseline_spectra <- spectra_frame_baseline_convert(deconvoluted_spectra_tibble)
+        deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
+        deconvoluted_peaks <- intensity_frame_deconvolution_convert(deconvoluted_spectra_tibble$.deconvolution_peaks[[1]], name=spectrum_name)
+        return(list(Spectra=deconvoluted_spectra, Areas=deconvoluted_peaks, Baseline=baseline_spectra))
+    } else if(!is.data.frame(spectra_frame)){
+        NULL
+    }
+    
 }
 
 spectra_gls_deconvolute <- function(spectra_frame, baseline=FALSE, cores=1){
@@ -7994,7 +8007,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=FALSE, cores=1){
         #new_spectra_frame <- foreach(i=1:length(spectra_list), .combine="rbind") %dopar% {
             #deconvolute_complete(spectra_list[[i]])
         #}
-        new_spectra_list <- pblapply(spectra_list, deconvolute_complete, cl=my.cluster)
+        new_spectra_list <- pblapply(spectra_list,  deconvolute_complete, cl=my.cluster)
         parallel::stopCluster(cl = my.cluster)
     }
     only_spectra_list <- list()

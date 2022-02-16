@@ -16023,7 +16023,7 @@ content = function(file){
         
         myDeconvolutedValData <- reactive({
             
-            spectra_gls_deconvolute(myValData())
+            tryCatch(spectra_gls_deconvolute(myValData(), cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(myValData(), cores=1))
             
         })
         
@@ -16175,8 +16175,8 @@ content = function(file){
         
         myDeconvolutedValDataList <- reactive({
             
-            spectra_gls_deconvolute(myValData(), cores=as.numeric(my.cores))
-            
+            tryCatch(spectra_gls_deconvolute(myValData(), cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(myValData(), cores=1))
+
         })
         
         myDeconvolutedValData <- reactive({
