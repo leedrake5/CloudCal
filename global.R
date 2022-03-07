@@ -8041,7 +8041,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=FALSE, cores=1){
     
 }
 
-deconvoltuionIntensityFrame <- function(deconvolution_areas, intensity_frame){
+deconvolutionIntensityFrame <- function(deconvolution_areas, intensity_frame){
     
     k_alpha <- deconvolution_areas
     colnames(k_alpha) <- paste0(colnames(k_alpha), ".K.alpha")

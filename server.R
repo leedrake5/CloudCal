@@ -1132,7 +1132,7 @@ shinyServer(function(input, output, session) {
         spectraDataDeconvolution <- reactive({
             req(dataHoldDeconvolution(), elementallinestousepre(), linevalues[["DF"]])
 
-            line.data <- deconvoltuionIntensityFrame(deconvolution_areas=dataHoldDeconvolution()$Areas, intensity_frame=spectraData())
+            line.data <- deconvolutionIntensityFrame(deconvolution_areas=dataHoldDeconvolution()$Areas, intensity_frame=spectraData())
             
             line.data
             
@@ -16282,7 +16282,7 @@ content = function(file){
             #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
             if(valDataType()=="Spectra"){val.line.table <-
-                deconvoltuionIntensityFrame(myDeconvolutedValDataArea(), fullInputValCounts())}
+                deconvolutionIntensityFrame(myDeconvolutedValDataArea(), fullInputValCounts())}
                             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
