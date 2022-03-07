@@ -8066,12 +8066,13 @@ deconvolutionIntensityFrame <- function(deconvolution_areas, intensity_frame){
     
     reduced_intensities <- all_intensities[,c("Spectrum", elements)]
     
-    deconvoluted_intensities <- intensity_frame
-    for(i in colnames(intensity_frame)){
-        if(i %in% colnames(reduced_intensities)){
-            deconvoluted_intensities[,i] <- reduced_intensities[,i]
-        }
+    intensity_frame_reduced <- intensity_frame[, !colnames(intensity_frame) %in% elements]
+    if(is.data.frame(intensity_frame_reduced)==FALSE){
+        intensity_frame_reduced = data.frame(Spectrum = intensity_frame_reduced)
     }
+    
+    deconvoluted_intensities <- merge(reduced_intensities, intensity_frame_reduced, by="Spectrum")
+    
     return(deconvoluted_intensities)
 }
 
