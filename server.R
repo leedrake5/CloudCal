@@ -3812,7 +3812,7 @@ shinyServer(function(input, output, session) {
                            init_grid_dt = NULL,
                            init_points = parameter_space_dimensions,
                            n_iter = round(parameter_space_dimensions/20, 0)+1,
-                           acq = "ucb",
+                           acq = "ei",
                            kappa = 2.576,
                            eps = 0.0,
                            verbose = TRUE)
@@ -3997,7 +3997,7 @@ shinyServer(function(input, output, session) {
                                init_grid_dt = NULL,
                                init_points = parameter_space_dimensions,
                                n_iter = round(parameter_space_dimensions/20, 0)+1,
-                               acq = "ucb",
+                               acq = "ei",
                                kappa = 2.576,
                                eps = 0.0,
                                verbose = TRUE)
