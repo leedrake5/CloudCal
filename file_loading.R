@@ -55,13 +55,16 @@ csvFrame <- function(filepath, filename=NULL){
     
     ret <- read.csv(file=filepath, sep=",", header=FALSE)
     n <- nrow(ret)
+    if(ret[nrow(ret), "V1"]=="2048"){
+        ret[,"V1"] <- c(ret$V1[1:21], as.vector(seq(0, 2047, 1)))
+    }
     
     return.res <- as.numeric(as.vector(ret[ret$V1 %in% "eV per channel",]$V2))/1000
-    return.chan.counts <-as.numeric(as.vector(ret$V1[(n-2047):n]))
+    return.chan.counts <-as.numeric(as.vector(ret$V1[(n-2048):n]))
     return.energy <- return.chan.counts*return.res
     
-    return.live.time <- as.numeric(as.vector(ret[ret$V1 %in% "Live Time",]$V2))
-    return.counts <-as.numeric(as.vector(ret$V2[(n-2047):n]))
+    return.live.time <- round(as.numeric(as.vector(ret[ret$V1 %in% "Live Time",]$V2)), 2)
+    return.counts <-as.numeric(as.vector(ret$V2[(n-2048):n]))
     return.cps <- return.counts/return.live.time
     
     data.frame(Energy=return.energy, CPS=return.cps, Spectrum=filename)
