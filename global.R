@@ -63,7 +63,7 @@ if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]==
 if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
     tryCatch(install.packages("Packages/Peaks_0.2.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
 } else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    tryCatch(install.packages("Packages/Peaks_0.2.tar.gz", repos=NULL), error=function(e) NULL)
+    tryCatch(install.packages("Packages/Peaks_0.2.tgz", repos=NULL), error=function(e) NULL)
 } else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
     tryCatch(install.packages("Packages/Peaks_0.2.tar.gz", repos=NULL), error=function(e) NULL)
 }
@@ -71,7 +71,7 @@ if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
     tryCatch(install.packages("Packages/xrftools_0.0.1.9000.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    tryCatch(install.packages("Packages/xrftools_0.0.1.9000.tar.gz", repos=NULL), error=function(e) NULL)
+    tryCatch(install.packages("Packages/xrftools_0.0.1.9000.tgz", repos=NULL), error=function(e) NULL)
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
     tryCatch(install.packages("Packages/xrftools_0.0.1.9000.tar.gz", repos=NULL), error=function(e) NULL)
 }
