@@ -1865,8 +1865,10 @@ shinyServer(function(input, output, session) {
 
             
             concentration <- as.vector(as.numeric(unlist(concentration.table[,input$calcurveelement])))
+            concentration.mod <- concentration.table[,c("Spectrum", element)]
             
-            hold.frame <- data.frame(spectra.line.table, Concentration=concentration)
+            #hold.frame <- data.frame(spectra.line.table, Concentration=concentration)
+            hold.frame <- merge(spectra.line.table, concentration.mod, by="Spectrum")
             
             hold.frame[complete.cases(hold.frame),]
         })
