@@ -520,6 +520,27 @@ shinyServer(function(input, output, session) {
             "U.table" = U.table)
         })
         
+        
+        output$comptonminspectraui <- renderUI({
+            
+            if(input$normspectra==3){
+                numericInput('comptonminspectra', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%'),
+            } else if(normspectra!=3){
+                NULL
+            }
+            
+        })
+        
+        output$comptonmaxspectraui <- renderUI({
+            
+            if(input$normspectra==3){
+                numericInput('comptonmaxspectra', label=h6("Max"), step=0.001, value=10.2, min=0, max=50, width='30%')
+            } else if(normspectra!=3){
+                NULL
+            }
+            
+        })
+        
             
             # Expression that generates a histogram. The expression is
             # wrapped in a call to renderPlot to indicate that:
@@ -1259,6 +1280,69 @@ shinyServer(function(input, output, session) {
                #     spectraDataDeconvolution()
                # }
                 
+            
+        })
+        
+        
+        output$comptonminintensitiesui <- renderUI({
+            
+            if(input$normintensities==3){
+                numericInput('comptonminintensities', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%'),
+            } else if(normintensities!=3){
+                NULL
+            }
+            
+        })
+        
+        output$comptonmaxintensitiesui <- renderUI({
+            
+            if(input$normintensities==3){
+                numericInput('comptonmaxintensities', label=h6("Max"), step=0.001, value=10.2, min=0, max=50, width='30%')
+            } else if(normintensities!=3){
+                NULL
+            }
+            
+        })
+        
+        totalSpectraCounts <- reactive({
+            
+            spectra <- dataHold()
+            
+            spectra$CPS[spectra$CPS<0] <- 0.0000000000001
+            
+            energy.min <-  0.7
+            
+            energy.max <- 37
+            
+            compress <- "100 eV"
+            
+            transformation <- "None"
+            
+            
+            spectra <- as.data.frame(spectra, stringsAsFactors=FALSE)
+            
+            
+            spectra$Energy <- if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)
+            } else if(compress=="50 eV"){
+                round(spectra$Energy/0.05)*0.05
+            } else if(compress=="25 eV"){
+                round(spectra$Energy/0.025)*0.025
+            }
+            
+            spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
+            
+            spectra <- data.table(spectra)
+            spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
+            
+            data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
+            
+            #test <- apply(test, 2, as.numeric)
+            colnames(data) <- make.names(colnames(data))
+            #data <- data[,complete.cases(data)]
+            
+            total.counts <- rowSums(data[,-1], na.rm=TRUE)
+            
+            data.frame(Spectrum=data$Spectrum, Total=total.counts)
             
         })
         
