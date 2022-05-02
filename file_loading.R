@@ -2096,29 +2096,30 @@ intensity_fix <- function(calibration, keep_labels=TRUE){
     return(calibration)
 }
 
-calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE, deconvolution=FALSE){
+calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE, deconvolution=TRUE){
     if(is.null(Calibration)){
         Calibration <- readRDS(calibration.directory)
     }
+    
+    elements <- names(Calibration$Intensities)[!names(Calibration$Intensities) %in% "Spectrum"]
+
     
     if(sort==TRUE){
         Calibration$Values <- Calibration$Values[order(Calibration$Values$Spectrum),]
         Calibration$Spectra <- Calibration$Spectra[order(Calibration$Spectra$Spectrum, Calibration$Spectra$Energy),]
         Calibration$Values <- Calibration$Values[Calibration$Values$Spectrum %in% unique(Calibration$Spectra$Spectrum),]
         Calibration$Spectra <- Calibration$Spectra[Calibration$Spectra$Spectrum %in% unique(Calibration$Values$Spectrum),]
+        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)[,-1]
+        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)[,-1]
     }
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
     
-    elements <- names(Calibration$Intensities)[!names(Calibration$Intensities) %in% "Spectrum"]
-
     
     if(deconvolution==TRUE){
         if(!"Deconvoluted" %in% names(Calibration)){
-            Calibration$Deconvoluted$Spectra <- spectra_gls_deconvolute(Calibration$Spectra)
-            Calibration$Deconvoluted$Intensities <- narrowLineTable(spectra=Calibration$Deconvoluted$Spectra, definition.table=Calibration$Definitions, elements=elements)[,-1]
-            Calibration$Deconvoluted$WideIntensities <- wideLineTable(spectra=Calibration$Deconvoluted$Spectra, definition.table=Calibration$Definitions, elements=elements)[,-1]
-        }
+            Calibration$Deconvoluted <-                 tryCatch(spectra_gls_deconvolute(Calibration$Spectra, cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(Calibration$Spectra, cores=1))
+            }
     }
     
     Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){

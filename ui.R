@@ -487,6 +487,39 @@ tabPanel("Cross Validation",
 
 ),
 
+tabPanel("External Validation",
+    splitLayout(cellWidths = c("50%", "50%"),
+        column(width=12,
+        div(
+        style = "position:relative",
+        plotOutput("calcurveplotsexternal", height = 455,  click = "plot_cal_click_external",
+            dblclick = "plot_cal_dblclick_external",
+            brush = brushOpts(id = "plot_cal_brush_external", resetOnNew = TRUE),
+            hover = hoverOpts("plot_hovercal_external", delay = 100, delayType = "debounce")),
+            uiOutput("hover_infocal_external")),
+        actionButton("cropcalexternal", "Zoom"),
+        actionButton("zerocalexternal", "Zero")
+
+        ),
+        column(width=12,
+        div(
+        style = "position:relative",
+        plotOutput("valcurveplotsexternal", height = 455, click = "plot_val_click_external",
+            dblclick = "plot_val_dblclick_external",
+            brush = brushOpts(id = "plot_val_brush_external", resetOnNew = TRUE),
+            hover = hoverOpts("plot_hoverval_external", delay = 100, delayType = "debounce")),
+            uiOutput("hover_infoval_external")),
+        actionButton("cropvalexternal", "Zoom"),
+        actionButton("zerovalexternal", "Zero")
+
+)),
+        tags$hr(),
+        tags$hr(),
+        downloadButton('downloadcloudplotexternal', "Plot"),
+        selectInput('imagesizeexternal', "Image Size", choices=c("Small", "Large"), selected="Large")
+
+),
+
 tabPanel("Models", dataTableOutput("models")),
 
 
