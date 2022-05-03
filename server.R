@@ -1,28 +1,3 @@
-library(shiny)
-library(ggplot2)
-library(pbapply)
-library(reshape2)
-library(dplyr)
-library(DT)
-library(gridExtra)
-library(rhandsontable)
-library(broom)
-library(shinyjs)
-library(formattable)
-library(markdown)
-library(rmarkdown)
-library(XML)
-library(corrplot)
-library(scales)
-library(caret)
-library(randomForest)
-library(DescTools)
-#library(prospectr)
-library(pls)
-#library(baseline)
-library(doParallel)
-pdf(NULL)
-
 
 options(shiny.maxRequestSize=30*1024^40)
 
@@ -37,7 +12,7 @@ shinyServer(function(input, output, session) {
         if (is.null(existingCalFile)) return(NULL)
         
         
-        Calibration <- calRDS(existingCalFile$datapath, xgb_raw=FALSE)
+        Calibration <- calRDS(existingCalFile$datapath, xgb_raw=FALSE, sort=TRUE)
         #Calibration <- readRDS(existingCalFile$datapath)
 
         Calibration
@@ -524,7 +499,7 @@ shinyServer(function(input, output, session) {
         output$comptonminspectraui <- renderUI({
             
             if(input$normspectra==3){
-                numericInput('comptonminspectra', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%'),
+                numericInput('comptonminspectra', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%')
             } else if(normspectra!=3){
                 NULL
             }
@@ -1287,7 +1262,7 @@ shinyServer(function(input, output, session) {
         output$comptonminintensitiesui <- renderUI({
             
             if(input$normintensities==3){
-                numericInput('comptonminintensities', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%'),
+                numericInput('comptonminintensities', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%')
             } else if(normintensities!=3){
                 NULL
             }
@@ -1933,7 +1908,8 @@ shinyServer(function(input, output, session) {
         
         
         holdFrame <- reactive({
-            req(concentrationTable(), spectraLineTable())
+            req(input$calcurveelement, concentrationTable(), spectraLineTable())
+            
             spectra.line.table <- if(input$linepreferenceelement=="Narrow"){
                     spectraLineTable()
                 } else if(input$linepreferenceelement=="Wide"){
@@ -1948,8 +1924,9 @@ shinyServer(function(input, output, session) {
             spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum,]
 
             
-            concentration <- as.vector(as.numeric(unlist(concentration.table[,input$calcurveelement])))
-            concentration.mod <- concentration.table[,c("Spectrum", element)]
+            #concentration <- as.vector(as.numeric(unlist(concentration.table[,input$calcurveelement])))
+            concentration.mod <- concentration.table[,c("Spectrum", input$calcurveelement)]
+            colnames(concentration.mod) <- c("Spectrum", "Concentration")
             
             #hold.frame <- data.frame(spectra.line.table, Concentration=concentration)
             hold.frame <- merge(spectra.line.table, concentration.mod, by="Spectrum")
@@ -7852,7 +7829,7 @@ shinyServer(function(input, output, session) {
         #})
         
         observeEvent(modelParameters(), priority=77, {
-            #req(input$calcurvelement, input$radiocal)
+            #req(input$calcurveelement, input$radiocal)
             valFrameVal$val.frame <- tryCatch(valFrame(), error=function(e) NULL)
         })
         
