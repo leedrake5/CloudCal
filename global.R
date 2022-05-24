@@ -8036,7 +8036,27 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=FALSE, cores=1){
               type = "PSOCK"
               )
             doParallel::registerDoParallel(cl = my.cluster)
-            clusterExport(my.cluster, list("as_tibble", "tibble_convert", "spectra_frame_deconvolution_convert", "deconvolute_complete", "xrf_add_deconvolution_gls"))
+            
+            ## Pull libraries
+            clusterEvalQ(cl= my.cluster, {library(tidyverse)
+              library(xrftools)
+            })
+            
+            ## Export all necessary functions to the instances
+            clusterExport(my.cluster, 
+                          list("as_tibble"
+                               , "tibble_convert"
+                               , "spectra_frame_deconvolution_convert"
+                               , "deconvolute_complete_2"
+                               , "xrf_add_deconvolution_gls"
+                               , "spectra_frame_baseline_convert"
+                               , "intensity_frame_deconvolution_convert"
+                               , "atomic_order_vector"
+                               , "atomic_order"
+                               , 'fluorescence.lines'
+                               , "line_strip"
+                          )
+            )
         } else if(get_os()!="windows"){
             my.cluster <- parallel::makeCluster(
               cores,
