@@ -4019,9 +4019,13 @@ treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
+    } else if(radiocal==8 && xgbtype=="Dart"){
+        sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==9 && xgbtype=="Tree"){
+        sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Dart"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
@@ -4054,9 +4058,9 @@ xgbTypeUI <- function(radiocal, selection){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8){
-        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Linear")
+        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Dart", "Linear"), selected="Linear")
     } else if(radiocal==9){
-        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Linear")
+        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Dart", "Linear"), selected="Linear")
     } else if(radiocal==10){
         selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
     } else if(radiocal==11){
@@ -4066,6 +4070,78 @@ xgbTypeUI <- function(radiocal, selection){
         selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
     } else if(radiocal==13){
         selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
+    }
+}
+
+dropTreeUI <- function(radiocal, selection, xgbtype="Dart"){
+    if(radiocal==0){
+        sliderInput("droptree", label="Drop Trees", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype=="Dart"){
+        sliderInput("droptree", label="Drop Trees", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==8 && xgbtype!="Dart"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Dart"){
+        sliderInput("droptree", label="Drop Trees", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==9 && xgbtype!="Dart"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    }  else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
+skipDropUI <- function(radiocal, selection, xgbtype="Dart"){
+    if(radiocal==0){
+        sliderInput("skipdrop", label="Drop Trees", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype=="Dart"){
+        sliderInput("skipdrop", label="Skip Drop", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==8 && xgbtype!="Dart"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Dart"){
+        sliderInput("skipdrop", label="Skip Drop", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==9 && xgbtype!="Dart"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    }  else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
     }
 }
 

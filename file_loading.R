@@ -616,7 +616,7 @@ wideLineTable <- function(spectra, definition.table, elements){
 }
 
 ###Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -744,6 +744,18 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
         treedepth
     }
     
+    droptree <- if(is.null(droptree)){
+        "0.3-0.3"
+    } else if(!is.null(droptree)){
+        droptree
+    } 
+    
+    skipdrop <- if(is.null(skipdrop)){
+        "0.3-0.3"
+    } else if(!is.null(skipdrop)){
+        skipdrop
+    }  
+    
     xgbtype <- if(is.null(xgbtype)){
         "Tree"
     } else if(!is.null(xgbtype)){
@@ -864,6 +876,8 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
                 NeuralWD=neuralweightdecay,
                 NeuralMI=neuralmaxiterations,
                 TreeDepth=treedepth,
+                DropTree=droptree,
+                SkipDrop=skipdrop,
                 xgbType=xgbtype,
                 xgbAlpha=xgbalpha,
                 xgbGamma=xgbgamma,
@@ -886,7 +900,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -910,6 +924,8 @@ calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL,
                 NeuralWD=neuralweightdecay,
                 NeuralMI=neuralmaxiterations,
                 TreeDepth=treedepth,
+                DropTree=droptree,
+                SkipDrop=skipdrop,
                 xgbType=xgbtype,
                 xgbAlpha=xgbalpha,
                 xgbGamma=xgbgamma,
@@ -969,6 +985,8 @@ deleteCalConditions <- function(element, number.of.standards){
     neuralmaxiterations <- as.numeric(1000)
     xgbtype <- as.character("Tree")
     treedepth <- as.character("5-5")
+    droptree <- as.character("0.3-0.3")
+    skipdrop <- as.character("0.3-0.3")
     xgbalpha <- as.character("0.1-0.1")
     xgbgamma <- as.character("0-0")
     xgbeta <- as.character("0.1-0.1")
@@ -1007,6 +1025,8 @@ deleteCalConditions <- function(element, number.of.standards){
     NeuralWD=neuralweightdecay,
     NeuralMI=neuralmaxiterations,
     TreeDepth=treedepth,
+    DropTree=droptree,
+    SkipDrop=skipdrop,
     xgbType=xgbtype,
     xgbAlpha=xgbalpha,
     xgbGamma=xgbgamma,
@@ -1064,6 +1084,8 @@ defaultCalConditions <- function(element, number.of.standards){
     neuralmaxiterations <- as.numeric(1000)
     xgbtype <- as.character("Tree")
     treedepth <- as.character("5-5")
+    droptree=as.character("0.3-0.3")
+    skipdrop=as.character("0.3-0.3")
     xgbalpha <- as.character("0.1-0.1")
     xgbgamma <- as.character("0-0")
     xgbeta <- as.character("0.1-0.1")
@@ -1102,6 +1124,8 @@ defaultCalConditions <- function(element, number.of.standards){
         NeuralWD=neuralweightdecay,
         NeuralMI=neuralmaxiterations,
         TreeDepth=treedepth,
+        DropTree=droptree,
+        SkipDrop=skipdrop,
         xgbType=xgbtype,
         xgbAlpha=xgbalpha,
         xgbGamma=xgbgamma,
@@ -1288,12 +1312,32 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     treedepth <- if("TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
             paste0(calList[[element]][[2]]$bestTune$max_depth, "-", calList[[element]][[2]]$bestTune$max_depth)
-        } else if(!cal.condition==8 | !cal.condition==9 | xgbtype=="Linear"){
+        } else if(!cal.condition==8 | !cal.condition==9 | xgbtype!="Tree"){
             default.cal.conditions$CalTable$TreeDepth
         }
     } else if(!"TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$TreeDepth
     }
+    
+    droptree <- if("DropTree" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Dart"){
+            paste0(calList[[element]][[2]]$bestTune$drop_tree, "-", calList[[element]][[2]]$bestTune$drop_tree)
+        } else if(!cal.condition==8 | !cal.condition==9 | xgbtype!="Dart"){
+            default.cal.conditions$CalTable$DropTree
+        }
+    } else if(!"DropTree" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$DropTree
+    } 
+    
+    skipdrop <- if("SkipDrop" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Dart"){
+            paste0(calList[[element]][[2]]$bestTune$skip_drop, "-", calList[[element]][[2]]$bestTune$skip_drop)
+        } else if(!cal.condition==8 | !cal.condition==9 | xgbtype!="Dart"){
+            default.cal.conditions$CalTable$SkipDrop
+        }
+    } else if(!"SkipDrop" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$SkipDrop
+    }  
     
     xgbalpha <- if("xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==8 | cal.condition==9 && xgbtype=="Linear"){
@@ -1306,7 +1350,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     }
     
     xgbgamma <- if("xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
             paste0(calList[[element]][[2]]$bestTune$gamma, "-", calList[[element]][[2]]$bestTune$gamma)
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbGamma[1])
@@ -1336,7 +1380,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     }
     
     xgbsubsample <- if("xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
             paste0(calList[[element]][[2]]$bestTune$subsample, "-", calList[[element]][[2]]$bestTune$subsample)
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
@@ -1346,7 +1390,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     }
     
     xgbcolsample <- if("xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
             paste0(calList[[element]][[2]]$bestTune$colsample_bytree, "-", calList[[element]][[2]]$bestTune$colsample_bytree)
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
@@ -1356,7 +1400,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     }
     
     xgbminchild <- if("xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
            calList[[element]][[2]]$bestTune$min_child_weight
         } else if(!cal.condition==8 | !cal.condition==9){
             as.numeric(as.character(imported.cal.conditions$CalTable$xgbMinChild[1]))
@@ -1517,6 +1561,8 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         NeuralWD=neuralweightdecay,
         NeuralMI=neuralmaxiterations,
         TreeDepth=treedepth,
+        DropTree=droptree,
+        SkipDrop=skipdrop,
         xgbType=xgbtype,
         xgbAlpha=xgbalpha,
         xgbGamma=xgbgamma,
@@ -1691,7 +1737,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     }
     
     treedepth <- if("TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
             as.character(imported.cal.conditions$CalTable$TreeDepth[1])
         } else if(!cal.condition==8 | !cal.condition==9 | xgbtype=="Linear"){
             default.cal.conditions$CalTable$TreeDepth
@@ -1699,6 +1745,27 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     } else if(!"TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$TreeDepth
     }
+    
+    droptree <- if("DropTree" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Dart"){
+            as.character(imported.cal.conditions$CalTable$DropTree[1])
+        } else if(!cal.condition==8 | !cal.condition==9 | xgbtype!="Dart"){
+            default.cal.conditions$CalTable$DropTree
+        }
+    } else if(!"DropTree" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$DropTree
+    } 
+    
+    skipdrop <- if("SkipDrop" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype=="Dart"){
+            as.character(imported.cal.conditions$CalTable$SkipDrop[1])
+        } else if(!cal.condition==8 | !cal.condition==9 | xgbtype!="Dart"){
+            default.cal.conditions$CalTable$SkipDrop
+        }
+    } else if(!"DropTree" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$SkipDrop
+    }  
+    
     
     xgbalpha <- if("xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==8 | cal.condition==9 && xgbtype=="Linear"){
@@ -1711,7 +1778,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     }
     
     xgbgamma <- if("xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
             as.character(imported.cal.conditions$CalTable$xgbGamma[1])
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbGamma[1])
@@ -1741,7 +1808,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     }
     
     xgbsubsample <- if("xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
             as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
@@ -1751,7 +1818,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     }
     
     xgbcolsample <- if("xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
             as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
         } else if(!cal.condition==8 | !cal.condition==9){
             as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
@@ -1761,7 +1828,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     }
     
     xgbminchild <- if("xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
             as.numeric(as.character(imported.cal.conditions$CalTable$xgbMinChild[1]))
         } else if(!cal.condition==8 | !cal.condition==9){
             as.numeric(as.character(imported.cal.conditions$CalTable$xgbMinChild[1]))
@@ -1927,6 +1994,8 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     NeuralWD=neuralweightdecay,
     NeuralMI=neuralmaxiterations,
     TreeDepth=treedepth,
+    DropTree=droptree,
+    SkipDrop=skipdrop,
     xgbType=xgbtype,
     xgbAlpha=xgbalpha,
     xgbGamma=xgbgamma,

@@ -348,6 +348,10 @@ uiOutput('neuralmaxiterationsui'),
 
 uiOutput('treedepthui'),
 
+uiOutput('droptreeui'),
+
+uiOutput('skipdropui'),
+
 uiOutput('xgbalphaui'),
 
 uiOutput('xgbgammaui'),

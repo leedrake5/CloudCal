@@ -2105,6 +2105,14 @@ shinyServer(function(input, output, session) {
             calConditions$hold[["CalTable"]]$TreeDepth <<- paste0(input$treedepth[1], "-", input$treedepth[2])
         })
         
+         observeEvent(input$droptree, {
+            calConditions$hold[["CalTable"]]$DropTree <<- paste0(input$droptree[1], "-", input$droptree[2])
+        })
+        
+         observeEvent(input$skipdrop, {
+            calConditions$hold[["CalTable"]]$SkipDrop <<- paste0(input$skipdrop[1], "-", input$skipdrop[2])
+        }) 
+        
         observeEvent(input$xgbeta, {
             calConditions$hold[["CalTable"]]$xgbEta <<- paste0(input$xgbeta[1], "-", input$xgbeta[2])
         })
@@ -3923,6 +3931,220 @@ shinyServer(function(input, output, session) {
             
         })
         
+        
+        xgbdartIntensityParameters <- reactive(label="xgbdartIntensityParameters", {
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                foresthold$cvrepeats
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            treedepth <- xgboostTreeDepthSelection()
+            droptree <- xgboostDropTreeSelection()
+            skipdrop <- xgboostSkipDropSelection()   
+            eta <- xgboostEtaSelection()
+            gamma <- xgboostGammaSelection()
+            subsample <- xgboostSubSampleSelection()
+            colsample <- xgboostColSampleSelection()
+            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treedepth=paste0(treedepth[1], "-", treedepth[2]), droptree=paste0(droptree[1], "-", droptree[2]), skipdrop=paste0(skipdrop[1], "-", skipdrop[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=xgboostMinChildSelection()), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+        })
+        xgbdartIntensityModelData <- reactive(label="xgboostDartIntensityModelData", {
+            predictFrameForestGen(spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=xgbdartIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=xgbdartIntensityParameters()$Intercept, slopes=xgbdartIntensityParameters()$Slope, norm.type=xgbdartIntensityParameters()$CalTable$NormType, norm.min=xgbdartIntensityParameters()$CalTable$Min, norm.max=xgbdartIntensityParameters()$CalTable$Max, data.type=dataType(), y_min=yMin(), y_max=yMax())
+        })
+        xgbdartIntensityModelSet <- reactive(label="xgbdartIntensityModelSet", {
+            list(data=predictFrameCheck(xgbdartIntensityModelData()), parameters=xgbdartIntensityParameters())
+        })
+        xgbdartIntensityModel <- reactive(label="xgbdartIntensityModel", {
+            req(input$radiocal, input$calcurveelement)
+            
+            predict.frame <- xgbdartIntensityModelSet()$data[xgbdartIntensityModelSet()$parameters$StandardsUsed,]
+            parameters <- xgbdartIntensityModelSet()$parameters$CalTable
+            
+            
+            tree.depth.vec <- as.numeric(unlist(strsplit(as.character(parameters$TreeDepth), "-")))
+            drop.tree.vec <- as.numeric(unlist(strsplit(as.character(parameters$DropTree), "-"))) 
+            skip.drop.vec <- as.numeric(unlist(strsplit(as.character(parameters$SkipDrop), "-")))  
+            xgbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbEta), "-")))
+            xgbgamma.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbGamma), "-")))
+            xgbsubsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbSubSample), "-")))
+            xgbcolsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbColSample), "-")))
+            
+            
+            xgbGrid <- expand.grid(
+            nrounds = parameters$ForestTrees,
+            max_depth = seq(tree.depth.vec[1], tree.depth.vec[2], by=5),
+            drop_tree = seq(drop.tree.vec[1], drop.tree.vec[2], by=0.1),
+            skip_drop = seq(skip.drop.vec[1], skip.drop.vec[2], by=0.1),
+            eta = seq(xgbeta.vec[1], xgbeta.vec[2], by=0.1),
+            gamma=seq(xgbgamma.vec[1], xgbgamma.vec[2], by=0.1),
+            colsample_bytree = seq(xgbcolsample.vec[1], xgbcolsample.vec[2], by=0.1),
+            subsample = seq(xgbsubsample.vec[1], xgbsubsample.vec[2], by=0.1),
+            min_child_weight = parameters$xgbMinChild
+            )
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                verboseIter = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                verboseIter = TRUE)
+            }
+            
+            
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+            if(input$bayesparameter=="GridSearch"){
+                if(input$multicore_behavior=="Single Core"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit)
+                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                    cl <- if(input$multicore_behavior=="Serialize"){
+                        parallel::makePSOCKcluster(as.numeric(my.cores)/2)
+                    } else if(input$multicore_behavior=="Fork"){
+                        parallel::makeForkCluster(as.numeric(my.cores)/2)
+                    }
+                    clusterEvalQ(cl, library(foreach))
+                    registerDoParallel(cl)
+                    
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, allowParallel=TRUE)
+                    stopCluster(cl)
+                } else if(input$multicore_behavior=="OpenMP"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, nthread=as.numeric(my.cores)/2)
+                }
+            } else if(input$bayesparameter=="Bayesian"){
+                forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
+                    "rmse"
+                } else if(parameters$ForestMetric=="MAE"){
+                    "mae"
+                } else if(parameters$ForestMetric!="RMSE" | parameters$ForestMetric!="MAE"){
+                    "rmse"
+                }
+                fold_samples <- round(nrow(predict.frame)/10, 0)+2
+                if(fold_samples>30){
+                    fold_samples <- 30
+                }
+                parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
+                if(parameter_space_dimensions>50){
+                    parameter_space_dimensions <- 50
+                }
+                concentration <- "Concentration"
+                x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
+                x_train <- as.matrix(x_train)
+                y_train <- as.vector(predict.frame[,concentration])
+                dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
+                cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+                          xgb_cv_bayes <- function(max_depth, drop_tree, skip_drop, min_child_weight, subsample, eta, gamma, colsample_bytree) {
+                              param <- list(booster = "gbtree",
+                              max_depth = max_depth
+                              drop_tree = drop_tree,
+                              skip_drop = skip_drop,
+                              min_child_weight = min_child_weight,
+                              eta=eta,
+                              gamma=gamma,
+                              subsample = subsample,
+                              colsample_bytree = colsample_bytree,
+                              objective = "reg:squarederror",
+                              eval_metric = forest.metric.mod)
+                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nround = 500, early_stopping_rounds = 75, tree_method = "auto", nthread=as.numeric(my.cores)/2, maximize = TRUE, verbose = FALSE)
+                              
+                              if(forest.metric.mod=="rmse"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              } else if(forest.metric.mod=="mae"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              }
+                          }
+                          
+                OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                bounds = list(max_depth = as.integer(tree.depth.vec),
+                           drop_tree=drop.tree.vec,
+                           skip_drop=skip.drop.vec,
+                           min_child_weight = c(1L, 9L),
+                               subsample = xgbsubsample.vec,
+                               eta = xgbeta.vec,
+                               gamma = c(0L, xgbgamma.vec[2]),
+                               colsample_bytree=xgbcolsample.vec),
+                           init_grid_dt = NULL,
+                           init_points = parameter_space_dimensions,
+                           n_iter = round(parameter_space_dimensions/20, 0)+1,
+                           acq = "ei",
+                           kappa = 2.576,
+                           eps = 0.0,
+                           verbose = TRUE)
+                           
+                best_param <- list(
+                    booster = "gbtree",
+                    eval.metric = forest.metric.mod,
+                    objective = "reg:squarederror",
+                    max_depth = OPT_Res$Best_Par["max_depth"],
+                    drop_tree=OPT_Res$Best_Par["drop_tree"],
+                    skip_drop=OPT_Res$Best_Par["skip_drop"],
+                    eta = OPT_Res$Best_Par["eta"],
+                    gamma = OPT_Res$Best_Par["gamma"],
+                    subsample = OPT_Res$Best_Par["subsample"],
+                    colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
+                    min_child_weight = OPT_Res$Best_Par["min_child_weight"])
+                
+                xgbGridBayes <- expand.grid(
+                    nrounds = parameters$ForestTrees,
+                    max_depth = best_param$max_depth,
+                    drop_tree = best_param$drop_tree,
+                    skip_drop = best_param$skip_drop,
+                    colsample_bytree = best_param$colsample_bytree,
+                    eta = best_param$eta,
+                    gamma = best_param$gamma,
+                    min_child_weight = best_param$min_child_weight,
+                    subsample = best_param$subsample
+                )
+                
+                if(input$multicore_behavior=="Single Core"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit)
+                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                    cl <- if(input$multicore_behavior=="Serialize"){
+                        parallel::makePSOCKcluster(as.numeric(my.cores)/2)
+                    } else if(input$multicore_behavior=="Fork"){
+                        parallel::makeForkCluster(as.numeric(my.cores)/2)
+                    }
+                    clusterEvalQ(cl, library(foreach))
+                    registerDoParallel(cl)
+                    
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, allowParallel=TRUE)
+                    stopCluster(cl)
+                } else if(input$multicore_behavior=="OpenMP"){
+                    xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, nthread=as.numeric(my.cores)/2)
+                }
+            }
+            
+            xgb_model_train
+            
+        })
+         
+        
         xgblinearIntensityParameters <- reactive(label="xgblinearIntensityParameters", {
             cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
                 foresthold$cvrepeats
@@ -4109,6 +4331,8 @@ shinyServer(function(input, output, session) {
                 xgbtreeIntensityModelSet()
             } else if(xgboosthold$xgbtype=="Linear"){
                 xgblinearIntensityModelSet()
+            } else if(xgboosthold$xgbtype=="Dart"){
+                xgbdartIntensityModelSet()
             }
         })
         
@@ -4118,6 +4342,8 @@ shinyServer(function(input, output, session) {
                 xgbtreeIntensityModel()
             } else if(xgboosthold$xgbtype=="Linear"){
                 xgblinearIntensityModel()
+            } else if(xgboosthold$xgbtype=="Dart"){
+                xgbdartIntensityModel()
             }
             
         })
@@ -4321,7 +4547,224 @@ shinyServer(function(input, output, session) {
             xgb_model
             
         })
+
+        xgbdartSpectraParameters <- reactive(label="xgbdartSpectraParameters", {
+            cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
+                cvRepeatsSelection()
+            } else if(foresthold$foresttrain!="repeatedcv"){
+                1
+            }
+            energy.range <- basicEnergyRange()
+            treedepth <- xgboostTreeDepthSelection()
+            droptree <- xgboostDropTreeSelection() 
+            skipdrop <- xgboostSkipDropSelection()  
+            eta <- xgboostEtaSelection()
+            gamma <- xgboostGammaSelection()
+            subsample <- xgboostSubSampleSelection()
+            colsample <- xgboostColSampleSelection()
+            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treedepth=paste0(treedepth[1], "-", treedepth[2]), droptree=paste0(droptree[1], "-", droptree[2]), skipdrop=paste0(skipdrop[1], "-", skipdrop[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=xgboostMinChildSelection()), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+        })
+        xgbdartSpectraModelData <- reactive(label="xgbdartSpectraModelData", {
+            rainforestDataGen(spectra=dataNormCal(), compress=xgbdartSpectraParameters()$CalTable$Compress, transformation=xgbdartSpectraParameters()$CalTable$Transformation, dependent.transformation=xgbdartSpectraParameters()$CalTable$DepTrans,  energy.range=as.numeric(unlist(strsplit(as.character(xgbdartSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=xgbdartSpectraParameters()$CalTable$NormType, norm.min=xgbdartSpectraParameters()$CalTable$Min, norm.max=xgbdartSpectraParameters()$CalTable$Max, data.type=dataType(), y_min=yMin(), y_max=yMax())
+        })
+        xgbdartSpectraModelSet <- reactive(label="xgbdartSpectraModelSet", {
+            list(data=predictFrameCheck(xgbdartSpectraModelData()), parameters=xgbdartSpectraParameters())
+        })
+        xgbdartSpectraModel <- reactive(label="xgbdartSpectraModel", {
+            req(input$radiocal, input$calcurveelement)
+            
+            data <- xgbdartSpectraModelSet()$data[xgbdartSpectraModelSet()$parameters$StandardsUsed,]
+            parameters <- xgbdartSpectraModelSet()$parameters$CalTable
+            
+            tree.depth.vec <- as.numeric(unlist(strsplit(as.character(parameters$TreeDepth), "-")))
+            xgbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbEta), "-")))
+            drop.tree.vec <- as.numeric(unlist(strsplit(as.character(parameters$DropTree), "-")))
+            skip.drop.vec <- as.numeric(unlist(strsplit(as.character(parameters$SkipDrop), "-")))
+            xgbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbEta), "-"))) 
+            xgbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbEta), "-"))) 
+            xgbgamma.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbGamma), "-")))
+            xgbsubsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbSubSample), "-")))
+            xgbcolsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbColSample), "-")))
+            
+            
+            xgbGrid <- expand.grid(
+            nrounds = parameters$ForestTrees,
+            max_depth = seq(tree.depth.vec[1], tree.depth.vec[2], by=5),
+            drop_tree = seq(drop.tree.vec[1], drop.tree.vec[2], by=0.1),
+            skip_drop = seq(skip.drop.vec[1], skip.drop.vec[2], by=0.1), 
+            eta = seq(xgbeta.vec[1], xgbeta.vec[2], by=0.1),
+            gamma=seq(xgbgamma.vec[1], xgbgamma.vec[2], by=0.1),
+            colsample_bytree = seq(xgbcolsample.vec[1], xgbcolsample.vec[2], by=0.1),
+            subsample = seq(xgbsubsample.vec[1], xgbsubsample.vec[2], by=0.1),
+            min_child_weight = parameters$xgbMinChild
+            )
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                verboseIter = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                verboseIter = TRUE)
+            }
+            
+            
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+                
+            if(input$bayesparameter=="GridSearch"){
+                if(input$multicore_behavior=="Single Core"){
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit)
+                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                    cl <- if(input$multicore_behavior=="Serialize"){
+                        parallel::makePSOCKcluster(as.numeric(my.cores)/2)
+                    } else if(input$multicore_behavior=="Fork"){
+                        parallel::makeForkCluster(as.numeric(my.cores)/2)
+                    }
+                    clusterEvalQ(cl, library(foreach))
+                    registerDoParallel(cl)
+                    
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, allowParallel=TRUE)
+                    stopCluster(cl)
+                } else if(input$multicore_behavior=="OpenMP"){
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, nthread=as.numeric(my.cores)/2)
+                }
+            } else if(input$bayesparameter=="Bayesian"){
+                predict.frame <- data[,-1]
+                forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
+                    "rmse"
+                } else if(parameters$ForestMetric=="MAE"){
+                    "mae"
+                } else if(parameters$ForestMetric!="RMSE" | parameters$ForestMetric!="MAE"){
+                    "rmse"
+                }
+                fold_samples <- round(nrow(predict.frame)/10, 0)+2
+                if(fold_samples>30){
+                    fold_samples <- 30
+                }
+                parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
+                if(parameter_space_dimensions>50){
+                    parameter_space_dimensions <- 50
+                }
+                concentration <- "Concentration"
+                x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
+                x_train <- as.matrix(x_train)
+                y_train <- as.vector(predict.frame[,concentration])
+                dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
+                cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+                          xgb_cv_bayes <- function(max_depth, drop_tree, skip_drop, min_child_weight, subsample, eta, gamma, colsample_bytree) {
+                              param <- list(booster = "dart",
+                              max_depth = max_depth,
+                              drop_tree = drop_tree,
+                              skip_drop = skip_drop,
+                              min_child_weight = min_child_weight,
+                              eta=eta,
+                              gamma=gamma,
+                              subsample = subsample,
+                              colsample_bytree = colsample_bytree,
+                              objective = "reg:squarederror",
+                              eval_metric = forest.metric.mod)
+                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nround = 500, early_stopping_rounds = 75, tree_method = "auto", nthread=as.numeric(my.cores)/2, maximize = TRUE, verbose = FALSE)
+                              
+                              if(forest.metric.mod=="rmse"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              } else if(forest.metric.mod=="mae"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              }
+                          }
+                          
+                OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                bounds = list(max_depth = as.integer(tree.depth.vec),
+                           drop_tree = drop.tree.vec,
+                           skip_drop = skip.drop.vec,
+                           min_child_weight = c(1L, 9L),
+                               subsample = xgbsubsample.vec,
+                               eta = xgbeta.vec,
+                               gamma = c(0L, xgbgamma.vec[2]),
+                               colsample_bytree=xgbcolsample.vec),
+                           init_grid_dt = NULL,
+                           init_points = parameter_space_dimensions,
+                           n_iter = round(parameter_space_dimensions/20, 0)+1,
+                           acq = "ucb",
+                           kappa = 2.576,
+                           eps = 0.0,
+                           verbose = TRUE)
+                           
+                best_param <- list(
+                    booster = "gbtree",
+                    eval.metric = forest.metric.mod,
+                    objective = "reg:squarederror",
+                    max_depth = OPT_Res$Best_Par["max_depth"],
+                    drop_tree = OPT_Res$Best_Par["drop_tree"],
+                    skip_drop = OPT_Res$Best_Par["skip_drop"],
+                    eta = OPT_Res$Best_Par["eta"],
+                    gamma = OPT_Res$Best_Par["gamma"],
+                    subsample = OPT_Res$Best_Par["subsample"],
+                    colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
+                    min_child_weight = OPT_Res$Best_Par["min_child_weight"])
+                
+                xgbGridBayes <- expand.grid(
+                    nrounds = parameters$ForestTrees,
+                    max_depth = best_param$max_depth,
+                    drop_tree = best_param$drop_tree,
+                    skip_drop = best_param$skip_drop,
+                    colsample_bytree = best_param$colsample_bytree,
+                    eta = best_param$eta,
+                    gamma = best_param$gamma,
+                    min_child_weight = best_param$min_child_weight,
+                    subsample = best_param$subsample
+                )
+                
+                if(input$multicore_behavior=="Single Core"){
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit)
+                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                    cl <- if(input$multicore_behavior=="Serialize"){
+                        parallel::makePSOCKcluster(as.numeric(my.cores)/2)
+                    } else if(input$multicore_behavior=="Fork"){
+                        parallel::makeForkCluster(as.numeric(my.cores)/2)
+                    }
+                    clusterEvalQ(cl, library(foreach))
+                    registerDoParallel(cl)
+                    
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, allowParallel=TRUE)
+                    stopCluster(cl)
+                } else if(input$multicore_behavior=="OpenMP"){
+                    xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, nthread=as.numeric(my.cores)/2)
+                }
+            }
+            
+            xgb_model
+            
+        })
         
+
         xgblinearSpectraParameters <- reactive(label="xgblinearSpectraParameters", {
             cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
                 cvRepeatsSelection()
@@ -4508,6 +4951,8 @@ shinyServer(function(input, output, session) {
                 xgbtreeSpectraModelSet()
             } else if(xgboosthold$xgbtype=="Linear"){
                 xgblinearSpectraModelSet()
+            } else if(xgboosthold$xgbtype=="Dart"){
+                xgbdartSpectraModelSet()
             }
         })
         
@@ -4517,6 +4962,8 @@ shinyServer(function(input, output, session) {
                 xgbtreeSpectraModel()
             } else if(xgboosthold$xgbtype=="Linear"){
                 xgblinearSpectraModel()
+            } else if(xgboosthold$xgbtype=="Dart"){
+                xgbdartSpectraModel()
             }
             
         })
@@ -6751,6 +7198,34 @@ shinyServer(function(input, output, session) {
 
         })
         
+        calDropTreeSelectionpre <- reactive(label="calDropTreeSelectionpre", {
+            req(input$bayesparameter)
+            if(input$bayesparameter=="GridSearch"){
+                if(!"DropTree" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["DropTree"]), "-")))
+                } else if("DropTree" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$DropTree[1]), "-")))
+                }
+            } else if(input$bayesparameter=="Bayesian"){
+                c(0.1, 0.9)
+            }
+
+        }) 
+        
+        calSkipDropSelectionpre <- reactive(label="calSkipDropSelectionpre", {
+            req(input$bayesparameter)
+            if(input$bayesparameter=="GridSearch"){
+                if(!"SkipDrop" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["SkipDrop"]), "-")))
+                } else if("SkipDrop" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                    as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$SkipDrop[1]), "-")))
+                }
+            } else if(input$bayesparameter=="Bayesian"){
+                c(0.1, 0.9)
+            }
+
+        })  
+        
         calXGBAlphaSelectionpre <- reactive(label="calXGBAlphaSelectionpre", {
             req(input$bayesparameter)
             req(input$radiocal)
@@ -7002,6 +7477,8 @@ shinyServer(function(input, output, session) {
             neuralhold$neuralmaxiterations <- calMaxIterationsSelectionpre()
             xgboosthold$xgbtype <- calXGBTypeSelectionpre()
             xgboosthold$treedepth <- calTreeDepthSelectionpre()
+            xgboosthold$droptree <- calDropTreeSelectionpre() 
+            xgboosthold$skipdrop <- calSkipDropSelectionpre()  
             xgboosthold$xgbalpha <- calXGBAlphaSelectionpre()
             xgboosthold$xgbgamma <- calXGBGammaSelectionpre()
             xgboosthold$xgbeta <- calXGBEtaSelectionpre()
@@ -7042,6 +7519,8 @@ shinyServer(function(input, output, session) {
             neuralhold$neuralmaxiterations <- calMaxIterationsSelectionpre()
             xgboosthold$xgbtype <- calXGBTypeSelectionpre()
             xgboosthold$treedepth <- calTreeDepthSelectionpre()
+            xgboosthold$treedepth <- calTreeDepthSelectionpre()
+            xgboosthold$droptree <- calDropTreeSelectionpre()  
             xgboosthold$xgbalpha <- calXGBAlphaSelectionpre()
             xgboosthold$xgbgamma <- calXGBGammaSelectionpre()
             xgboosthold$xgbeta <- calXGBEtaSelectionpre()
@@ -7158,6 +7637,14 @@ shinyServer(function(input, output, session) {
         xgboostTreeDepthSelection <- reactive(label="xgboostTreeDepthSelection", {
             xgboosthold$treedepth
         })
+        
+        xgboostDropTreeSelection <- reactive(label="xgboostDropTreeSelection", {
+            xgboosthold$droptree
+        })
+        
+        xgboostSkipDropSelection <- reactive(label="xgboostSkipDropSelection", {
+            xgboosthold$skipdrop
+        })  
         
         xgboostAlphaSelection <- reactive(label="xgboostAlphaSelection", {
             xgboosthold$xgbalpha
@@ -7314,6 +7801,14 @@ shinyServer(function(input, output, session) {
         observeEvent(input$treedepth, {
             xgboosthold$treedepth <- input$treedepth
         })
+        
+     observeEvent(input$droptree, {
+            xgboosthold$droptree <- input$droptree
+        }) 
+        
+     observeEvent(input$skipdrop, {
+            xgboosthold$skipdrop <- input$skipdrop
+        }) 
         
         observeEvent(input$xgbalpha, {
             xgboosthold$xgbalpha <- input$xgbalpha
@@ -7497,6 +7992,16 @@ shinyServer(function(input, output, session) {
         output$treedepthui <- renderUI({
             req(input$radiocal, input$xgbtype)
             treeDepthUI(radiocal=input$radiocal, selection=calTreeDepthSelectionpre(), xgbtype=input$xgbtype)
+        })
+        
+               output$droptreeui <- renderUI({
+            req(input$radiocal, input$xgbtype)
+            dropTreeUI(radiocal=input$radiocal, selection=calDropTreeSelectionpre(), xgbtype=input$xgbtype)
+        })
+        
+               output$skipdropui <- renderUI({
+            req(input$radiocal, input$xgbtype)
+            skipDropUI(radiocal=input$radiocal, selection=calSkipDropSelectionpre(), xgbtype=input$xgbtype)
         })
         
         
@@ -9297,6 +9802,335 @@ shinyServer(function(input, output, session) {
             
         })
         
+        xgbdartIntensityModelRandom <- reactive(label="xgbdartIntensityModelRandom",{
+            
+            predict.frame <- xgbdartIntensityModelSet()$data[randomizeData(),]
+            parameters <- xgbdartIntensityModelSet()$parameters$CalTable
+            
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            
+            xgbGrid <- expand.grid(
+            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            max_depth = elementModel()$bestTune$max_depth,
+            tree_drop = elementModel()$bestTune$drop_tree,
+            skip_drop = elementModel()bestTune$skip_drop,
+            eta = elementModel()$bestTune$eta,
+            gamma=elementModel()$bestTune$gamma,
+            colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            subsample = elementModel()$bestTune$subsample,
+            min_child_weight = elementModel()$bestTune$min_child_weight
+            )
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                verboseIter = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                verboseIter = TRUE)
+            }
+            
+            
+            
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+            if(input$multicore_behavior=="Single Core"){
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(my.cores)/2)
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(my.cores)/2)
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, allowParallel=TRUE)
+                stopCluster(cl)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, nthread=as.numeric(my.cores)/2)
+            }
+            
+            xgb_model_train
+            
+        })
+        
+        xgblinearIntensityModelRandom <- reactive(label="xglinearIntensityModelRandom", {
+            req(input$radiocal, input$calcurveelement)
+            
+            predict.frame <- xgblinearIntensityModelSet()$data[randomizeData(),]
+            parameters <- xgblinearIntensityModelSet()$parameters$CalTable
+            
+            
+            
+            xgbGrid <- expand.grid(
+            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            alpha=elementModel()$bestTune$alpha,
+            eta = elementModel()$bestTune$alpha,
+            lambda = elementModel()$bestTune$alpha
+            )
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                verboseIter = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                verboseIter = TRUE)
+            }
+            
+            
+            
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+            if(input$multicore_behavior=="Single Core"){
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(my.cores)/2)
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(my.cores)/2)
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                stopCluster(cl)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=as.numeric(my.cores)/2)
+            }
+            xgb_model_train
+            
+        })
+        
+        xgboostIntensityModelRandom <- reactive({
+            
+            if(input$xgbtype=="Tree"){
+                xgbtreeIntensityModelRandom()
+            } else if(input$xgbtype=="Linear"){
+                xgblinearIntensityModelRandom()
+            } else if(input$xgbtype=="Dart"){
+                xgbdartIntensityModelRandom()
+            }
+            
+        })
+        
+        
+        xgbtreeSpectraModelRandom <- reactive(label="xgbtreeSpectraModelRandom",{
+            
+            data <- xgbtreeSpectraModelSet()$data[randomizeData(),]
+            parameters <- xgbtreeSpectraModelSet()$parameters$CalTable
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            
+            xgbGrid <- expand.grid(
+            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            max_depth = elementModel()$bestTune$max_depth,
+            eta = elementModel()$bestTune$eta,
+            gamma=elementModel()$bestTune$gamma,
+            colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            subsample = elementModel()$bestTune$subsample,
+            min_child_weight = elementModel()$bestTune$min_child_weight
+            )
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                verboseIter = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                verboseIter = TRUE)
+            }
+            
+            
+            
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+            if(input$multicore_behavior=="Single Core"){
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(my.cores)/2)
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(my.cores)/2)
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
+                stopCluster(cl)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=as.numeric(my.cores)/2)
+            }
+            
+            xgb_model_train
+            
+            
+        }) 
+        
+       xgbdartSpectraModelRandom <- reactive(label="xgbdartSpectraModelRandom",{
+            
+            data <- xgbdartSpectraModelSet()$data[randomizeData(),]
+            parameters <- xgbdartSpectraModelSet()$parameters$CalTable
+            
+            
+            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
+                defaultSummary
+            } else if(parameters$ForestMetric=="MAE"){
+                maeSummary
+            } else if(parameters$ForestMetric=="logMAE"){
+                logmaeSummary
+            } else if(parameters$ForestMetric=="SMAPE"){
+                smapeSummary
+            }
+            
+            
+            xgbGrid <- expand.grid(
+            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            max_depth = elementModel()$bestTune$max_depth,
+            drop_tree = elementModel()$bestTune$drop_tree,
+            skip_drop = elementModel()$bestTune$skip_drop,
+            eta = elementModel()$bestTune$eta,
+            gamma=elementModel()$bestTune$gamma,
+            colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            subsample = elementModel()$bestTune$subsample,
+            min_child_weight = elementModel()$bestTune$min_child_weight
+            )
+            
+            tune_control <- if(parameters$ForestTC!="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                verboseIter = TRUE)
+            } else if(parameters$ForestTC=="repeatedcv"){
+                caret::trainControl(
+                method = parameters$ForestTC,
+                number = parameters$ForestNumber,
+                repeats=parameters$CVRepeats,
+                verboseIter = TRUE)
+            }
+            
+            
+            
+            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
+                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
+                    parameters$ForestNumber*parameters$CVRepeats
+                }
+            } else if(parameters$ForestTC!="repeatedcv"){
+                if(parameters$ForestNumber >= as.numeric(my.cores)){
+                    as.numeric(my.cores)
+                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
+                    parameters$ForestNumber
+                }
+            }
+                
+            
+            if(input$multicore_behavior=="Single Core"){
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit)
+            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
+                cl <- if(input$multicore_behavior=="Serialize"){
+                    parallel::makePSOCKcluster(as.numeric(my.cores)/2)
+                } else if(input$multicore_behavior=="Fork"){
+                    parallel::makeForkCluster(as.numeric(my.cores)/2)
+                }
+                clusterEvalQ(cl, library(foreach))
+                registerDoParallel(cl)
+                
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, allowParallel=TRUE)
+                stopCluster(cl)
+            } else if(input$multicore_behavior=="OpenMP"){
+                xgb_model_train <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, nthread=as.numeric(my.cores)/2)
+            }
+            
+            xgb_model_train
+            
+            
+        })  
+        
         xgblinearSpectraModelRandom <- reactive(label="xgblinearSpectraModelRandom", {
             req(input$radiocal, input$calcurveelement)
             
@@ -9379,6 +10213,8 @@ shinyServer(function(input, output, session) {
                 xgbtreeSpectraModelRandom()
             } else if(input$xgbtype=="Linear"){
                 xgblinearSpectraModelRandom()
+            } else if(input$xgbtype=="Dart"){
+                xgbdartSpectraModelRandom()
             }
             
         })
