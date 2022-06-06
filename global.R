@@ -8047,7 +8047,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=FALSE, cores=1){
                           list("as_tibble"
                                , "tibble_convert"
                                , "spectra_frame_deconvolution_convert"
-                               , "deconvolute_complete_2"
+                               , "deconvolute_complete"
                                , "xrf_add_deconvolution_gls"
                                , "spectra_frame_baseline_convert"
                                , "intensity_frame_deconvolution_convert"
