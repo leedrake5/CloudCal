@@ -4833,7 +4833,13 @@ predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="N
         scaleTransform(values=predict.frame.simp$Concentration, y_min=y_min, y_max=y_max)
     }
     
-    predictFrameCheck(predict.frame.simp)
+    result <- predictFrameCheck(predict.frame.simp)
+    set.seed(seed)
+    result$RandXXX <- rnorm(nrow(result), 1, 0.2)
+    result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
+
+    
+    return(result)
     
 }
 
@@ -4904,7 +4910,7 @@ predictIntensityXGBoost <- function(predict.frame){
 }
 
 
-predictFrameForestGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
+predictFrameForestGen <- function(seed=1, spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
     
     spectra.line.table <- hold.frame
     
@@ -4924,8 +4930,14 @@ predictFrameForestGen <- function(spectra, hold.frame, slopes=NULL, dependent.tr
         scaleTransform(values=predict.frame.forest$Concentration, y_min=y_min, y_max=y_max)
     }
     
-    return(predictFrameCheck(predict.frame.forest))
+    result <- predictFrameCheck(predict.frame.forest)
+    set.seed(seed)
+    result$RandXXX <- rnorm(nrow(result), 1, 0.2)
+    result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
+
     
+    return(result)
+        
 }
 
 predictIntensityForest <- function(predict.frame){
@@ -4940,7 +4952,7 @@ predictIntensityLucPreGen <- function(spectra, hold.frame, element, intercepts=N
     
 }
 
-predictFrameLucGen <- function(spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
+predictFrameLucGen <- function(seed=1, spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
     
     data <- spectra
     spectra.line.table <- hold.frame
@@ -4960,7 +4972,13 @@ predictFrameLucGen <- function(spectra, hold.frame, element, intercepts=NULL, sl
         scaleTransform(values=predict.frame.luc$Concentration, y_min=y_min, y_max=y_max)
     }
     
-    return(predictFrameCheck(predict.frame.luc))
+    result <- predictFrameCheck(predict.frame.luc)
+    set.seed(seed)
+    result$RandXXX <- rnorm(nrow(result), 1, 0.2)
+    result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
+
+    
+    return(result)
 }
 
 predictIntensityLuc <- function(predict.frame){
@@ -5018,7 +5036,7 @@ xgboostIntensity <- function(rainforest.data){
 }
 
 
-rainforestDataGen <- function(spectra, compress="100 eV", transformation="None", dependent.transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
+rainforestDataGen <- function(seed=1, spectra, compress="100 eV", transformation="None", dependent.transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
     
     spectra.line.table <- hold.frame
     
@@ -5035,8 +5053,14 @@ rainforestDataGen <- function(spectra, compress="100 eV", transformation="None",
         scaleTransform(values=spectra.data$Concentration, y_min=y_min, y_max=y_max)
     }
     
-    return(predictFrameCheck(spectra.data))
-}
+    result <- predictFrameCheck(spectra.data)
+    set.seed(seed)
+    result$RandXXX <- rnorm(nrow(result), 1, 0.2)
+    result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
+
+    
+    return(result)
+    }
 
 rainforestIntensity <- function(rainforest.data){
     rainforest.data[,!(colnames(rainforest.data) %in% "Concentration")]
