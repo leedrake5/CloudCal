@@ -25,7 +25,7 @@ new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.p
 if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
-list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble")
+list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
@@ -1296,7 +1296,7 @@ xrf_parse_single <- cmpfun(xrf_parse_single)
 
 
 
-elementGrab <- function(element.line, data, range.table=NULL){
+elementGrabPre <- function(element.line, data, range.table=NULL){
     
     is.element <- element.line %in% spectralLines
     
@@ -1308,7 +1308,17 @@ elementGrab <- function(element.line, data, range.table=NULL){
 
     
 }
-elementGrab <- cmpfun(elementGrab)
+elementGrabPre <- cmpfun(elementGrabPre)
+
+elementGrab <- function(element.line, data, range.table=NULL){
+    
+    error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=NA)
+    colnames(error_frame) <- c("Spectrum", element.line)
+    
+    tryCatch(elementGrabPre(element.line=element.line, data=data, range.table=range.table), error=function(e) error_frame)
+    
+    
+}
 
 
 elementFrame <- function(data, range.table=NULL, elements){
@@ -1326,11 +1336,15 @@ elementFrame <- function(data, range.table=NULL, elements){
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
     
-    spectra.line.vector <- as.numeric(unlist(element.count.list))
+    #spectra.line.vector <- as.numeric(unlist(element.count.list))
     
-    dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
+    #dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
     
-    spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector, stringsAsFactors=FALSE)
+    #spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector, stringsAsFactors=FALSE)
+    
+    #spectra.line.frame <- spectra.line.list %>% purrr::reduce(full_join, by='Spectrum')
+    
+    spectra.line.frame <- Reduce(function(x, y) merge(x, y, all=TRUE), spectra.line.list)
     
     colnames(spectra.line.frame) <- c("Spectrum", elements)
     
@@ -1385,7 +1399,7 @@ wideElementGrabLine <- function(element.line, data) {
 }
 wideElementGrabLine <- cmpfun(wideElementGrabLine)
 
-wideElementGrab <- function(element.line, data, range.table=NULL){
+wideElementGrabPre <- function(element.line, data, range.table=NULL){
     
     is.element <- element.line %in% spectralLines
     
@@ -1397,7 +1411,17 @@ wideElementGrab <- function(element.line, data, range.table=NULL){
 
     
 }
-wideElementGrab <- cmpfun(wideElementGrab)
+wideElementGrabPre <- cmpfun(wideElementGrabPre)
+
+wideElementGrab <- function(element.line, data, range.table=NULL){
+    
+    error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=NA)
+    colnames(error_frame) <- c("Spectrum", element.line)
+    
+    tryCatch(wideElementGrabPre(element.line=element.line, data=data, range.table=range.table), error=function(e) error_frame)
+    
+    
+}
 
 wideElementFrame <- function(data, elements, range.table=NULL){
     
