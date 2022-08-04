@@ -73,7 +73,7 @@ if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
     tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000.tgz?raw=true", type="binary", repos=NULL), error=function(e) NULL)
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000.tar.gz?raw=true", type="source" repos=NULL), error=function(e) NULL)
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
 }
 
 
