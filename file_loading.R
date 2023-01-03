@@ -616,7 +616,7 @@ wideLineTable <- function(spectra, definition.table, elements){
 }
 
 ###Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -803,6 +803,18 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
     } else if(!is.null(xgbminchild)){
         xgbminchild
     }
+
+    xgbmaxdeltastep <- if(is.null(xgbmaxdeltastep)){
+        0
+    } else if(!is.null(xgbmaxdeltastep)){
+        xgbmaxdeltastep
+    }
+
+    xgbscaleposweight <- if(is.null(xgbscaleposweight)){
+        0
+    } else if(!is.null(xgbscaleposweight)){
+        xgbscaleposweight
+    }
     
     bartk <- if(is.null(bartk)){
         "95-95"
@@ -886,6 +898,8 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
                 xgbSubSample=xgbsubsample,
                 xgbColSample=xgbcolsample,
                 xgbMinChild=xgbminchild,
+		  		 xgbMaxDeltaStep=xgbmaxdeltastep,
+				 xgbScalePosWeight=xgbscaleposweight,
                 bartK=bartk,
                 bartBeta=bartbeta,
                 bartNu=bartnu,
@@ -900,7 +914,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -934,6 +948,8 @@ calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL,
                 xgbSubSample=xgbsubsample,
                 xgbColSample=xgbcolsample,
                 xgbMinChild=xgbminchild,
+				 xgbMaxDeltaStep=xgbmaxdeltastep,
+				 xgbScalePosWeight=xgbscaleposweight,
                 bartK=bartk,
                 bartBeta=bartbeta,
                 bartNu=bartnu,
@@ -994,6 +1010,8 @@ deleteCalConditions <- function(element, number.of.standards){
     xgbsubsample <- as.character("0.6-0.6")
     xgbcolsample <- as.character("0.6-0.6")
     xgbminchild <- as.numeric(1)
+	xgbmaxdeltastep <- as.numeric(0)
+	xgbscaleposweight <- as.numeric(0)
     bartk <- as.character("95-95")
     bartbeta <- as.character("2-2")
     bartnu <- as.character("2-2")
@@ -1035,6 +1053,8 @@ deleteCalConditions <- function(element, number.of.standards){
     xgbSubSample=xgbsubsample,
     xgbColSample=xgbcolsample,
     xgbMinChild=xgbminchild,
+	xgbMaxDeltaStep=xgbmaxdeltastep,
+	xgbScalePosWeight=xgbscaleposweight,
     bartK=bartk,
     bartBeta=bartbeta,
     bartNu=bartnu,
@@ -1093,6 +1113,8 @@ defaultCalConditions <- function(element, number.of.standards){
     xgbsubsample <- as.character("0.6-0.6")
     xgbcolsample <- as.character("0.6-0.6")
     xgbminchild <- as.numeric(1)
+	xgbmaxdeltastep <- as.numeric(0)
+	xgbscaleposeweight <- as.numeric(0)
     bartk <- as.character("95-95")
     bartbeta <- as.character("2-2")
     bartnu <- as.character("2-2")
@@ -1134,6 +1156,8 @@ defaultCalConditions <- function(element, number.of.standards){
         xgbSubSample=xgbsubsample,
         xgbColSample=xgbcolsample,
         xgbMinChild=xgbminchild,
+		xgbMaxDeltaStep=xgbmaxdeltastep,
+		xgbScalePosWeight=xgbscaleposweight,
         bartK=bartk,
         bartBeta=bartbeta,
         bartNu=bartnu,
@@ -1408,6 +1432,26 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     } else if(!"xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbMinChild
     }
+
+    xgbmaxdeltastep <- if("xgbMaxDeltaStep" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
+           calList[[element]][[2]]$bestTune$max_delta_step
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.numeric(as.character(imported.cal.conditions$CalTable$xgbMaxDeltaStep[1]))
+        }
+    } else if(!"xgbMaxDeltaStep" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbMaxDeltaStep
+    }
+
+    xgbscaleposweight <- if("xgbScalePosWeight" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
+           calList[[element]][[2]]$bestTune$scale_pos_weight
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.numeric(as.character(imported.cal.conditions$CalTable$xgbScalePosWeight[1]))
+        }
+    } else if(!"xgbScalePosWeight" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbScalePosWeight
+    }
     
     bartk <- if("bartK" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
@@ -1571,6 +1615,8 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         xgbSubSample=xgbsubsample,
         xgbColSample=xgbcolsample,
         xgbMinChild=xgbminchild,
+		xgbMaxDeltaStep=xgbmaxdeltastep,
+		xgbScalePosWeight=xgbscaleposweight,
         bartK=bartk,
         bartBeta=bartbeta,
         bartNu=bartnu,
@@ -1836,6 +1882,26 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     } else if(!"xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbMinChild
     }
+
+    xgbmaxdeltastep <- if("xgbMaxDeltaStep" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
+            as.numeric(as.character(imported.cal.conditions$CalTable$xgbMaxDeltaStep[1]))
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.numeric(as.character(imported.cal.conditions$CalTable$xgbMaxDeltaStep[1]))
+        }
+    } else if(!"xgbMaxDeltaStep" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbMaxDeltaStep
+    }
+
+    xgbscaleposweight <- if("xgbScalePosWeight" %in% colnames(imported.cal.conditions$CalTable)){
+        if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
+            as.numeric(as.character(imported.cal.conditions$CalTable$xgbScalePosWeight[1]))
+        } else if(!cal.condition==8 | !cal.condition==9){
+            as.numeric(as.character(imported.cal.conditions$CalTable$xgbScalePosWeight[1]))
+        }
+    } else if(!"xgbScalePosWeight" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$xgbScalePosWeight
+    }
     
     bartk <- if("bartK" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
@@ -2004,6 +2070,8 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     xgbSubSample=xgbsubsample,
     xgbColSample=xgbcolsample,
     xgbMinChild=xgbminchild,
+	xgbMaxDeltaStep=xgbmaxdeltastep,
+	xgbScalePosWeight=xgbscaleposweight,
     bartK=bartk,
     bartBeta=bartbeta,
     bartNu=bartnu,
