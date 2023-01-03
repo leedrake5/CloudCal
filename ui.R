@@ -347,6 +347,8 @@ uiOutput('neuralweightdecayui'),
 
 uiOutput('neuralmaxiterationsui'),
 
+uiOutput('treemethodui'),
+
 uiOutput('treedepthui'),
 
 uiOutput('droptreeui'),
