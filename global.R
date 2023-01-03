@@ -25,6 +25,11 @@ new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.p
 if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
+if(!"caret" %in% installed.packages()[,"Package"]){
+    devtools::install_github("leedrake5/caret/pkg/caret")
+}
+
+
 list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(get_os()!="linux"){
@@ -4186,13 +4191,9 @@ xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
-        NULL
-    } else if(radiocal==8 && xgbtype=="Linear"){
+    } else if(radiocal==8){
         sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
-    } else if(radiocal==9 && xgbtype=="Tree"){
-        NULL
-    } else if(radiocal==9 && xgbtype=="Linear"){
+    } else if(radiocal==9){
         sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
     } else if(radiocal==10 && xgbtype=="Tree"){
         sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
@@ -4211,7 +4212,7 @@ xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
 
 xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==0){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=10, step=0.05, value=selection)
+        sliderInput("xgbgamma", label="Gamma", min=0, max=300, step=1, value=selection)
     } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -4226,12 +4227,12 @@ xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==8 && xgbtype!="Linear"){
+        sliderInput("xgbgamma", label="Gamma", min=0, max=300, step=1, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
-    } else if(radiocal==9 && xgbtype=="Tree"){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==9 && xgbtype!="Linear"){
+        sliderInput("xgbgamma", label="Gamma", min=0, max=300, step=1, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==10){
@@ -4279,7 +4280,7 @@ xgbEtaUI <- function(radiocal, selection){
 
 xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==0){
-        sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
+        sliderInput("xgblambda", label="Lambda", min=0, max=300, step=1, value=selection)
     } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -4294,14 +4295,10 @@ xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
-        NULL
-    } else if(radiocal==8 && xgbtype=="Linear"){
-        sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
-    } else if(radiocal==9 && xgbtype=="Tree"){
-        NULL
-    } else if(radiocal==9 && xgbtype=="Linear"){
-        sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==8){
+        sliderInput("xgblambda", label="Lambda", min=0, max=300, step=1, value=selection)
+    } else if(radiocal==9){
+        sliderInput("xgblambda", label="Lambda", min=0, max=300, step=1, value=selection)
     } else if(radiocal==10){
         NULL
     } else if(radiocal==11){
@@ -4338,11 +4335,11 @@ xgbSubSampleUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
+    } else if(radiocal==8 && xgbtype!="Linear"){
         sliderInput("xgbsubsample", label="Sub Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
-    } else if(radiocal==9 && xgbtype=="Tree"){
+    } else if(radiocal==9 && xgbtype!="Linear"){
         sliderInput("xgbsubsample", label="Sub Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
@@ -4374,11 +4371,11 @@ xgbColSampleUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
+    } else if(radiocal==8 && xgbtype!="Linear"){
         sliderInput("xgbcolsample", label="Col Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
-    } else if(radiocal==9 && xgbtype=="Tree"){
+    } else if(radiocal==9 && xgbtype!="Linear"){
         sliderInput("xgbcolsample", label="Col Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
@@ -4410,12 +4407,12 @@ xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
-        sliderInput("xgbminchild", label="Min Child", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==8 && xgbtype!="Linear"){
+        sliderInput("xgbminchild", label="Min Child", min=0, max=300, step=1, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
-    } else if(radiocal==9 && xgbtype=="Tree"){
-        sliderInput("xgbminchild", label="Min Child", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==9 && xgbtype!="Linear"){
+        sliderInput("xgbminchild", label="Min Child", min=0, max=300, step=1, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==10){
@@ -4428,6 +4425,79 @@ xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     }
 }
+
+xgbMaxDeltaStepUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==0){
+        sliderInput("xgbmaxdeltastep", label="Min Child", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype!="Linear"){
+        sliderInput("xgbmaxdeltastep", label="Max Delta Step", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==9 && xgbtype!="Linear"){
+        sliderInput("xgbmaxdeltastep", label="Max Delta Step", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
+xgbScalePosWeightUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==0){
+        sliderInput("xgbscaleposweight", label="Scale Pos Weight", min=0, max=5, step=1, value=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype!="Linear"){
+        sliderInput("xgbscaleposweight", label="Scale Pos Weight", min=0, max=5, step=1, value=selection)
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==9 && xgbtype!="Linear"){
+        sliderInput("xgbscaleposweight", label="Scale Pos Weight", min=0, max=5, step=1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
 
 dnorminv<-function(y) sqrt(-2*log(sqrt(2*pi)*y))
 
