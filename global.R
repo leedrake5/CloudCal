@@ -179,6 +179,53 @@ layOut = function(...) {
     }
 }
 
+
+generate_grid_multi <- function(bounds, init_points, init_grid_dt = NULL){
+    DT_bounds <- data.table(Parameter = names(bounds), Lower = sapply(bounds,
+    magrittr::extract2, 1), Upper = sapply(bounds, magrittr::extract2, 2), Type = sapply(bounds,
+        class))
+    setDT(init_grid_dt)
+    if (nrow(init_grid_dt) != 0) {
+        if (identical(names(init_grid_dt), DT_bounds[, Parameter]) ==
+            TRUE) {
+            init_grid_dt[, `:=`(Value, -Inf)]
+        }
+        else if (identical(names(init_grid_dt), c(DT_bounds[,
+            Parameter], "Value")) == TRUE) {
+            paste(nrow(init_grid_dt), "points in hyperparameter space were pre-sampled\n",
+                sep = " ") %>% cat(.)
+        }
+        else {
+            stop("bounds and init_grid_dt should be compatible")
+        }
+    }
+    init_points_dt <- Matrix_runif(n = init_points, lower = DT_bounds[,
+        Lower], upper = DT_bounds[, Upper]) %>% data.table(.) %T>%
+        setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>%
+        {
+            if (any(DT_bounds[, Type] == "integer")) {
+                set(., j = DT_bounds[Type == "integer", Parameter],
+                  value = round(extract(., j = DT_bounds[Type ==
+                    "integer", Parameter], with = FALSE)))
+            }
+            else {
+                .
+            }
+        } %T>% extract(., j = `:=`(Value, -Inf))
+        
+        return(init_points_dt)
+}
+
+generate_grid_single <- function(bounds){
+    as.data.frame(bounds)[1,]
+}
+
+generate_grid <- function(bounds, init_points, init_grid_dt = NULL){
+    
+    tryCatch(generate_grid_multi(bounds=bounds, init_points=init_points, init_grid_dt=init_grid_dt), error=function(e) generate_grid_single(bounds))
+    
+}
+
 fluorescence.lines.directory <- if(file.exists("data/FluorescenceLines.csv")){
     "data/FluorescenceLines.csv"
 } else if(!file.exists("data/FluorescenceLines.csv")){
@@ -4432,7 +4479,7 @@ xgbColSampleUI <- function(radiocal, selection, xgbtype="Tree"){
 
 xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==0){
-        sliderInput("xgbminchild", label="Min Child", min=0, max=15, step=1, value=selection)
+        sliderInput("xgbminchild", label="Min Child", min=0, max=300, step=1, value=selection)
     } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
