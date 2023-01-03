@@ -616,7 +616,7 @@ wideLineTable <- function(spectra, definition.table, elements){
 }
 
 ###Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -736,6 +736,12 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
         1000
     } else if(!is.null(neuralmaxiterations)){
         neuralmaxiterations
+    }
+
+    treemethod <- if(is.null(treemethod)){
+        "auto"
+    } else if(!is.null(treemethod)){
+        treemethod
     }
     
     treedepth <- if(is.null(treedepth)){
@@ -887,6 +893,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
                 NeuralHU=neuralhiddenunits,
                 NeuralWD=neuralweightdecay,
                 NeuralMI=neuralmaxiterations,
+				TreeMethod=treemethod,
                 TreeDepth=treedepth,
                 DropTree=droptree,
                 SkipDrop=skipdrop,
@@ -914,7 +921,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -937,6 +944,7 @@ calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL,
                 NeuralHU=neuralhiddenunits,
                 NeuralWD=neuralweightdecay,
                 NeuralMI=neuralmaxiterations,
+				TreeMethod=treemethod,
                 TreeDepth=treedepth,
                 DropTree=droptree,
                 SkipDrop=skipdrop,
@@ -999,6 +1007,7 @@ deleteCalConditions <- function(element, number.of.standards){
     neuralhiddenunits <- paste0(1, "-", 4)
     neuralweightdecay <- paste0(0.1, "-", 0.5)
     neuralmaxiterations <- as.numeric(1000)
+	treemethod <- as.character("auto")
     xgbtype <- as.character("Tree")
     treedepth <- as.character("5-5")
     droptree <- as.character("0.3-0.3")
@@ -1042,6 +1051,7 @@ deleteCalConditions <- function(element, number.of.standards){
     NeuralHU=neuralhiddenunits,
     NeuralWD=neuralweightdecay,
     NeuralMI=neuralmaxiterations,
+	TreeMethod=treemethod,
     TreeDepth=treedepth,
     DropTree=droptree,
     SkipDrop=skipdrop,
@@ -1103,6 +1113,7 @@ defaultCalConditions <- function(element, number.of.standards){
     neuralweightdecay <- paste0(0.1, "-", 0.5)
     neuralmaxiterations <- as.numeric(1000)
     xgbtype <- as.character("Tree")
+	treemethod <- "auto"
     treedepth <- as.character("5-5")
     droptree=as.character("0.3-0.3")
     skipdrop=as.character("0.3-0.3")
@@ -1145,6 +1156,7 @@ defaultCalConditions <- function(element, number.of.standards){
         NeuralHU=neuralhiddenunits,
         NeuralWD=neuralweightdecay,
         NeuralMI=neuralmaxiterations,
+		TreeMethod=treemethod,
         TreeDepth=treedepth,
         DropTree=droptree,
         SkipDrop=skipdrop,
@@ -1331,6 +1343,12 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         as.character(imported.cal.conditions$CalTable$xgbType[1])
     } else if(!"xgbType" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbType
+    }
+
+    treemethod <- if("TreeMethod" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$TreeMethod[1])
+    } else if(!"TreeMethod" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$TreeMethod
     }
     
     treedepth <- if("TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
@@ -1604,6 +1622,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         NeuralHU=neuralhiddenunits,
         NeuralWD=neuralweightdecay,
         NeuralMI=neuralmaxiterations,
+		TreeMethod=treemethod,
         TreeDepth=treedepth,
         DropTree=droptree,
         SkipDrop=skipdrop,
@@ -1780,6 +1799,12 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         as.character(imported.cal.conditions$CalTable$xgbType[1])
     } else if(!"xgbType" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbType
+    }
+
+    treemethod <- if("TreeMethod" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$TreeMethod[1])
+    } else if(!"TreeMethod" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$TreeMethod
     }
     
     treedepth <- if("TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
@@ -2059,6 +2084,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     NeuralHU=neuralhiddenunits,
     NeuralWD=neuralweightdecay,
     NeuralMI=neuralmaxiterations,
+	TreeMethod=treemethod,
     TreeDepth=treedepth,
     DropTree=droptree,
     SkipDrop=skipdrop,
