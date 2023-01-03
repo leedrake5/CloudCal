@@ -367,6 +367,8 @@ uiOutput('xgbcolsampleui'),
 
 uiOutput('xgbminchildui'),
 
+uiOutput('xgbmaxdeltastepui'),
+
 uiOutput('bartkui'),
 
 uiOutput('bartbetaui'),
