@@ -4046,7 +4046,7 @@ treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
+    } else if(radiocal==8 && xgbtype="Tree"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
     } else if(radiocal==8 && xgbtype=="Dart"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
@@ -4056,6 +4056,46 @@ treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
     } else if(radiocal==9 && xgbtype=="Dart"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    }  else if(radiocal==13){
+        NULL
+    }
+}
+
+treeMethodUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==0){
+        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype="Tree"){
+        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+    } else if(radiocal==8 && xgbtype=="Dart"){
+        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Tree"){
+        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+    } else if(radiocal==9 && xgbtype=="Dart"){
+        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==10){
