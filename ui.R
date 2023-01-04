@@ -137,6 +137,7 @@ fileInput('calfileinput', 'Load Cal File', accept=".quant", multiple=FALSE)
 
 mainPanel(
 tabsetPanel(
+tabPanel("Debug", dataTableOutput('spectraframestuff')),
 tabPanel("Spectrum",
 plotOutput("distPlot", height = 685,
 dblclick = "plot1_dblclick",

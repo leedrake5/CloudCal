@@ -67,7 +67,7 @@ csvFrame <- function(filepath, filename=NULL){
     return.counts <-as.numeric(as.vector(ret$V2[(n-2048):n]))
     return.cps <- return.counts/return.live.time
     
-    data.frame(Energy=return.energy, CPS=return.cps, Spectrum=filename)
+    return(data.frame(Energy=return.energy, CPS=return.cps, Spectrum=filename))
 }
 
 fullSpectraDataTableProcess <- function(inFile=NULL, gainshiftvalue=0){
@@ -153,7 +153,7 @@ not_all_na <- function(x) any(!is.na(x))
 not_any_na <- function(x) all(!is.na(x))
 
 importCSVFrame <- function(filepath, choosen_beam="1"){
-    csv_import <- read.csv("/Users/lee/Google Drive/Reply to Frahm 2019/Export Results from Vanta/beamspectra-804734-2019-09-28-15-29-14.csv", header=F, stringsAsFactors=FALSE)
+    csv_import <- read.csv("~/Google Drive/Reply to Frahm 2019/Export Results from Vanta/beamspectra-804734-2019-09-28-15-29-14.csv", header=F, stringsAsFactors=FALSE)
     
     if(csv_import[1, "V1"]=="Std#"){
         importCSVFrameBasic(filepath)
@@ -185,7 +185,7 @@ uniqueBeamsDetailed <- function(csv_import){
 uniqueBeamsDetailed <- cmpfun(uniqueBeamsDetailed)
 
 uniqueBeams <- function(filepath){
-    csv_import <- read.csv("/Users/lee/Google Drive/Reply to Frahm 2019/Export Results from Vanta/beamspectra-804734-2019-09-28-15-29-14.csv", header=F, stringsAsFactors=FALSE)
+    csv_import <- read.csv("~/Google Drive/Reply to Frahm 2019/Export Results from Vanta/beamspectra-804734-2019-09-28-15-29-14.csv", header=F, stringsAsFactors=FALSE)
     
     if(csv_import[1, "V1"]=="Std#"){
         "1"
@@ -314,11 +314,13 @@ readElioProcess <- function(inFile=NULL, gainshiftvalue=0){
 }
 
 
-readMCAData <- function(filepath, filename){
+readMCAData4096 <- function(filepath, filename, full=NULL){
     filename <- make.names(gsub(".mca", "", filename))
     filename.vector <- rep(filename, 4096)
     
-    full <- read.csv(filepath, row.names=NULL)
+    if(is.null(full)){
+        full <- read.csv(filepath, row.names=NULL)
+    }
     
     chan.1.a.pre <- as.numeric(unlist(strsplit(gsub("# Calibration1: ", "", full[13,1]), " ")))
     chan.1.b.pre <- as.numeric(full[13,2])
@@ -348,6 +350,42 @@ readMCAData <- function(filepath, filename){
     spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
     return(spectra.frame)
+}
+readMCAData4096 <- cmpfun(readMCAData4096)
+
+readMCAData2048 <- function(filepath, filename, full=NULL){
+    
+    filename <- make.names(gsub(".mca", "", filename))
+    filename.vector <- rep(filename, 2048)
+    
+    if(is.null(full)){
+        full <- read.csv(filepath, row.names=NULL)
+    }
+    
+    evch <- as.numeric(strsplit(full[2,1], " = ")[[1]][2])/1000
+    evch_intercept <- as.numeric(strsplit(full[3,1], " = ")[[1]][2])/1000
+
+    time <- as.numeric(strsplit(full[4,1], " = ")[[1]][2])
+
+    cps <- as.numeric(full[13:nrow(full), 1])/time
+    energy <- seq(1, 2048, 1)*evch + evch_intercept
+    spectra.frame <- data.frame(Energy=energy, CPS=cps, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    return(spectra.frame)
+    
+}
+readMCAData2048 <- cmpfun(readMCAData2048)
+
+readMCAData <- function(filepath, filename){
+    full <- read.csv(filepath, row.names=NULL)
+
+    spectra.frame <- if(nrow(full)<=3000){
+        readMCAData2048(filepath=filepath, filename=filename, full=full)
+    } else if(nrow(full)>3000){
+        readMCAData4096(filepath=filepath, filename=filename, full=full)
+    }
+    
+    return(spectra.frame)
+    
 }
 readMCAData <- cmpfun(readMCAData)
 

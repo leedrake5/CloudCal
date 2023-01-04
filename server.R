@@ -20,7 +20,7 @@ shinyServer(function(input, output, session) {
     })
     
     calMemory <- reactiveValues()
-    calMemory$Calibration <- NULL
+    calMemory$Calibration <- list()
     
     oldCalCompatibility <- reactive(label="oldCalCompatibility", {
         choice <- if(!is.null(input$calfileinput) && calFileContents()[["FileType"]]=="Spectra"){
@@ -138,11 +138,16 @@ shinyServer(function(input, output, session) {
         }
     })
     
+    inFile <- reactive({
+        req(input$file1)
+        as.data.frame(input$file1)
+    })
+    
     
     fullSpectraDataTable <- reactive(label="fullSpectraDataTable", {
         req(input$file1)
         
-        fullSpectraDataTableProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
+        fullSpectraDataTableProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
         
     })
     
@@ -151,14 +156,14 @@ shinyServer(function(input, output, session) {
     fullSpectra <- reactive(label="fullSpectra", {
         req(input$file1)
         
-        fullSpectraProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
+        fullSpectraProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
 
     })
     
     importedCSV <- reactive(label="importedCSV", {
         req(input$file1)
         
-            inFile <- input$file1
+            inFile <- inFile()
             if (is.null(inFile)) return(NULL)
             
             importCSVFrame(filepath=inFile$datapath)
@@ -168,7 +173,7 @@ shinyServer(function(input, output, session) {
     netCounts <- reactive(label="netCounts", {
         req(input$file1)
         
-        netCountsProcess(ineFile=input$file1)
+        netCountsProcess(inFile=inFile())
         
     })
     
@@ -176,14 +181,14 @@ shinyServer(function(input, output, session) {
     readTXT <- reactive(label="readTXT", {
         req(input$file1)
         
-        readTXTProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
+        readTXTProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
         
     })
     
     readElio <- reactive(label="readElio", {
         req(input$file1)
         
-        readElioProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
+        readElioProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
         
     })
     
@@ -191,7 +196,7 @@ shinyServer(function(input, output, session) {
     readMCA <- reactive(label="readMCA", {
         req(input$file1)
        
-       readMCAProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
+       readMCAProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
         
     })
     
@@ -199,7 +204,7 @@ shinyServer(function(input, output, session) {
     readSPX <- reactive(label="readSPX", {
         req(input$file1)
         
-        readSPXProcess(inFile=input$file1, gainshiftvalue=gainshiftHold())
+        readSPXProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
         
     })
     
@@ -209,7 +214,7 @@ shinyServer(function(input, output, session) {
         
         binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
         
-        readPDZProcess(inFile=input$file1, gainshiftvalue=gainshiftHold(), advanced=input$advanced, binaryshift=binaryshiftvalue)
+        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=input$advanced, binaryshift=binaryshiftvalue)
         
     })
     
@@ -223,23 +228,23 @@ shinyServer(function(input, output, session) {
         
         observeEvent(!is.null(input$file1) | !is.null(input$calfileinput), {
             if(is.null(input$calfileinput) && is.null(input$file1)){
-                calMemory$Calibration <- NULL
+                calMemory$Calibration <- list()
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- calFileContents()
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- calFileContents()
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
-                calMemory$Calibration <- NULL
+                calMemory$Calibration <- list()
             }
             
             if(is.null(input$calfileinput) && is.null(input$file1)){
-                calMemory$Calibration <- NULL
+                calMemory$Calibration <- list()
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- defaultCalList(calMemory$Calibration)
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- defaultCalList(calMemory$Calibration, temp=TRUE)
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
-                calMemory$Calibration <- NULL
+                calMemory$Calibration <- list()
             }
         })
         
@@ -310,15 +315,15 @@ shinyServer(function(input, output, session) {
         })
         
         output$spectraframestuff <- renderDataTable({
-            dataHold()
+            inFile()
         })
         
         
         
         dataHold <- reactive(label="dataHold", {
-            data <- if(is.null(calMemory$Calibration$calList)){
+            data <- if(is.null(calMemory$Calibration$Spectra)){
                 myData()
-            } else if(!is.null(calMemory$Calibration$calList)){
+            } else if(!is.null(calMemory$Calibration$Spectra)){
                 if(is.null(input$file1)){
                     calMemory$Calibration[["Spectra"]]
                 } else if(!is.null(input$file1)){
@@ -361,15 +366,21 @@ shinyServer(function(input, output, session) {
         
         dataHoldDeconvolution <- reactive({
             
+            my.cores.mod <- if(length(unique(dataHold()$Spectrum)) < my.cores){
+                length(unique(dataHold()$Spectrum))
+            } else {
+                my.cores
+            }
+            
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                 }
-                tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1))
+                tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores.mod)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1))
             } else if("Deconvoluted" %in% names(calMemory$Calibration)){
                 if("Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                     calMemory$Calibration$Deconvoluted
                 } else if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
-                    tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1))
+                    tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores.mod)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1))
                 }
             }
             
