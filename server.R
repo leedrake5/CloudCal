@@ -3802,15 +3802,15 @@ shinyServer(function(input, output, session) {
             xgbmaxdeltastep.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMaxDeltaStep), "-")))
 
             xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(1, parameters$ForestTrees),
-            max_depth = as.integer(tree.depth.vec[1], tree.depth.vec[2]),
+            nrounds = as.integer(c(1, parameters$ForestTrees)),
+            max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
 			alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
             eta = c(xgbeta.vec[1], xgbeta.vec[2]),
             gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
 			lambda=c(xgblambda.vec[1], xgblambda.vec[2]),
             colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
             subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            min_child_weight = as.integer(xgbminchild.vec[1], xgbminchild.vec[2]),
+            min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
 			max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2]),
 			scale_pos_weight = c(0, 1)
             ), init_points=50)
@@ -3895,7 +3895,6 @@ shinyServer(function(input, output, session) {
                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
                           xgb_cv_bayes <- function(nrounds, max_depth, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "gbtree",
-                              nrounds = nrounds,
                               max_depth = max_depth,
                               min_child_weight = min_child_weight,
                               max_delta_step = max_delta_step,
@@ -3907,7 +3906,7 @@ shinyServer(function(input, output, session) {
                               colsample_bytree = colsample_bytree,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, tree_method = treemethod, nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, tree_method = treemethod, nthread=-1, maximize = TRUE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -3917,7 +3916,7 @@ shinyServer(function(input, output, session) {
                           }
                           
                 OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-                bounds = list(nrounds=as.integer(1, parameters$ForestTrees),
+                bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
 							max_depth = as.integer(tree.depth.vec),
                            min_child_weight = xgbminchild.vec,
 							max_delta_step = xgbmaxdeltastep.vec,
@@ -4038,8 +4037,8 @@ shinyServer(function(input, output, session) {
 
             
             xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(1, parameters$ForestTrees),
-            max_depth = as.integer(tree.depth.vec[1], tree.depth.vec[2]),
+            nrounds = as.integer(c(1, parameters$ForestTrees)),
+            max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
             rate_drop = c(drop.tree.vec[1], drop.tree.vec[2]),
             skip_drop = c(skip.drop.vec[1], skip.drop.vec[2]),
 			alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
@@ -4048,7 +4047,7 @@ shinyServer(function(input, output, session) {
 			lambda=c(xgblambda.vec[1], xgblambda.vec[2]),
             colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
             subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            min_child_weight = as.integer(xgbminchild.vec[1], xgbminchild.vec[2]),
+            min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
 			max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
             ), init_points=50)
             
@@ -4132,7 +4131,6 @@ shinyServer(function(input, output, session) {
                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
                           xgb_cv_bayes <- function(nrounds, max_depth, rate_drop, skip_drop, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "dart",
-                              nrounds = nrounds,
                               max_depth = max_depth,
                               rate_drop = rate_drop,
                               skip_drop = skip_drop,
@@ -4146,7 +4144,7 @@ shinyServer(function(input, output, session) {
                               colsample_bytree = colsample_bytree,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, tree_method = "auto", nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, tree_method = "auto", nthread=-1, maximize = TRUE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -4156,7 +4154,7 @@ shinyServer(function(input, output, session) {
                           }
                           
                 OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-                bounds = list(nrounds=as.integer(1, parameters$ForestTrees),
+                bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
 							max_depth = as.integer(tree.depth.vec),
                            rate_drop=drop.tree.vec,
                            skip_drop=skip.drop.vec,
@@ -4262,7 +4260,7 @@ shinyServer(function(input, output, session) {
             xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
             
             xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(1, parameters$ForestTrees),
+            nrounds = as.integer(c(1, parameters$ForestTrees)),
             alpha=c(xgbalpha.vec[1], xgbalpha.vec[2]),
             eta = c(xgbeta.vec[1], xgbeta.vec[2]),
             lambda = c(xgblambda.vec[1], xgblambda.vec[2])
@@ -4322,7 +4320,7 @@ shinyServer(function(input, output, session) {
                         xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                         stopCluster(cl)
                     } else if(input$multicore_behavior=="OpenMP"){
-                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=-1)
+                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = as.data.frame(xgbGrid), objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=-1)
                     }
                 } else if(input$bayesparameter=="Bayesian"){
                     forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
@@ -4333,8 +4331,8 @@ shinyServer(function(input, output, session) {
                         "rmse"
                     }
                     fold_samples <- round(nrow(predict.frame)/10, 0)+2
-                    if(fold_samples>30){
-                        fold_samples <- 30
+                    if(fold_samples>3){
+                        fold_samples <- 3
                     }
                     parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
                     if(parameter_space_dimensions>50){
@@ -4348,13 +4346,12 @@ shinyServer(function(input, output, session) {
                                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
                               xgb_cv_bayes <- function(nrounds, alpha, eta, lambda) {
                                   param <- list(booster = "gblinear",
-                                  nrounds = nrounds,
                                   alpha = alpha,
                                   eta=eta,
                                   lambda=lambda,
                                   objective = "reg:squarederror",
                                   eval_metric = forest.metric.mod)
-                                  cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nthread=-1, maximize = TRUE, verbose = FALSE)
+                                  cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, verbose = FALSE)
                                   
                                   if(forest.metric.mod=="rmse"){
                                       tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -4364,8 +4361,7 @@ shinyServer(function(input, output, session) {
                               }
                               
                     OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-                    bounds = list(
-									nrounds=as.integer(1, parameters$ForestTrees),
+                    bounds = list(nrounds = as.integer(c(1, parameters$ForestTrees)),
                                    alpha = xgbalpha.vec,
                                    eta = xgbeta.vec,
                                    lambda = xgblambda.vec),
@@ -4485,15 +4481,15 @@ shinyServer(function(input, output, session) {
             
             
             xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(1, parameters$ForestTrees),
-            max_depth = as.integer(tree.depth.vec[1], tree.depth.vec[2]),
+            nrounds = as.integer(c(1, parameters$ForestTrees)),
+            max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
             alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
             eta = c(xgbeta.vec[1], xgbeta.vec[2]),
             gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
             lambda = c(xgblambda.vec[1], xgblambda.vec[2]),
             colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
             subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            min_child_weight = as.integer(xgbminchildweight.vec[1], xgbminchildweight.vec[2]),
+            min_child_weight = as.integer(c(xgbminchildweight.vec[1], xgbminchildweight.vec[2])),
             max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
             ), init_points=50)
             
@@ -4579,7 +4575,6 @@ shinyServer(function(input, output, session) {
                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
                           xgb_cv_bayes <- function(nrounds, max_depth, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "gbtree",
-                              nrounds = nrounds,
                               max_depth = max_depth,
                               min_child_weight = min_child_weight,
                               max_delta_step = max_delta_step,
@@ -4591,7 +4586,7 @@ shinyServer(function(input, output, session) {
                               colsample_bytree = colsample_bytree,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, tree_method = treemethod, nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, tree_method = treemethod, nthread=-1, maximize = TRUE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -4601,7 +4596,7 @@ shinyServer(function(input, output, session) {
                           }
                           
                 OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-                bounds = list(nrounds=as.integer(1, parameters$ForestTrees), 
+                bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
 							max_depth = as.integer(tree.depth.vec),
                            min_child_weight = xgbminchildweight.vec,
                            max_delta_step = xgbmaxdeltastep.vec,
@@ -4611,11 +4606,10 @@ shinyServer(function(input, output, session) {
                                gamma = c(0L, xgbgamma.vec[2]),
                                lambda = xgblambda.vec,
                                colsample_bytree=xgbcolsample.vec),
-							tree_method=treemethod,
                            init_grid_dt = NULL,
                            init_points = 50,
                            n_iter = 5,
-                           acq = "ucb",
+                           acq = "ei",
                            kappa = 2.576,
                            eps = 0.0,
                            verbose = TRUE)
@@ -4722,8 +4716,8 @@ shinyServer(function(input, output, session) {
 
             
             xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(1, parameters$ForestTrees),
-            max_depth = as.integer(tree.depth.vec[1], tree.depth.vec[2]),
+            nrounds = as.integer(c(1, parameters$ForestTrees)),
+            max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
             rate_drop = c(drop.tree.vec[1], drop.tree.vec[2]),
             skip_drop = c(skip.drop.vec[1], skip.drop.vec[2]), 
             alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
@@ -4732,7 +4726,7 @@ shinyServer(function(input, output, session) {
             lambda = c(xgblambda.vec[1], xgblambda.vec[2]),
             colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
             subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            min_child_weight = as.integer(xgbminchildweight.vec[1], xgbminchildweight.vec[2]),
+            min_child_weight = as.integer(c(xgbminchildweight.vec[1], xgbminchildweight.vec[2])),
             max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
             ), init_points=50)
             
@@ -4818,7 +4812,6 @@ shinyServer(function(input, output, session) {
                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
                           xgb_cv_bayes <- function(nrounds, max_depth, rate_drop, skip_drop, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "dart",
-                              nrounds = nrounds,
                               max_depth = max_depth,
                               rate_drop = rate_drop,
                               skip_drop = skip_drop,
@@ -4832,7 +4825,7 @@ shinyServer(function(input, output, session) {
                               colsample_bytree = colsample_bytree,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, tree_method = "auto", nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, tree_method = "auto", nthread=-1, maximize = TRUE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -4842,7 +4835,7 @@ shinyServer(function(input, output, session) {
                           }
                           
                 OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-                bounds = list(nrounds=as.integer(1, parameters$ForestTrees), 
+                bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
 							max_depth = as.integer(tree.depth.vec),
                            rate_drop = drop.tree.vec,
                            skip_drop = skip.drop.vec,
@@ -4858,7 +4851,7 @@ shinyServer(function(input, output, session) {
                            init_grid_dt = NULL,
                            init_points = 50,
                            n_iter = 5,
-                           acq = "ucb",
+                           acq = "ei",
                            kappa = 2.576,
                            eps = 0.0,
                            verbose = TRUE)
@@ -4951,7 +4944,7 @@ shinyServer(function(input, output, session) {
             
             
             xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(1, parameters$ForestTrees),
+            nrounds = as.integer(c(1, parameters$ForestTrees)),
             alpha=c(xgbalpha.vec[1], xgbalpha.vec[2]),
             eta = c(xgbeta.vec[1], xgbeta.vec[2]),
             lambda = c(xgblambda.vec[1], xgblambda.vec[2])),
@@ -5038,13 +5031,12 @@ shinyServer(function(input, output, session) {
                             cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
                           xgb_cv_bayes <- function(nrounds, alpha, eta, lambda) {
                               param <- list(booster = "gblinear",
-                              nrounds = nrounds,
                               alpha = alpha,
                               eta=eta,
                               lambda=lambda,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, nthread=-1, maximize = FALSE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -5055,14 +5047,14 @@ shinyServer(function(input, output, session) {
                           
                 OPT_Res <- BayesianOptimization(xgb_cv_bayes,
                 bounds = list(
-								nrounds=as.integer(1, parameters$ForestTrees),
+								nrounds=as.integer(c(1, parameters$ForestTrees)),
                                alpha = xgbalpha.vec,
                                eta = xgbeta.vec,
                                lambda = xgblambda.vec),
                            init_grid_dt = NULL,
                            init_points = 30,
                            n_iter = 5,
-                           acq = "ucb",
+                           acq = "ei",
                            kappa = 2.576,
                            eps = 0.0,
                            verbose = TRUE)
@@ -5159,7 +5151,7 @@ shinyServer(function(input, output, session) {
             bartnu.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartNu), "-")))
             
             bart.grid <- generate_grid(bounds=list(
-                num_trees=as.integer(1, parameters$ForestTrees),
+                num_trees=as.integer(c(1, parameters$ForestTrees)),
                 alpha=c(xgbalpha.vec[1], xgbalpha.vec[2]),
                 beta=c(bartbeta.vec[1], bartbeta.vec[2]),
                 nu=c(bartnu.vec[1], bartnu.vec[2]),
@@ -5425,7 +5417,7 @@ shinyServer(function(input, output, session) {
             bartnu.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartNu), "-")))
             
             bart.grid <- generate_grid(bounds=list(
-                num_trees=as.integer(1, parameters$ForestTrees),
+                num_trees=as.integer(c(1, parameters$ForestTrees)),
                 alpha=c(xgbalpha.vec[1], xgbalpha.vec[2]),
                 beta=c(bartbeta.vec[1], bartbeta.vec[2]),
                 nu=c(bartnu.vec[1], bartnu.vec[2]),
@@ -8231,7 +8223,7 @@ shinyServer(function(input, output, session) {
         output$bayesparameterui <- renderUI({
             req(input$radiocal)
             if(input$radiocal==8 | input$radiocal==9){
-                selectInput("bayesparameter", "Bayesian Parameter Search", choices=c("GridSearch", "Bayesian"), selected="Bayesian")
+                selectInput("bayesparameter", "Bayesian Parameter Search", choices=c("GridSearch", "Bayesian"), selected="GridSearch")
             } else if(input$radiocal!=8 | input$radiocal!=9){
                 NULL
             }
