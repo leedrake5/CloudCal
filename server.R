@@ -315,7 +315,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$spectraframestuff <- renderDataTable({
-            inFile()
+            myData()
         })
         
         

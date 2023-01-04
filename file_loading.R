@@ -369,7 +369,7 @@ readMCAData2048 <- function(filepath, filename, full=NULL){
 
     cps <- as.numeric(full[13:nrow(full), 1])/time
     energy <- seq(1, 2048, 1)*evch + evch_intercept
-    spectra.frame <- data.frame(Energy=energy, CPS=cps, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    spectra.frame <- data.frame(Energy=as.numeric(energy), CPS=as.numeric(cps), Spectrum=as.character(filename.vector), stringsAsFactors=FALSE)
     return(spectra.frame)
     
 }
@@ -398,7 +398,9 @@ readMCAProcess <- function(inFile=NULL, gainshiftvalue=0){
         
         n.seq <- seq(1, nrow(inFile), 1)
         
-        data.list <- pbmapply(function(datapath, name) { readMCAData(datapath,name) }, inFile$datapath, inFile$name)
+        data.list <- pblapply(n.seq, function(x) readMCAData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
+
+        
         data <- do.call("rbind", data.list)
         data <- as.data.frame(data, stringsAsFactors=FALSE)
             
