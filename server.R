@@ -3774,7 +3774,7 @@ shinyServer(function(input, output, session) {
             colsample <- xgboostColSampleSelection()
 			minchildweight <- xgboostMinChildSelection()
 			maxdeltastep <- xgboostMaxDeltaStepSelection()
-            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod[1], treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=paste0(minchildweight[1], "-", minchildweight[2]), xgbmaxdeltastep=paste0(maxdeltastep[1], "-", maxdeltastep[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod[1], treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep[1]), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgbtreeIntensityModelData <- reactive(label="xgboostIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=xgbtreeIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=xgbtreeIntensityParameters()$Intercept, slopes=xgbtreeIntensityParameters()$Slope, norm.type=xgbtreeIntensityParameters()$CalTable$NormType, norm.min=xgbtreeIntensityParameters()$CalTable$Min, norm.max=xgbtreeIntensityParameters()$CalTable$Max, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -3798,8 +3798,8 @@ shinyServer(function(input, output, session) {
             xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
             xgbsubsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbSubSample), "-")))
             xgbcolsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbColSample), "-")))
-            xgbminchild.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMinChild), "-")))
-            xgbmaxdeltastep.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMaxDeltaStep), "-")))
+            xgbminchild.vec <- as.integer(c(0, parameters$xgbMinChild+1))
+            xgbmaxdeltastep.vec <- as.integer(c(0, parameters$xgbMaxDeltaStep+1))
 
             xgbGrid <- generate_grid(bounds=list(
             nrounds = as.integer(c(1, parameters$ForestTrees)),
@@ -3880,8 +3880,8 @@ shinyServer(function(input, output, session) {
                     "rmse"
                 }
                 fold_samples <- round(nrow(predict.frame)/10, 0)+2
-                if(fold_samples>30){
-                    fold_samples <- 30
+                if(fold_samples>5){
+                    fold_samples <- 5
                 }
                 parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
                 if(parameter_space_dimensions>50){
@@ -3906,7 +3906,7 @@ shinyServer(function(input, output, session) {
                               colsample_bytree = colsample_bytree,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, tree_method = treemethod, nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, tree_method = treemethod, maximize = TRUE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -3926,7 +3926,6 @@ shinyServer(function(input, output, session) {
                                gamma = c(0L, xgbgamma.vec[2]),
                                lambda = xgblambda.vec,
                                colsample_bytree=xgbcolsample.vec),
-							tree_method=treemethod,
                            init_grid_dt = NULL,
                            init_points = 50,
                            n_iter = 5,
@@ -4006,7 +4005,7 @@ shinyServer(function(input, output, session) {
             colsample <- xgboostColSampleSelection()
 			minchildweight <- xgboostMinChildSelection()
 			maxdeltastep <- xgboostMaxDeltaStepSelection()
-            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), droptree=paste0(droptree[1], "-", droptree[2]), skipdrop=paste0(skipdrop[1], "-", skipdrop[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=paste0(minchildweight[1], "-", minchildweight[2]), xgbmaxdeltastep=paste0(maxdeltastep[1], "-", maxdeltastep[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), droptree=paste0(droptree[1], "-", droptree[2]), skipdrop=paste0(skipdrop[1], "-", skipdrop[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep[1]), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgbdartIntensityModelData <- reactive(label="xgboostDartIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=xgbdartIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=xgbdartIntensityParameters()$Intercept, slopes=xgbdartIntensityParameters()$Slope, norm.type=xgbdartIntensityParameters()$CalTable$NormType, norm.min=xgbdartIntensityParameters()$CalTable$Min, norm.max=xgbdartIntensityParameters()$CalTable$Max, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -4032,8 +4031,8 @@ shinyServer(function(input, output, session) {
             xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
             xgbsubsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbSubSample), "-")))
             xgbcolsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbColSample), "-")))
-            xgbminchild.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMinChild), "-")))
-            xgbmaxdeltastep.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMaxDeltaStep), "-")))
+            xgbminchild.vec <- as.integer(c(0, parameters$xgbMinChild+1))
+            xgbmaxdeltastep.vec <- as.integer(c(0, parameters$xgbMaxDeltaStep+1))
 
             
             xgbGrid <- generate_grid(bounds=list(
@@ -4116,8 +4115,8 @@ shinyServer(function(input, output, session) {
                     "rmse"
                 }
                 fold_samples <- round(nrow(predict.frame)/10, 0)+2
-                if(fold_samples>30){
-                    fold_samples <- 30
+                if(fold_samples>5){
+                    fold_samples <- 5
                 }
                 parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
                 if(parameter_space_dimensions>50){
@@ -4158,7 +4157,7 @@ shinyServer(function(input, output, session) {
 							max_depth = as.integer(tree.depth.vec),
                            rate_drop=drop.tree.vec,
                            skip_drop=skip.drop.vec,
-							min_child_weight = xgbminchildweight.vec,
+							min_child_weight = xgbminchild.vec,
 							max_delta_step = xgbmaxdeltastep.vec,
                                subsample = xgbsubsample.vec,
                                alpha = xgbalpha.vec,
@@ -4356,7 +4355,7 @@ shinyServer(function(input, output, session) {
                                   if(forest.metric.mod=="rmse"){
                                       tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
                                   } else if(forest.metric.mod=="mae"){
-                                      tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                      list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1)
                                   }
                               }
                               
@@ -4452,7 +4451,8 @@ shinyServer(function(input, output, session) {
             subsample <- xgboostSubSampleSelection()
             colsample <- xgboostColSampleSelection()
 			minchildweight <- xgboostMinChildSelection()
-            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=paste0(minchildweight[1], "-", minchildweight[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            maxdeltastep <- xgboostMaxDeltaStepSelection()
+            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgbtreeSpectraModelData <- reactive(label="xgbtreeSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=xgbtreeSpectraParameters()$CalTable$Compress, transformation=xgbtreeSpectraParameters()$CalTable$Transformation, dependent.transformation=xgbtreeSpectraParameters()$CalTable$DepTrans,  energy.range=as.numeric(unlist(strsplit(as.character(xgbtreeSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=xgbtreeSpectraParameters()$CalTable$NormType, norm.min=xgbtreeSpectraParameters()$CalTable$Min, norm.max=xgbtreeSpectraParameters()$CalTable$Max, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -4474,8 +4474,8 @@ shinyServer(function(input, output, session) {
             xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
             xgbsubsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbSubSample), "-")))
             xgbcolsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbColSample), "-")))
-            xgbminchildweight.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMinChild), "-")))
-            xgbmaxdeltastep.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMaxDeltaStep), "-")))
+            xgbminchild.vec <- as.integer(c(0, parameters$xgbMinChild+1))
+            xgbmaxdeltastep.vec <- as.integer(c(0, parameters$xgbMaxDeltaStep+1))
 
            set.seed(input$randomize)
             
@@ -4489,7 +4489,7 @@ shinyServer(function(input, output, session) {
             lambda = c(xgblambda.vec[1], xgblambda.vec[2]),
             colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
             subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            min_child_weight = as.integer(c(xgbminchildweight.vec[1], xgbminchildweight.vec[2])),
+            min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
             max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
             ), init_points=50)
             
@@ -4560,8 +4560,8 @@ shinyServer(function(input, output, session) {
                     "rmse"
                 }
                 fold_samples <- round(nrow(predict.frame)/10, 0)+2
-                if(fold_samples>30){
-                    fold_samples <- 30
+                if(fold_samples>5){
+                    fold_samples <- 5
                 }
                 parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
                 if(parameter_space_dimensions>50){
@@ -4598,7 +4598,7 @@ shinyServer(function(input, output, session) {
                 OPT_Res <- BayesianOptimization(xgb_cv_bayes,
                 bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
 							max_depth = as.integer(tree.depth.vec),
-                           min_child_weight = xgbminchildweight.vec,
+                           min_child_weight = xgbminchild.vec,
                            max_delta_step = xgbmaxdeltastep.vec,
                                subsample = xgbsubsample.vec,
                                alpha = xgbalpha.vec,
@@ -4682,10 +4682,10 @@ shinyServer(function(input, output, session) {
             xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
             xgbsubsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbSubSample), "-")))
             xgbcolsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbColSample), "-")))
-            xgbminchildweight.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMinChild), "-")))
+            xgbminchild.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMinChild), "-")))
             xgbmaxdeltastep.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMaxDeltaStep), "-")))
 
-            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), droptree=paste0(droptree[1], "-", droptree[2]), skipdrop=paste0(skipdrop[1], "-", skipdrop[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=paste0(minchildweight[1], "-", minchildweight[2]), xgbmaxdeltastep=paste0(maxdeltastep[1], "-", maxdeltastep[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), droptree=paste0(droptree[1], "-", droptree[2]), skipdrop=paste0(skipdrop[1], "-", skipdrop[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep[1]), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgbdartSpectraModelData <- reactive(label="xgbdartSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=xgbdartSpectraParameters()$CalTable$Compress, transformation=xgbdartSpectraParameters()$CalTable$Transformation, dependent.transformation=xgbdartSpectraParameters()$CalTable$DepTrans,  energy.range=as.numeric(unlist(strsplit(as.character(xgbdartSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=xgbdartSpectraParameters()$CalTable$NormType, norm.min=xgbdartSpectraParameters()$CalTable$Min, norm.max=xgbdartSpectraParameters()$CalTable$Max, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -4711,8 +4711,8 @@ shinyServer(function(input, output, session) {
             xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
             xgbsubsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbSubSample), "-")))
             xgbcolsample.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbColSample), "-")))
-            xgbminchildweight.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMinChild), "-")))
-            xgbmaxdeltastep.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbMaxDeltaStep), "-")))
+            xgbminchild.vec <- as.integer(c(0, parameters$xgbMinChild+1))
+            xgbmaxdeltastep.vec <- as.integer(c(0, parameters$xgbMaxDeltaStep+1))
 
             
             xgbGrid <- generate_grid(bounds=list(
@@ -4726,7 +4726,7 @@ shinyServer(function(input, output, session) {
             lambda = c(xgblambda.vec[1], xgblambda.vec[2]),
             colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
             subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            min_child_weight = as.integer(c(xgbminchildweight.vec[1], xgbminchildweight.vec[2])),
+            min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
             max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
             ), init_points=50)
             
@@ -4797,8 +4797,8 @@ shinyServer(function(input, output, session) {
                     "rmse"
                 }
                 fold_samples <- round(nrow(predict.frame)/10, 0)+2
-                if(fold_samples>30){
-                    fold_samples <- 30
+                if(fold_samples>5){
+                    fold_samples <- 5
                 }
                 parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
                 if(parameter_space_dimensions>50){
@@ -5016,8 +5016,8 @@ shinyServer(function(input, output, session) {
                     "rmse"
                 }
                 fold_samples <- round(nrow(predict.frame)/10, 0)+2
-                if(fold_samples>30){
-                    fold_samples <- 30
+                if(fold_samples>5){
+                    fold_samples <- 5
                 }
                 parameter_space_dimensions <- round(nrow(xgbGrid)/20, 0)+2
                 if(parameter_space_dimensions>50){
