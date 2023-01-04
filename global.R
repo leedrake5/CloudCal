@@ -27,6 +27,10 @@ if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 if(!"caret" %in% installed.packages()[,"Package"]){
     devtools::install_github("leedrake5/caret/pkg/caret")
+} else {
+    if(packageVersion("caret")!="6.0.93.1"){
+        devtools::install_github("leedrake5/caret/pkg/caret")
+    }
 }
 
 
