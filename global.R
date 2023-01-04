@@ -30,7 +30,7 @@ if(!"caret" %in% installed.packages()[,"Package"]){
 }
 
 
-list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr")
+list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "taRifx")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
@@ -4093,7 +4093,7 @@ treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype="Tree"){
+    } else if(radiocal==8 && xgbtype=="Tree"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
     } else if(radiocal==8 && xgbtype=="Dart"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
@@ -4133,7 +4133,7 @@ treeMethodUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype="Tree"){
+    } else if(radiocal==8 && xgbtype=="Tree"){
         selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
     } else if(radiocal==8 && xgbtype=="Dart"){
         selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)

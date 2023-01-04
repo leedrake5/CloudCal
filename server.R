@@ -2469,40 +2469,40 @@ shinyServer(function(input, output, session) {
         ####Machine Learning: Slope
         
         output$multicore_behavior_ui <- renderUI({
-            require(input$radiocal)
+            #require(input$radiocal)
             default.behavior <- if(get_os()=="windows"){
                 "Serialize"
             } else if(get_os()!="windows"){
                 "Fork"
             }
             
-            tryCatch(if(input$radiocal==1){
+            if(input$radiocal[1]==1){
                 NULL
-            } else if(input$radiocal==2){
+            } else if(input$radiocal[1]==2){
                 NULL
-            } else if(input$radiocal==3){
+            } else if(input$radiocal[1]==3){
                 NULL
-            } else if(input$radiocal==4){
+            } else if(input$radiocal[1]==4){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected=default.behavior)
-            } else if(input$radiocal==5){
+            } else if(input$radiocal[1]==5){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected=default.behavior)
-            } else if(input$radiocal==6){
+            } else if(input$radiocal[1]==6){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected=default.behavior)
-            } else if(input$radiocal==7){
+            } else if(input$radiocal[1]==7){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected=default.behavior)
-            } else if(input$radiocal==8){
+            } else if(input$radiocal[1]==8){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork", "OpenMP"), selected=default.behavior)
-            } else if(input$radiocal==9){
+            } else if(input$radiocal[1]==9){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork", "OpenMP"), selected=default.behavior)
-            } else if(input$radiocal==10){
+            } else if(input$radiocal[1]==10){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Serialize")
-            } else if(input$radiocal==11){
+            } else if(input$radiocal[1]==11){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Single Core")
-            } else if(input$radiocal==12){
+            } else if(input$radiocal[1]==12){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Serialize")
-            } else if(input$radiocal==13){
+            } else if(input$radiocal[1]==13){
                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Serialize")
-            }, error=function(e)                 selectInput("multicore_behavior", "Multicore Processing", choices=c("Single Core", "Serialize", "Fork"), selected="Serialize"))
+            }
                 
             
         })
@@ -3769,12 +3769,12 @@ shinyServer(function(input, output, session) {
 			alpha <- xgboostAlphaSelection()
             eta <- xgboostEtaSelection()
             gamma <- xgboostGammaSelection()
-			lambda < xgboostLambdaSelection()
+			lambda <- xgboostLambdaSelection()
             subsample <- xgboostSubSampleSelection()
             colsample <- xgboostColSampleSelection()
 			minchildweight <- xgboostMinChildSelection()
 			maxdeltastep <- xgboostMaxDeltaStepSelection()
-            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod[1], treedepth=paste0(treedepth[1], "-", treedepth[2]), xgalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=paste0(minchildweight[1], "-", minchildweight[2]), xgbmaxdeltastep=paste0(maxdeltastep[1], "-", maxdeltastep[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod[1], treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=paste0(minchildweight[1], "-", minchildweight[2]), xgbmaxdeltastep=paste0(maxdeltastep[1], "-", maxdeltastep[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgbtreeIntensityModelData <- reactive(label="xgboostIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), dependent.transformation=xgbtreeIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=xgbtreeIntensityParameters()$Intercept, slopes=xgbtreeIntensityParameters()$Slope, norm.type=xgbtreeIntensityParameters()$CalTable$NormType, norm.min=xgbtreeIntensityParameters()$CalTable$Min, norm.max=xgbtreeIntensityParameters()$CalTable$Max, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -3790,7 +3790,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-			treemethod <- paramters$TreeMethod
+			treemethod <- parameters$TreeMethod
             tree.depth.vec <- as.numeric(unlist(strsplit(as.character(parameters$TreeDepth), "-")))
             xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
             xgbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbEta), "-")))
@@ -3812,7 +3812,7 @@ shinyServer(function(input, output, session) {
             subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
             min_child_weight = as.integer(xgbminchild.vec[1], xgbminchild.vec[2]),
 			max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2]),
-			scal_pos_weight = c(0, 1)
+			scale_pos_weight = c(0, 1)
             ), init_points=50)
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
@@ -3869,7 +3869,7 @@ shinyServer(function(input, output, session) {
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                 } else if(input$multicore_behavior=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=-1)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=-1)
                 }
             } else if(input$bayesparameter=="Bayesian"){
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
@@ -3907,7 +3907,7 @@ shinyServer(function(input, output, session) {
                               colsample_bytree = colsample_bytree,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, early_stopping_rounds = 75, tree_method = treemethod, nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, tree_method = treemethod, nthread=-1, maximize = TRUE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -3917,10 +3917,10 @@ shinyServer(function(input, output, session) {
                           }
                           
                 OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-                bounds = list(nrounds=c(1, parameters$ForestTrees), 
+                bounds = list(nrounds=as.integer(1, parameters$ForestTrees),
 							max_depth = as.integer(tree.depth.vec),
                            min_child_weight = xgbminchild.vec,
-							max_delta_step = xgbmaxdeltastep.vec
+							max_delta_step = xgbmaxdeltastep.vec,
                                subsample = xgbsubsample.vec,
                                alpha = xgbalpha.vec,
                                eta = xgbeta.vec,
@@ -4002,7 +4002,7 @@ shinyServer(function(input, output, session) {
 			alpha <- xgboostAlphaSelection()
             eta <- xgboostEtaSelection()
             gamma <- xgboostGammaSelection()
-			lambda < xgboostLambdaSelection()
+			lambda <- xgboostLambdaSelection()
             subsample <- xgboostSubSampleSelection()
             colsample <- xgboostColSampleSelection()
 			minchildweight <- xgboostMinChildSelection()
@@ -4023,7 +4023,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-			treemethod <- paramters$TreeMethod
+			treemethod <- parameters$TreeMethod
             tree.depth.vec <- as.numeric(unlist(strsplit(as.character(parameters$TreeDepth), "-")))
             drop.tree.vec <- as.numeric(unlist(strsplit(as.character(parameters$DropTree), "-"))) 
             skip.drop.vec <- as.numeric(unlist(strsplit(as.character(parameters$SkipDrop), "-")))  
@@ -4146,7 +4146,7 @@ shinyServer(function(input, output, session) {
                               colsample_bytree = colsample_bytree,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, early_stopping_rounds = 75, tree_method = "auto", nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, tree_method = "auto", nthread=-1, maximize = TRUE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -4156,18 +4156,18 @@ shinyServer(function(input, output, session) {
                           }
                           
                 OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-                bounds = list(nrounds=as.integer(1, parameters$ForestTrees)
+                bounds = list(nrounds=as.integer(1, parameters$ForestTrees),
 							max_depth = as.integer(tree.depth.vec),
                            rate_drop=drop.tree.vec,
                            skip_drop=skip.drop.vec,
 							min_child_weight = xgbminchildweight.vec,
-							max_delta_step = xgbmaxdeltastep.vec
+							max_delta_step = xgbmaxdeltastep.vec,
                                subsample = xgbsubsample.vec,
                                alpha = xgbalpha.vec,
                                eta = xgbeta.vec,
                                gamma = c(0L, xgbgamma.vec[2]),
                                lambda = xgblambda.vec),
-							tree_method=treemethod
+							tree_method=treemethod,
                            init_grid_dt = NULL,
                            init_points = 50,
                            n_iter = 5,
@@ -4354,7 +4354,7 @@ shinyServer(function(input, output, session) {
                                   lambda=lambda,
                                   objective = "reg:squarederror",
                                   eval_metric = forest.metric.mod)
-                                  cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, early_stopping_rounds = 75, nthread=-1, maximize = TRUE, verbose = FALSE)
+                                  cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nthread=-1, maximize = TRUE, verbose = FALSE)
                                   
                                   if(forest.metric.mod=="rmse"){
                                       tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -4470,7 +4470,7 @@ shinyServer(function(input, output, session) {
             data <- xgbtreeSpectraModelSet()$data[xgbtreeSpectraModelSet()$parameters$StandardsUsed,]
             parameters <- xgbtreeSpectraModelSet()$parameters$CalTable
 
-            treemethod <- paramters$TreeMethod
+            treemethod <- parameters$TreeMethod
             tree.depth.vec <- as.numeric(unlist(strsplit(as.character(parameters$TreeDepth), "-")))
             xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
             xgbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbEta), "-")))
@@ -4591,7 +4591,7 @@ shinyServer(function(input, output, session) {
                               colsample_bytree = colsample_bytree,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, early_stopping_rounds = 75, tree_method = treemethod, nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, tree_method = treemethod, nthread=-1, maximize = TRUE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -4832,7 +4832,7 @@ shinyServer(function(input, output, session) {
                               colsample_bytree = colsample_bytree,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, early_stopping_rounds = 75, tree_method = "auto", nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, tree_method = "auto", nthread=-1, maximize = TRUE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
@@ -4854,7 +4854,7 @@ shinyServer(function(input, output, session) {
                                gamma = c(0L, xgbgamma.vec[2]),
                                lambda = xgblambda.vec,
                                colsample_bytree=xgbcolsample.vec),
-							tree_method = treemethod
+							tree_method = treemethod,
                            init_grid_dt = NULL,
                            init_points = 50,
                            n_iter = 5,
@@ -5044,7 +5044,7 @@ shinyServer(function(input, output, session) {
                               lambda=lambda,
                               objective = "reg:squarederror",
                               eval_metric = forest.metric.mod)
-                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nround = 500, early_stopping_rounds = 75, nthread=-1, maximize = TRUE, verbose = FALSE)
+                              cv <- xgb.cv(params = param, data = dtrain, folds=cv_folds, nthread=-1, maximize = TRUE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
                                   tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
