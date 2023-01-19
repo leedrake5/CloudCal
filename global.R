@@ -35,10 +35,17 @@ if(get_os()!="linux"){
 }
 
 if(!"caret" %in% installed.packages()[,"Package"]){
-    devtools::install_github("leedrake5/caret/pkg/caret")
+    if(get_os()=="windows"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) NULL)
+        } else if(get_os()!="windows"){
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
+        }
 } else {
     if(packageVersion("caret")!="6.0.93.1"){
-        devtools::install_github("leedrake5/caret/pkg/caret")
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) NULL)
+        } else if(get_os()!="windows"){
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
+        }
     }
 }
 
