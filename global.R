@@ -47,7 +47,7 @@ if(!"caret" %in% installed.packages()[,"Package"]){
             tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
         }
     }
-}
+
 
 #if(!"xrftools" %in% installed.packages()[,"Package"]){
 #    tryCatch(devtools::install_github("paleolimbot/xrftools"), error=function(e) NULL)
