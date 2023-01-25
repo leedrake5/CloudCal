@@ -1165,7 +1165,7 @@ defaultCalConditions <- function(element, number.of.standards){
     xgbcolsample <- as.character("0.6-0.6")
     xgbminchild <- as.numeric(1)
 	xgbmaxdeltastep <- as.numeric(0)
-	xgbscaleposeweight <- as.numeric(0)
+	xgbscaleposweight <- as.numeric(0)
     bartk <- as.character("95-95")
     bartbeta <- as.character("2-2")
     bartnu <- as.character("2-2")
@@ -2370,7 +2370,7 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     if(length(Calibration$calList) > 0){
         calpre <- list()
         for(x in order_elements(names(Calibration[["calList"]]))){
-            calpre[[x]] <- tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, env.strip=env.strip, xgb_raw=xgb_raw, xgb_unserialize=xgb_unserialize), error=function(e) NULL)
+            calpre[[x]] <- calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, env.strip=env.strip, xgb_raw=xgb_raw, xgb_unserialize=xgb_unserialize)
         }
         
         #calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, xgb_raw=xgb_raw), error=function(e) NULL))
