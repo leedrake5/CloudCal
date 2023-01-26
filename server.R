@@ -310,8 +310,8 @@ shinyServer(function(input, output, session) {
                 }
                 
                 
-
-            data
+                data <- data[complete.cases(data),]
+                data
         })
         
         output$spectraframestuff <- renderDataTable({
@@ -17321,6 +17321,7 @@ content = function(file){
                 readvalPDZ()
             }
             
+            data <- data[complete.cases(data),]
             data
             
         })
