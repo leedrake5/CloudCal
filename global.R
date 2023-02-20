@@ -36,7 +36,7 @@ if(get_os()!="linux"){
 
 if(!"caret" %in% installed.packages()[,"Package"]){
     if(get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) NULL)
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
         } else if(get_os()!="windows"){
             tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
         }
@@ -68,7 +68,7 @@ if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]==
     }
 } else if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]=="4"){
     if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) NULL)
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
         tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.tgz?raw=true", type="binary", repos=NULL), error=function(e) NULL)
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
@@ -77,7 +77,7 @@ if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]==
 }
 
 if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/Peaks_0.2.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) NULL)
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/Peaks_0.2.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
 } else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
     tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/Peaks_0.2.tgz?raw=true", type="binary", repos=NULL), error=function(e) NULL)
 } else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
