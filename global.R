@@ -4824,7 +4824,7 @@ scaleDecode <- function(values, y_min, y_max){
 }
 
 
-predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="None", element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
+predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="None", element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1, seed=NULL){
     
     data <- spectra
     spectra.line.table <- hold.frame
