@@ -85,7 +85,7 @@ if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 }
 
 if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) NULL)
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(devtools::install_github("paleolimbot/xrftools"), error=function(e) NULL))
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
     if(Sys.info()[["machine"]]=="arm64"){
         tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000_arm64.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
