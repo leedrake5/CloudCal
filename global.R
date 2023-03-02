@@ -175,7 +175,7 @@ my.cores <- if(parallel::detectCores()>=3){
     "1"
 }
 
-source('file_loading.R')
+tryCatch(source("https://raw.githubusercontent.com/leedrake5/CloudCal/master/file_loading.R"), error=function(e) source('file_loading.R'))
 
 remove.factors = function(df) {
     for(varnum in 1:length(df)) {
