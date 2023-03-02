@@ -397,9 +397,10 @@ fluorescence.lines.directory <- if(file.exists("data/FluorescenceLines.csv")){
     "https://raw.githubusercontent.com/leedrake5/CloudCal/master/data/FluorescenceLines.csv"
 }
 
-
+https://github.com/leedrake5/CloudCal/blob/master/data/LineDefinitions.rdata?raw=true
 ######Load lines
-lineLibrary <- tryCatch(readRDS("https://github.com/leedrake5/CloudCal/blob/5827f0aaac3b6f02cc7df03d87a3af10fdb79cab/data/LineDefinitions.rdata?raw=true"), error=function(e) readRDS("data/LineDefinitions.rdata"))
+temp <- tempfile()
+lineLibrary <- tryCatch(readRDS(download.file(("https://github.com/leedrake5/CloudCal/blob/master/data/LineDefinitions.rdata?raw=true"), temp)), error=function(e) readRDS("data/LineDefinitions.rdata"))
 fluorescence.lines <- lineLibrary$FluorescenceeLines
 Wide <- lineLibrary$Wide
 attach(lineLibrary$Tables)
@@ -1212,7 +1213,7 @@ elementFrame <- function(data, range.table=NULL, elements){
         } else if(length(elements)<as.numeric(my.cores)){
             length(elements)
         }
-        pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table))
+        tryCatch(pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table)), error=function(e) lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table)))
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
