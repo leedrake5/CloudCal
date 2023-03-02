@@ -400,7 +400,6 @@ fluorescence.lines.directory <- if(file.exists("data/FluorescenceLines.csv")){
 ######Load lines
 lineLibrary <- readRDS("data/LineDefinitions.rdata")
 #temp <- tempfile()
-#lineLibrary <- tryCatch(readRDS(download.file(("https://github.com/leedrake5/CloudCal/blob/master/data/LineDefinitions.rdata?raw=true"), temp)), error=function(e) readRDS("data/LineDefinitions.rdata"))
 fluorescence.lines <- lineLibrary$FluorescenceeLines
 Wide <- lineLibrary$Wide
 attach(lineLibrary$Tables)
