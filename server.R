@@ -375,12 +375,12 @@ shinyServer(function(input, output, session) {
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                 }
-                tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores.mod)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1))
+                tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores.mod)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
             } else if("Deconvoluted" %in% names(calMemory$Calibration)){
                 if("Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                     calMemory$Calibration$Deconvoluted
                 } else if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
-                    tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores.mod)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1))
+                    tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores.mod)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
                 }
             }
             
@@ -389,7 +389,7 @@ shinyServer(function(input, output, session) {
         
         dataHoldDeconvolutionSpectra <- reactive({
             
-            dataHoldDeconvolution()$Spectra
+            tryCatch(dataHoldDeconvolution()$Spectra, error=function(e) NULL)
             
         })
         
