@@ -72,31 +72,30 @@ if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]==
     if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
         tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.tgz?raw=true", type="binary", repos=NULL), error=function(e) NULL)
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.tgz?raw=true", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
     }
 }
 
 if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
     tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/Peaks_0.2.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
 } else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/Peaks_0.2.tgz?raw=true", type="binary", repos=NULL), error=function(e) NULL)
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/Peaks_0.2.tgz?raw=true", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
 } else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/Peaks_0.2.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/Peaks_0.2.tar.gz?raw=true", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
 }
 
 if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
     tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
     if(Sys.info()[["machine"]]=="arm64"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000_arm64.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000_arm64.tar.gz?raw=true", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
     } else {
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000.tgz?raw=true", type="binary", repos=NULL), error=function(e) NULL)
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000.tgz?raw=true", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
     }
-    
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/xrftools_0.0.1.9000.tar.gz?raw=true", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
 }
 
 
