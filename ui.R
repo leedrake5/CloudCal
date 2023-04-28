@@ -155,7 +155,11 @@ selectInput('deconvolutespectra', "Deconvolution", choices=c("None", "Least Squa
 selectInput("normspectra", label = "Normalization",
 choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3)),
 numericInput('comptonminspectra', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%'),
-numericInput('comptonmaxspectra', label=h6("Max"), step=0.001, value=10.2, min=0, max=50, width='30%')
+numericInput('comptonmaxspectra', label=h6("Max"), step=0.001, value=10.2, min=0, max=50, width='30%'),
+
+tags$hr(),
+numericInput('plotwidth', "Download Width", step=1, value=5, min=1, max=20),
+numericInput('plotheight', "Download Height", step=1, value=5, min=1, max=20)
 ),
 
 tabPanel("Notes",

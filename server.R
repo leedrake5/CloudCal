@@ -709,7 +709,7 @@ shinyServer(function(input, output, session) {
             output$downloadPlot <- downloadHandler(
             filename = function() { paste(input$dataset, '.png', sep='') },
             content = function(file) {
-                ggsave(file,plotInput(), width=10, height=10)
+                ggsave(file,plotInput(), width=input$plotwidth, height=input$plotheight)
             }
             )
             
