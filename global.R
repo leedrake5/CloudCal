@@ -5512,7 +5512,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             Narrow=narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables),
             Wide=wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables)
             )
-        count.list$Deconvoluted <- deconvoltuionIntensityFrame(deconvoluted_data$Areas, count.list$Narrow)
+        count.list$Deconvoluted <- deconvolutionIntensityFrame(deconvoluted_data$Areas, count.list$Narrow)
     }
     
 
