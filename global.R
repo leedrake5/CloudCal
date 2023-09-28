@@ -8139,7 +8139,7 @@ deconvolute_complete <- function(spectra_frame){
     
 }
 
-spectra_gls_deconvolute <- function(spectra_frame, baseline=FALSE, cores=1){
+spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, cores=1){
     
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
     if(cores==1){
@@ -8195,7 +8195,10 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=FALSE, cores=1){
     }
     new_spectra_frame <- as.data.frame(rbindlist(only_spectra_list))
     new_area_frame <- as.data.frame(rbindlist(only_areas_list))
-    if(baseline==TRUE){new_baseline_frame <- as.data.frame(rbindlist(only_background_list))}
+    if(baseline==TRUE){
+        new_baseline_frame <- as.data.frame(rbindlist(only_background_list))
+        new_area_frame$Baseline <- aggregate(CPS ~ Spectrum, data = new_baseline_frame[,c("Spectrum", "CPS")], FUN = sum)$CPS
+    }
     if(baseline==FALSE){
         return(list(Spectra=new_spectra_frame, Areas=new_area_frame))
     } else if(baseline==TRUE){
