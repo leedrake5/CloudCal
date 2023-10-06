@@ -510,7 +510,7 @@ readPDZ25Data <- function(filepath, filename){
     filename.vector <- rep(filename, 2020)
     
     nbrOfRecords <- 2020
-    integers <- readPDZ25(filepath, start=481, size=nbrOfRecords)
+    integers <- readPDZ25(filepath)
     
     sequence <- seq(1, length(integers), 1)
     
@@ -532,7 +532,7 @@ readPDZ25DataManual <- function(filepath, filename, binaryshift){
     filename.vector <- rep(filename, 2020)
     
     nbrOfRecords <- 2020
-    integers <- readPDZ25(filepath, start=binaryshift, size=nbrOfRecords)
+    integers <- readPDZ25(filepath)
     
     sequence <- seq(1, length(integers), 1)
     

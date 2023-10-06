@@ -36,21 +36,21 @@ if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="source"))
 }
 
-if(!"caret" %in% installed.packages()[,"Package"]){
-    if(get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
-        } else if(get_os()!="windows"){
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
-        }
-} else {
-    if(packageVersion("caret")!="6.0.93.1"){
-        if(get_os()!="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) NULL)
-        } else if(get_os()!="windows"){
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
-        }
-    }
-    }
+#if(!"caret" %in% installed.packages()[,"Package"]){
+#    if(get_os()=="windows"){
+#        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+#        } else if(get_os()!="windows"){
+#            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
+#        }
+#} else {
+#    if(packageVersion("caret")!="6.0.93.1"){
+#        if(get_os()!="windows"){
+#        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) NULL)
+#        } else if(get_os()!="windows"){
+#            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) NULL)
+#        }
+#    }
+#    }
 
 
 #if(!"xrftools" %in% installed.packages()[,"Package"]){
@@ -61,24 +61,42 @@ if(!"caret" %in% installed.packages()[,"Package"]){
 
 #if(packageVersion("ggplot2")!="2.2.1") devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
 
+if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1_x86_64_win.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+    } else if ("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
+        if(Sys.info()[["machine"]]=="arm64"){
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1_arm64_macos.tgz?raw=true", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+        } else {
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1_x86_64_macos.tgz?raw=true", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            }
+    } else if ("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+    }
 
-if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]=="3"){
-    if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.0.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
-    } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.0.tgz?raw=true", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
-    } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.0.tar.gz?raw=true", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
+if(packageVersion("caret")!="6.0.93.1" && get_os()=="windows"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1_x86_64_win.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+    } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="osx"){
+        if(Sys.info()[["machine"]]=="arm64"){
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1_arm64_macos.tgz?raw=true", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+        } else {
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1_x86_64_macos.tgz?raw=true", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            }
+    } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="linux"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/caret_6.0-93.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
     }
-} else if(strsplit(strsplit(version[['version.string']], ' ')[[1]][3], '\\.')[[1]][1]=="4"){
-    if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
+
+if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.2_x86_64_win.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.tgz?raw=true", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
+        if(Sys.info()[["machine"]]=="arm64"){
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.2_arm64_macos.tgz?raw=true", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
+        } else {
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.2_x86_64_macos.tgz?raw=true", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
+            }
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.1.tar.gz?raw=true", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/rPDZ_1.2.tar.gz?raw=true", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
     }
-}
+
 
 if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
     tryCatch(install.packages("https://github.com/leedrake5/CloudCal/blob/master/Packages/Peaks_0.2.zip?raw=true", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
@@ -169,6 +187,10 @@ library(scales)
 library(caret)
 library(DescTools)
 library(pls)
+
+#source("xgbTree.R")
+#source("xgbDART.R")
+
 
 options(digits=12)
 
