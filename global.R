@@ -86,15 +86,15 @@ if(packageVersion("caret")!="6.0.93.1" && get_os()=="windows"){
     }
 
 if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.2_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.2_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
         if(Sys.info()[["machine"]]=="arm64"){
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.2_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.2_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
         } else {
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.2_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.2_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
             }
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.2.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ", subdir="rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.2.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     }
 
 
