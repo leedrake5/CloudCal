@@ -614,9 +614,9 @@ downloadButton('downloadValData', "Results")
 ),
 tabPanel('Counts',
 tabsetPanel(
-tabPanel('Narrow', dataTableOutput('myvaltable1')),
-tabPanel('Wide', dataTableOutput('myvaltablewide')),
-tabPanel('Deconvoluted', dataTableOutput('myvaltabledeconvoluted'))
+tabPanel('Narrow', dataTableOutput('myvaltable1'), downloadButton('downloadValDataNarrow', "Download")),
+tabPanel('Wide', dataTableOutput('myvaltablewide'), downloadButton('downloadValDataWide', "Download")),
+tabPanel('Deconvoluted', dataTableOutput('myvaltabledeconvoluted'), downloadButton('downloadValDataDeconvoluted', "Download"))
 #tabPanel('Wide Deconvoluted', dataTableOutput('myvaltablewidedeconvoluted'))
 ))
 

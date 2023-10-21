@@ -17714,6 +17714,30 @@ content = function(file){
         }
         )
         
+        output$downloadValDataNarrow <- downloadHandler(
+        filename = function() { paste(input$quantifiedname, "_ValDataNarrow", '.csv', sep='', collapse='') },
+        content = function(file
+        ) {
+            write.csv(fullInputValCounts(), file)
+        }
+        )
+        
+        output$downloadValDataWide<- downloadHandler(
+        filename = function() { paste(input$quantifiedname, "_ValDataWide", '.csv', sep='', collapse='') },
+        content = function(file
+        ) {
+            write.csv(fullInputValCountsWide(), file)
+        }
+        )
+        
+        output$downloadValDataDeconvoluted <- downloadHandler(
+        filename = function() { paste(input$quantifiedname, "_ValDataDeconvoluted", '.csv', sep='', collapse='') },
+        content = function(file
+        ) {
+            write.csv(fullInputValCountsDeconvoluted(), file)
+        }
+        )
+        
         
   
 
