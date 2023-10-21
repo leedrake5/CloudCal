@@ -504,21 +504,24 @@ readPDZ24DataExpiremental <- cmpfun(readPDZ24DataExpiremental)
 
 #Rcpp::sourceCpp("pdz.cpp")
 
-readPDZ25Data <- function(filepath, filename){
+readPDZ25Data <- function(filepath, filename=NULL){
+    
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
     
     filename <- make.names(gsub(".pdz", "", filename))
-    filename.vector <- rep(filename, 2020)
     
-    nbrOfRecords <- 2020
-    integers <- readPDZ25(filepath)
+    integers <- as.vector(readPDZ25(filepath))
     
     sequence <- seq(1, length(integers), 1)
-    
+    filename.vector <- rep(filename, length(integers))
+
     time.est <- integers[21]
 
     channels <- sequence
     energy <- sequence*.02
-    counts <- integers/(integers[144]/10)
+    counts <- integers/(integers[21]/10)
     
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
     
@@ -526,16 +529,20 @@ readPDZ25Data <- function(filepath, filename){
 readPDZ25Data <- cmpfun(readPDZ25Data)
 
 
-readPDZ25DataManual <- function(filepath, filename, binaryshift){
+readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift){
+    
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
     
     filename <- make.names(gsub(".pdz", "", filename))
-    filename.vector <- rep(filename, 2020)
     
-    nbrOfRecords <- 2020
-    integers <- readPDZ25(filepath)
+    nbrOfRecords <- 2048
+    integers <- as.vector(readPDZ25(filepath))
     
     sequence <- seq(1, length(integers), 1)
-    
+    filename.vector <- rep(filename, length(integers))
+
     time.est <- integers[21]
     
     channels <- sequence
@@ -548,7 +555,11 @@ readPDZ25DataManual <- function(filepath, filename, binaryshift){
 readPDZ25DataManual <- cmpfun(readPDZ25DataManual)
 
 
-readPDZ24Data<- function(filepath, filename){
+readPDZ24Data<- function(filepath, filename=NULL){
+    
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
     
     filename <- make.names(gsub(".pdz", "", filename))
     filename.vector <- rep(filename, 2020)
@@ -581,14 +592,14 @@ readPDZData <- function(filepath, filename=NULL) {
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
     
     if(floats[[9]]=="5"){
-        readPDZ25Data(filepath, filename)
+        readPDZ25Data(filepath, filename=NULL)
     }else {
-        readPDZ24Data(filepath, filename)
+        readPDZ24Data(filepath, filename=NULL)
     }
 
     
 }
-readPDZ24Data <- cmpfun(readPDZ24Data)
+readPDZData <- cmpfun(readPDZData)
 
 readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binaryshift=100){
     
@@ -600,7 +611,7 @@ readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binary
         n.seq <- seq(1, nrow(inFile), 1)
         
         if(advanced==FALSE){
-            data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
+            data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=NULL))
             data <- do.call("rbind", data.list)
             data <- as.data.frame(data, stringsAsFactors=FALSE)
         } else if(advanced==TRUE){
