@@ -72,6 +72,21 @@ csvFrame <- function(filepath, filename=NULL){
     return(data.frame(Energy=return.energy, CPS=return.cps, Spectrum=filename))
 }
 
+
+csvFrameMetadata <- function(filepath, filename=NULL){
+    if(is.null(filename)){
+        filename <- as.character(basename(filepath))
+    }
+    filename <- make.names(filename)
+    filename <- gsub(".csv", "", filename, ignore.case=TRUE)
+    
+    ret <- read.csv(file=filepath, sep=",", header=FALSE)
+    
+    result <- data.frame(Spectrum=filename, eVCh=as.numeric(as.vector(ret[ret$V1 %in% "eV per channel",]$V2))/1000, LiveTime=round(as.numeric(as.vector(ret[ret$V1 %in% "Live Time",]$V2)), 2))
+    
+    return(result)
+}
+
 fullSpectraDataTableProcess <- function(inFile=NULL, gainshiftvalue=0){
     
             
@@ -124,6 +139,24 @@ fullSpectraProcess <- function(inFile=NULL, gainshiftvalue=0){
            data$Energy <- data$Energy + gainshiftvalue
        }
        
+       
+       return(data)
+   }
+
+fullSpectraMetadataProcess <- function(inFile=NULL){
+       
+           if (is.null(inFile)) return(NULL)
+           temp = inFile$name
+           temp <- gsub(".csv", "", temp)
+           id.seq <- seq(1, 2048,1)
+           
+           n <- length(temp)*id.seq
+           
+           n.seq <- seq(1, nrow(inFile), 1)
+           
+           data.list <- pblapply(n.seq, function(x) csvFrameMetadata(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
+           data <- do.call("rbind", data.list)
+           data <- as.data.frame(data, stringsAsFactors=FALSE)
        
        return(data)
    }
@@ -504,7 +537,7 @@ readPDZ24DataExpiremental <- cmpfun(readPDZ24DataExpiremental)
 
 #Rcpp::sourceCpp("pdz.cpp")
 
-readPDZ25Data <- function(filepath, filename=NULL){
+readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE){
     
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -518,18 +551,35 @@ readPDZ25Data <- function(filepath, filename=NULL){
     filename.vector <- rep(filename, length(integers))
 
     time.est <- integers[21]
+    
+    evch <- if(pdzprep==TRUE){
+        readPDZ25eVCH(filepath)/1000
+    } else if(pdzprep==FALSE){
+        0.02
+    }
 
     channels <- sequence
-    energy <- sequence*.02
-    counts <- integers/(integers[21]/10)
+    energy <- sequence*evch
+    counts <- if(pdzprep==TRUE){
+        integers/as.numeric(readPDZ25LiveTime(filepath))
+    } else if(pdzprep==FALSE){
+        integers/(integers[21]/10)
+    }
+    result <- data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
     
-    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    final_result <-  if(sum(result$CPS)==0){
+        NULL
+    } else {
+        result
+    }
+    
+    return(final_result)
     
 }
 readPDZ25Data <- cmpfun(readPDZ25Data)
 
 
-readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift){
+readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift, pdzprep=TRUE){
     
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -545,17 +595,26 @@ readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift){
 
     time.est <- integers[21]
     
-    channels <- sequence
-    energy <- sequence*.02
-    counts <- integers/(integers[144]/10)
+    evch <- if(pdzprep==TRUE){
+        readPDZ25eVCH(filepath)/1000
+    } else if(pdzprep==FALSE){
+        0.02
+    }
     
+    channels <- sequence
+    energy <- sequence*evch
+    counts <- if(pdzprep==TRUE){
+        integers/readPDZ25LiveTime(filepath)
+    } else if(pdzprep==FALSE){
+        integers/(integers[21]/10)
+    }
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
     
 }
 readPDZ25DataManual <- cmpfun(readPDZ25DataManual)
 
 
-readPDZ24Data<- function(filepath, filename=NULL){
+readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE){
     
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -570,18 +629,36 @@ readPDZ24Data<- function(filepath, filename=NULL){
     
     time.est <- integers[21]
     
-    channels <- sequence
-    energy <- sequence*.02
-    counts <- integers/(integers[21]/10)
+    evch <- if(pdzprep==TRUE){
+        readPDZ24DoubleFetch(filepath, 50)/1000
+    } else if(pdzprep==FALSE){
+        0.02
+    }
     
-    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    channels <- sequence
+    energy <- sequence*evch
+    counts <- if(pdzprep==TRUE){
+        integers/as.numeric(readPDZ24FloatFetch(filepath, 354))
+    } else if(pdzprep==FALSE){
+        integers/(integers[21]/10)
+    }
+    
+    result <- data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    
+    final_result <-  if(sum(result$CPS)==0){
+         NULL
+     } else {
+         result
+     }
+     
+     return(final_result)
     
 }
 readPDZ24Data <- cmpfun(readPDZ24Data)
 
 
 
-readPDZData <- function(filepath, filename=NULL) {
+readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE) {
     
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -592,16 +669,37 @@ readPDZData <- function(filepath, filename=NULL) {
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
     
     if(floats[[9]]=="5"){
-        readPDZ25Data(filepath, filename=NULL)
+        readPDZ25Data(filepath, filename=NULL, pdzprep=pdzprep)
     }else {
-        readPDZ24Data(filepath, filename=NULL)
+        readPDZ24Data(filepath, filename=NULL, pdzprep=pdzprep)
     }
 
     
 }
 readPDZData <- cmpfun(readPDZData)
 
-readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binaryshift=100){
+readPDZMetadata <- function(filepath, filename=NULL) {
+    
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
+    
+    
+    nbrOfRecords <- 10000
+    floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
+    
+    metadata <- if(floats[[9]]=="5"){
+        data.frame(Spectrum=filename, eVCh=readPDZ25eVCH(filepath), LiveTime=readPDZ25LiveTime(filepath))
+    }else {
+        data.frame(Spectrum=filename, eVCh=readPDZ24FloatFetch(filepath, 354), LiveTime=readPDZ24DoubleFetch(filepath, 50))
+    }
+    
+    metadata
+  
+}
+readPDZMetadata <- cmpfun(readPDZMetadata)
+
+readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binaryshift=100, pdzprep=TRUE){
     
         if (is.null(inFile)) return(NULL)
         
@@ -611,11 +709,11 @@ readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binary
         n.seq <- seq(1, nrow(inFile), 1)
         
         if(advanced==FALSE){
-            data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=NULL))
+            data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=NULL, pdzprep=pdzprep))
             data <- do.call("rbind", data.list)
             data <- as.data.frame(data, stringsAsFactors=FALSE)
         } else if(advanced==TRUE){
-            data.list <- pblapply(n.seq, function(x) readPDZ25DataManual(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], binaryshift=binaryshift))
+            data.list <- pblapply(n.seq, function(x) readPDZ25DataManual(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], binaryshift=binaryshift, pdzprep=pdzprep))
             data <- do.call("rbind", data.list)
             data <- as.data.frame(data, stringsAsFactors=FALSE)
         }
@@ -623,6 +721,22 @@ readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binary
    if(gainshiftvalue>0){
        data$Energy <- data$Energy + gainshiftvalue
    }
+    return(data)
+}
+
+readPDZMetadataProcess <- function(inFile=NULL){
+    
+        if (is.null(inFile)) return(NULL)
+        
+        n <- length(inFile$datapath)
+        names <- inFile$name
+        
+        n.seq <- seq(1, nrow(inFile), 1)
+        
+        data.list <- pblapply(n.seq, function(x) readPDZMetadata(filepath=inFile[x, "datapath"], filename=NULL))
+        data <- do.call("rbind", data.list)
+        data <- as.data.frame(data, stringsAsFactors=FALSE)
+    
     return(data)
 }
 

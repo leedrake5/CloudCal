@@ -75,6 +75,16 @@ shinyServer(function(input, output, session) {
         
     })
     
+    output$pdzprepui <- renderUI({
+        
+        if(input$filetype=="PDZ"){
+            checkboxInput("pdzprep", "LiveTime Normalization", value=TRUE)
+        } else {
+            NULL
+        }
+        
+    })
+    
     
     output$variancespectrumui <- renderUI({
         
@@ -161,6 +171,13 @@ shinyServer(function(input, output, session) {
 
     })
     
+    fullSpectraMetadata <- reactive(label="fullSpectraMetadata", {
+        req(input$file1)
+        
+        fullSpectraMetadataProcess(inFile=inFile())
+
+    })
+    
     importedCSV <- reactive(label="importedCSV", {
         req(input$file1)
         
@@ -215,8 +232,14 @@ shinyServer(function(input, output, session) {
         
         binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
         
-        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=input$advanced, binaryshift=binaryshiftvalue)
+        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=input$advanced, binaryshift=binaryshiftvalue, pdzprep=input$pdzprep)
         
+    })
+    
+    readPDZMetadata <- reactive(label="readPDZMetadata", {
+        req(input$file1)
+        
+        readPDZMetadataProcess(inFile=inFile())
     })
     
     
@@ -315,6 +338,18 @@ shinyServer(function(input, output, session) {
                 data
         })
         
+        myMetaData <- reactive({
+            
+            if(input$filetype=="PDZ"){
+                readPDZMetadata()
+            } else if(input$filetype=="CSV"){
+                fullSpectraMetadata()
+            } else {
+                NULL
+            }
+            
+        })
+        
         output$spectraframestuff <- renderDataTable({
             myData()
         })
@@ -348,6 +383,7 @@ shinyServer(function(input, output, session) {
         observeEvent(input$linecommit, {
             if(!"Spectra" %in% names(calMemory$Calibration)){
                 calMemory$Calibration[["Spectra"]] <- dataHold()
+                calMemory$Calibration[["SpectraMetadata"]] <- myMetaData()
             }
         })
         

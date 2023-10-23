@@ -34,6 +34,7 @@ uiOutput('binaryui'),
 uiOutput('filegrab'),
 
 uiOutput("filetypeui"),
+uiOutput("pdzprepui"),
 uiOutput("beamnoui"),
 
 tags$hr(),
