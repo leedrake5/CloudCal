@@ -553,7 +553,7 @@ readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE){
     time.est <- integers[21]
     
     evch <- if(pdzprep==TRUE){
-        readPDZ25eVCH(filepath)/1000
+        as.numeric(readPDZ25eVCH(filepath))/1000
     } else if(pdzprep==FALSE){
         0.02
     }
@@ -573,7 +573,7 @@ readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE){
         result
     }
     
-    return(final_result)
+    return(result)
     
 }
 readPDZ25Data <- cmpfun(readPDZ25Data)
@@ -645,13 +645,13 @@ readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE){
     
     result <- data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
     
-    final_result <-  if(sum(result$CPS)==0){
-         NULL
-     } else {
-         result
-     }
+    #final_result <-  if(sum(result$CPS)==0){
+    #     NULL
+    # } else {
+    #     result
+    # }
      
-     return(final_result)
+     return(result)
     
 }
 readPDZ24Data <- cmpfun(readPDZ24Data)
@@ -681,7 +681,7 @@ readPDZData <- cmpfun(readPDZData)
 readPDZMetadata <- function(filepath, filename=NULL) {
     
     if(is.null(filename)){
-        filename <- basename(filepath)
+        filename <- gsub(".pdz", "", basename(filepath))
     }
     
     
@@ -709,7 +709,7 @@ readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binary
         n.seq <- seq(1, nrow(inFile), 1)
         
         if(advanced==FALSE){
-            data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=NULL, pdzprep=pdzprep))
+            data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], pdzprep=pdzprep))
             data <- do.call("rbind", data.list)
             data <- as.data.frame(data, stringsAsFactors=FALSE)
         } else if(advanced==TRUE){
