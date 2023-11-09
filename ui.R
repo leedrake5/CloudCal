@@ -588,6 +588,7 @@ uiOutput('fanowindowui'),
 tags$hr(),
 
 uiOutput('filevalgrab'),
+uiOutput("pdzprepvalui"),
 
 uiOutput('valfiletypeui'),
 
@@ -619,7 +620,8 @@ tabPanel('Narrow', dataTableOutput('myvaltable1'), downloadButton('downloadValDa
 tabPanel('Wide', dataTableOutput('myvaltablewide'), downloadButton('downloadValDataWide', "Download")),
 tabPanel('Deconvoluted', dataTableOutput('myvaltabledeconvoluted'), downloadButton('downloadValDataDeconvoluted', "Download"))
 #tabPanel('Wide Deconvoluted', dataTableOutput('myvaltablewidedeconvoluted'))
-))
+),uiOutput('rounding2ui')
+)
 
 ))
 ))

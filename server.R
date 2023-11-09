@@ -17209,6 +17209,16 @@ content = function(file){
     
         })
     
+    output$pdzprepvalui <- renderUI({
+        
+        if(input$valfiletype=="PDZ"){
+            checkboxInput("pdzprepval", "LiveTime Normalization", value="SpectraMetadata" %in% names(calFileContents2()))
+        } else {
+            NULL
+        }
+        
+    })
+    
     output$fanowindowui <- renderUI({
         
         if(input$error==TRUE){
@@ -17329,7 +17339,7 @@ content = function(file){
                 
             binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
                 
-            readPDZProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold(), advanced=input$advanced, binaryshift=binaryshiftvalue)
+            readPDZProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold(), advanced=input$advanced, binaryshift=binaryshiftvalue, pdzprep=input$pdzprepval)
                 
                 
             })
@@ -17563,7 +17573,7 @@ content = function(file){
             
             #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
-            if(valDataType()=="Spectra"){val.line.table <- narrowLineTable(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements())}
+            if(valDataType()=="Spectra"){val.line.table <- merge(narrowLineTable(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements()), totalCountsGen(val.data), by="Spectrum")}
             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
@@ -17592,7 +17602,7 @@ content = function(file){
             
             #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
-            if(valDataType()=="Spectra"){val.line.table <- wideLineTable(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements())}
+            if(valDataType()=="Spectra"){val.line.table <-  merge(wideLineTable(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements()), totalCountsGen(val.data), by="Spectrum")}
 
             
             if(valDataType()=="Net"){val.line.table <- val.data}
@@ -17606,6 +17616,8 @@ content = function(file){
             valelements <- calValElements()
             variableelements <- calVariableElements()
             val.data <- myDeconvolutedValData()
+            counts <- fullInputValCounts()
+            counts <- counts[,!colnames(counts) %in% "Total"]
             
             #if(valDataType()=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
             #if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
@@ -17624,7 +17636,7 @@ content = function(file){
             #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
             if(valDataType()=="Spectra"){val.line.table <-
-                deconvolutionIntensityFrame(myDeconvolutedValDataArea(), fullInputValCounts())}
+                merge(deconvolutionIntensityFrame(myDeconvolutedValDataArea(), counts), totalCountsGen(val.data), by="Spectrum")}
                             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
@@ -17665,19 +17677,19 @@ content = function(file){
         
         output$myvaltable1 <- renderDataTable({
             
-            fullInputValCounts()
+            roundNumericColumns(df= fullInputValCounts(), digits=input$resultrounding2)
             
         })
         
         output$myvaltablewide <- renderDataTable({
             
-            fullInputValCountsWide()
+            roundNumericColumns(df=fullInputValCountsWide(), digits=input$resultrounding2)
             
         })
         
         output$myvaltabledeconvoluted <- renderDataTable({
             
-            fullInputValCountsDeconvoluted()
+            roundNumericColumns(df=fullInputValCountsDeconvoluted(), digits=input$resultrounding2)
             
         })
         
@@ -17698,13 +17710,13 @@ content = function(file){
         
         cloudCalPredictions <- reactive({
             
-            cloudCalPredict(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=input$resultrounding, multiplier=input$multiplier)
+            cloudCalPredict(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=4, multiplier=1)
 
             
         })
         
         
-        tableInputValQuant <- reactive({
+        tableInputValQuantPre <- reactive({
             if(input$error=="None"){
                 suppressWarnings({
                     cloudCalPredictions()
@@ -17712,14 +17724,24 @@ content = function(file){
             } else if(input$error=="eqm"){
                 suppressWarnings({
                     cloudCalPredictErrorEQM(Calibration=calFileContents2(), predictions=cloudCalPredictions(),
-                    count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=input$resultrounding, multiplier=input$multiplier, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
+                    count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=4, multiplier=1, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
                 })
             } else if(input$error=="y hat"){
                 suppressWarnings({
-                    cloudCalPredictErrorYHat(Calibration=calFileContents2(), predictions=cloudCalPredictions(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=input$resultrounding, multiplier=input$multiplier, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
+                    cloudCalPredictErrorYHat(Calibration=calFileContents2(), predictions=cloudCalPredictions(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=4, multiplier=1, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
                 })
                 }
+            
+            
+            
             })
+        
+        tableInputValQuant <- reactive({
+            
+            results <- tableInputValQuantPre()
+            roundNumericColumns(df=results, digits=input$resultrounding, multiplier=input$multiplier)
+            
+        })
         
         
         output$roundingui <- renderUI({
@@ -17729,6 +17751,13 @@ content = function(file){
             } else if(input$multiplier!=10000){
                 sliderInput('resultrounding', "Round Results", min=0, max=10, value=4)
             }
+
+            
+        })
+        
+        output$rounding2ui <- renderUI({
+            
+            sliderInput('resultrounding2', "Round Counts", min=0, max=10, value=2)
 
             
         })
@@ -17754,7 +17783,7 @@ content = function(file){
         filename = function() { paste(input$quantifiedname, "_ValDataNarrow", '.csv', sep='', collapse='') },
         content = function(file
         ) {
-            write.csv(fullInputValCounts(), file)
+            write.csv(roundNumericColumns(fullInputValCounts(), digits=input$resultrounding2), file)
         }
         )
         
@@ -17762,7 +17791,7 @@ content = function(file){
         filename = function() { paste(input$quantifiedname, "_ValDataWide", '.csv', sep='', collapse='') },
         content = function(file
         ) {
-            write.csv(fullInputValCountsWide(), file)
+            write.csv(roundNumericColumns(fullInputValCountsWide(), digits=input$resultrounding2), file)
         }
         )
         
@@ -17770,7 +17799,7 @@ content = function(file){
         filename = function() { paste(input$quantifiedname, "_ValDataDeconvoluted", '.csv', sep='', collapse='') },
         content = function(file
         ) {
-            write.csv(fullInputValCountsDeconvoluted(), file)
+            write.csv(roundNumericColumns(fullInputValCountsDeconvoluted(), digits=input$resultrounding2), file)
         }
         )
         
