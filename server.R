@@ -2379,10 +2379,12 @@ shinyServer(function(input, output, session) {
         })
         
         calNormSelection <- reactive({
+            Sys.sleep(0.5)
             normhold$normtype
         })
         
         normMinSelection <- reactive({
+            Sys.sleep(0.5)
             basichold$normmin
         })
         

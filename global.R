@@ -8274,7 +8274,7 @@ roundNumericColumns <- function(df, digits=1, multiplier=1) {
   # Apply the round function to each column of the dataframe
   df[] <- lapply(df, function(x) {
     if (is.numeric(x)) {
-      return(round(x, digits = digits)*multiplier)
+      return(round(x*multiplier, digits = digits))
     } else {
       return(x)
     }
