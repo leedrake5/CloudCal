@@ -545,7 +545,7 @@ readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE){
     
     filename <- make.names(gsub(".pdz", "", filename))
     
-    integers <- as.vector(readPDZ25(filepath))
+    integers <- as.vector(readPDZ25(filepath))/256
     
     sequence <- seq(1, length(integers), 1)
     filename.vector <- rep(filename, length(integers))
@@ -588,7 +588,7 @@ readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift, pdzprep=TR
     filename <- make.names(gsub(".pdz", "", filename))
     
     nbrOfRecords <- 2048
-    integers <- as.vector(readPDZ25(filepath))
+    integers <- as.vector(readPDZ25(filepath))/256
     
     sequence <- seq(1, length(integers), 1)
     filename.vector <- rep(filename, length(integers))
@@ -733,7 +733,7 @@ readPDZMetadataProcess <- function(inFile=NULL){
         
         n.seq <- seq(1, nrow(inFile), 1)
         
-        data.list <- pblapply(n.seq, function(x) readPDZMetadata(filepath=inFile[x, "datapath"], filename=NULL))
+        data.list <- pblapply(n.seq, function(x) readPDZMetadata(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
         data <- do.call("rbind", data.list)
         data <- as.data.frame(data, stringsAsFactors=FALSE)
     
