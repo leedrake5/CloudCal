@@ -16,6 +16,22 @@ lbetaLines <- c("Mo"="Mo.L.beta", "Ru"="Ru.L.beta", "Rh"="Rh.L.beta", "Pd"="Pd.L
 
 mLines <- c("Au"="Au.M.line","Hg"="Hg.M.line", "Pb"="Pb.M.line", "U"="U.M.line")
 
+remove_na <- function(vector){
+  return(vector[!is.na(vector)])
+}
+remove_na <- cmpfun(remove_na)
+
+find_row_with_string <- function(data, search_string) {
+  # Find rows where the value in the first column contains the search_string
+  matchingRows <- which(sapply(as.character(data[,1]), grepl, pattern = search_string))
+  
+  if (length(matchingRows) > 0) {
+    return(matchingRows)
+  } else {
+    return(NULL)
+  }
+}
+find_row_with_string <- cmpfun(find_row_with_string)
 
 ###Spectra Loading
 read_csv_filename_x <- function(filename){
@@ -349,7 +365,10 @@ readElioProcess <- function(inFile=NULL, gainshiftvalue=0){
 }
 
 
-readMCAData4096 <- function(filepath, filename, full=NULL){
+readMCAData4096 <- function(filepath, filename=NULL, full=NULL){
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
     filename <- make.names(gsub(".mca", "", filename))
     filename.vector <- rep(filename, 4096)
     
@@ -388,6 +407,42 @@ readMCAData4096 <- function(filepath, filename, full=NULL){
 }
 readMCAData4096 <- cmpfun(readMCAData4096)
 
+readPMCAData4096 <- function(filepath, filename=NULL, full=NULL){
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
+    filename <- make.names(gsub(".mca", "", filename))
+    filename.vector <- rep(filename, 4096)
+    
+    if(is.null(full)){
+        full <- read.csv(filepath, row.names=NULL)
+    }
+    
+    chan.a <- as.numeric(strsplit(full[find_row_with_string(full, "LABEL - keV")+1,], " ")[[1]])
+    chan.b <- as.numeric(strsplit(full[find_row_with_string(full, "LABEL - keV")+2,], " ")[[1]])
+    
+    chan.1 <- chan.a[1]
+    energy.1 <- chan.a[2]
+    chan.2 <- chan.b[1]
+    energy.2 <- chan.b[2]
+    
+    channels <- c(chan.1, chan.2)
+    energies <- c(energy.1, energy.2)
+    
+    energy.cal <- lm(energies~channels)
+    
+    time <- remove_na(as.numeric(strsplit(full[find_row_with_string(full, "LIVE_TIME"),], " ")[[1]]))
+    
+    cps <- as.numeric(full[(find_row_with_string(full, "<<DATA>>")+1):(nrow(full)-1), 1])/time
+    newdata <- as.data.frame(seq(1, length(cps), 1), stringsAsFactors=FALSE)
+    colnames(newdata) <- "channels"
+    energy <- as.vector(predict.lm(energy.cal, newdata=newdata))
+    spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
+    colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
+    return(spectra.frame)
+}
+readPMCAData4096 <- cmpfun(readPMCAData4096)
+
 readMCAData2048 <- function(filepath, filename, full=NULL){
     
     filename <- make.names(gsub(".mca", "", filename))
@@ -416,7 +471,11 @@ readMCAData <- function(filepath, filename){
     spectra.frame <- if(nrow(full)<=3000){
         readMCAData2048(filepath=filepath, filename=filename, full=full)
     } else if(nrow(full)>3000){
-        readMCAData4096(filepath=filepath, filename=filename, full=full)
+        if(colnames(full)[1]=="X..PMCA.SPECTRUM.."){
+            readPMCAData4096(filepath=filepath, filename=filename, full=full)
+        } else {
+            readMCAData4096(filepath=filepath, filename=filename, full=full)
+        }
     }
     
     return(spectra.frame)
