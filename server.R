@@ -3851,19 +3851,32 @@ shinyServer(function(input, output, session) {
             xgbminchild.vec <- as.integer(c(0, parameters$xgbMinChild+1))
             xgbmaxdeltastep.vec <- as.integer(c(0, parameters$xgbMaxDeltaStep+1))
 
-            xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(c(1, parameters$ForestTrees)),
-            max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
-			alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
-            eta = c(xgbeta.vec[1], xgbeta.vec[2]),
-            gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
-			lambda=c(xgblambda.vec[1], xgblambda.vec[2]),
-            colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
-            subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
-			max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2]),
-			scale_pos_weight = c(0, 1)
-            ), init_points=50)
+			if(packageVersion("caret")=="6.0.93.1"){
+				xgbGrid <- generate_grid(bounds=list(
+            	nrounds = as.integer(c(1, parameters$ForestTrees)),
+            	max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
+				alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
+            	eta = c(xgbeta.vec[1], xgbeta.vec[2]),
+            	gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
+				lambda=c(xgblambda.vec[1], xgblambda.vec[2]),
+            	colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
+            	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
+            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
+				max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2]),
+				scale_pos_weight = c(0, 1)
+            	), init_points=50)
+			} else {
+				xgbGrid <- generate_grid(bounds=list(
+            	nrounds = as.integer(c(1, parameters$ForestTrees)),
+            	max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
+            	eta = c(xgbeta.vec[1], xgbeta.vec[2]),
+            	gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
+            	colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
+            	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
+            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
+            	), init_points=50)
+			}
+            
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
@@ -3943,6 +3956,7 @@ shinyServer(function(input, output, session) {
                 y_train <- as.vector(predict.frame[,concentration])
                 dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+				if(packageVersion("caret")=="6.0.93.1"){
                           xgb_cv_bayes <- function(nrounds, max_depth, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "gbtree",
                               max_depth = max_depth,
@@ -3964,8 +3978,29 @@ shinyServer(function(input, output, session) {
                                   tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
+					} else {
+                          xgb_cv_bayes <- function(nrounds, max_depth, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
+                              param <- list(booster = "gbtree",
+                              max_depth = max_depth,
+                              min_child_weight = min_child_weight,
+                              eta=eta,
+                              gamma=gamma,
+                              subsample = subsample,
+                              colsample_bytree = colsample_bytree,
+                              objective = "reg:squarederror",
+                              eval_metric = forest.metric.mod)
+                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, tree_method = treemethod, maximize = TRUE, verbose = FALSE)
+                              
+                              if(forest.metric.mod=="rmse"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              } else if(forest.metric.mod=="mae"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              }
+                          }
+					}
                           
                 OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+			if(packageVersion("caret")=="6.0.93.1"){
                 bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
 							max_depth = as.integer(tree.depth.vec),
                            min_child_weight = xgbminchild.vec,
@@ -3997,8 +4032,8 @@ shinyServer(function(input, output, session) {
                     subsample = OPT_Res$Best_Par["subsample"],
                     colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
                     min_child_weight = OPT_Res$Best_Par["min_child_weight"],
-                    max_delta_step = OPT_Res$Best_Par["max_delta_step"],
-)
+                    max_delta_step = OPT_Res$Best_Par["max_delta_step"]
+					)
                 
                 xgbGridBayes <- expand.grid(
                     nrounds = best_param$nrounds,
@@ -4013,6 +4048,46 @@ shinyServer(function(input, output, session) {
 					scale_pos_weight=1,
                     subsample = best_param$subsample
                 )
+			} else {
+                bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
+							max_depth = as.integer(tree.depth.vec),
+                           min_child_weight = xgbminchild.vec,
+                               subsample = xgbsubsample.vec,
+                               eta = xgbeta.vec,
+                               gamma = c(0L, xgbgamma.vec[2]),
+                               colsample_bytree=xgbcolsample.vec),
+                           init_grid_dt = NULL,
+                           init_points = 50,
+                           n_iter = 5,
+                           acq = "ei",
+                           kappa = 2.576,
+                           eps = 0.0,
+                           verbose = TRUE)
+                           
+                best_param <- list(
+                    booster = "gbtree",
+                    eval.metric = forest.metric.mod,
+                    objective = "reg:squarederror",
+                    nrounds = OPT_Res$Best_Par["nrounds"],
+                    max_depth = OPT_Res$Best_Par["max_depth"],
+                    eta = OPT_Res$Best_Par["eta"],
+                    gamma = OPT_Res$Best_Par["gamma"],
+                    subsample = OPT_Res$Best_Par["subsample"],
+                    colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
+                    min_child_weight = OPT_Res$Best_Par["min_child_weight"]
+					)
+                
+                xgbGridBayes <- expand.grid(
+                    nrounds = best_param$nrounds,
+                    max_depth = best_param$max_depth,
+                    colsample_bytree = best_param$colsample_bytree,
+                    eta = best_param$eta,
+                    gamma = best_param$gamma,
+                    min_child_weight = best_param$min_child_weight,
+					scale_pos_weight=1,
+                    subsample = best_param$subsample
+                )
+			}
                 
                 if(input$multicore_behavior=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
@@ -4084,21 +4159,35 @@ shinyServer(function(input, output, session) {
             xgbminchild.vec <- as.integer(c(0, parameters$xgbMinChild+1))
             xgbmaxdeltastep.vec <- as.integer(c(0, parameters$xgbMaxDeltaStep+1))
 
-            
-            xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(c(1, parameters$ForestTrees)),
-            max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
-            rate_drop = c(drop.tree.vec[1], drop.tree.vec[2]),
-            skip_drop = c(skip.drop.vec[1], skip.drop.vec[2]),
-			alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
-            eta = c(xgbeta.vec[1], xgbeta.vec[2]),
-            gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
-			lambda=c(xgblambda.vec[1], xgblambda.vec[2]),
-            colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
-            subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
-			max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
-            ), init_points=50)
+            if(packageVersion("caret")=="6.0.93.1"){
+            	xgbGrid <- generate_grid(bounds=list(
+            	nrounds = as.integer(c(1, parameters$ForestTrees)),
+            	max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
+            	rate_drop = c(drop.tree.vec[1], drop.tree.vec[2]),
+            	skip_drop = c(skip.drop.vec[1], skip.drop.vec[2]),
+				alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
+            	eta = c(xgbeta.vec[1], xgbeta.vec[2]),
+            	gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
+				lambda=c(xgblambda.vec[1], xgblambda.vec[2]),
+            	colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
+            	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
+            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
+				scale_pos_weight = c(0, 1),
+				max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
+            	), init_points=50)
+			} else {
+            	xgbGrid <- generate_grid(bounds=list(
+            	nrounds = as.integer(c(1, parameters$ForestTrees)),
+            	max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
+            	rate_drop = c(drop.tree.vec[1], drop.tree.vec[2]),
+            	skip_drop = c(skip.drop.vec[1], skip.drop.vec[2]),
+            	eta = c(xgbeta.vec[1], xgbeta.vec[2]),
+            	gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
+            	colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
+            	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
+            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
+            	), init_points=50)
+			}
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
@@ -4177,6 +4266,7 @@ shinyServer(function(input, output, session) {
                 x_train <- as.matrix(x_train)
                 y_train <- as.vector(predict.frame[,concentration])
                 dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
+			if(packageVersion("caret")=="6.0.93.1"){
                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
                           xgb_cv_bayes <- function(nrounds, max_depth, rate_drop, skip_drop, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "dart",
@@ -4255,6 +4345,74 @@ shinyServer(function(input, output, session) {
                     scale_pos_weight = 1,
                     subsample = best_param$subsample
                 )
+		} else {
+					cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+                          xgb_cv_bayes <- function(nrounds, max_depth, rate_drop, skip_drop, min_child_weight, subsample, eta, gamma, colsample_bytree) {
+                              param <- list(booster = "dart",
+                              max_depth = max_depth,
+                              rate_drop = rate_drop,
+                              skip_drop = skip_drop,
+                              min_child_weight = min_child_weight,
+                              eta=eta,
+                              gamma=gamma,
+                              subsample = subsample,
+                              colsample_bytree = colsample_bytree,
+                              objective = "reg:squarederror",
+                              eval_metric = forest.metric.mod)
+                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, tree_method = "auto", nthread=-1, maximize = TRUE, verbose = FALSE)
+                              
+                              if(forest.metric.mod=="rmse"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              } else if(forest.metric.mod=="mae"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              }
+                          }
+                          
+                OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
+							max_depth = as.integer(tree.depth.vec),
+                           rate_drop=drop.tree.vec,
+                           skip_drop=skip.drop.vec,
+							min_child_weight = xgbminchild.vec,
+                               subsample = xgbsubsample.vec,
+                               eta = xgbeta.vec,
+                               gamma = c(0L, xgbgamma.vec[2]),
+							tree_method=treemethod,
+                           init_grid_dt = NULL,
+                           init_points = 50,
+                           n_iter = 5,
+                           acq = "ei",
+                           kappa = 2.576,
+                           eps = 0.0,
+                           verbose = TRUE)
+                           
+                best_param <- list(
+                    booster = "dart",
+                    eval.metric = forest.metric.mod,
+                    objective = "reg:squarederror",
+                    nrounds = OPT_Res$Best_Par["nrounds"],
+                    max_depth = OPT_Res$Best_Par["max_depth"],
+                    rate_drop=OPT_Res$Best_Par["rate_drop"],
+                    skip_drop=OPT_Res$Best_Par["skip_drop"],
+                    eta = OPT_Res$Best_Par["eta"],
+                    gamma = OPT_Res$Best_Par["gamma"],
+                    subsample = OPT_Res$Best_Par["subsample"],
+                    colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
+                    min_child_weight = OPT_Res$Best_Par["min_child_weight"])
+                
+                xgbGridBayes <- expand.grid(
+                    nrounds = pbest_param$nrounds,
+                    max_depth = best_param$max_depth,
+                    rate_drop = best_param$rate_drop,
+                    skip_drop = best_param$skip_drop,
+                    colsample_bytree = best_param$colsample_bytree,
+                    eta = best_param$eta,
+                    gamma = best_param$gamma,
+                    min_child_weight = best_param$min_child_weight,
+                    scale_pos_weight = 1,
+                    subsample = best_param$subsample
+                )
+		}
                 
                 if(input$multicore_behavior=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
@@ -4529,19 +4687,31 @@ shinyServer(function(input, output, session) {
 
            set.seed(input$randomize)
             
-            
-            xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(c(1, parameters$ForestTrees)),
-            max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
-            alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
-            eta = c(xgbeta.vec[1], xgbeta.vec[2]),
-            gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
-            lambda = c(xgblambda.vec[1], xgblambda.vec[2]),
-            colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
-            subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
-            max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
-            ), init_points=50)
+            if(packageVersion("caret")=="6.0.93.1"){
+            	xgbGrid <- generate_grid(bounds=list(
+            	nrounds = as.integer(c(1, parameters$ForestTrees)),
+            	max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
+            	alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
+            	eta = c(xgbeta.vec[1], xgbeta.vec[2]),
+            	gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
+            	lambda = c(xgblambda.vec[1], xgblambda.vec[2]),
+            	colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
+            	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
+            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
+				scale_pos_weight = c(0, 1),
+            	max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
+            	), init_points=50)
+			} else {
+		      	xgbGrid <- generate_grid(bounds=list(
+            	nrounds = as.integer(c(1, parameters$ForestTrees)),
+            	max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
+            	eta = c(xgbeta.vec[1], xgbeta.vec[2]),
+            	gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
+            	colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
+            	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
+            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2]))
+            	), init_points=50)
+			}
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
@@ -4623,6 +4793,7 @@ shinyServer(function(input, output, session) {
                 y_train <- as.vector(predict.frame[,concentration])
                 dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+				if(packageVersion("caret")=="6.0.93.1"){
                           xgb_cv_bayes <- function(nrounds, max_depth, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "gbtree",
                               max_depth = max_depth,
@@ -4692,6 +4863,65 @@ shinyServer(function(input, output, session) {
                     scale_pos_weight = 1,
                     subsample = best_param$subsample
                 )
+			} else {
+	                          xgb_cv_bayes <- function(nrounds, max_depth, min_child_weight, subsample, eta, gamma, colsample_bytree) {
+                              param <- list(booster = "gbtree",
+                              max_depth = max_depth,
+                              min_child_weight = min_child_weight,
+                              eta=eta,
+                              gamma=gamma,
+                              subsample = subsample,
+                              colsample_bytree = colsample_bytree,
+                              objective = "reg:squarederror",
+                              eval_metric = forest.metric.mod)
+                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, tree_method = treemethod, nthread=-1, maximize = TRUE, verbose = FALSE)
+                              
+                              if(forest.metric.mod=="rmse"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              } else if(forest.metric.mod=="mae"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              }
+                          }
+                          
+                OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
+							max_depth = as.integer(tree.depth.vec),
+                           min_child_weight = xgbminchild.vec,
+                               subsample = xgbsubsample.vec,
+                               eta = xgbeta.vec,
+                               gamma = c(0L, xgbgamma.vec[2]),
+                               colsample_bytree=xgbcolsample.vec),
+                           init_grid_dt = NULL,
+                           init_points = 50,
+                           n_iter = 5,
+                           acq = "ei",
+                           kappa = 2.576,
+                           eps = 0.0,
+                           verbose = TRUE)
+                           
+                best_param <- list(
+                    booster = "gbtree",
+                    eval.metric = forest.metric.mod,
+                    objective = "reg:squarederror",
+                    nrounds = OPT_Res$Best_Par["nrounds"],
+                    max_depth = OPT_Res$Best_Par["max_depth"],
+                    eta = OPT_Res$Best_Par["eta"],
+                    gamma = OPT_Res$Best_Par["gamma"],
+                    subsample = OPT_Res$Best_Par["subsample"],
+                    colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
+                    min_child_weight = OPT_Res$Best_Par["min_child_weight"])
+                
+                xgbGridBayes <- expand.grid(
+                    nrounds = best_param$nrounds,
+                    max_depth = best_param$max_depth,
+                    colsample_bytree = best_param$colsample_bytree,
+                    eta = best_param$eta,
+                    gamma = best_param$gamma,
+                    min_child_weight = best_param$min_child_weight,
+                    scale_pos_weight = 1,
+                    subsample = best_param$subsample
+                )
+			}
                 
                 if(input$multicore_behavior=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
@@ -4764,21 +4994,35 @@ shinyServer(function(input, output, session) {
             xgbminchild.vec <- as.integer(c(0, parameters$xgbMinChild+1))
             xgbmaxdeltastep.vec <- as.integer(c(0, parameters$xgbMaxDeltaStep+1))
 
-            
-            xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(c(1, parameters$ForestTrees)),
-            max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
-            rate_drop = c(drop.tree.vec[1], drop.tree.vec[2]),
-            skip_drop = c(skip.drop.vec[1], skip.drop.vec[2]), 
-            alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
-            eta = c(xgbeta.vec[1], xgbeta.vec[2]),
-            gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
-            lambda = c(xgblambda.vec[1], xgblambda.vec[2]),
-            colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
-            subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
-            max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
-            ), init_points=50)
+            if(packageVersion("caret")=="6.0.93.1"){
+            	xgbGrid <- generate_grid(bounds=list(
+            	nrounds = as.integer(c(1, parameters$ForestTrees)),
+            	max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
+            	rate_drop = c(drop.tree.vec[1], drop.tree.vec[2]),
+            	skip_drop = c(skip.drop.vec[1], skip.drop.vec[2]), 
+            	alpha = c(xgbalpha.vec[1], xgbalpha.vec[2]),
+            	eta = c(xgbeta.vec[1], xgbeta.vec[2]),
+            	gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
+            	lambda = c(xgblambda.vec[1], xgblambda.vec[2]),
+            	colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
+            	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
+            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
+				scale_pos_weight = c(0, 1),
+            	max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
+            	), init_points=50)
+			} else {
+            	xgbGrid <- generate_grid(bounds=list(
+            	nrounds = as.integer(c(1, parameters$ForestTrees)),
+            	max_depth = as.integer(c(tree.depth.vec[1], tree.depth.vec[2])),
+            	rate_drop = c(drop.tree.vec[1], drop.tree.vec[2]),
+            	skip_drop = c(skip.drop.vec[1], skip.drop.vec[2]), 
+            	eta = c(xgbeta.vec[1], xgbeta.vec[2]),
+            	gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
+            	colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
+            	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
+            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2]))
+            	), init_points=50)
+			} 
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
@@ -4860,6 +5104,7 @@ shinyServer(function(input, output, session) {
                 y_train <- as.vector(predict.frame[,concentration])
                 dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+				if(packageVersion("caret")=="6.0.93.1"){
                           xgb_cv_bayes <- function(nrounds, max_depth, rate_drop, skip_drop, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "dart",
                               max_depth = max_depth,
@@ -4938,6 +5183,74 @@ shinyServer(function(input, output, session) {
                     scale_pos_weight = 1,
                     subsample = best_param$subsample
                 )
+			} else {
+                          xgb_cv_bayes <- function(nrounds, max_depth, rate_drop, skip_drop, min_child_weight, subsample,  eta, gamma, colsample_bytree) {
+                              param <- list(booster = "dart",
+                              max_depth = max_depth,
+                              rate_drop = rate_drop,
+                              skip_drop = skip_drop,
+                              min_child_weight = min_child_weight,
+                              eta=eta,
+                              gamma=gamma,
+                              subsample = subsample,
+                              colsample_bytree = colsample_bytree,
+                              objective = "reg:squarederror",
+                              eval_metric = forest.metric.mod)
+                              cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, early_stopping_rounds=50, tree_method = "auto", nthread=-1, maximize = TRUE, verbose = FALSE)
+                              
+                              if(forest.metric.mod=="rmse"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              } else if(forest.metric.mod=="mae"){
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                              }
+                          }
+                          
+                OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
+							max_depth = as.integer(tree.depth.vec),
+                           rate_drop = drop.tree.vec,
+                           skip_drop = skip.drop.vec,
+                           min_child_weight = xgbmindchildweight.vec,
+                               subsample = xgbsubsample.vec,
+                               eta = xgbeta.vec,
+                               gamma = c(0L, xgbgamma.vec[2]),
+                               colsample_bytree=xgbcolsample.vec),
+							tree_method = treemethod,
+                           init_grid_dt = NULL,
+                           init_points = 50,
+                           n_iter = 5,
+                           acq = "ei",
+                           kappa = 2.576,
+                           eps = 0.0,
+                           verbose = TRUE)
+                           
+                best_param <- list(
+                    booster = "dart",
+                    eval.metric = forest.metric.mod,
+                    objective = "reg:squarederror",
+                    nrounds = OPT_Res$Best_Par["nrounds"],
+                    max_depth = OPT_Res$Best_Par["max_depth"],
+                    rate_drop = OPT_Res$Best_Par["rate_drop"],
+                    skip_drop = OPT_Res$Best_Par["skip_drop"],
+                    eta = OPT_Res$Best_Par["eta"],
+                    gamma = OPT_Res$Best_Par["gamma"],
+                    subsample = OPT_Res$Best_Par["subsample"],
+                    colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
+                    min_child_weight = OPT_Res$Best_Par["min_child_weight"])
+                
+                xgbGridBayes <- expand.grid(
+                    nrounds = best_param$nrounds,
+                    max_depth = best_param$max_depth,
+                    rate_drop = best_param$rate_drop,
+                    skip_drop = best_param$skip_drop,
+                    colsample_bytree = best_param$colsample_bytree,
+                    alpha = best_param$alpha,
+                    gamma = best_param$gamma,
+                    min_child_weight = best_param$min_child_weight,
+                    scale_pos_weight = 1,
+                    subsample = best_param$subsample
+                )
+			} 
                 
                 if(input$multicore_behavior=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
@@ -9866,7 +10179,21 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            
+        if(packageVersion("caret")!="6.0.93.1"){
+            xgbGrid <- expand.grid(
+            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            max_depth = elementModel()$bestTune$max_depth,
+			max_delta_step = elementModel()$bestTune$max_delta_step,
+            alpha = elementModel()$bestTune$alpha,
+            eta = elementModel()$bestTune$eta,
+            gamma=elementModel()$bestTune$gamma,
+            lambda=elementModel()$bestTune$lambda,
+            colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            subsample = elementModel()$bestTune$subsample,
+			 scale_pos_weight=1,
+            min_child_weight = elementModel()$bestTune$min_child_weight
+            )
+		} else {
             xgbGrid <- expand.grid(
             nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
             max_depth = elementModel()$bestTune$max_depth,
@@ -9876,6 +10203,7 @@ shinyServer(function(input, output, session) {
             subsample = elementModel()$bestTune$subsample,
             min_child_weight = elementModel()$bestTune$min_child_weight
             )
+		}
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
@@ -9947,18 +10275,35 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            
-            xgbGrid <- expand.grid(
-            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
-            max_depth = elementModel()$bestTune$max_depth,
-            rate_drop = elementModel()$bestTune$rate_drop,
-            skip_drop = elementModel()$bestTune$skip_drop,
-            eta = elementModel()$bestTune$eta,
-            gamma=elementModel()$bestTune$gamma,
-            colsample_bytree = elementModel()$bestTune$colsample_bytree,
-            subsample = elementModel()$bestTune$subsample,
-            min_child_weight = elementModel()$bestTune$min_child_weight
-            )
+            if(packageVersion("caret")!="6.0.93.1"){
+            	xgbGrid <- expand.grid(
+            	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            	max_depth = elementModel()$bestTune$max_depth,
+            	max_delta_step = elementModel()$bestTune$max_delta_step,
+            	rate_drop = elementModel()$bestTune$rate_drop,
+            	skip_drop = elementModel()$bestTune$skip_drop,
+				alpha = elementModel()$bestTune$alpha,
+            	eta = elementModel()$bestTune$eta,
+            	gamma=elementModel()$bestTune$gamma,
+				lambda = elementModel()$bestTune$lambda,
+            	colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            	subsample = elementModel()$bestTune$subsample,
+				scale_pos_weight=1,
+            	min_child_weight = elementModel()$bestTune$min_child_weight
+            	)
+			} else {
+            	xgbGrid <- expand.grid(
+            	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            	max_depth = elementModel()$bestTune$max_depth,
+            	rate_drop = elementModel()$bestTune$rate_drop,
+            	skip_drop = elementModel()$bestTune$skip_drop,
+            	eta = elementModel()$bestTune$eta,
+            	gamma=elementModel()$bestTune$gamma,
+            	colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            	subsample = elementModel()$bestTune$subsample,
+            	min_child_weight = elementModel()$bestTune$min_child_weight
+            	)
+			}
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
@@ -10088,97 +10433,7 @@ shinyServer(function(input, output, session) {
             
         })
         
-        xgboostIntensityModelRandom <- reactive({
-            
-            if(input$xgbtype=="Tree"){
-                xgbtreeIntensityModelRandom()
-            } else if(input$xgbtype=="Linear"){
-                xgblinearIntensityModelRandom()
-            }
-            
-        })
         
-        
-        xgbtreeSpectraModelRandom <- reactive(label="xgbtreeSpectraModelRandom",{
-            
-            set.seed(input$randomize)
-            
-            data <- xgbtreeSpectraModelSet()$data[randomizeData(),]
-            parameters <- xgbtreeSpectraModelSet()$parameters$CalTable
-            
-            
-            metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
-                defaultSummary
-            } else if(parameters$ForestMetric=="MAE"){
-                maeSummary
-            } else if(parameters$ForestMetric=="logMAE"){
-                logmaeSummary
-            } else if(parameters$ForestMetric=="SMAPE"){
-                smapeSummary
-            }
-            
-            
-            xgbGrid <- expand.grid(
-            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
-            max_depth = elementModel()$bestTune$max_depth,
-            eta = elementModel()$bestTune$eta,
-            gamma=elementModel()$bestTune$gamma,
-            colsample_bytree = elementModel()$bestTune$colsample_bytree,
-            subsample = elementModel()$bestTune$subsample,
-            min_child_weight = elementModel()$bestTune$min_child_weight
-            )
-            
-            tune_control <- if(parameters$ForestTC!="repeatedcv"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                verboseIter = TRUE)
-            } else if(parameters$ForestTC=="repeatedcv"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                verboseIter = TRUE)
-            }
-            
-            
-            
-            cores.to.use <- if(parameters$ForestTC=="repeatedcv"){
-                if(parameters$ForestNumber*parameters$CVRepeats >= as.numeric(my.cores)){
-                    as.numeric(my.cores)
-                } else  if(parameters$ForestNumber*parameters$CVRepeats < as.numeric(my.cores)){
-                    parameters$ForestNumber*parameters$CVRepeats
-                }
-            } else if(parameters$ForestTC!="repeatedcv"){
-                if(parameters$ForestNumber >= as.numeric(my.cores)){
-                    as.numeric(my.cores)
-                } else  if(parameters$ForestNumber < as.numeric(my.cores)){
-                    parameters$ForestNumber
-                }
-            }
-                
-            
-            if(input$multicore_behavior=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
-                    parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                } else if(input$multicore_behavior=="Fork"){
-                    parallel::makeForkCluster(as.numeric(my.cores)/2)
-                }
-                clusterEvalQ(cl, library(foreach))
-                registerDoParallel(cl)
-                
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
-                stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=-1)
-            }
-            
-            xgb_model
-            
-            
-        })
         
         xgbdartIntensityModelRandom <- reactive(label="xgbdartIntensityModelRandom",{
             
@@ -10199,18 +10454,35 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            
-            xgbGrid <- expand.grid(
-            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
-            max_depth = elementModel()$bestTune$max_depth,
-            rate_drop = elementModel()$bestTune$rate_drop,
-            skip_drop = elementModel()$bestTune$skip_drop,
-            eta = elementModel()$bestTune$eta,
-            gamma=elementModel()$bestTune$gamma,
-            colsample_bytree = elementModel()$bestTune$colsample_bytree,
-            subsample = elementModel()$bestTune$subsample,
-            min_child_weight = elementModel()$bestTune$min_child_weight
-            )
+            if(packageVersion("caret")!="6.0.93.1"){
+            	xgbGrid <- expand.grid(
+            	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            	max_depth = elementModel()$bestTune$max_depth,
+				max_delta_step = elementModel()$bestTune$max_delta_step,
+            	rate_drop = elementModel()$bestTune$rate_drop,
+            	skip_drop = elementModel()$bestTune$skip_drop,
+            	alpha = elementModel()$bestTune$alpha,
+            	eta = elementModel()$bestTune$eta,
+            	gamma=elementModel()$bestTune$gamma,
+            	lambda=elementModel()$bestTune$lambda,
+            	colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            	subsample = elementModel()$bestTune$subsample,
+				scale_pos_weight=1,
+            	min_child_weight = elementModel()$bestTune$min_child_weight
+            	)
+			} else {
+            	xgbGrid <- expand.grid(
+            	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            	max_depth = elementModel()$bestTune$max_depth,
+            	rate_drop = elementModel()$bestTune$rate_drop,
+            	skip_drop = elementModel()$bestTune$skip_drop,
+            	eta = elementModel()$bestTune$eta,
+            	gamma=elementModel()$bestTune$gamma,
+            	colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            	subsample = elementModel()$bestTune$subsample,
+            	min_child_weight = elementModel()$bestTune$min_child_weight
+            	)
+			}
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
@@ -10371,16 +10643,31 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            
-            xgbGrid <- expand.grid(
-            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
-            max_depth = elementModel()$bestTune$max_depth,
-            eta = elementModel()$bestTune$eta,
-            gamma=elementModel()$bestTune$gamma,
-            colsample_bytree = elementModel()$bestTune$colsample_bytree,
-            subsample = elementModel()$bestTune$subsample,
-            min_child_weight = elementModel()$bestTune$min_child_weight
-            )
+            if(packageVersion("caret")!="6.0.93.1"){
+            	xgbGrid <- expand.grid(
+            	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            	max_depth = elementModel()$bestTune$max_depth,
+            	max_delta_step = elementModel()$bestTune$max_delta_step,
+            	alpha = elementModel()$bestTune$alpha,
+            	eta = elementModel()$bestTune$eta,
+            	gamma=elementModel()$bestTune$gamma,
+            	lambda = elementModel()$bestTune$lambda,
+            	colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            	subsample = elementModel()$bestTune$subsample,
+				scale_pos_weight=1,
+            	min_child_weight = elementModel()$bestTune$min_child_weight
+            	)
+			} else {
+            	xgbGrid <- expand.grid(
+            	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            	max_depth = elementModel()$bestTune$max_depth,
+            	eta = elementModel()$bestTune$eta,
+            	gamma=elementModel()$bestTune$gamma,
+            	colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            	subsample = elementModel()$bestTune$subsample,
+            	min_child_weight = elementModel()$bestTune$min_child_weight
+            	)
+			}
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
@@ -10432,7 +10719,7 @@ shinyServer(function(input, output, session) {
             xgb_model
             
             
-        }) 
+        })
         
        xgbdartSpectraModelRandom <- reactive(label="xgbdartSpectraModelRandom",{
             
@@ -10453,19 +10740,35 @@ shinyServer(function(input, output, session) {
             }
             
             
-            xgbGrid <- expand.grid(
-            nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
-            max_depth = elementModel()$bestTune$max_depth,
-            rate_drop = elementModel()$bestTune$rate_drop,
-            skip_drop = elementModel()$bestTune$skip_drop,
-            rate_drop = elementModel()$bestTune$rate_drop,
-            skip_drop = elementModel()$bestTune$skip_drop,
-            eta = elementModel()$bestTune$eta,
-            gamma=elementModel()$bestTune$gamma,
-            colsample_bytree = elementModel()$bestTune$colsample_bytree,
-            subsample = elementModel()$bestTune$subsample,
-            min_child_weight = elementModel()$bestTune$min_child_weight
-            )
+            if(packageVersion("caret")!="6.0.93.1"){
+            	xgbGrid <- expand.grid(
+            	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            	max_depth = elementModel()$bestTune$max_depth,
+				max_delta_step = elementModel()$bestTune$max_delta_step,
+            	rate_drop = elementModel()$bestTune$rate_drop,
+            	skip_drop = elementModel()$bestTune$skip_drop,
+            	alpha = elementModel()$bestTune$alpha,
+            	eta = elementModel()$bestTune$eta,
+            	gamma=elementModel()$bestTune$gamma,
+            	lambda=elementModel()$bestTune$lambda,
+            	colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            	subsample = elementModel()$bestTune$subsample,
+				scale_pos_weight=1,
+            	min_child_weight = elementModel()$bestTune$min_child_weight
+            	)
+			} else {
+            	xgbGrid <- expand.grid(
+            	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
+            	max_depth = elementModel()$bestTune$max_depth,
+            	rate_drop = elementModel()$bestTune$rate_drop,
+            	skip_drop = elementModel()$bestTune$skip_drop,
+            	eta = elementModel()$bestTune$eta,
+            	gamma=elementModel()$bestTune$gamma,
+            	colsample_bytree = elementModel()$bestTune$colsample_bytree,
+            	subsample = elementModel()$bestTune$subsample,
+            	min_child_weight = elementModel()$bestTune$min_child_weight
+            	)
+			}
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
