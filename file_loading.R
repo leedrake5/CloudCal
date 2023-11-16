@@ -33,6 +33,19 @@ find_row_with_string <- function(data, search_string) {
 }
 find_row_with_string <- cmpfun(find_row_with_string)
 
+get_filetype <- function(path){
+  # Get the file extension
+  ext <- file_ext(path)
+  
+  # Remove the dot from the beginning of the extension
+  if (substr(ext, 1, 1) == ".") {
+    ext <- substr(ext, 2, nchar(ext))
+  }
+  
+  # Return the extension in uppercase letters
+  return(toupper(ext))
+}
+
 ###Spectra Loading
 read_csv_filename_x <- function(filename){
     ret <- read.csv(file=filename, sep=",", header=FALSE)
@@ -737,9 +750,12 @@ readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE) {
 }
 readPDZData <- cmpfun(readPDZData)
 
-singleFileLoader <- function(filepath, filename=NULL, filetype="CSV", pdzprep=TRUE){
+singleFileLoader <- function(filepath, filename=NULL, filetype=NULL, pdzprep=TRUE){
 								if(is.null(filename)){
 										filename <- gsub(filetype, "", basename(filepath))
+								}
+								if(is.null(filetype)){
+										filetype <- get_filetype(filepath)
 								}
                 data <- if(filetype=="CSV"){
                     csvFrame(filepath=filepath, filename=filename)
@@ -764,11 +780,11 @@ singleFileLoader <- function(filepath, filename=NULL, filetype="CSV", pdzprep=TR
                 data
         }
 
-multipleFileLoader <- function(filepaths, pdzprep=TRUE, allowParallel=FALSE){
+multipleFileLoader <- function(filepaths, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE){
 			data_list <- if(allowParallel==FALSE){
-					pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, pdzprep=pdzprep))
+					pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep))
 			} else if(allowParallel==TRUE){
-						pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, pdzprep=pdzprep), cl=my.cores)
+						pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep), cl=my.cores)
 			}
 
 			data <- as.data.frame(data.table::rbindlist(data_list))
