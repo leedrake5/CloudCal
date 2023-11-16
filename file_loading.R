@@ -737,6 +737,44 @@ readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE) {
 }
 readPDZData <- cmpfun(readPDZData)
 
+singleFileLoader <- function(filepath, filename=NULL, filetype="CSV", pdzprep=TRUE){
+								if(is.null(filename)){
+										filename <- gsub(filetype, "", basename(filepath))
+								}
+                data <- if(filetype=="CSV"){
+                    csvFrame(filepath=filepath, filename=filename)
+                } else if(filetype=="Aggregate CSV File"){
+                    importCSVFrameBasic(filepath=filepath, filename=filename)
+                } else if(filetype=="TXT"){
+                    readTXTData(filepath=filepath, filename=filename)
+                } else if(filetype=="Net"){
+                    netCountsData(filepath=filepath, filename=filename)
+                } else if(filetype=="Elio"){
+                    readElioData(filepath=filepath, filename=filename)
+                }  else if(filetype=="MCA"){
+                    readMCAData(filepath=filepath, filename=filename)
+                }  else if(filetype=="SPX"){
+                    readSPXData(filepath=filepath, filename=filename)
+                }  else if(filetype=="PDZ"){
+                    readPDZData(filepath=filepath, filename=filename, pdzprep=pdzprep)
+                }
+                
+                
+                data <- data[complete.cases(data),]
+                data
+        }
+
+multipleFileLoader <- function(filepaths, pdzprep=TRUE, allowParallel=FALSE){
+			data_list <- if(allowParallel==FALSE){
+					pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, pdzprep=pdzprep))
+			} else if(allowParallel==TRUE){
+						pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, pdzprep=pdzprep), cl=my.cores)
+			}
+
+			data <- as.data.frame(data.table::rbindlist(data_list))
+			return(data)
+}
+
 readPDZMetadata <- function(filepath, filename=NULL) {
     
     if(is.null(filename)){
