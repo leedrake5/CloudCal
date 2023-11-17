@@ -274,6 +274,9 @@ importCSVFrameDetailed <- cmpfun(importCSVFrameDetailed)
 
 
 readTXTData <- function(filepath, filename){
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
     filename <- make.names(gsub(".txt", "", filename, ignore.case=TRUE))
     text <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
     channels <- seq(1, length(text$V1)-4, 1)
@@ -328,6 +331,9 @@ read_csv_net <- cmpfun(read_csv_net)
 
 
 readSPTData <- function(filepath, filename){
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
     filename <- make.names(gsub(".spt", "", filename))
     filename.vector <- rep(filename, 4096)
     
@@ -457,6 +463,9 @@ readPMCAData4096 <- function(filepath, filename=NULL, full=NULL){
 readPMCAData4096 <- cmpfun(readPMCAData4096)
 
 readMCAData2048 <- function(filepath, filename, full=NULL){
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
     
     filename <- make.names(gsub(".mca", "", filename))
     filename.vector <- rep(filename, 2048)
@@ -478,7 +487,7 @@ readMCAData2048 <- function(filepath, filename, full=NULL){
 }
 readMCAData2048 <- cmpfun(readMCAData2048)
 
-readMCAData <- function(filepath, filename){
+readMCAData <- function(filepath, filename=NULL){
     full <- read.csv(filepath, row.names=NULL)
 
     spectra.frame <- if(nrow(full)<=3000){
@@ -518,6 +527,9 @@ readMCAProcess <- function(inFile=NULL, gainshiftvalue=0){
 }
 
 readSPXData <- function(filepath, filename){
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
     
     filename <- make.names(gsub(".spx", "", filename))
     filename.vector <- rep(filename, 4096)
@@ -750,29 +762,26 @@ readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE) {
 }
 readPDZData <- cmpfun(readPDZData)
 
-singleFileLoader <- function(filepath, filename=NULL, filetype=NULL, pdzprep=TRUE){
-								if(is.null(filename)){
-										filename <- gsub(filetype, "", basename(filepath))
-								}
-								if(is.null(filetype)){
-										filetype <- get_filetype(filepath)
-								}
+singleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE){
+                if(is.null(filetype)){
+                    filetype <- get_filetype(filepath)
+                }
                 data <- if(filetype=="CSV"){
-                    csvFrame(filepath=filepath, filename=filename)
+                    csvFrame(filepath=filepath)
                 } else if(filetype=="Aggregate CSV File"){
-                    importCSVFrameBasic(filepath=filepath, filename=filename)
+                    importCSVFrameBasic(filepath=filepath)
                 } else if(filetype=="TXT"){
-                    readTXTData(filepath=filepath, filename=filename)
+                    readTXTData(filepath=filepath)
                 } else if(filetype=="Net"){
-                    netCountsData(filepath=filepath, filename=filename)
+                    netCountsData(filepath=filepath)
                 } else if(filetype=="Elio"){
-                    readElioData(filepath=filepath, filename=filename)
+                    readElioData(filepath=filepath)
                 }  else if(filetype=="MCA"){
-                    readMCAData(filepath=filepath, filename=filename)
+                    readMCAData(filepath=filepath)
                 }  else if(filetype=="SPX"){
-                    readSPXData(filepath=filepath, filename=filename)
+                    readSPXData(filepath=filepath)
                 }  else if(filetype=="PDZ"){
-                    readPDZData(filepath=filepath, filename=filename, pdzprep=pdzprep)
+                    readPDZData(filepath=filepath, pdzprep=pdzprep)
                 }
                 
                 
@@ -781,14 +790,14 @@ singleFileLoader <- function(filepath, filename=NULL, filetype=NULL, pdzprep=TRU
         }
 
 multipleFileLoader <- function(filepaths, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE){
-			data_list <- if(allowParallel==FALSE){
-					pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep))
-			} else if(allowParallel==TRUE){
-						pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep), cl=my.cores)
-			}
+    data_list <- if(allowParallel==FALSE){
+        pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep))
+    } else if(allowParallel==TRUE){
+        pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep), cl=my.cores)
+    }
 
-			data <- as.data.frame(data.table::rbindlist(data_list))
-			return(data)
+    data <- as.data.frame(data.table::rbindlist(data_list, use.names = T, fill = T))
+    return(data)
 }
 
 readPDZMetadata <- function(filepath, filename=NULL) {
