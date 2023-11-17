@@ -8162,7 +8162,11 @@ deconvolute_complete <- function(spectra_frame){
 }
 
 spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, cores=1){
-    
+    spectra_frame$Spectrum <- as.character(spectra_frame$Spectrum)
+    spectra_frame$Energy <- as.numeric(spectra_frame$Energy)
+    spectra_frame$CPS <- as.numeric(spectra_frame$CPS)
+    spectra_frame <- spectra_frame[complete.cases(spectra_frame),]
+
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
     if(cores==1){
         new_spectra_list <- pblapply(spectra_list, deconvolute_complete)
