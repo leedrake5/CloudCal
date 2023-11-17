@@ -548,7 +548,7 @@ tabPanel("Variables",
     downloadButton("variablePlot", "Plot"),
     uiOutput('varelementui')),
 
-tabPanel("test", dataTableOutput('holdframetest')),
+#tabPanel("test", dataTableOutput('holdframetest')),
 
 #tabPanel("Testing", dataTableOutput('testtable')),
 #tabPanel("Testing2", dataTableOutput('testtable2')),
