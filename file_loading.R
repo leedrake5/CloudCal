@@ -98,7 +98,10 @@ csvFrame <- function(filepath, filename=NULL){
     return.counts <-as.numeric(as.vector(ret$V2[(n-2048):n]))
     return.cps <- return.counts/return.live.time
     
-    return(data.frame(Energy=return.energy, CPS=return.cps, Spectrum=filename))
+    spectra.frame <- data.frame(Energy=return.energy, CPS=return.cps, Spectrum=filename)
+    spectra.frame <- spectra.frame[complete.cases(spectra.frame),]
+    
+    return(spectra.frame)
 }
 
 
@@ -789,11 +792,11 @@ singleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE){
                 data
         }
 
-multipleFileLoader <- function(filepaths, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE){
+multipleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE){
     data_list <- if(allowParallel==FALSE){
-        pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep))
+        lapply(filepath, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep))
     } else if(allowParallel==TRUE){
-        pbapply::pblapply(filepaths, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep), cl=my.cores)
+        parallel::mclapply(filepath, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep), mc.cores = as.integer(my.cores), mc.silent = TRUE)
     }
 
     data <- as.data.frame(data.table::rbindlist(data_list, use.names = T, fill = T))
