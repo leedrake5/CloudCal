@@ -3978,6 +3978,53 @@ shinyServer(function(input, output, session) {
                                   tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
+                          OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                          bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
+                                      max_depth = as.integer(tree.depth.vec),
+                                      min_child_weight = xgbminchild.vec,
+                                      max_delta_step = xgbmaxdeltastep.vec,
+                                         subsample = xgbsubsample.vec,
+                                         alpha = xgbalpha.vec,
+                                         eta = xgbeta.vec,
+                                         gamma = c(0L, xgbgamma.vec[2]),
+                                         lambda = xgblambda.vec),
+                                      tree_method=treemethod,
+                                     init_grid_dt = NULL,
+                                     init_points = 50,
+                                     n_iter = 5,
+                                     acq = "ei",
+                                     kappa = 2.576,
+                                     eps = 0.0,
+                                     verbose = TRUE)
+                          best_param <- list(
+                              booster = "gbtree",
+                              eval.metric = forest.metric.mod,
+                              objective = "reg:squarederror",
+                              nrounds = OPT_Res$Best_Par["nrounds"],
+                              max_depth = OPT_Res$Best_Par["max_depth"],
+                              alpha = OPT_Res$Best_Par["alpha"],
+                              eta = OPT_Res$Best_Par["eta"],
+                              gamma = OPT_Res$Best_Par["gamma"],
+                              lambda = OPT_Res$Best_Par["lambda"],
+                              subsample = OPT_Res$Best_Par["subsample"],
+                              colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
+                              min_child_weight = OPT_Res$Best_Par["min_child_weight"],
+                              max_delta_step = OPT_Res$Best_Par["max_delta_step"]
+                              )
+                          
+                          xgbGridBayes <- expand.grid(
+                              nrounds = best_param$nrounds,
+                              max_depth = best_param$max_depth,
+                              colsample_bytree = best_param$colsample_bytree,
+                              alpha = best_param$alpha,
+                              eta = best_param$eta,
+                              gamma = best_param$gamma,
+                              lambda = best_param$lambda,
+                              min_child_weight = best_param$min_child_weight,
+                              max_delta_step = best_param$max_delta_step,
+                              scale_pos_weight=1,
+                              subsample = best_param$subsample
+                              )
 					} else {
                           xgb_cv_bayes <- function(nrounds, max_depth, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "gbtree",
@@ -3997,97 +4044,47 @@ shinyServer(function(input, output, session) {
                                   tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
+                          OPT_Res <- BayesianOptimization(xgb_cv_bayes,
+                          bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
+                                      max_depth = as.integer(tree.depth.vec),
+                                      min_child_weight = xgbminchild.vec,
+                                         subsample = xgbsubsample.vec,
+                                         eta = xgbeta.vec,
+                                         gamma = c(0L, xgbgamma.vec[2])),
+                                      tree_method=treemethod,
+                                     init_grid_dt = NULL,
+                                     init_points = 50,
+                                     n_iter = 5,
+                                     acq = "ei",
+                                     kappa = 2.576,
+                                     eps = 0.0,
+                                     verbose = TRUE)
+                          best_param <- list(
+                              booster = "gbtree",
+                              eval.metric = forest.metric.mod,
+                              objective = "reg:squarederror",
+                              nrounds = OPT_Res$Best_Par["nrounds"],
+                              max_depth = OPT_Res$Best_Par["max_depth"],
+                              eta = OPT_Res$Best_Par["eta"],
+                              gamma = OPT_Res$Best_Par["gamma"],
+                              subsample = OPT_Res$Best_Par["subsample"],
+                              colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
+                              min_child_weight = OPT_Res$Best_Par["min_child_weight"]
+                              )
+                          
+                          xgbGridBayes <- expand.grid(
+                              nrounds = best_param$nrounds,
+                              max_depth = best_param$max_depth,
+                              colsample_bytree = best_param$colsample_bytree,
+                              eta = best_param$eta,
+                              gamma = best_param$gamma,
+                              min_child_weight = best_param$min_child_weight,
+                              scale_pos_weight=1,
+                              subsample = best_param$subsample
+                          )
 					}
                           
-                OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-			if(packageVersion("caret")=="6.0.93.1"){
-                bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
-							max_depth = as.integer(tree.depth.vec),
-                           min_child_weight = xgbminchild.vec,
-							max_delta_step = xgbmaxdeltastep.vec,
-                               subsample = xgbsubsample.vec,
-                               alpha = xgbalpha.vec,
-                               eta = xgbeta.vec,
-                               gamma = c(0L, xgbgamma.vec[2]),
-                               lambda = xgblambda.vec,
-                               colsample_bytree=xgbcolsample.vec),
-                           init_grid_dt = NULL,
-                           init_points = 50,
-                           n_iter = 5,
-                           acq = "ei",
-                           kappa = 2.576,
-                           eps = 0.0,
-                           verbose = TRUE)
-                           
-                best_param <- list(
-                    booster = "gbtree",
-                    eval.metric = forest.metric.mod,
-                    objective = "reg:squarederror",
-                    nrounds = OPT_Res$Best_Par["nrounds"],
-                    max_depth = OPT_Res$Best_Par["max_depth"],
-                    alpha = OPT_Res$Best_Par["alpha"],
-                    eta = OPT_Res$Best_Par["eta"],
-                    gamma = OPT_Res$Best_Par["gamma"],
-                    lambda = OPT_Res$Best_Par["lambda"],
-                    subsample = OPT_Res$Best_Par["subsample"],
-                    colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
-                    min_child_weight = OPT_Res$Best_Par["min_child_weight"],
-                    max_delta_step = OPT_Res$Best_Par["max_delta_step"]
-					)
-                
-                xgbGridBayes <- expand.grid(
-                    nrounds = best_param$nrounds,
-                    max_depth = best_param$max_depth,
-                    colsample_bytree = best_param$colsample_bytree,
-                    alpha = best_param$alpha,
-                    eta = best_param$eta,
-                    gamma = best_param$gamma,
-                    lambda = best_param$lambda,
-                    min_child_weight = best_param$min_child_weight,
-                    max_delta_step = best_param$max_delta_step,
-					scale_pos_weight=1,
-                    subsample = best_param$subsample
-                )
-			} else {
-                bounds = list(nrounds=as.integer(c(1, parameters$ForestTrees)),
-							max_depth = as.integer(tree.depth.vec),
-                           min_child_weight = xgbminchild.vec,
-                               subsample = xgbsubsample.vec,
-                               eta = xgbeta.vec,
-                               gamma = c(0L, xgbgamma.vec[2]),
-                               colsample_bytree=xgbcolsample.vec),
-                           init_grid_dt = NULL,
-                           init_points = 50,
-                           n_iter = 5,
-                           acq = "ei",
-                           kappa = 2.576,
-                           eps = 0.0,
-                           verbose = TRUE)
-                           
-                best_param <- list(
-                    booster = "gbtree",
-                    eval.metric = forest.metric.mod,
-                    objective = "reg:squarederror",
-                    nrounds = OPT_Res$Best_Par["nrounds"],
-                    max_depth = OPT_Res$Best_Par["max_depth"],
-                    eta = OPT_Res$Best_Par["eta"],
-                    gamma = OPT_Res$Best_Par["gamma"],
-                    subsample = OPT_Res$Best_Par["subsample"],
-                    colsample_bytree = OPT_Res$Best_Par["colsample_bytree"],
-                    min_child_weight = OPT_Res$Best_Par["min_child_weight"]
-					)
-                
-                xgbGridBayes <- expand.grid(
-                    nrounds = best_param$nrounds,
-                    max_depth = best_param$max_depth,
-                    colsample_bytree = best_param$colsample_bytree,
-                    eta = best_param$eta,
-                    gamma = best_param$gamma,
-                    min_child_weight = best_param$min_child_weight,
-					scale_pos_weight=1,
-                    subsample = best_param$subsample
-                )
-			}
+
                 
                 if(input$multicore_behavior=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
@@ -4266,8 +4263,8 @@ shinyServer(function(input, output, session) {
                 x_train <- as.matrix(x_train)
                 y_train <- as.vector(predict.frame[,concentration])
                 dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
-			if(packageVersion("caret")=="6.0.93.1"){
                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
+			if(packageVersion("caret")=="6.0.93.1"){
                           xgb_cv_bayes <- function(nrounds, max_depth, rate_drop, skip_drop, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "dart",
                               max_depth = max_depth,
@@ -4346,7 +4343,6 @@ shinyServer(function(input, output, session) {
                     subsample = best_param$subsample
                 )
 		} else {
-					cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
                           xgb_cv_bayes <- function(nrounds, max_depth, rate_drop, skip_drop, min_child_weight, subsample, eta, gamma, colsample_bytree) {
                               param <- list(booster = "dart",
                               max_depth = max_depth,
@@ -4376,7 +4372,7 @@ shinyServer(function(input, output, session) {
 							min_child_weight = xgbminchild.vec,
                                subsample = xgbsubsample.vec,
                                eta = xgbeta.vec,
-                               gamma = c(0L, xgbgamma.vec[2]),
+                               gamma = c(0L, xgbgamma.vec[2])),
 							tree_method=treemethod,
                            init_grid_dt = NULL,
                            init_points = 50,
