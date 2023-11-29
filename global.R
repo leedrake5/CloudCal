@@ -4743,6 +4743,18 @@ svmLengthUI <- function(radiocal, selection, xgbtype="Linear"){
     }
 }
 
+nThreads <- function(open_mp=FALSE, nthreads=-1){
+    
+    if(Sys.info()[["machine"]]=="arm64"){
+        nthreads <- 1
+    }
+    if(open_mp==TRUE){
+        sliderInput("open_mp_threads", label="nthreads", min=-1, max=(as.numeric(my.cores)+2), step=1, value=nthreads)
+    } else if(open_mp==FALSE){
+        NULL
+    }
+}
+
 lineSubset <- function(spectra, definitions){
     xrf_parse(range.table=definitions, data=spectra)
 }

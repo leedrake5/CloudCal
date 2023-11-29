@@ -409,7 +409,8 @@ uiOutput('inVar3'),
 uiOutput('inVar4'),
 uiOutput('addallslopesui'),
 uiOutput('removeallslopesui'),
-uiOutput('multicore_behavior_ui')
+uiOutput('multicore_behavior_ui'),
+uiOutput('open_mp_threads_ui')
 
 #sliderInput("nvariables", label = "# Elements", min=1, max=7, value=2)
 
