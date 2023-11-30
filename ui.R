@@ -485,8 +485,7 @@ tabPanel("Cross Validation",
 
 )),
         tags$hr(),
-        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.33),
-        tags$hr(),
+        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=0.2), checkboxInput('userandom', "Use Cross-Validated Model", value=FALSE),        tags$hr(),
         downloadButton('downloadcloudplotrandom', "Plot"),
         selectInput('imagesizerandom', "Image Size", choices=c("Small", "Large"), selected="Large")
 

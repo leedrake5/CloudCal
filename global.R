@@ -344,7 +344,6 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
         This_Log <- utils::capture.output({
             This_Time <- system.time({
                 This_Score_Pred <- tryCatch(do.call(what = FUN, args = as.list(This_Par)), error=function(e) list(Score=sample(-150:-100, 1)))
-                if(is.na(This_Score_Pred)){This_Score_Pred <- list(Score=sample(-250:-200, 1))}
             })
         })
         data.table::set(DT_history, i = as.integer(i), j = "Value",
@@ -352,10 +351,10 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
         Pred_list[[i]] <- This_Score_Pred$Pred
         if (verbose == TRUE) {
             paste(c("elapsed", names(DT_history)), c(format(This_Time["elapsed"],
-                trim = FALSE, digits = NULL, nsmall = 2), format(DT_history[i,
+                trim = FALSE, digits = 3, nsmall = 2), format(DT_history[i,
                 "Round", with = FALSE], trim = FALSE, digits = NULL,
                 nsmall = 0), format(DT_history[i, -"Round", with = FALSE],
-                trim = FALSE, digits = NULL, nsmall = 4)), sep = " = ",
+                trim = FALSE, digits = 3, nsmall = 3)), sep = " = ",
                 collapse = "\t") %>% cat(., "\n")
         }
     }
@@ -383,7 +382,6 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
         Next_Log <- tryCatch(utils::capture.output({
             Next_Time <- system.time({
                 Next_Score_Pred <- tryCatch(do.call(what = FUN, args = as.list(Next_Par)), error=function(e) list(Score=sample(-200:-150, 1)))
-                if(is.na(Next_Score_Pred)){Next_Score_Pred <- list(Score=sample(-250:-200, 1))}
             })
         }), error=function(e) NULL)
         tryCatch(data.table::set(DT_history, i = as.integer(j), j = c(DT_bounds[,
@@ -3675,25 +3673,25 @@ forestNumberUI <- function(radiocal, selection){
     } else if(radiocal==3){
         NULL
     } else if(radiocal==4){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     }  else if(radiocal==5){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==6){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==7){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==8){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==9){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==10){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==11){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==12){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==13){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     }
        
 }
@@ -3769,9 +3767,13 @@ forestTreesUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
         sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
+    } else if(radiocal==8 && xgbtype=="Dart"){
+        sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
     } else if(radiocal==9 && xgbtype=="Tree"){
+        sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
+    } else if(radiocal==9 && xgbtype=="Dart"){
         sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
