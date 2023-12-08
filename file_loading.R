@@ -632,7 +632,7 @@ readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE){
     
     filename <- make.names(gsub(".pdz", "", filename))
     
-    integers <- as.vector(readPDZ25(filepath))/256
+    integers <- as.vector(readPDZ25(filepath))
     
     sequence <- seq(1, length(integers), 1)
     filename.vector <- rep(filename, length(integers))
@@ -675,7 +675,7 @@ readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift, pdzprep=TR
     filename <- make.names(gsub(".pdz", "", filename))
     
     nbrOfRecords <- 2048
-    integers <- as.vector(readPDZ25(filepath))/256
+    integers <- as.vector(readPDZ25(filepath))
     
     sequence <- seq(1, length(integers), 1)
     filename.vector <- rep(filename, length(integers))

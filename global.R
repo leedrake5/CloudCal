@@ -5550,8 +5550,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         cores = parallel::detectCores()-2
     }
     
-    deconvoluted_data <-spectra_gls_deconvolute(valdata, cores=cores)
-    deconvoluted_valdata <- deconvoluted_data
+    if(is.null(deconvoluted_valdata)){
+        deconvoluted_data <-spectra_gls_deconvolute(valdata, cores=cores)
+        deconvoluted_valdata <- deconvoluted_data
+    }
+
     
     if(any(unlist(sapply(Calibration$calList, function(x) x[[1]][["CalTable"]][["Deconvolution"]]!="None")))){
         if(is.null(deconvoluted_valdata)){
@@ -5566,7 +5569,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             Narrow=narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables),
             Wide=wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables)
             )
-        count.list$Deconvoluted <- deconvolutionIntensityFrame(deconvoluted_data$Areas, count.list$Narrow)
+        count.list$Area <- deconvolutionIntensityFrame(deconvoluted_valdata$Areas, count.list$Narrow)
     }
     
 

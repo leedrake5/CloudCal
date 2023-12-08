@@ -17655,9 +17655,9 @@ content = function(file){
             
             readvalPDZ <- reactive({
                 
-            binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
+            #binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
                 
-            readPDZProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold(), advanced=input$advanced, binaryshift=binaryshiftvalue, pdzprep=input$pdzprepval)
+            readPDZProcess(inFile=input$loadvaldata, gainshiftvalue=0, advanced=FALSE, binaryshift=100, pdzprep=input$pdzprepval)
                 
                 
             })
@@ -17857,7 +17857,7 @@ content = function(file){
         
         myDeconvolutedValDataArea <- reactive({
             
-            myDeconvolutedValDataList()$Area
+            myDeconvolutedValDataList()$Areas
             
         })
         
@@ -17954,7 +17954,8 @@ content = function(file){
             #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
             if(valDataType()=="Spectra"){val.line.table <-
-                merge(deconvolutionIntensityFrame(myDeconvolutedValDataArea(), counts), totalCountsGen(val.data), by="Spectrum")}
+                merge(deconvolutionIntensityFrame(myDeconvolutedValDataArea(), counts), totalCountsGen(val.data), by="Spectrum")
+                }
                             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
