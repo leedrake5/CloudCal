@@ -122,22 +122,22 @@ shinyServer(function(input, output, session) {
     
     binaryHold <- reactive({
         
-        if(input$advanced==TRUE){
-            input$binaryshift
-        } else if(input$advanced==FALSE){
-            500
-        }
+        #if(input$advanced==TRUE){
+        #    input$binaryshift
+        #} else if(input$advanced==FALSE){
+        #    500
+        #}
         
     })
     
     
     gainshiftHold <- reactive({
         
-        if(input$advanced==TRUE){
-            input$gainshift
-        } else if(input$advanced==FALSE){
+        #if(input$advanced==TRUE){
+        #    input$gainshift
+        #} else if(input$advanced==FALSE){
             0
-        }
+        #}
         
     })
     
@@ -230,9 +230,9 @@ shinyServer(function(input, output, session) {
     readPDZ <- reactive(label="readPDZ", {
         req(input$file1)
         
-        binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
+        #binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
         
-        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=input$advanced, binaryshift=binaryshiftvalue, pdzprep=input$pdzprep)
+        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=FALSE, binaryshift=100, pdzprep=input$pdzprep)
         
     })
     

@@ -18,9 +18,9 @@ sidebarPanel(width=3,
 
 textInput("calname", label = "Calibration Name", value="myCalibration"),
 
-checkboxInput('advanced', "Advanced", value=FALSE),
-uiOutput('gainshiftui'),
-uiOutput('binaryui'),
+#checkboxInput('advanced', "Advanced", value=FALSE),
+#uiOutput('gainshiftui'),
+#uiOutput('binaryui'),
              
              tags$hr(),
 

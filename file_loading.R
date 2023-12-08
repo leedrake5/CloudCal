@@ -711,7 +711,7 @@ readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE){
     filename.vector <- rep(filename, 2020)
     
     nbrOfRecords <- 2020
-    integers <- readPDZ24(filepath, start=361, size=nbrOfRecords)
+    integers <- readPDZ24(filepath)
     sequence <- seq(1, length(integers), 1)
     
     time.est <- integers[21]
