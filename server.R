@@ -285,7 +285,7 @@ shinyServer(function(input, output, session) {
     
     output$max_energy <- renderUI({
         if(input$energycal==FALSE){
-            numericInput("maxenergy", "Starting Energy", value=40)
+            numericInput("maxenergy", "End Energy", value=40)
         } else if(input$energycal==TRUE){
             NULL
         }
@@ -703,11 +703,11 @@ shinyServer(function(input, output, session) {
             })
             
             spectraPlotDataNormal <- reactive({
-                 just_spectra_summary_apply(spectra.frame=dataHold(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra)
+                 just_spectra_summary_apply(spectra.frame=dataHold(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra, energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy)))
             })
             
             spectraPlotDataDeconvolution <- reactive({
-                just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionSpectra(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra)
+                just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionSpectra(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra, , energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy)))
             })
             
             
