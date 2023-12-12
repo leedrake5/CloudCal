@@ -1,7 +1,3 @@
-
-
-
-
 ui=list(
 tagList(
 header=tags$head(tags$style(".table .alignRight {color: black; text-align:right;}"))),
@@ -18,6 +14,7 @@ sidebarPanel(width=3,
 
 textInput("calname", label = "Calibration Name", value="myCalibration"),
 
+checkboxInput('energycal', label = "Automatic Energy Calibration", value=TRUE),
 #checkboxInput('advanced', "Advanced", value=FALSE),
 #uiOutput('gainshiftui'),
 #uiOutput('binaryui'),
@@ -138,7 +135,7 @@ fileInput('calfileinput', 'Load Cal File', accept=".quant", multiple=FALSE)
 
 mainPanel(
 tabsetPanel(
-#tabPanel("Debug", dataTableOutput('spectraframestuff')),
+#tabPanel("Debug", dataTableOutput('spectratest')),
 tabPanel("Spectrum",
 plotOutput("distPlot", height = 685,
 dblclick = "plot1_dblclick",
@@ -147,6 +144,28 @@ id = "plot1_brush",
 resetOnNew = TRUE
 )),
 tags$hr(),
+
+splitLayout(cellWidths = c("50%", "50%"),
+    column(width=12,
+        div(
+        style = "position:relative",
+        uiOutput("first_channel"),
+        uiOutput("second_channel")
+        )),
+    column(width=12,
+        div(
+        style = "position:relative",
+        uiOutput("first_energy"),
+        uiOutput("second_energy")
+    )),
+column(width=12,
+    div(
+    style = "position:relative",
+    uiOutput("zero_energy"),
+    uiOutput("max_energy")
+))
+),
+uiOutput("en_cal_model_type_ui"),
 actionButton("cropspectra", "Zoom"),
 downloadButton('downloadPlot', "Plot"),
 checkboxInput('showlegend', "Show Legend", value=FALSE),

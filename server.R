@@ -167,7 +167,7 @@ shinyServer(function(input, output, session) {
     fullSpectra <- reactive(label="fullSpectra", {
         req(input$file1)
         
-        fullSpectraProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
+        fullSpectraProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
 
     })
     
@@ -199,14 +199,14 @@ shinyServer(function(input, output, session) {
     readTXT <- reactive(label="readTXT", {
         req(input$file1)
         
-        readTXTProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
+        readTXTProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
         
     })
     
     readElio <- reactive(label="readElio", {
         req(input$file1)
         
-        readElioProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
+        readElioProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
         
     })
     
@@ -214,7 +214,7 @@ shinyServer(function(input, output, session) {
     readMCA <- reactive(label="readMCA", {
         req(input$file1)
        
-       readMCAProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
+       readMCAProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
         
     })
     
@@ -222,7 +222,7 @@ shinyServer(function(input, output, session) {
     readSPX <- reactive(label="readSPX", {
         req(input$file1)
         
-        readSPXProcess(inFile=inFile(), gainshiftvalue=gainshiftHold())
+        readSPXProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
         
     })
     
@@ -232,7 +232,7 @@ shinyServer(function(input, output, session) {
         
         #binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
         
-        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=FALSE, binaryshift=100, pdzprep=input$pdzprep)
+        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=FALSE, binaryshift=100, pdzprep=input$pdzprep, use_native_calibration=input$energycal)
         
     })
     
@@ -241,6 +241,84 @@ shinyServer(function(input, output, session) {
         
         readPDZMetadataProcess(inFile=inFile())
     })
+    
+    output$first_channel <- renderUI({
+        if(input$energycal==FALSE){
+            numericInput('firstchannel', "Channel 1", value=300)
+        } else if(input$energycal==TRUE){
+            NULL
+        }
+        
+    })
+    
+    output$first_energy <- renderUI({
+        if(input$energycal==FALSE){
+            numericInput('firstenergy', "Energy 1", value=6.4)
+        } else if(input$energycal==TRUE){
+            NULL
+        }
+    })
+    
+    output$second_channel <- renderUI({
+        if(input$energycal==FALSE){
+            numericInput('secondchannel', "Channel 2", value=1000)
+        } else if(input$energycal==TRUE){
+            NULL
+        }
+    })
+    
+    output$second_energy <- renderUI({
+        if(input$energycal==FALSE){
+            numericInput('secondenergy', "Energy 2", value=20.1)
+        } else if(input$energycal==TRUE){
+            NULL
+        }
+    })
+    
+    output$zero_energy <- renderUI({
+        if(input$energycal==FALSE){
+            numericInput("zeroenergy", "Starting Energy", value=0)
+        } else if(input$energycal==TRUE){
+            NULL
+        }
+    })
+    
+    output$max_energy <- renderUI({
+        if(input$energycal==FALSE){
+            numericInput("maxenergy", "Starting Energy", value=40)
+        } else if(input$energycal==TRUE){
+            NULL
+        }
+    })
+    
+    output$en_cal_model_type_ui <- renderUI({
+        if(input$energycal==FALSE){
+            selectInput("energycalmodel", "Energy Cal Model", choices=c("Linear", "Exponential"), selected="Linear")
+        } else if(input$energycal==TRUE){
+            NULL
+        }
+        
+    })
+    
+    energyCalibration <- reactive({
+        
+        spectra <- myDataPre()
+        
+        num_channels <- nrow(spectra)/length(unique(spectra$Spectrum))
+        
+        channel_vector <- as.numeric(c(0, input$firstchannel, input$secondchannel, num_channels))
+        energy_vector <- as.numeric(c(input$zeroenergy, input$firstenergy, input$secondenergy, input$maxenergy))
+        
+        model <- if(input$energycalmodel=="Linear"){
+            lm(energy_vector~channel_vector)
+        } else if(input$energycalmodel=="Exponential"){
+            lm(energy_vector~exp(channel_vector))
+        }
+        
+        model
+        
+    })
+    
     
     
     
@@ -313,7 +391,7 @@ shinyServer(function(input, output, session) {
           
       })
         
-        myData <- reactive(label="myData", {
+        myDataPre <- reactive(label="myDataPre", {
             req(input$filetype)
                 data <- if(input$filetype=="CSV"){
                     fullSpectra()
@@ -336,6 +414,24 @@ shinyServer(function(input, output, session) {
                 
                 data <- data[complete.cases(data),]
                 data
+        })
+        
+        myData <- reactive(label="myData", {
+            
+            spectra <- myDataPre()
+            channels <- spectra$Energy
+
+            if(input$energycal==FALSE){
+                energy_cal <- energyCalibration()
+                spectra$Energy <- predict(object=energy_cal, newdata=list(channel_vector=channels))
+            }
+            
+            spectra
+        })
+        
+        output$spectratest <- renderDataTable({
+            myData()
+            
         })
         
         myMetaData <- reactive({
@@ -14199,6 +14295,13 @@ shinyServer(function(input, output, session) {
                 for(i in other_elements){
                     new.cal[[i]] <- calMemory$Calibration[[i]]
                 }
+            }
+            
+            if(input$energycal==FALSE){
+                new.cal$EnergyCal <- list()
+                new.cal$EnergyCal$Channel <- as.numeric(c(0, input$firstchannel, input$secondchannel, num_channels))
+                new.cal$EnergyCal$Energy <- as.numeric(c(input$zeroenergy, input$firstenergy, input$secondenergy, input$maxenergy))
+                new.cal$EnergyCal$Model <- energyCalibration()
             }
             
             new.cal

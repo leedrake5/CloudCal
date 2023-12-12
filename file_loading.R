@@ -77,7 +77,7 @@ csvFrameOld <- function(filepath, filename=NULL){
 }
 csvFrameOld <- cmpfun(csvFrameOld)
 
-csvFrame <- function(filepath, filename=NULL){
+csvFrame <- function(filepath, filename=NULL, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- as.character(basename(filepath))
     }
@@ -92,7 +92,11 @@ csvFrame <- function(filepath, filename=NULL){
     
     return.res <- as.numeric(as.vector(ret[ret$V1 %in% "eV per channel",]$V2))/1000
     return.chan.counts <-as.numeric(as.vector(ret$V1[(n-2048):n]))
-    return.energy <- return.chan.counts*return.res
+    return.energy <- if(use_native_calibration==TRUE){
+            return.chan.counts*return.res
+        } else if(use_native_calibration==FALSE){
+            return.chan.counts
+        }
     
     return.live.time <- round(as.numeric(as.vector(ret[ret$V1 %in% "Live Time",]$V2)), 2)
     return.counts <-as.numeric(as.vector(ret$V2[(n-2048):n]))
@@ -152,7 +156,7 @@ fullSpectraDataTableProcess <- function(inFile=NULL, gainshiftvalue=0){
     return(data)
 }
 
-fullSpectraProcess <- function(inFile=NULL, gainshiftvalue=0){
+fullSpectraProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration=TRUE){
        
            if (is.null(inFile)) return(NULL)
            temp = inFile$name
@@ -163,7 +167,7 @@ fullSpectraProcess <- function(inFile=NULL, gainshiftvalue=0){
            
            n.seq <- seq(1, nrow(inFile), 1)
            
-           data.list <- pblapply(n.seq, function(x) csvFrame(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
+           data.list <- pblapply(n.seq, function(x) csvFrame(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], use_native_calibration=use_native_calibration))
            data <- do.call("rbind", data.list)
            data <- as.data.frame(data, stringsAsFactors=FALSE)
        
@@ -276,7 +280,7 @@ importCSVFrameDetailed <- function(csv_import, choosen_beam="1"){
 importCSVFrameDetailed <- cmpfun(importCSVFrameDetailed)
 
 
-readTXTData <- function(filepath, filename){
+readTXTData <- function(filepath, filename, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)
     }
@@ -286,14 +290,18 @@ readTXTData <- function(filepath, filename){
     counts <- as.numeric(as.character(text$V1[5:length(text$V1)]))
     filename.vector <- rep(filename, length(text$V1)-4)
 
-    energy <- channels*as.numeric(substr(gsub("Elin=", "", as.character(text$V1[2])), 1, 4))
+    energy <- if(use_native_calibration==TRUE){
+        channels*as.numeric(substr(gsub("Elin=", "", as.character(text$V1[2])), 1, 4))
+    } else if(use_native_calibration==FALSE){
+        channels
+    }
     
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
     
 }
 readTXTData <- cmpfun(readTXTData)
 
-readTXTProcess <- function(inFile=NULL, gainshiftvalue=0){
+readTXTProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration=TRUE){
     
         if (is.null(inFile)) return(NULL)
         
@@ -302,7 +310,7 @@ readTXTProcess <- function(inFile=NULL, gainshiftvalue=0){
         
         n.seq <- seq(1, nrow(inFile), 1)
         
-        data.list <- pblapply(n.seq, function(x) readTXTData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
+        data.list <- pblapply(n.seq, function(x) readTXTData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], use_native_calibration=use_native_calibration))
         data <- do.call("rbind", data.list)
         data <- as.data.frame(data, stringsAsFactors=FALSE)
     
@@ -333,7 +341,7 @@ read_csv_net <- function(filepath) {
 read_csv_net <- cmpfun(read_csv_net)
 
 
-readSPTData <- function(filepath, filename){
+readSPTData <- function(filepath, filename, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)
     }
@@ -358,7 +366,11 @@ readSPTData <- function(filepath, filename){
     cps <- raw[,1]/time
     newdata <- as.data.frame(seq(1, 4096, 1), stringsAsFactors=FALSE)
     colnames(newdata) <- "channels"
-    energy <- as.vector(predict.lm(energy.cal, newdata=newdata))
+    energy <- if(use_native_calibration==TRUE){
+        as.vector(predict.lm(energy.cal, newdata=newdata))
+        } else if(use_native_calibration==FALSE){
+            eq(1, 4096, 1)
+        }
     energy2 <- newdata[,1]*summary(energy.cal)$coef[2]
     spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
@@ -366,7 +378,7 @@ readSPTData <- function(filepath, filename){
 }
 readSPTData <- cmpfun(readSPTData)
 
-readElioProcess <- function(inFile=NULL, gainshiftvalue=0){
+readElioProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration=TRUE){
     
         inFile <- input$file1
         if (is.null(inFile)) return(NULL)
@@ -376,7 +388,7 @@ readElioProcess <- function(inFile=NULL, gainshiftvalue=0){
         
         n.seq <- seq(1, nrow(inFile), 1)
         
-        data.list <- pblapply(n.seq, function(x) readSPTData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
+        data.list <- pblapply(n.seq, function(x) readSPTData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], use_native_calibration=use_native_calibration))
         data <- do.call("rbind", data.list)
         data <- as.data.frame(data, stringsAsFactors=FALSE)
     
@@ -387,7 +399,7 @@ readElioProcess <- function(inFile=NULL, gainshiftvalue=0){
 }
 
 
-readMCAData4096 <- function(filepath, filename=NULL, full=NULL){
+readMCAData4096 <- function(filepath, filename=NULL, full=NULL, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)
     }
@@ -421,7 +433,11 @@ readMCAData4096 <- function(filepath, filename=NULL, full=NULL){
     cps <- as.numeric(full[17:4112, 1])/time
     newdata <- as.data.frame(seq(1, 4096, 1), stringsAsFactors=FALSE)
     colnames(newdata) <- "channels"
-    energy <- as.vector(predict.lm(energy.cal, newdata=newdata))
+    energy <- if(use_native_calibration==TRUE){
+        as.vector(predict.lm(energy.cal, newdata=newdata))
+    } else if(use_native_calibration==FALSE){
+        seq(1, 4096, 1)
+    }
     energy2 <- newdata[,1]*summary(energy.cal)$coef[2]
     spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
@@ -429,7 +445,7 @@ readMCAData4096 <- function(filepath, filename=NULL, full=NULL){
 }
 readMCAData4096 <- cmpfun(readMCAData4096)
 
-readPMCAData4096 <- function(filepath, filename=NULL, full=NULL){
+readPMCAData4096 <- function(filepath, filename=NULL, full=NULL, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)
     }
@@ -458,14 +474,18 @@ readPMCAData4096 <- function(filepath, filename=NULL, full=NULL){
     cps <- as.numeric(full[(find_row_with_string(full, "<<DATA>>")+1):(nrow(full)-1), 1])/time
     newdata <- as.data.frame(seq(1, length(cps), 1), stringsAsFactors=FALSE)
     colnames(newdata) <- "channels"
-    energy <- as.vector(predict.lm(energy.cal, newdata=newdata))
+    energy <- if(use_native_calibration==TRUE){
+        as.vector(predict.lm(energy.cal, newdata=newdata))
+    } else if(use_native_calibration==FALSE){
+        seq(1, length(cps), 1)
+    }
     spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
     return(spectra.frame)
 }
 readPMCAData4096 <- cmpfun(readPMCAData4096)
 
-readMCAData2048 <- function(filepath, filename, full=NULL){
+readMCAData2048 <- function(filepath, filename, full=NULL, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)
     }
@@ -483,23 +503,27 @@ readMCAData2048 <- function(filepath, filename, full=NULL){
     time <- as.numeric(strsplit(full[4,1], " = ")[[1]][2])
 
     cps <- as.numeric(full[13:nrow(full), 1])/time
-    energy <- seq(1, 2048, 1)*evch + evch_intercept
+    energy <- if(use_native_calibration==TRUE){
+        seq(1, 2048, 1)*evch + evch_intercept
+    } else if(use_native_calibration==FALSE){
+        seq(1, 2048, 1)
+    }
     spectra.frame <- data.frame(Energy=as.numeric(energy), CPS=as.numeric(cps), Spectrum=as.character(filename.vector), stringsAsFactors=FALSE)
     return(spectra.frame)
     
 }
 readMCAData2048 <- cmpfun(readMCAData2048)
 
-readMCAData <- function(filepath, filename=NULL){
+readMCAData <- function(filepath, filename=NULL, use_native_calibration=TRUE){
     full <- read.csv(filepath, row.names=NULL)
 
     spectra.frame <- if(nrow(full)<=3000){
-        readMCAData2048(filepath=filepath, filename=filename, full=full)
+        readMCAData2048(filepath=filepath, filename=filename, full=full, use_native_calibration=use_native_calibration)
     } else if(nrow(full)>3000){
         if(colnames(full)[1]=="X..PMCA.SPECTRUM.."){
-            readPMCAData4096(filepath=filepath, filename=filename, full=full)
+            readPMCAData4096(filepath=filepath, filename=filename, full=full, use_native_calibration=use_native_calibration)
         } else {
-            readMCAData4096(filepath=filepath, filename=filename, full=full)
+            readMCAData4096(filepath=filepath, filename=filename, full=full, use_native_calibration=use_native_calibration)
         }
     }
     
@@ -508,7 +532,7 @@ readMCAData <- function(filepath, filename=NULL){
 }
 readMCAData <- cmpfun(readMCAData)
 
-readMCAProcess <- function(inFile=NULL, gainshiftvalue=0){
+readMCAProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration=TRUE){
     
         if (is.null(inFile)) return(NULL)
         
@@ -517,7 +541,7 @@ readMCAProcess <- function(inFile=NULL, gainshiftvalue=0){
         
         n.seq <- seq(1, nrow(inFile), 1)
         
-        data.list <- pblapply(n.seq, function(x) readMCAData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
+        data.list <- pblapply(n.seq, function(x) readMCAData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], use_native_calibration=use_native_calibration))
 
         
         data <- do.call("rbind", data.list)
@@ -529,7 +553,7 @@ readMCAProcess <- function(inFile=NULL, gainshiftvalue=0){
     return(data)
 }
 
-readSPXData <- function(filepath, filename){
+readSPXData <- function(filepath, filename, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)
     }
@@ -547,7 +571,11 @@ readSPXData <- function(filepath, filename){
     time <- as.numeric(xmllist[[2]][["TRTHeaderedClass"]][[3]][["LifeTime"]])/1000
     
     cps <- counts/time
-    energy <- newdata[,1]*slope+intercept
+    energy <- if(use_native_calibration==TRUE){
+        newdata[,1]*slope+intercept
+    } else if(use_native_calibration==FALSE){
+        seq(1, 4096, 1)
+    }
     
     spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
@@ -556,7 +584,7 @@ readSPXData <- function(filepath, filename){
 }
 readSPXData <- cmpfun(readSPXData)
 
-readSPXProcess <- function(inFile=NULL, gainshiftvalue=0){
+readSPXProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration=TRUE){
     
         if (is.null(inFile)) return(NULL)
         
@@ -565,7 +593,7 @@ readSPXProcess <- function(inFile=NULL, gainshiftvalue=0){
         
         n.seq <- seq(1, nrow(inFile), 1)
         
-        data.list <- pblapply(n.seq, function(x) readSPXData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
+        data.list <- pblapply(n.seq, function(x) readSPXData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], use_native_calibration=use_native_calibration))
         data <- do.call("rbind", data.list)
         data <- as.data.frame(data, stringsAsFactors=FALSE)
             
@@ -575,7 +603,7 @@ readSPXProcess <- function(inFile=NULL, gainshiftvalue=0){
     return(data)
 }
 
-readPDZ25DataExpiremental <- function(filepath, filename){
+readPDZ25DataExpiremental <- function(filepath, filename, use_native_calibration=TRUE){
     
     filename <- make.names(gsub(".pdz", "", filename))
     filename.vector <- rep(filename, 2048)
@@ -590,7 +618,11 @@ readPDZ25DataExpiremental <- function(filepath, filename){
     time.est <- integers[144]/10
 
         channels <- sequence
-        energy <- sequence*.02
+        energy <- if(use_native_calibration==TRUE){
+            sequence*.02
+        } else if(use_native_calibration==FALSE){
+            sequence
+        }
         counts <- integer.sub/(integers[144]/10)
         
         unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE))
@@ -599,7 +631,7 @@ readPDZ25DataExpiremental <- function(filepath, filename){
 readPDZ25DataExpiremental <- cmpfun(readPDZ25DataExpiremental)
 
 
-readPDZ24DataExpiremental <- function(filepath, filename){
+readPDZ24DataExpiremental <- function(filepath, filename, use_native_calibration=TRUE){
     
     filename <- make.names(gsub(".pdz", "", filename))
     filename.vector <- rep(filename, 2048)
@@ -613,7 +645,11 @@ readPDZ24DataExpiremental <- function(filepath, filename){
     time.est <- integer.sub[21]
     
     channels <- sequence
-    energy <- sequence*.02
+    energy <- if(use_native_calibration==TRUE){
+        sequence*.02
+    } else if(use_native_calibration==FALSE){
+        sequence
+    }    
     counts <- integer.sub/(integer.sub[21]/10)
     
     unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE))
@@ -624,7 +660,7 @@ readPDZ24DataExpiremental <- cmpfun(readPDZ24DataExpiremental)
 
 #Rcpp::sourceCpp("pdz.cpp")
 
-readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE){
+readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE){
     
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -646,7 +682,11 @@ readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE){
     }
 
     channels <- sequence
-    energy <- sequence*evch
+    energy <- if(use_native_calibration==TRUE){
+        sequence*evch
+    } else if(use_native_calibration==FALSE){
+        sequence
+    }
     counts <- if(pdzprep==TRUE){
         integers/as.numeric(readPDZ25LiveTime(filepath))
     } else if(pdzprep==FALSE){
@@ -666,7 +706,7 @@ readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE){
 readPDZ25Data <- cmpfun(readPDZ25Data)
 
 
-readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift, pdzprep=TRUE){
+readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift, pdzprep=TRUE, use_native_calibration=TRUE){
     
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -689,7 +729,11 @@ readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift, pdzprep=TR
     }
     
     channels <- sequence
-    energy <- sequence*evch
+    energy <- if(use_native_calibration==TRUE){
+        sequence*evch
+    } else if(use_native_calibration==FALSE){
+        sequence
+    }
     counts <- if(pdzprep==TRUE){
         integers/readPDZ25LiveTime(filepath)
     } else if(pdzprep==FALSE){
@@ -701,7 +745,7 @@ readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift, pdzprep=TR
 readPDZ25DataManual <- cmpfun(readPDZ25DataManual)
 
 
-readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE){
+readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE){
     
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -723,7 +767,11 @@ readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE){
     }
     
     channels <- sequence
-    energy <- sequence*evch
+    energy <- if(use_native_calibration==TRUE){
+        sequence*evch
+    } else if(use_native_calibration==FALSE){
+        sequence
+    }
     counts <- if(pdzprep==TRUE){
         integers/as.numeric(readPDZ24FloatFetch(filepath, 354))
     } else if(pdzprep==FALSE){
@@ -745,7 +793,7 @@ readPDZ24Data <- cmpfun(readPDZ24Data)
 
 
 
-readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE) {
+readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE) {
     
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -756,35 +804,35 @@ readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE) {
     floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
     
     if(floats[[9]]=="5"){
-        readPDZ25Data(filepath, filename=filename, pdzprep=pdzprep)
+        readPDZ25Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
     }else {
-        readPDZ24Data(filepath, filename=filename, pdzprep=pdzprep)
+        readPDZ24Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
     }
 
     
 }
 readPDZData <- cmpfun(readPDZData)
 
-singleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE){
+singleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE, use_native_calibration=TRUE){
                 if(is.null(filetype)){
                     filetype <- get_filetype(filepath)
                 }
                 data <- if(filetype=="CSV"){
-                    csvFrame(filepath=filepath)
+                    csvFrame(filepath=filepath, use_native_calibration=use_native_calibration)
                 } else if(filetype=="Aggregate CSV File"){
                     importCSVFrameBasic(filepath=filepath)
                 } else if(filetype=="TXT"){
-                    readTXTData(filepath=filepath)
+                    readTXTData(filepath=filepath, use_native_calibration=use_native_calibration)
                 } else if(filetype=="Net"){
                     netCountsData(filepath=filepath)
                 } else if(filetype=="Elio"){
-                    readElioData(filepath=filepath)
+                    readElioData(filepath=filepath, use_native_calibration=use_native_calibration)
                 }  else if(filetype=="MCA"){
-                    readMCAData(filepath=filepath)
+                    readMCAData(filepath=filepath, use_native_calibration=use_native_calibration)
                 }  else if(filetype=="SPX"){
-                    readSPXData(filepath=filepath)
+                    readSPXData(filepath=filepath, use_native_calibration=use_native_calibration)
                 }  else if(filetype=="PDZ"){
-                    readPDZData(filepath=filepath, pdzprep=pdzprep)
+                    readPDZData(filepath=filepath, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
                 }
                 
                 
@@ -792,11 +840,11 @@ singleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE){
                 data
         }
 
-multipleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE){
+multipleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE, use_native_calibration=TRUE){
     data_list <- if(allowParallel==FALSE){
-        lapply(filepath, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep))
+        lapply(filepath, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration))
     } else if(allowParallel==TRUE){
-        parallel::mclapply(filepath, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep), mc.cores = as.integer(my.cores), mc.silent = TRUE)
+        parallel::mclapply(filepath, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration), mc.cores = as.integer(my.cores), mc.silent = TRUE)
     }
 
     data <- as.data.frame(data.table::rbindlist(data_list, use.names = T, fill = T))
@@ -824,7 +872,7 @@ readPDZMetadata <- function(filepath, filename=NULL) {
 }
 readPDZMetadata <- cmpfun(readPDZMetadata)
 
-readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binaryshift=100, pdzprep=TRUE){
+readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binaryshift=100, pdzprep=TRUE, use_native_calibration=TRUE){
     
         if (is.null(inFile)) return(NULL)
         
@@ -834,11 +882,11 @@ readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binary
         n.seq <- seq(1, nrow(inFile), 1)
         
         if(advanced==FALSE){
-            data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], pdzprep=pdzprep))
+            data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], pdzprep=pdzprep, use_native_calibration=use_native_calibration))
             data <- do.call("rbind", data.list)
             data <- as.data.frame(data, stringsAsFactors=FALSE)
         } else if(advanced==TRUE){
-            data.list <- pblapply(n.seq, function(x) readPDZ25DataManual(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], binaryshift=binaryshift, pdzprep=pdzprep))
+            data.list <- pblapply(n.seq, function(x) readPDZ25DataManual(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], binaryshift=binaryshift, pdzprep=pdzprep, use_native_calibration=use_native_calibration))
             data <- do.call("rbind", data.list)
             data <- as.data.frame(data, stringsAsFactors=FALSE)
         }
