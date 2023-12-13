@@ -1074,7 +1074,10 @@ elementGrabKalpha <- function(element, data) {
     hold.frame <- data[!(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
@@ -1101,7 +1104,10 @@ elementGrabKbeta <- function(element, data) {
     colnames(hold.frame) <- c("CPS", "Spectrum")
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
@@ -1115,7 +1121,10 @@ elementGrabLalpha <- function(element, data) {
     hold.frame <- data[!(data$Energy < elementLine[11][1,]-0.02 | data$Energy > elementLine[10][1,]+0.02), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
@@ -1129,7 +1138,10 @@ elementGrabLbeta <- function(element, data) {
     hold.frame <- data[!(data$Energy < elementLine[12][1,]-0.02 | data$Energy > elementLine[14][1,]+0.02), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
@@ -1142,7 +1154,10 @@ elementGrabMalpha <- function(element, data) {
     hold.frame <- data[!(data$Energy < elementLine[20][1,]-0.02 | data$Energy > elementLine[22][1,]+0.02), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
@@ -1233,7 +1248,7 @@ elementGrabPre <- cmpfun(elementGrabPre)
 
 elementGrab <- function(element.line, data, range.table=NULL){
     
-    error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=NA)
+    error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
     colnames(error_frame) <- c("Spectrum", element.line)
     
     tryCatch(elementGrabPre(element.line=element.line, data=data, range.table=range.table), error=function(e) error_frame)
@@ -1315,7 +1330,10 @@ wideElementGrabLine <- function(element.line, data) {
     
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, line, sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }

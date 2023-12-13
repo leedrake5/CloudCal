@@ -981,9 +981,14 @@ narrowLineTable <- function(spectra, definition.table, elements){
     #} else if(!is.null(not.line.data)){
         #merge(line.data, not.line.data, by="Spectrum")
     #}
-   elementFrame(data=spectra, range.table=definition.table, elements=elements)
-
-    
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements)
+   #for(i in elements){
+       #if(any(is.na(results[[i]]))){
+         # Replace NA/empty values with 0
+         #results[[i]][is.na(results[[i]])] <- 0
+       #}
+   #}
+   results
 }
 
 wideLineTable <- function(spectra, definition.table, elements){
@@ -1003,8 +1008,14 @@ wideLineTable <- function(spectra, definition.table, elements){
     #    merge(line.data, not.line.data, by="Spectrum")
     #}
     
-    wideElementFrame(data=spectra, range.table=definition.table, elements=elements)
-    
+    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements)
+    #for(i in elements){
+        #if(any(is.na(results[[i]]))){
+          # Replace NA/empty values with 0
+          #results[[i]][is.na(results[[i]])] <- 0
+        #}
+    #}
+    results
 }
 
 ###Calibration Loading

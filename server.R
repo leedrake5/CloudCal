@@ -2086,7 +2086,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$holdtest <- renderDataTable({
-            holdFrame()
+            spectraLineTable()
         })
         
         dataNorm <- reactive({
