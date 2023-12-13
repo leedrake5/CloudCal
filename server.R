@@ -242,50 +242,122 @@ shinyServer(function(input, output, session) {
         readPDZMetadataProcess(inFile=inFile())
     })
     
+    firstChannelDefault <- reactive({
+        if(!is.null(input$calfileinput)){
+            if("EnergyCal" %in% names(calFileContents())){
+            tryCatch(calFileContents()$EnergyCal$Channel[3], error=function(e) 300)
+            } else if(!"EnergyCal" %in% names(calFileContents())){
+                300
+            }
+        } else if(is.null(input$calfileinput)){
+            300
+        }
+    })
+    
     output$first_channel <- renderUI({
         if(input$energycal==FALSE){
-            numericInput('firstchannel', "Channel 1", value=300)
+            numericInput('firstchannel', "Channel 1", value=firstChannelDefault())
         } else if(input$energycal==TRUE){
             NULL
         }
         
     })
     
+    firstEnergyDefault <- reactive({
+        if(!is.null(input$calfileinput)){
+            if("EnergyCal" %in% names(calFileContents())){
+            tryCatch(calFileContents()$EnergyCal$Energy[2], error=function(e) 6.4)
+            } else if(!"EnergyCal" %in% names(calFileContents())){
+                6.4
+            }
+        } else if(is.null(input$calfileinput)){
+            6.4
+        }
+    })
+    
     output$first_energy <- renderUI({
         if(input$energycal==FALSE){
-            numericInput('firstenergy', "Energy 1", value=6.4)
+            numericInput('firstenergy', "Energy 1", value=firstEnergyDefault())
         } else if(input$energycal==TRUE){
             NULL
+        }
+    })
+    
+    secondChannelDefault <- reactive({
+        if(!is.null(input$calfileinput)){
+            if("EnergyCal" %in% names(calFileContents())){
+            tryCatch(calFileContents()$EnergyCal$Channel[3], error=function(e) 1000)
+            } else if(!"EnergyCal" %in% names(calFileContents())){
+                1000
+            }
+        } else if(is.null(input$calfileinput)){
+            1000
         }
     })
     
     output$second_channel <- renderUI({
         if(input$energycal==FALSE){
-            numericInput('secondchannel', "Channel 2", value=1000)
+            numericInput('secondchannel', "Channel 2", value=secondChannelDefault())
         } else if(input$energycal==TRUE){
             NULL
+        }
+    })
+    
+    secondEnergyDefault <- reactive({
+        if(!is.null(input$calfileinput)){
+            if("EnergyCal" %in% names(calFileContents())){
+            tryCatch(calFileContents()$EnergyCal$Energy[3], error=function(e) 20.1)
+            } else if(!"EnergyCal" %in% names(calFileContents())){
+                20.1
+            }
+        } else if(is.null(input$calfileinput)){
+            20.1
         }
     })
     
     output$second_energy <- renderUI({
         if(input$energycal==FALSE){
-            numericInput('secondenergy', "Energy 2", value=20.1)
+            numericInput('secondenergy', "Energy 2", value=secondEnergyDefault())
         } else if(input$energycal==TRUE){
             NULL
+        }
+    })
+    
+    zeroEnergyDefault <- reactive({
+        if(!is.null(input$calfileinput)){
+            if("EnergyCal" %in% names(calFileContents())){
+            tryCatch(calFileContents()$EnergyCal$Energy[1], error=function(e) 0)
+            } else if(!"EnergyCal" %in% names(calFileContents())){
+                0
+            }
+        } else if(is.null(input$calfileinput)){
+            0
         }
     })
     
     output$zero_energy <- renderUI({
         if(input$energycal==FALSE){
-            numericInput("zeroenergy", "Starting Energy", value=0)
+            numericInput("zeroenergy", "Starting Energy", value=zeroEnergyDefault())
         } else if(input$energycal==TRUE){
             NULL
         }
     })
     
+    maxEnergyDefault <- reactive({
+        if(!is.null(input$calfileinput)){
+            if("EnergyCal" %in% names(calFileContents())){
+            tryCatch(calFileContents()$EnergyCal$Energy[4], error=function(e) 40)
+            } else if(!"EnergyCal" %in% names(calFileContents())){
+                40
+            }
+        } else if(is.null(input$calfileinput)){
+            40
+        }
+    })
+    
     output$max_energy <- renderUI({
         if(input$energycal==FALSE){
-            numericInput("maxenergy", "End Energy", value=40)
+            numericInput("maxenergy", "End Energy", value=maxEnergyDefault())
         } else if(input$energycal==TRUE){
             NULL
         }
@@ -14312,7 +14384,7 @@ shinyServer(function(input, output, session) {
                 new.cal$EnergyCal <- list()
                 new.cal$EnergyCal$Channel <- as.numeric(c(0, input$firstchannel, input$secondchannel, numChannels()))
                 new.cal$EnergyCal$Energy <- as.numeric(c(input$zeroenergy, input$firstenergy, input$secondenergy, input$maxenergy))
-                new.cal$EnergyCal$Model <- energyCalibration()
+                new.cal$EnergyCal$Model <- strip(energyCalibration(), keep=c("predict", "summary"))
             }
             
             new.cal
@@ -17780,7 +17852,7 @@ content = function(file){
 
         
         
-        myValData <- reactive({
+        myValDataPre <- reactive({
             
             data <- if(input$valfiletype=="CSV"){
                 fullValSpectra()
@@ -17805,9 +17877,23 @@ content = function(file){
             
         })
         
+        myValData <- reactive({
+            
+            spectra <- myValDataPre()
+            channels <- spectra$Energy
+
+           if("EnergyCal" %in% names(calFileContents2())){
+                energy_cal <- calFileContents2()$EnergyCal$Model
+                spectra$Energy <- predict(object=energy_cal, newdata=list(channel_vector=channels))
+            }
+            
+            spectra
+            
+        })
+        
         myDeconvolutedValData <- reactive({
             
-            tryCatch(spectra_gls_deconvolute(myValData(), cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(myValData(), cores=1))
+            tryCatch(spectra_gls_deconvolute(myValData(), cores=1), error=function(e) spectra_gls_deconvolute(myValData(), cores=1))
             
         })
         
