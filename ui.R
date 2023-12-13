@@ -439,6 +439,7 @@ mainPanel(
 tabsetPanel(
 #tabPanel("Testing", dataTableOutput('testingagain')),
 #tabPanel("Testing2", dataTableOutput('weird')),
+#tabPanel("Test", dataTableOutput("holdtest")),
 tabPanel("Cal Curves",
     splitLayout(cellWidths = c("50%", "50%"),
         column(width=12,

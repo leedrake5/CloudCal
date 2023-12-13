@@ -1266,7 +1266,8 @@ elementFrame <- function(data, range.table=NULL, elements){
     #spectra.line.frame <- spectra.line.list %>% purrr::reduce(full_join, by='Spectrum')
     
     spectra.line.frame <- Reduce(function(x, y) merge(x, y, all=TRUE), spectra.line.list)
-    
+    spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
+
     colnames(spectra.line.frame) <- c("Spectrum", elements)
     
     spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)

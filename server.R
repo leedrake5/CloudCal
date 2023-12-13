@@ -300,11 +300,16 @@ shinyServer(function(input, output, session) {
         
     })
     
+    numChannels <- reactive({
+        spectra <- myDataPre()
+        nrow(spectra)/length(unique(spectra$Spectrum))
+    })
+    
     energyCalibration <- reactive({
         
         spectra <- myDataPre()
         
-        num_channels <- nrow(spectra)/length(unique(spectra$Spectrum))
+        num_channels <- numChannels()
         
         channel_vector <- as.numeric(c(0, input$firstchannel, input$secondchannel, num_channels))
         energy_vector <- as.numeric(c(input$zeroenergy, input$firstenergy, input$secondenergy, input$maxenergy))
@@ -2078,6 +2083,10 @@ shinyServer(function(input, output, session) {
             hold.frame <- merge(spectra.line.table, concentration.mod, by="Spectrum")
             
             hold.frame[complete.cases(hold.frame),]
+        })
+        
+        output$holdtest <- renderDataTable({
+            holdFrame()
         })
         
         dataNorm <- reactive({
@@ -14301,7 +14310,7 @@ shinyServer(function(input, output, session) {
             
             if(input$energycal==FALSE){
                 new.cal$EnergyCal <- list()
-                new.cal$EnergyCal$Channel <- as.numeric(c(0, input$firstchannel, input$secondchannel, num_channels))
+                new.cal$EnergyCal$Channel <- as.numeric(c(0, input$firstchannel, input$secondchannel, numChannels()))
                 new.cal$EnergyCal$Energy <- as.numeric(c(input$zeroenergy, input$firstenergy, input$secondenergy, input$maxenergy))
                 new.cal$EnergyCal$Model <- energyCalibration()
             }
