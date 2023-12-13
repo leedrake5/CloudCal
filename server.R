@@ -508,12 +508,12 @@ shinyServer(function(input, output, session) {
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                 }
-                tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores.mod)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
+                tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
             } else if("Deconvoluted" %in% names(calMemory$Calibration)){
                 if("Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                     calMemory$Calibration$Deconvoluted
                 } else if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
-                    tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(my.cores.mod)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
+                    tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
                 }
             }
             
@@ -678,7 +678,8 @@ shinyServer(function(input, output, session) {
                     norm.type=input$normspectra,
                     norm.min=input$comptonminspectra,
                     norm.max=input$comptonmaxspectra,
-                    compress="100 eV"
+                    compress="100 eV",
+                    energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy))
                     )
             })
             
@@ -688,7 +689,8 @@ shinyServer(function(input, output, session) {
                     norm.type=input$normspectra,
                     norm.min=input$comptonminspectra,
                     norm.max=input$comptonmaxspectra,
-                    compress="100 eV"
+                    compress="100 eV",
+                    energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy))
                     )
             })
             
@@ -707,7 +709,7 @@ shinyServer(function(input, output, session) {
             })
             
             spectraPlotDataDeconvolution <- reactive({
-                just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionSpectra(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra, , energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy)))
+                just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionSpectra(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra, energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy)))
             })
             
             
