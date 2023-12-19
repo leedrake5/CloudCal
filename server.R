@@ -245,7 +245,7 @@ shinyServer(function(input, output, session) {
     firstChannelDefault <- reactive({
         if(!is.null(input$calfileinput)){
             if("EnergyCal" %in% names(calFileContents())){
-            tryCatch(calFileContents()$EnergyCal$Channel[3], error=function(e) 300)
+            tryCatch(calFileContents()$EnergyCal$Channel[2], error=function(e) 300)
             } else if(!"EnergyCal" %in% names(calFileContents())){
                 300
             }
