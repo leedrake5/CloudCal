@@ -5059,9 +5059,9 @@ predictFrameLucGen <- function(seed=1, spectra, hold.frame, element, intercepts=
     }
     
     result <- predictFrameCheck(predict.frame.luc)
-    set.seed(seed)
-    result$RandXXX <- rnorm(nrow(result), 1, 0.2)
-    result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
+    #set.seed(seed)
+    #result$RandXXX <- rnorm(nrow(result), 1, 0.2)
+    #result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
 
     
     return(result)

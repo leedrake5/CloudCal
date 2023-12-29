@@ -578,7 +578,7 @@ tabPanel("Variables",
 
 tabPanel("Standards",
 tabsetPanel(
-tabPanel("Validation", dataTableOutput("standardsperformance")),
+tabPanel("Validation", dataTableOutput("standardsperformance"), tags$hr(), downloadButton("downloadStandards")),
 tabPanel("Used", rHandsontableOutput("whichrowstokeep")))),
 
 tabPanel("Calibration Progress",

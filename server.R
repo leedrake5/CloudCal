@@ -9869,6 +9869,14 @@ shinyServer(function(input, output, session) {
             
         }, options =list(aoColumnDefs = list(list(sClass="alignRight",aTargets=c(list(2), list(3),list(4),list(5))))  ))
         
+        output$downloadStandards <- downloadHandler(
+        filename = function() { paste0(input$calname, "_", input$calcurveelement, "_Standards", '.csv') },
+        content = function(file
+        ) {
+            write.csv(calValTable(), file)
+        }
+        )
+        
         
         randomizeData <- reactive(label="randomizeData",{
             
@@ -13388,7 +13396,7 @@ shinyServer(function(input, output, session) {
             hold.table <- na.omit(hold.table)
 
             
-            point.table$Spectrum <- hold.table["Spectrum"]
+            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
             
             
             hover <- input$plot_hovercal
@@ -13404,8 +13412,8 @@ shinyServer(function(input, output, session) {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -13449,11 +13457,11 @@ shinyServer(function(input, output, session) {
             concentration.table <- concentration.table[ vals$keeprows, , drop = FALSE]
             concentration.table <- concentration.table[randomized,]
             
-            hold.table <- concentration.table[,c("Spectrum", input$calcurveelement)]
-            colnames(hold.table) <- c("Spectrum", "Selection")
+            hold.table <- concentration.table[,c("Spectrum", "Concentration", input$calcurveelement)]
+            #colnames(hold.table) <- c("Spectrum", "Selection")
             
             
-            point.table$Spectrum <- hold.table["Spectrum"]
+            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
             
             
             hover <- input$plot_hovercal_random
@@ -13469,8 +13477,8 @@ shinyServer(function(input, output, session) {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -13563,8 +13571,8 @@ shinyServer(function(input, output, session) {
         output$hover_infoval <- renderUI({
             req(input$radiocal)
             point.table <- calValFrame()
-
             
+
             concentration.table <- holdFrame()
             hold.table <- concentration.table[,c("Spectrum", "Concentration")]
             hold.table$Concentration[hold.table$Concentration==""] <- NA
@@ -13572,7 +13580,7 @@ shinyServer(function(input, output, session) {
             hold.table <- hold.table[!is.na(hold.table$Concentration), ]
             hold.table <- na.omit(hold.table)
 
-            point.table$Spectrum <- hold.table["Spectrum"]
+            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
             
             
             
@@ -13590,11 +13598,11 @@ shinyServer(function(input, output, session) {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             left_px <- hover$coords_css$x
-             top_px <- hover$coords_css$y
+            top_px <- hover$coords_css$y
             
             # create style property fot tooltip
             # background color is set so tooltip is a bit transparent
@@ -13629,10 +13637,10 @@ shinyServer(function(input, output, session) {
             concentration.table.rev <- concentration.table[(randomized),]
             
             hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            colnames(hold.table) <- c("Spectrum", "Selection")
+            #colnames(hold.table) <- c("Spectrum", "Concentration")
             
             
-            point.table$Spectrum <- hold.table["Spectrum"]
+            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
             
             
             #point.table <- point.table[point.table$Concentration > min(concentration.table.rev[,"Concentration"], na.rm = TRUE) & point.table$Concentration < max(concentration.table.rev[,"Concentration"], na.rm = TRUE), ]
@@ -13652,8 +13660,8 @@ shinyServer(function(input, output, session) {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -13973,8 +13981,8 @@ shinyServer(function(input, output, session) {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -14034,8 +14042,8 @@ shinyServer(function(input, output, session) {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -14095,8 +14103,8 @@ shinyServer(function(input, output, session) {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -14156,8 +14164,8 @@ shinyServer(function(input, output, session) {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -14217,8 +14225,8 @@ shinyServer(function(input, output, session) {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -17130,12 +17138,12 @@ observeEvent(input$actionprocess2_multi, {
             #hold.table <- as.vector(concentration.table[,"Spectrum"])
             
             
-            point.table$Spectrum <- hold.table[,"Spectrum"]
+            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
 
             
             
             
-            #point.table$Spectrum <- hold.table["Spectrum"]
+            #point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
             
             hover <- input$plot_hovercal_multi
             point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
@@ -17150,8 +17158,8 @@ observeEvent(input$actionprocess2_multi, {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -17207,12 +17215,12 @@ observeEvent(input$actionprocess2_multi, {
             #hold.table <- as.vector(concentration.table[,"Spectrum"])
             
             
-            point.table$Spectrum <- hold.table[,"Spectrum"]
+            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
 
             
             
             
-            #point.table$Spectrum <- hold.table["Spectrum"]
+            #point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
             
             hover <- input$plot_hovercal_random_multi
             point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
@@ -17227,8 +17235,8 @@ observeEvent(input$actionprocess2_multi, {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -17341,7 +17349,7 @@ observeEvent(input$actionprocess2_multi, {
             #hold.table <- as.vector(concentration.table[,"Spectrum"])
             
             
-            point.table$Spectrum <- hold.table[,"Spectrum"]
+            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
 
             
             
@@ -17358,8 +17366,8 @@ observeEvent(input$actionprocess2_multi, {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
@@ -17405,7 +17413,7 @@ observeEvent(input$actionprocess2_multi, {
             #hold.table <- as.vector(concentration.table[,"Spectrum"])
             
             
-            point.table$Spectrum <- hold.table[,"Spectrum"]
+            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
             
             
             hover <- input$plot_hoverval_random_multi
@@ -17421,8 +17429,8 @@ observeEvent(input$actionprocess2_multi, {
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
             # calculate distance from left and bottom side of the picture in pixels
-            left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-            top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
             
             
             # create style property fot tooltip
