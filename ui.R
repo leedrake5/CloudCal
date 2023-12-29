@@ -1,4 +1,5 @@
 ui=list(
+#useShinythemes(theme = "hover_text"),
 tagList(
 header=tags$head(tags$style(".table .alignRight {color: black; text-align:right;}"))),
 

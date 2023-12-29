@@ -13593,6 +13593,8 @@ shinyServer(function(input, output, session) {
             left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
             top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
             
+            left_px <- hover$coords_css$x
+             top_px <- hover$coords_css$y
             
             # create style property fot tooltip
             # background color is set so tooltip is a bit transparent
@@ -18045,7 +18047,7 @@ content = function(file){
         
         myDeconvolutedValDataList <- reactive({
             
-            tryCatch(spectra_gls_deconvolute(myValData(), cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(myValData(), cores=1))
+            tryCatch(spectra_gls_deconvolute(myValData(), cores=1), error=function(e) spectra_gls_deconvolute(myValData(), cores=1))
 
         })
         
