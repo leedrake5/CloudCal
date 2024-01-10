@@ -229,8 +229,8 @@ sidebarLayout(
 sidebarPanel(width=3,
 
 actionButton('linecommit', "Confirm Elements"),
-downloadButton('downloadData', "Table"),
-downloadButton('downloadDataDeconvoluted', "Deconvoluted Table"),
+#downloadButton('downloadData', "Table"),
+#downloadButton('downloadDataDeconvoluted', "Deconvoluted Table"),
 
 
 tags$hr(),
@@ -253,9 +253,18 @@ mainPanel(
 tabsetPanel(
 id = 'dataset',
 tabPanel('Custom Lines', rHandsontableOutput('hotline')),
-tabPanel('Narrow Lines', dataTableOutput('mytable1')),
-tabPanel('Wide Lines', dataTableOutput('mytable2')),
-tabPanel('Deconvoluted', dataTableOutput('mytable3')),
+tabPanel('Narrow Lines',
+    dataTableOutput('mytable1'),
+    tags$hr(),
+    downloadButton('downloadData', "Table")),
+tabPanel('Wide Lines', 
+    dataTableOutput('mytable2'),
+    tags$hr(),
+    downloadButton('downloadWideData', "Table")),
+tabPanel('Deconvoluted', 
+    dataTableOutput('mytable3'),
+    tags$hr(),
+    downloadButton('downloadDataDeconvoluted', "Table")),
 #tabPanel('Wide Deconvoluted', dataTableOutput('mytable4')),
 tabPanel('Covariance',
 tabsetPanel(
@@ -628,6 +637,7 @@ uiOutput('roundingui')
 mainPanel(
 tabsetPanel(
 id = 'dataset2',
+#tabPanel("Testing", dataTableOutput('testingvalstuff'), downloadButton('downloadTestStuff', "Test")),
 tabPanel('Quantification Results', dataTableOutput('myvaltable2'),
 tags$hr(),
 

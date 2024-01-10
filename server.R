@@ -574,7 +574,7 @@ shinyServer(function(input, output, session) {
             }
         })
         
-        dataHoldDeconvolution <- reactive({
+    dataHoldDeconvolution <- reactive({
             
             my.cores.mod <- if(length(unique(dataHold()$Spectrum)) < my.cores){
                 length(unique(dataHold()$Spectrum))
@@ -582,6 +582,7 @@ shinyServer(function(input, output, session) {
                 my.cores
             }
             
+        if(is.null(input$file1)){
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                 }
@@ -593,6 +594,9 @@ shinyServer(function(input, output, session) {
                     tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
                 }
             }
+        } else if(!is.null(input$file1)){
+            tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
+        }
             
             
         })
@@ -1316,6 +1320,17 @@ shinyServer(function(input, output, session) {
             
         })
         
+        otherSpectraStuff <- reactive({
+            
+            spectra <- dataHold()
+            deconvoluted <- dataHoldDeconvolution()
+            
+            spectra_stuff <- totalCountsGen(spectra)
+            other_spectra_stuff <- merge(spectra_stuff, deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=T, sort=T)
+            other_spectra_stuff
+            
+        })
+        
         
         
         spectraData <- reactive({
@@ -1325,11 +1340,13 @@ shinyServer(function(input, output, session) {
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
             
-            if(length(table[,1])==0){
+            the_data <- if(length(table[,1])==0){
                 line.data
             } else if(length(table[,1])!=0){
-                merge(line.data, lineSubset(), by="Spectrum")
+                merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
             }
+            
+            merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
             
         })
         
@@ -1340,11 +1357,13 @@ shinyServer(function(input, output, session) {
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
             
-            if(length(table[,1])==0){
+            the_data <- if(length(table[,1])==0){
                 line.data
             } else if(length(table[,1])!=0){
-                merge(line.data, lineSubset(), by="Spectrum")
+                merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
             }
+            
+            merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
             
         })
         
@@ -1353,7 +1372,7 @@ shinyServer(function(input, output, session) {
 
             line.data <- deconvolutionIntensityFrame(deconvolution_areas=dataHoldDeconvolution()$Areas, intensity_frame=spectraData())
             
-            line.data
+            merge(line.data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
             
         })
         
@@ -1442,6 +1461,8 @@ shinyServer(function(input, output, session) {
             } else if(input$filetype=="Net"){
                 netData()
             }
+            #calMemory$Calibration$Intensities <- calMemory$Calibration$Intensities[,!colnames(calMemory$Calibration$Intensities) %in% names(otherSpectraStuff[,-1])]
+
             
             calMemory$Calibration$WideIntensities <- if(input$filetype=="CSV"){
                 wideSpectraData()
@@ -1460,6 +1481,10 @@ shinyServer(function(input, output, session) {
             } else if(input$filetype=="Net"){
                 netData()
             }
+            #calMemory$Calibration$WideIntensities <- calMemory$Calibration$WideIntensities[,!colnames(calMemory$Calibration$WideIntensities) %in% names(otherSpectraStuff[,-1])]
+            
+            calMemory$Calibration$OtherSpectraStuff <- otherSpectraStuff()
+        
             
             
                 #calMemory$Calibration$Deconvoluted$Intensities <- if(input$filetype=="CSV"){
@@ -1551,9 +1576,9 @@ shinyServer(function(input, output, session) {
             
             select.line.table <- calMemory$Calibration$Intensities
             
-            rounded <- round(select.line.table[,elements], digits=0)
+            rounded <- round(select.line.table[,c(elements, "Baseline", "Total")], digits=0)
             full <- data.frame(select.line.table$Spectrum, rounded)
-            colnames(full) <- c("Spectrum", elements)
+            colnames(full) <- c("Spectrum", elements, "Baseline", "Total")
             
             full
         })
@@ -1565,9 +1590,9 @@ shinyServer(function(input, output, session) {
             
             select.line.table <- calMemory$Calibration$WideIntensities
             
-            rounded <- round(select.line.table[,elements], digits=0)
+            rounded <- round(select.line.table[,c(elements, "Baseline", "Total")], digits=0)
             full <- data.frame(select.line.table$Spectrum, rounded)
-            colnames(full) <- c("Spectrum", elements)
+            colnames(full) <- c("Spectrum", elements, "Baseline", "Total")
             
             full
         })
@@ -1580,9 +1605,9 @@ shinyServer(function(input, output, session) {
             #select.line.table <- calMemory$Calibration$Deconvoluted$Intensities
             select.line.table <- calMemory$Calibration$Deconvoluted$Areas
             
-            rounded <- round(select.line.table[,elements], digits=0)
+            rounded <- round(select.line.table[,c(elements, , "Baseline", "Total")], digits=0)
             full <- data.frame(select.line.table$Spectrum, rounded)
-            colnames(full) <- c("Spectrum", elements)
+            colnames(full) <- c("Spectrum", elements, "Baseline", "Total")
             
             full
         })
@@ -1706,11 +1731,12 @@ shinyServer(function(input, output, session) {
         #})
         
         lineTableForDownload <- reactive({
-            if(input$linetype=="Narrow"){
-                tableInput()
-            } else if(input$linetype=="Wide"){
-                wideTableInput()
-            }
+            calMemory$Calibration$Intensities[,c("Spectrum", elementallinestouse(), "Baseline", "Total")]
+
+        })
+        
+        wideLineTableForDownload <- reactive({
+            calMemory$Calibration$WideIntensities[,c("Spectrum", elementallinestouse(), "Baseline", "Total")]
         })
         
         output$download_covarlines <- downloadHandler(
@@ -1722,10 +1748,18 @@ shinyServer(function(input, output, session) {
         
         
         output$downloadData <- downloadHandler(
-        filename = function() { paste0(input$calname, "_", input$linetype, "_IntensityTable", '.csv') },
+        filename = function() { paste0(input$calname, "_NarrowIntensityTable", '.csv') },
         content = function(file
         ) {
             write.csv(lineTableForDownload(), file)
+        }
+        )
+        
+        output$downloadWideData <- downloadHandler(
+        filename = function() { paste0(input$calname, "_WideIntensityTable", '.csv') },
+        content = function(file
+        ) {
+            write.csv(wideLineTableForDownload(), file)
         }
         )
         
@@ -1742,7 +1776,7 @@ shinyServer(function(input, output, session) {
         
         
         output$downloadDataDeconvoluted <- downloadHandler(
-        filename = function() { paste0(input$calname, "_", input$linetype, "_IntensityTableDeconvoluted", '.csv') },
+        filename = function() { paste0(input$calname, "_DeconvolutedTable", '.csv') },
         content = function(file
         ) {
             write.csv(deconvolutedlineTableForDownload(), file)
@@ -1770,7 +1804,7 @@ shinyServer(function(input, output, session) {
             input$linecommit
             
             
-            myelements <- c(elementallinestouse())
+            myelements <- c(elementallinestouse(), "Baseline", "Total")
             
             
             if(is.null(myelements)){
@@ -1785,7 +1819,7 @@ shinyServer(function(input, output, session) {
             input$linecommit
             
             
-            myelements <- c(elementallinestouse())
+            myelements <- c(elementallinestouse(), "Baseline", "Total")
             
             
             if(is.null(myelements)){
@@ -7657,7 +7691,7 @@ shinyServer(function(input, output, session) {
             calMemory$Calibration$calList[[input$calcurveelement]] <- list(Parameters=defaultCalConditions(element=input$calcurveelement, number.of.standards=length(holdFrame()$Spectrum)), Model=NULL)
             
             bestCalHold[[input$calcurveelement]] <- bestCalTypeFrame()
-            calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=bestParameters(), model=bestModel(), compress=TRUE))
+            calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=bestParameters(), model=bestModel(), table=calValTable(), compress=TRUE))
         })
         
         output$models <- renderDataTable({
@@ -9060,12 +9094,12 @@ shinyServer(function(input, output, session) {
         observeEvent(input$createcalelement, priority=100, {
             calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
             if(input$userandom==FALSE){
-                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelGen(), compress=TRUE))
+                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelGen(), table=calValTable(), compress=TRUE))
             } else if(input$userandom==TRUE){
-                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelRandom(), compress=TRUE))
+                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelRandom(), table=calValTable(), compress=TRUE))
             }
                 calSettings$calList[[input$calcurveelement]] <- NULL
-                calSettings$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=NULL, compress=TRUE))
+                calSettings$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=NULL, table=calValTable(), compress=TRUE))
 
         })
         
@@ -9852,9 +9886,7 @@ shinyServer(function(input, output, session) {
             standard.table.summary <- data.frame(hold.frame$Spectrum, as.numeric(as.character(standard.table$Concentration)), as.numeric(as.character(standard.table$Prediction)), as.numeric(as.character(standard.table$Concentration-standard.table$Prediction)), ((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration), stringsAsFactors=FALSE)
             colnames(standard.table.summary) <- c("Standard", "Concentration", "Prediction", "Difference", "Relative")
             
-            standard.table.summary[,-1] <-round(standard.table.summary[,-1],4)
-            standard.table.summary[,5] <- as.character(percent(standard.table.summary[,5]))
-            
+          
             this.table <- standard.table.summary
             this.table
             
@@ -9864,8 +9896,11 @@ shinyServer(function(input, output, session) {
         output$standardsperformance <- DT::renderDataTable({
             
             
-            standard.table <- calValTable()
-            standard.table
+            standard.table.summary <- calValTable()
+            standard.table.summary[,-1] <-round(standard.table.summary[,-1],4)
+            standard.table.summary[,5] <- as.character(percent(standard.table.summary[,5]))
+            
+            standard.table.summary
             
         }, options =list(aoColumnDefs = list(list(sClass="alignRight",aTargets=c(list(2), list(3),list(4),list(5))))  ))
         
@@ -14361,11 +14396,11 @@ shinyServer(function(input, output, session) {
         
         
         spectraLineTableExport <- reactive({
-            if(dataType()=="Spectra"){
-                spectraData()[elementallinestouse()]
-            } else if(dataType()=="Net"){
-                dataHold()[elementallinestouse()]
-            }
+            calMemory$Calibration$Intensities[,!colnames(calMemory$Calibration$Intensities) %in% names(otherSpectraStuff()[,-1])]
+        })
+        
+        wideSpectraLineTableExport <- reactive({
+            calMemory$Calibration$WideIntensities[,!colnames(calMemory$Calibration$WideIntensities) %in% names(otherSpectraStuff()[,-1])]
         })
         
         spectraExport <- reactive({
@@ -14378,10 +14413,11 @@ shinyServer(function(input, output, session) {
         
         calExport <- reactive({
             new.cal <- if(input$modelcompress==TRUE){
-                calBundle(filetype=input$filetype, units=input$unit, spectra=spectraExport(), intensities=spectraLineTableExport(), definitions=linevalues[["DF"]], values=values[["DF"]], notes=input$notes, calList=calListCompress(calMemory$Calibration$calList))
+                calBundle(filetype=input$filetype, units=input$unit, spectra=spectraExport(), intensities=spectraLineTableExport(), wide.intensities=wideSpectraLineTableExport(), definitions=linevalues[["DF"]], values=values[["DF"]], notes=input$notes, calList=calListCompress(calMemory$Calibration$calList))
             } else if(input$modelcompress==FALSE){
-                calBundle(filetype=input$filetype, units=input$unit, spectra=spectraExport(), intensities=spectraLineTableExport(), definitions=linevalues[["DF"]], values=values[["DF"]], notes=input$notes, calList=calMemory$Calibration$calList)
+                calBundle(filetype=input$filetype, units=input$unit, spectra=spectraExport(), intensities=spectraLineTableExport(), wide.intensities=wideSpectraLineTableExport(), definitions=linevalues[["DF"]], values=values[["DF"]], notes=input$notes, calList=calMemory$Calibration$calList)
             }
+            
             
             other_elements <- names(calMemory$Calibration)[!names(calMemory$Calibration) %in% names(new.cal)]
             if(length(other_elements)>0){
@@ -17882,7 +17918,18 @@ content = function(file){
                 readvalPDZ()
             }
             
+            data$CPS <- as.numeric(data$CPS)
+            data$Energy <- as.numeric(data$Energy)
+
             data <- data[complete.cases(data),]
+            
+            data$Spectrum <- gsub(".pdz", "", data$Spectrum)
+            data$Spectrum <- gsub(".csv", "", data$Spectrum)
+            data$Spectrum <- gsub(".CSV", "", data$Spectrum)
+            data$Spectrum <- gsub(".spt", "", data$Spectrum)
+            data$Spectrum <- gsub(".mca", "", data$Spectrum)
+            data$Spectrum <- gsub(".spx", "", data$Spectrum)
+            
             data
             
         })
@@ -17902,12 +17949,21 @@ content = function(file){
         })
         
         myDeconvolutedValData <- reactive({
+            spectra <- myValData()
             
-            tryCatch(spectra_gls_deconvolute(myValData(), cores=1), error=function(e) spectra_gls_deconvolute(myValData(), cores=1))
+            deconvolution <- spectra_gls_deconvolute(spectra, cores=1)
+            
+            deconvolution
             
         })
         
-        
+        output$downloadTestStuff <- downloadHandler(
+        filename = function() { paste(input$quantifiedname, "_ValData", '.csv', sep='', collapse='') },
+        content = function(file
+        ) {
+            saveRDS(myDeconvolutedValData(), file, compress="xz")
+        }
+        )
         
       
         
@@ -17915,11 +17971,11 @@ content = function(file){
 
         
         
-        output$contents2 <- renderTable({
+        output$contents2 <- renderDataTable({
             
             
             
-            myValData()
+            readValMCA()
             
         })
         
@@ -18014,14 +18070,28 @@ content = function(file){
         })
         
         
+        otherValSpectraStuff <- reactive({
+            
+            spectra <- myValData()
+            deconvoluted <- myDeconvolutedValData()
+            
+            spectra_stuff <- totalCountsGen(spectra)
+            other_spectra_stuff <- merge(spectra_stuff, deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=T, sort=T)
+            other_spectra_stuff
+            
+        })
+        
   
-  
+    output$testingvalstuff <- renderDataTable({
+        myDeconvolutedValData()$Areas
+    })
         
         
         tableInputValCounts <- reactive({
             valelements <- calValElements()
             variableelements <- calVariableElements()
             val.data <- myValData()
+            other_spectra_stuff <- otherValSpectraStuff()
             
             #if(valDataType()=="Spectra"){spectra.line.list <- pblapply(cl=as.numeric(my.cores)/2, X=valelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
             #if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, '[', 2)}
@@ -18048,22 +18118,20 @@ content = function(file){
             if(valDataType()=="Net"){val.line.table <- val.data[c("Spectrum", valelements), drop=FALSE]}
                 
                 
-                val.line.table
+            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
 
 
         })
         
         myDeconvolutedValDataList <- reactive({
             
-            tryCatch(spectra_gls_deconvolute(myValData(), cores=1), error=function(e) spectra_gls_deconvolute(myValData(), cores=1))
+            val.line.table <- tryCatch(spectra_gls_deconvolute(myValData(), cores=1), error=function(e) spectra_gls_deconvolute(myValData(), cores=1))
+            
+            val.line.table
 
         })
         
-        myDeconvolutedValData <- reactive({
-            
-            myDeconvolutedValDataList()$Spectra
-            
-        })
+
         
         myDeconvolutedValDataArea <- reactive({
             
@@ -18084,6 +18152,7 @@ content = function(file){
             valelements <- calValElements()
             variableelements <- calVariableElements()
             val.data <- myValData()
+            other_spectra_stuff <- otherValSpectraStuff()
             
             #if(valDataType()=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
             #if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
@@ -18101,18 +18170,20 @@ content = function(file){
             
             #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
-            if(valDataType()=="Spectra"){val.line.table <- merge(narrowLineTable(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements()), totalCountsGen(val.data), by="Spectrum")}
+            if(valDataType()=="Spectra"){val.line.table <- narrowLineTable(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements())}
+            
             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
-            
-            val.line.table
+            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+
         })
         
         fullInputValCountsWide <- reactive({
             valelements <- calValElements()
             variableelements <- calVariableElements()
             val.data <- myValData()
+            other_spectra_stuff <- otherValSpectraStuff()
             
             #if(valDataType()=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) wideElementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
             #if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
@@ -18130,13 +18201,13 @@ content = function(file){
             
             #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
-            if(valDataType()=="Spectra"){val.line.table <-  merge(wideLineTable(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements()), totalCountsGen(val.data), by="Spectrum")}
+            if(valDataType()=="Spectra"){val.line.table <-  wideLineTable(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements())}
 
             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
-            
-            val.line.table
+            if(valDataType()=="Spectra"){merge(val.line.table, otherValSpectraStuff(), by="Spectrum", all=T, sort=T)} else {val.line.table}
+
         })
         
         
@@ -18144,8 +18215,9 @@ content = function(file){
             valelements <- calValElements()
             variableelements <- calVariableElements()
             val.data <- myDeconvolutedValData()
-            counts <- fullInputValCounts()
+            counts <- fullInputValCounts()[,!colnames(fullInputValCounts()) %in% names(otherValSpectraStuff()[,-1])]
             counts <- counts[,!colnames(counts) %in% "Total"]
+            other_spectra_stuff <- otherValSpectraStuff()
             
             #if(valDataType()=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
             #if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
@@ -18164,13 +18236,14 @@ content = function(file){
             #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
             if(valDataType()=="Spectra"){val.line.table <-
-                merge(deconvolutionIntensityFrame(myDeconvolutedValDataArea(), counts), totalCountsGen(val.data), by="Spectrum")
+               deconvolutionIntensityFrame(myDeconvolutedValDataArea(), counts)
                 }
                             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
             
-            val.line.table
+            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+
         })
         
         #fullInputValCountsWideDeconvoluted <- reactive({

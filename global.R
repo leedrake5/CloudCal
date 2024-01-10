@@ -5558,9 +5558,9 @@ chooseTransformation <- function(spectra=NULL, cal){
 }
 chooseTransformation <- cmpfun(chooseTransformation)
 
-calBundle <- function(filetype, units, spectra, intensities, definitions, values, notes, calList, compress=FALSE){
+calBundle <- function(filetype, units, spectra, intensities, wide.intensities, definitions, values, notes, calList, compress=FALSE){
     
-    list(FileType=filetype, Units=units, Spectra=spectra, Intensities=intensities, Definitions=definitions, Values=values, Notes=notes, calList=calListCompress(calList))
+    list(FileType=filetype, Units=units, Spectra=spectra, Intensities=intensities, WideIntensities=wide.intensities, Definitions=definitions, Values=values, Notes=notes, calList=calListCompress(calList))
     
 }
 
@@ -5583,14 +5583,17 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             
         }
         }
+    
+    other_spectra_stuff <- totalCountsGen(valdata)
+    other_spectra_stuff <- merge(other_spectra_stuff, deconvoluted_valdata$Areas[,c("Spectrum", "Baseline")], all=T, sort=T)
         
     
     if(is.null(count.list)){
         count.list <- list(
-            Narrow=narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables),
-            Wide=wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables)
+            Narrow=merge(narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
+            Wide=merge(wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T)
             )
-        count.list$Area <- deconvolutionIntensityFrame(deconvoluted_valdata$Areas, count.list$Narrow)
+        count.list$Area <- merge(deconvolutionIntensityFrame(deconvoluted_valdata$Areas, count.list$Narrow), other_spectra_stuff, by="Spectrum", all=T, sort=T)
     }
     
 
@@ -7528,7 +7531,7 @@ calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALS
         return(Calibration)
 }
 
-modelPackPre <- function(parameters, model, compress=TRUE){
+modelPackPre <- function(parameters, model, table, compress=TRUE){
     
     if(parameters$CalTable$CalType==8 | parameters$CalTable$CalType==9){
         model.raw <-
@@ -7575,9 +7578,9 @@ modelPackPre <- function(parameters, model, compress=TRUE){
     }
     
     result.list <- if(parameters$CalTable$CalType!=8 | parameters$CalTable$CalType!=9){
-        list(Parameters=parameters, Model=model, rawModel=model.raw)
+        list(Parameters=parameters, Model=model, rawModel=model.raw, Table=table)
     } else if(parameters$CalTable$CalType==8 | parameters$CalTable$CalType==9){
-        list(Parameters=parameters, Model=model, rawModel=model.raw)
+        list(Parameters=parameters, Model=model, rawModel=model.raw, Table=table)
     }
     
     if(is.null(result.list$rawModel)){
@@ -7588,15 +7591,15 @@ modelPackPre <- function(parameters, model, compress=TRUE){
     
 }
 
-modelPack <- function(parameters, model, compress=TRUE){
-    modelPackPre(parameters=parameters, model=model, compress=compress)
+modelPack <- function(parameters, model, table, compress=TRUE){
+    modelPackPre(parameters=parameters, model=model, table=table, compress=compress)
 }
 
 calListCompress <- function(calList){
     calListNames <- names(calList)[as.vector(sapply(calList, function(x) !"Delete" %in% colnames(x[[1]]$CalTable)))]
     newcalList <- list()
     for(i in calListNames){
-        newcalList[[i]] <- modelPack(parameters=calList[[i]][[1]], model=calList[[i]][[2]], compress=TRUE)
+        newcalList[[i]] <- modelPack(parameters=calList[[i]][[1]], model=calList[[i]][[2]], table=calList[[i]][["Table"]], compress=TRUE)
     }
         return(newcalList)
 }

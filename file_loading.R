@@ -2630,13 +2630,18 @@ all_slopes <- function(calibration){
 
 intensity_fix <- function(calibration, keep_labels=TRUE){
     
-    slope_list <- all_slopes(calibration)
+    slope_list <- all_slopes(calibration)[!all_slopes(calibration) %in% c("Baseline", "Total")]
     intensity_names <- names(calibration$Intensities)
     
     missing_elements <- slope_list[!slope_list %in% intensity_names]
     variables <- c(intensity_names, missing_elements)
     variable_elements <- variables[variables %in% spectralLines]
     variable_custom <- variables[!variables %in% c(spectralLines, "Spectrum")]
+    
+    other_spectra_stuff <- totalCountsGen(calibration$Spectra)
+    if("Deconvoluted" %in% names(calibration)){
+        other_spectra_stuff <- merge(other_spectra_stuff, calibration$Deconvoluted$Areas$Baseline, all=T, sourt=T)
+    }
     
     if(length(variable_elements)>0){
         element.frame <- data.frame(elements=variable_elements, order=atomic_order_vector(variable_elements))
@@ -2759,6 +2764,13 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     
     if(!"WideIntensities" %in% names(Calibration)){
         Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
+    }
+    
+    if(!"OtherSpectraStuff" %in% names(Calibration)){
+        Calibration$OtherSpectraStuff <- totalCountsGen(Calibration$Spectra)
+        if("Deconvoluted" %in% names(Calibration)){
+            Calibration$OtherSpectraStuff <- merge(Calibration$OtherSpectraStuff, Calibration$Deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=TRUE, sort=TRUE)
+        }
     }
     
     
