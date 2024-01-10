@@ -2598,6 +2598,10 @@ calPre <- function(element.model.list, element, temp, env.strip=TRUE, xgb_raw=FA
             new.element.model.list$SystemicAdjust <- element.model.list$SystemicAdjust
         }
         
+        if("Table" %in% names(element.model.list)){
+            new.element.model.list$Table <- element.model.list$Table
+        }
+        
         #if(!"Scale" %in% names(element.model.list[[1]])){
         #    element.model.list[[1]][["Scale"]] <- list(Min=0, Max=1)
         #}

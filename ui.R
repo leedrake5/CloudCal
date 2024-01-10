@@ -337,9 +337,11 @@ actionButton('createcalelement', "Update"),
 
 tags$hr(),
 
-downloadButton('downloadModel', "Model"),
+downloadButton('downloadModel', "Quant File"),
 checkboxInput('modelcompress', label="Reduce File Size", value=TRUE),
-#downloadButton('downloadReport', "Report"),
+tags$hr(),
+downloadButton('downloadReport', "PDF"),
+downloadButton('downloadTableReport', "Worksheet"),
 #uiOutput('usecalsep'),
 #uiOutput('usecalui'),
 
@@ -481,7 +483,7 @@ tabPanel("Cal Curves",
         actionButton("exclude_toggle", "Toggle points"),
         actionButton("exclude_reset", "Reset"),
         downloadButton('downloadcloudplot', "Plot"),
-        selectInput('imagesize', "Image Size", choices=c("Small", "Large"), selected="Large"),
+        selectInput('imagesize', "Image Size", choices=c("Small", "Large"), selected="Small"),
         selectInput('plotunit', "Unit Display", choices=c("%", "ppm", "ppmv"), selected="%"),
         selectInput('loglinear', "Scale", choices=c("Linear", "Log"), selected="Linear")
 

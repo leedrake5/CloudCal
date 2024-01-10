@@ -28,7 +28,7 @@ if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
 
-list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "remotes", "tidyverse", "tools", "shinycssloaders")
+list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "remotes", "tidyverse", "tools", "shinycssloaders", "openxlsx")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
@@ -8346,6 +8346,28 @@ roundNumericColumns <- function(df, digits=1, multiplier=1) {
   
   # Return the modified dataframe
   return(df)
+}
+
+simpleValPlot <- function(cal_table, unit="%", element){
+    
+    if(unit!="%"){
+        cal_table$Prediction <- cal_table$Prediction*10000
+        cal_table$Concentration <- cal_table$Concentration*10000
+    }
+    
+   plot <-  ggplot(cal_table, aes(Prediction, Concentration)) +
+    geom_point() +
+    annotate("text", label=lm_eqn_val(lm(Concentration~Prediction,  cal_table)), x=-Inf, y=Inf, hjust=0, vjust=1, parse=TRUE) +
+    scale_x_continuous(paste0("XRF Estimate (", unit, ")"),  labels=scales::comma) +
+    scale_y_continuous(paste0("Given Value (", unit, ")"),  labels=scales::comma) +
+    geom_abline(aes(intercept=0, slope=1), lty=2) +
+    stat_smooth(method="lm") +
+    #geom_label_repel(aes(label = Standard), size = 3) +
+    #facet_wrap(.~Set) +
+    ggtitle(element) +
+    theme_light()
+    
+    return(plot)
 }
 
 

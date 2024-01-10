@@ -9862,9 +9862,9 @@ shinyServer(function(input, output, session) {
         plotDimensions <- reactive({
             
             if(input$imagesize=="Small"){
-                c(14, 7)
+                c(6, 6)
             } else if(input$imagesize=="Large"){
-                c(20, 10)
+                c(8, 8)
             }
             
         })
@@ -14457,19 +14457,38 @@ shinyServer(function(input, output, session) {
         }
         )
         
+        calPlotList <- reactive({
+            cal_plot_list <- list()
+            for(i in names(calExport()$calList)){
+                cal_plot_list[[i]] <- simpleValPlot(cal_table=calExport()$calList[[i]]$Table, unit=input$plotunit, element=i)
+            }
+            cal_plot_list
+        })
+        
         
         output$downloadReport <- downloadHandler(
         function() { paste(paste(c(input$calname), collapse=''), '.pdf',  sep='') },
         content = function(file){
-            ml = marrangeGrob(grobs=calPlotList, nrow=1, ncol=1)
+            ml = marrangeGrob(grobs=calPlotList(), nrow=1, ncol=1)
             tryCatch(ggsave(file, ml, device="pdf", dpi=300, width=plotDimensions()[1], height=plotDimensions()[2]), error=function(e) NULL)
             
             dev.off()
         })
 
-
-
-
+        
+        output$downloadTableReport <- downloadHandler(
+            filename = function() { paste(paste(c(input$calname), collapse=''), '.xlsx', sep='') },
+            content = function(file) {
+                wb <- openxlsx::createWorkbook()
+                
+                for (i in names(calExport()$calList)) {
+                    openxlsx::addWorksheet(wb=wb, sheetName=i)
+                    openxlsx::writeData(wb=wb, sheet=i, x=calExport()$calList[[i]]$Table)
+                    print(calExport()$calList[[i]]$Table)
+                }
+                
+                openxlsx::saveWorkbook(wb=wb, file=file)
+            })
     
     
     ####Multiplots Here
