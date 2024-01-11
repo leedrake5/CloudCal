@@ -8348,24 +8348,38 @@ roundNumericColumns <- function(df, digits=1, multiplier=1) {
   return(df)
 }
 
-simpleValPlot <- function(cal_table, unit="%", element){
+simpleValPlot <- function(cal_table, unit="%", element, scale="Linear"){
     
     if(unit!="%"){
         cal_table$Prediction <- cal_table$Prediction*10000
         cal_table$Concentration <- cal_table$Concentration*10000
     }
     
-   plot <-  ggplot(cal_table, aes(Prediction, Concentration)) +
-    geom_point() +
-    annotate("text", label=lm_eqn_val(lm(Concentration~Prediction,  cal_table)), x=-Inf, y=Inf, hjust=0, vjust=1, parse=TRUE) +
-    scale_x_continuous(paste0("XRF Estimate (", unit, ")"),  labels=scales::comma) +
-    scale_y_continuous(paste0("Given Value (", unit, ")"),  labels=scales::comma) +
-    geom_abline(aes(intercept=0, slope=1), lty=2) +
-    stat_smooth(method="lm") +
-    #geom_label_repel(aes(label = Standard), size = 3) +
-    #facet_wrap(.~Set) +
-    ggtitle(element) +
-    theme_light()
+   plot <-  if(scale=="Linear"){
+       ggplot(cal_table, aes(Prediction, Concentration)) +
+        geom_point() +
+        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction,  cal_table)), x=-Inf, y=Inf, hjust=0, vjust=1, parse=TRUE) +
+        scale_x_continuous(paste0("XRF Estimate (", unit, ")"),  labels=scales::comma) +
+        scale_y_continuous(paste0("Given Value (", unit, ")"),  labels=scales::comma) +
+        geom_abline(aes(intercept=0, slope=1), lty=2) +
+        stat_smooth(method="lm") +
+        #geom_label_repel(aes(label = Standard), size = 3) +
+        #facet_wrap(.~Set) +
+        ggtitle(element) +
+        theme_light()
+   } else if(scale=="Log"){
+       ggplot(cal_table, aes(Prediction, Concentration)) +
+        geom_point() +
+        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction,  cal_table)), x=-Inf, y=Inf, hjust=0, vjust=1, parse=TRUE) +
+        scale_x_log10(paste0("XRF Estimate (", unit, ")"),  labels=scales::comma) +
+        scale_y_log10(paste0("Given Value (", unit, ")"),  labels=scales::comma) +
+        geom_abline(aes(intercept=0, slope=1), lty=2) +
+        stat_smooth(method="lm") +
+        #geom_label_repel(aes(label = Standard), size = 3) +
+        #facet_wrap(.~Set) +
+        ggtitle(element) +
+        theme_light()
+   }
     
     return(plot)
 }

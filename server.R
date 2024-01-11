@@ -720,6 +720,310 @@ shinyServer(function(input, output, session) {
             "U.table" = U.table)
         })
         
+        output$anomscatterokui <- renderUI({
+            
+            if(input$variancespectrum==TRUE){
+                checkboxInput("anomscatterok", "Show Element Scatter", value=FALSE)
+            } else if(input$variancespectrum==FALSE){
+                NULL
+            }
+            
+        })
+        
+        output$anomscatterui <- renderUI({
+            if(input$anomscatterok==TRUE){
+                element <- selectInput(
+                "anomscatterelement", "Element Scatter:",
+                c("(Ne) Neon" = "Ne",
+                "(Na) Sodium" = "Na",
+                "(Mg) Magnesium" = "Mg",
+                "(Al) Aluminum" = "Al",
+                "(Si) Silicon" = "Si",
+                "(P)  Phosphorous" = "P",
+                "(S)  Sulfur" = "S",
+                "(Cl) Chlorine" = "Cl",
+                "(Ar) Argon" = "Ar",
+                "(K)  Potassium" = "K",
+                "(Ca) Calcium" = "Ca",
+                "(Sc) Scandium" = "Sc",
+                "(Ti) Titanium" = "Ti",
+                "(V)  Vanadium" = "V",
+                "(Cr) Chromium" = "Cr",
+                "(Mn) Manganese" = "Mn",
+                "(Fe) Iron" = "Fe",
+                "(Co) Cobalt" = "Co",
+                "(Ni) Nickel" = "Ni",
+                "(Cu) Copper" = "Cu",
+                "(Zn) Zinc"= "Zn",
+                "(Ga) Gallium" = "Ga",
+                "(Ge) Germanium" = "Ge",
+                "(As) Arsenic" = "As",
+                "(Se) Selenium" = "Se",
+                "(Br) Bromium" = "Br",
+                "(Kr) Krypton" = "Kr",
+                "(Rb) Rubidium" = "Rb",
+                "(Sr) Strontium" = "Sr",
+                "(Y)  Yttrium" = "Y",
+                "(Zr) Zirconium" = "Zr",
+                "(Nb) Niobium" = "Nb",
+                "(Mo) Molybdenum" = "Mo",
+                "(Tc) Technicium" = "Tc",
+                "(Ru) Ruthenium" = "Ru",
+                "(Rh) Rhodium" = "Rh",
+                "(Pd) Paladium" = "Pd",
+                "(Ag) Silver" = "Ag",
+                "(Cd) Cadmium" = "Cd",
+                "(In) Indium" = "In",
+                "(Sn) Tin" = "Sn",
+                "(Sb) Antimony" = "Sb",
+                "(Te) Tellerium" = "Te",
+                "(I) Iodine" = "I",
+                "(Xe) Xenon" = "Xe",
+                "(Cs) Cesium" = "Cs",
+                "(Ba) Barium" = "Ba",
+                "(Ce) Cerium" = "Ce",
+                "(Pr) Praeseodymeum" = "Pr",
+                "(Nd) Neodymeum" = "Nd",
+                "(Pm) Promethium" = "Pm",
+                "(Sm) Samarium" = "Sm",
+                "(Eu) Europium" = "Eu",
+                "(Gd) Gadolinium" = "Gd",
+                "(Tb) Terbium" = "Tb",
+                "(Dy) Dysprosium" = "Dy",
+                "(Ho) Holmium" = "Ho",
+                "(Er) Erbium" = "Er",
+                "(Tm) Thullium" = "Tm",
+                "(Yb) Ytterbium" = "Yb",
+                "(Lu) Lutetium" = "Lu",
+                "(Hf) Halfnium" = "Hf",
+                "(Ta) Tantalum" = "Ta",
+                "(W)  Tungsten" = "W",
+                "(Re) Rhenium" = "Re",
+                "(Os) Osmium" = "Os",
+                "(Ir) Irridium" = "Ir",
+                "(Pt) Platinum" = "Pt",
+                "(Au) Gold" = "Au",
+                "(Hg) Mercury" = "Hg",
+                "(Tl) Thallium" = "Tl",
+                "(Pb) Lead" = "Pb",
+                "(Bi) Bismuth" = "Bi",
+                "(Po) Polonium" = "Po",
+                "(At) Astatine" = "At",
+                "(Rn) Radon" = "Rn",
+                "(Fr) Francium" = "Fr",
+                "(Ra) Radium" = "Ra",
+                "(Ac) Actinum" = "Ac",
+                "(Th) Thorium" = "Th",
+                "(Pa) Proactinum" = "Pa",
+                "(U)  Uranium" = "U"),
+                selected="Fe")
+            } else if(input$anomscatterok==FALSE){
+                NULL
+            }
+            
+            
+        })
+        
+        absorptionInput <- reactive({
+                            req(input$anomscatterelement)
+                            switch(input$anomscatterelement,
+                            "H" = NULL,
+                            "He" = NULL,
+                            "Li" = lineLibrary$Absorption$Li,
+                            "Be" = lineLibrary$Absorption$Be,
+                            "B" = lineLibrary$Absorption$B,
+                            "C" = lineLibrary$Absorption$C,
+                            "N" = lineLibrary$Absorption$N,
+                            "O" = lineLibrary$Absorption$O,
+                            "F" = lineLibrary$Absorption$F,
+                            "Ne" = lineLibrary$Absorption$Ne,
+                            "Na" = lineLibrary$Absorption$Na,
+                            "Mg" = lineLibrary$Absorption$Mg,
+                            "Al" = lineLibrary$Absorption$Al,
+                            "Si" = lineLibrary$Absorption$Si,
+                            "P" = lineLibrary$Absorption$P,
+                            "S" = lineLibrary$Absorption$S,
+                            "Cl" = lineLibrary$Absorption$Cl,
+                            "Ar" = lineLibrary$Absorption$Ar,
+                            "K" = lineLibrary$Absorption$K,
+                            "Ca" = lineLibrary$Absorption$Ca,
+                            "Sc" = lineLibrary$Absorption$Sc,
+                            "Ti" = lineLibrary$Absorption$Ti,
+                            "V" = lineLibrary$Absorption$V,
+                            "Cr" = lineLibrary$Absorption$Cr,
+                            "Mn" = lineLibrary$Absorption$Mn,
+                            "Fe" = lineLibrary$Absorption$Fe,
+                            "Co" = lineLibrary$Absorption$Co,
+                            "Ni" = lineLibrary$Absorption$Ni,
+                            "Cu" = lineLibrary$Absorption$Cu,
+                            "Zn" = lineLibrary$Absorption$Zn,
+                            "Ga" = lineLibrary$Absorption$Ga,
+                            "Ge" = lineLibrary$Absorption$Ge,
+                            "As" = lineLibrary$Absorption$As,
+                            "Se" = lineLibrary$Absorption$Se,
+                            "Br" = lineLibrary$Absorption$Br,
+                            "Kr" = lineLibrary$Absorption$Kr,
+                            "Rb" = lineLibrary$Absorption$Rb,
+                            "Sr" = lineLibrary$Absorption$Sr,
+                            "Y" = lineLibrary$Absorption$Y,
+                            "Zr" = lineLibrary$Absorption$Zr,
+                            "Nb" = lineLibrary$Absorption$Nb,
+                            "Mo" = lineLibrary$Absorption$Mo,
+                            "Tc" = lineLibrary$Absorption$Tc,
+                            "Ru" = lineLibrary$Absorption$Ru,
+                            "Rh" = lineLibrary$Absorption$Rh,
+                            "Pd" = lineLibrary$Absorption$Pd,
+                            "Ag" = lineLibrary$Absorption$Ag,
+                            "Cd" = lineLibrary$Absorption$Cd,
+                            "In" = lineLibrary$Absorption$In,
+                            "Sn" = lineLibrary$Absorption$Sn,
+                            "Sb" = lineLibrary$Absorption$Sb,
+                            "Te" = lineLibrary$Absorption$Te,
+                            "I" = lineLibrary$Absorption$I,
+                            "Xe" = lineLibrary$Absorption$Xe,
+                            "Cs" = lineLibrary$Absorption$Cs,
+                            "Ba" = lineLibrary$Absorption$Ba,
+                            "La" = lineLibrary$Absorption$La,
+                            "Ce" = lineLibrary$Absorption$Ce,
+                            "Pr" = lineLibrary$Absorption$Pr,
+                            "Nd" = lineLibrary$Absorption$Nd,
+                            "Pm" = lineLibrary$Absorption$Pm,
+                            "Sm" = lineLibrary$Absorption$Sm,
+                            "Eu" = lineLibrary$Absorption$Eu,
+                            "Gd" = lineLibrary$Absorption$Gd,
+                            "Tb" = lineLibrary$Absorption$Tb,
+                            "Dy" = lineLibrary$Absorption$Dy,
+                            "Ho" = lineLibrary$Absorption$Ho,
+                            "Er" = lineLibrary$Absorption$Er,
+                            "Tm" = lineLibrary$Absorption$Tm,
+                            "Yb" = lineLibrary$Absorption$Yb,
+                            "Lu" = lineLibrary$Absorption$Lu,
+                            "Hf" = lineLibrary$Absorption$Hf,
+                            "Ta" = lineLibrary$Absorption$Ta,
+                            "W" = lineLibrary$Absorption$W,
+                            "Re" = lineLibrary$Absorption$Re,
+                            "Os" = lineLibrary$Absorption$Os,
+                            "Ir" = lineLibrary$Absorption$Ir,
+                            "Pt" = lineLibrary$Absorption$Pt,
+                            "Au" = lineLibrary$Absorption$Au,
+                            "Hg" = lineLibrary$Absorption$Hg,
+                            "Tl" = lineLibrary$Absorption$Tl,
+                            "Pb" = lineLibrary$Absorption$Pb,
+                            "Bi" = lineLibrary$Absorption$Bi,
+                            "Po" = lineLibrary$Absorption$Po,
+                            "At" = lineLibrary$Absorption$At,
+                            "Rn" = lineLibrary$Absorption$Rn,
+                            "Fr" = lineLibrary$Absorption$Fr,
+                            "Ra" = lineLibrary$Absorption$Ra,
+                            "Ac" = lineLibrary$Absorption$Ac,
+                            "Th" = lineLibrary$Absorption$Th,
+                            "Pa" = lineLibrary$Absorption$Pa,
+                            "U" = lineLibrary$Absorption$U)
+                        })
+        
+        scatterInput <- reactive({
+                            req(input$anomscatterelement)
+                            switch(input$anomscatterelement,
+                            "H" = NULL,
+                            "He" = NULL,
+                            "Li" = lineLibrary$Scatter$Li,
+                            "Be" = lineLibrary$Scatter$Be,
+                            "B" = lineLibrary$Scatter$B,
+                            "C" = lineLibrary$Scatter$C,
+                            "N" = lineLibrary$Scatter$N,
+                            "O" = lineLibrary$Scatter$O,
+                            "F" = lineLibrary$Scatter$F,
+                            "Ne" = lineLibrary$Scatter$Ne,
+                            "Na" = lineLibrary$Scatter$Na,
+                            "Mg" = lineLibrary$Scatter$Mg,
+                            "Al" = lineLibrary$Scatter$Al,
+                            "Si" = lineLibrary$Scatter$Si,
+                            "P" = lineLibrary$Scatter$P,
+                            "S" = lineLibrary$Scatter$S,
+                            "Cl" = lineLibrary$Scatter$Cl,
+                            "Ar" = lineLibrary$Scatter$Ar,
+                            "K" = lineLibrary$Scatter$K,
+                            "Ca" = lineLibrary$Scatter$Ca,
+                            "Sc" = lineLibrary$Scatter$Sc,
+                            "Ti" = lineLibrary$Scatter$Ti,
+                            "V" = lineLibrary$Scatter$V,
+                            "Cr" = lineLibrary$Scatter$Cr,
+                            "Mn" = lineLibrary$Scatter$Mn,
+                            "Fe" = lineLibrary$Scatter$Fe,
+                            "Co" = lineLibrary$Scatter$Co,
+                            "Ni" = lineLibrary$Scatter$Ni,
+                            "Cu" = lineLibrary$Scatter$Cu,
+                            "Zn" = lineLibrary$Scatter$Zn,
+                            "Ga" = lineLibrary$Scatter$Ga,
+                            "Ge" = lineLibrary$Scatter$Ge,
+                            "As" = lineLibrary$Scatter$As,
+                            "Se" = lineLibrary$Scatter$Se,
+                            "Br" = lineLibrary$Scatter$Br,
+                            "Kr" = lineLibrary$Scatter$Kr,
+                            "Rb" = lineLibrary$Scatter$Rb,
+                            "Sr" = lineLibrary$Scatter$Sr,
+                            "Y" = lineLibrary$Scatter$Y,
+                            "Zr" = lineLibrary$Scatter$Zr,
+                            "Nb" = lineLibrary$Scatter$Nb,
+                            "Mo" = lineLibrary$Scatter$Mo,
+                            "Tc" = lineLibrary$Scatter$Tc,
+                            "Ru" = lineLibrary$Scatter$Ru,
+                            "Rh" = lineLibrary$Scatter$Rh,
+                            "Pd" = lineLibrary$Scatter$Pd,
+                            "Ag" = lineLibrary$Scatter$Ag,
+                            "Cd" = lineLibrary$Scatter$Cd,
+                            "In" = lineLibrary$Scatter$In,
+                            "Sn" = lineLibrary$Scatter$Sn,
+                            "Sb" = lineLibrary$Scatter$Sb,
+                            "Te" = lineLibrary$Scatter$Te,
+                            "I" = lineLibrary$Scatter$I,
+                            "Xe" = lineLibrary$Scatter$Xe,
+                            "Cs" = lineLibrary$Scatter$Cs,
+                            "Ba" = lineLibrary$Scatter$Ba,
+                            "La" = lineLibrary$Scatter$La,
+                            "Ce" = lineLibrary$Scatter$Ce,
+                            "Pr" = lineLibrary$Scatter$Pr,
+                            "Nd" = lineLibrary$Scatter$Nd,
+                            "Pm" = lineLibrary$Scatter$Pm,
+                            "Sm" = lineLibrary$Scatter$Sm,
+                            "Eu" = lineLibrary$Scatter$Eu,
+                            "Gd" = lineLibrary$Scatter$Gd,
+                            "Tb" = lineLibrary$Scatter$Tb,
+                            "Dy" = lineLibrary$Scatter$Dy,
+                            "Ho" = lineLibrary$Scatter$Ho,
+                            "Er" = lineLibrary$Scatter$Er,
+                            "Tm" = lineLibrary$Scatter$Tm,
+                            "Yb" = lineLibrary$Scatter$Yb,
+                            "Lu" = lineLibrary$Scatter$Lu,
+                            "Hf" = lineLibrary$Scatter$Hf,
+                            "Ta" = lineLibrary$Scatter$Ta,
+                            "W" = lineLibrary$Scatter$W,
+                            "Re" = lineLibrary$Scatter$Re,
+                            "Os" = lineLibrary$Scatter$Os,
+                            "Ir" = lineLibrary$Scatter$Ir,
+                            "Pt" = lineLibrary$Scatter$Pt,
+                            "Au" = lineLibrary$Scatter$Au,
+                            "Hg" = lineLibrary$Scatter$Hg,
+                            "Tl" = lineLibrary$Scatter$Tl,
+                            "Pb" = lineLibrary$Scatter$Pb,
+                            "Bi" = lineLibrary$Scatter$Bi,
+                            "Po" = lineLibrary$Scatter$Po,
+                            "At" = lineLibrary$Scatter$At,
+                            "Rn" = lineLibrary$Scatter$Rn,
+                            "Fr" = lineLibrary$Scatter$Fr,
+                            "Ra" = lineLibrary$Scatter$Ra,
+                            "Ac" = lineLibrary$Scatter$Ac,
+                            "Th" = lineLibrary$Scatter$Th,
+                            "Pa" = lineLibrary$Scatter$Pa,
+                            "U" = lineLibrary$Scatter$U)
+                        })
+        
+        output$anomtest <- renderDataTable({
+            
+            anomScatterInput()
+            
+        })
+        
         
         output$comptonminspectraui <- renderUI({
             
@@ -819,8 +1123,8 @@ shinyServer(function(input, output, session) {
                 intensity.base <- (element$Intensity/max(element$Intensity))
                 
                 
-                qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
-                theme_light()+
+                qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = yLabel(), geom="line", colour=data$Spectrum) +
+                theme_light(base_size = 15) +
                 theme(legend.position="bottom") +
                 geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
                 scale_colour_discrete("Spectrum") +
@@ -828,7 +1132,6 @@ shinyServer(function(input, output, session) {
 
                 
             })
-            
             
             spectraNoLabels <- reactive({
                 
@@ -844,8 +1147,8 @@ shinyServer(function(input, output, session) {
                 element$Intensity <- intensity.norm
                 intensity.base <- (element$Intensity/max(element$Intensity))
                 
-                qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = "Counts per Second", geom="line", colour=data$Spectrum) +
-                theme_light()+
+                qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = yLabel(), geom="line", colour=data$Spectrum) +
+                theme_light(base_size = 15) +
                 theme(legend.position="bottom") +
                 geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
                 scale_colour_discrete("Spectrum") +
@@ -871,14 +1174,84 @@ shinyServer(function(input, output, session) {
                 intensity.base <- (element$Intensity/max(element$Intensity))
                 
                 
+                
+                
                 ggplot(data.summary) +
-                geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max), alpha=0.2, fill="red") +
+                geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max), alpha=0.2, fill="#619CFF", colour="grey20") +
                 geom_line(aes(Energy, Mean), lty=2) +
                 geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
                 scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
-                scale_y_continuous("Counts per Second") +
+                scale_y_continuous(yLabel()) +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y) +
-                theme_light()
+                theme_light(base_size = 15)
+
+                
+            })
+            
+            yLabel <- reactive({
+                if(input$normspectra==1){
+                    "Counts per second"
+                } else if(input$normspectra==2){
+                    "% of counts"
+                } else if(input$normspectra==3){
+                    "Normalized counts"
+                }
+                
+            })
+            
+            
+            spectraAnomSummaryPlot <- reactive({
+                
+                data <- spectraPlotData()
+                
+                data.summary <- spectraSummary()
+                
+                id.seq <- seq(1, 2048,1)
+                
+                n <- length(data$Energy)
+                
+                element <- datasetInput()
+                intensity.norm <- (element$Intensity/max(element$Intensity))*max(data.summary$Mean)
+                element$Intensity <- intensity.norm
+                intensity.base <- (element$Intensity/max(element$Intensity))
+                
+                element_absorption <- absorptionInput()
+                element_absorption$Energy <- element_absorption$Energy
+                element_absorption <- element_absorption[element_absorption$Energy > my.min(data.summary$Energy) & element_absorption$Energy < my.max(data.summary$Energy),]
+                #element_absorption$f. <- element_absorption$f.*-1
+                f..norm <- (element_absorption$f../max(element_absorption$f..))*max(data.summary$Mean)
+                element_absorption$f.. <- f..norm
+                element_absorption$f.. <- element_absorption$f..*-1
+                element_absorption$Base <- 0
+                
+                element_scatter <- scatterInput()
+                element_scatter$Energy <- element_scatter$Energy
+                element_scatter <- element_scatter[element_scatter$Energy > my.min(data.summary$Energy) & element_scatter$Energy < my.max(data.summary$Energy),]
+                f.norm <- (element_scatter$f./max(element_scatter$f.))*max(data.summary$Mean)
+                element_scatter$f. <- f.norm
+                element_scatter$Base <- 0
+                
+                                
+                
+                
+                cols <- c("Absorption" = "red", "Scatter" = "blue", "Spectra" = "darkgreen")
+                
+                ggplot(data.summary) +
+                geom_ribbon(data=element_scatter, mapping=aes(x=Energy, ymin=Base, ymax=f./10, fill="Scatter (f')", colour="Scatter (f')"), alpha=0.2) +
+                geom_ribbon(data=element_absorption, mapping=aes(x=Energy, ymin=f.., ymax=Base, fill="Absorption (f'')", colour="Absorption (f'')"), alpha=0.2) +
+                geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max, fill="Spectra", colour="Spectra"), alpha=0.2) +
+                geom_line(aes(Energy, Mean), lty=2) +
+                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
+                scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
+                scale_y_continuous(yLabel()) +
+                scale_colour_manual(
+                  values = cols,
+                  breaks = c("Absorption", "Scatter", "Spectra")
+                ) +
+                coord_cartesian(xlim = ranges$x, ylim = ranges$y) +
+                theme_light(base_size = 15) +
+                theme(legend.position = c(0.9, 0.1), legend.title=element_blank()) +
+                  guides(colour = FALSE)
 
                 
             })
@@ -891,7 +1264,12 @@ shinyServer(function(input, output, session) {
                 } else if(input$showlegend==FALSE && input$variancespectrum==FALSE){
                     spectraNoLabels()
                 } else if(input$showlegend==FALSE && input$variancespectrum==TRUE){
-                    spectraSummaryPlot()
+                    if(input$anomscatterok==FALSE){
+                        spectraSummaryPlot()
+                    } else if(input$anomscatterok==TRUE){
+                        spectraAnomSummaryPlot()
+                    }
+                    
                 }
 
             })
@@ -2825,7 +3203,7 @@ shinyServer(function(input, output, session) {
         
         slopeImportancePlot <- reactive({
             
-            ggplot(slopeImportanceFrame(), aes(reorder(Element, Importance), Importance)) + geom_bar(stat="identity", position="dodge") + theme_light() + coord_flip() + scale_x_discrete("Element")
+            ggplot(slopeImportanceFrame(), aes(reorder(Element, Importance), Importance)) + geom_bar(stat="identity", position="dodge") + theme_light(base_size = 15) + coord_flip() + scale_x_discrete("Element")
 
         })
         
@@ -2871,7 +3249,7 @@ shinyServer(function(input, output, session) {
             ggplot(importance.frame) +
             geom_line(aes(Energy, Importance)) +
             geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
-            theme_light() +
+            theme_light(base_size = 15) +
             scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
             scale_y_continuous(paste0(input$calcurveelement, " Importance"), breaks=scales::pretty_breaks()) +
             coord_cartesian(xlim = importanceranges$x, ylim = importanceranges$y, expand = TRUE)
@@ -9247,7 +9625,7 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==1){
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", fullrange = TRUE) +
                     geom_point() +
@@ -9257,7 +9635,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", fullrange = TRUE) +
                     geom_point() +
@@ -9272,7 +9650,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn_poly(lm((Concentration*multiplier)~Intensity + I(Intensity^2), data=predictFrame()[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", formula=y~poly(x,2), fullrange = TRUE) +
                     geom_point() +
@@ -9282,7 +9660,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=predictFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", fullrange = TRUE) +
                     geom_point() +
@@ -9297,7 +9675,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm(Concentration~., valFrame()[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9307,7 +9685,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrame()[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrame()[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9321,7 +9699,7 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==4){
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9331,7 +9709,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9346,7 +9724,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9356,7 +9734,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9379,7 +9757,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9389,7 +9767,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9404,7 +9782,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9414,7 +9792,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9429,7 +9807,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9439,7 +9817,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9454,7 +9832,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9464,7 +9842,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9479,7 +9857,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9489,7 +9867,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9504,7 +9882,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9514,7 +9892,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameVal$val.frame[ vals$keeprows, , drop = FALSE], aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameVal$val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -9555,13 +9933,13 @@ shinyServer(function(input, output, session) {
             
             empty.plot <- if(input$loglinear=="Linear"){
                 ggplot() +
-                theme_light() +
+                theme_light(base_size = 15) +
                 text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
                 scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
             } else if(input$loglinear=="Log"){
                 ggplot() +
-                theme_light() +
+                theme_light(base_size = 15) +
                 text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
                 scale_x_log10(paste("Log ", element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
                 scale_y_log10(paste("Log ", element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
@@ -9594,13 +9972,13 @@ shinyServer(function(input, output, session) {
             
             empty.plot <- if(input$loglinear=="Linear"){
                 ggplot() +
-                theme_light() +
+                theme_light(base_size = 15) +
                 text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
                 scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
             } else if(input$loglinear=="Log"){
                 ggplot() +
-                theme_light() +
+                theme_light(base_size = 15) +
                 text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
                 scale_x_log10(paste("Log ", element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
                 scale_y_log10(paste("Log ", element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
@@ -9707,7 +10085,7 @@ shinyServer(function(input, output, session) {
             
             valcurve.plot <- if(input$loglinear=="Linear"){
                 tryCatch(ggplot(data= val.frame[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 annotate("text", label=lm_eqn_val(lm(Concentration~Prediction,  val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_abline(intercept=0, slope=1, lty=2) +
                 stat_smooth(method="lm") +
@@ -9718,7 +10096,7 @@ shinyServer(function(input, output, session) {
                 coord_cartesian(xlim = rangesvalcurve$x, ylim = rangesvalcurve$y, expand = TRUE), error=function(e) NULL)
             } else if(input$loglinear=="Log"){
                 tryCatch(ggplot(data= val.frame[ vals$keeprows, , drop = FALSE], aes(Prediction, Concentration)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 annotate("text", label=lm_eqn_val(lm(Concentration~Prediction,  val.frame[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_abline(intercept=0, slope=1, lty=2) +
                 stat_smooth(method="lm") +
@@ -9754,14 +10132,14 @@ shinyServer(function(input, output, session) {
             
             empty.plot <- if(input$loglinear=="Linear"){
                 ggplot() +
-                theme_light() +
+                theme_light(base_size = 15) +
                 text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
                 geom_abline(intercept=0, slope=1, lty=2) +
                 scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
             } else if(input$loglinear=="Log"){
                 ggplot() +
-                theme_light() +
+                theme_light(base_size = 15) +
                 text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
                 geom_abline(intercept=0, slope=1, lty=2) +
                 scale_x_log10(paste("Log ", element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
@@ -9792,14 +10170,14 @@ shinyServer(function(input, output, session) {
             
             empty.plot <- if(input$loglinear=="Linear"){
                 ggplot() +
-                theme_light() +
+                theme_light(base_size = 15) +
                 text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
                 geom_abline(intercept=0, slope=1, lty=2) +
                 scale_x_continuous(paste(element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), limits=c(0, 100), breaks=scales::pretty_breaks())
             } else if(input$loglinear=="Log"){
                 ggplot() +
-                theme_light() +
+                theme_light(base_size = 15) +
                 text(label="Click Run Model to Process", aes(x=0, y=50),  size=10) +
                 geom_abline(intercept=0, slope=1, lty=2) +
                 scale_x_log10(paste("Log ", element.name, predi), limits=c(0, 100), breaks=scales::pretty_breaks()) +
@@ -12956,7 +13334,7 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==1){
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", fullrange = TRUE) +
                     geom_point() +
@@ -12966,7 +13344,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, calCurveFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", fullrange = TRUE) +
                     geom_point() +
@@ -12981,7 +13359,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn_poly(lm((Concentration*multiplier)~Intensity + I(Intensity^2), data=predictFrame()[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", formula=y~poly(x,2), fullrange = TRUE) +
                     geom_point() +
@@ -12991,7 +13369,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, calCurveFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", fullrange = TRUE) +
                     geom_point() +
@@ -13006,7 +13384,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13016,7 +13394,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13030,7 +13408,7 @@ shinyServer(function(input, output, session) {
             if(input$radiocal==4){
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13040,7 +13418,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13055,7 +13433,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13065,7 +13443,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13088,7 +13466,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13098,7 +13476,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13113,7 +13491,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13123,7 +13501,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13138,7 +13516,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13148,7 +13526,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13163,7 +13541,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13173,7 +13551,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13188,7 +13566,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13198,7 +13576,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13213,7 +13591,7 @@ shinyServer(function(input, output, session) {
                 
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13223,7 +13601,7 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurverandom$x, ylim = rangescalcurverandom$y, expand = TRUE), error=function(e) NULL)
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
-                    theme_light() +
+                    theme_light(base_size = 15) +
                     annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
@@ -13322,7 +13700,7 @@ shinyServer(function(input, output, session) {
             val.frame$Prediction <- val.frame$Prediction*multiplier
 
             valcurve.plot <- ggplot(data=val.frame, aes(Prediction, Concentration)) +
-            theme_light() +
+            theme_light(base_size = 15) +
             annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
             geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm") +
@@ -13835,7 +14213,7 @@ shinyServer(function(input, output, session) {
             scale_x_continuous("Fitted values", breaks=scales::pretty_breaks()) +
             scale_y_continuous("Residuals", breaks=scales::pretty_breaks()) +
             ggtitle("Residual vs Fitted Plot") +
-            theme_light() +
+            theme_light(base_size = 15) +
             geom_point() +
             geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.fitted, .resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
@@ -13859,7 +14237,7 @@ shinyServer(function(input, output, session) {
             scale_x_continuous("Theoretical Quantiles", breaks=scales::pretty_breaks()) +
             scale_y_continuous("Standardized Residuals", breaks=scales::pretty_breaks()) +
             ggtitle("Normal Q-Q") +
-            theme_light() +
+            theme_light(base_size = 15) +
             geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(qq, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
             
@@ -13884,7 +14262,7 @@ shinyServer(function(input, output, session) {
             scale_x_continuous("Fitted Value", breaks=scales::pretty_breaks()) +
             scale_y_continuous(expression(sqrt("|Standardized residuals|")), breaks=scales::pretty_breaks()) +
             ggtitle("Scale-Location") +
-            theme_light() +
+            theme_light(base_size = 15) +
             geom_point(na.rm=TRUE) +
             geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.fitted, sqrt.std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
@@ -13911,7 +14289,7 @@ shinyServer(function(input, output, session) {
             scale_x_continuous("Obs. Number", breaks=scales::pretty_breaks()) +
             scale_y_continuous("Cook's distance", breaks=scales::pretty_breaks()) +
             ggtitle("Cook's distance") +
-            theme_light()
+            theme_light(base_size = 15)
             
             p4
             
@@ -13937,7 +14315,7 @@ shinyServer(function(input, output, session) {
             scale_y_continuous("Standardized Residuals", breaks=scales::pretty_breaks()) +
             ggtitle("Residual vs Leverage Plot") +
             scale_size_continuous("Cook's Distance", range=c(1,5)) +
-            theme_light() +
+            theme_light(base_size = 15) +
             theme(legend.position="bottom")
             
             p5
@@ -13962,7 +14340,7 @@ shinyServer(function(input, output, session) {
             scale_y_continuous("Cook's Distance", breaks=scales::pretty_breaks()) +
             ggtitle("Cook's dist vs Leverage") +
             geom_abline(slope=seq(0,3,0.5), color="gray", linetype="dashed") +
-            theme_light() +
+            theme_light(base_size = 15) +
             geom_point(na.rm=TRUE) +
             geom_point(data=model[ vals$keeprows, , drop = FALSE], aes(.hat, .cooksd), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
@@ -14363,15 +14741,15 @@ shinyServer(function(input, output, session) {
 
     
         
-        calPlotList <- reactiveValues()
-        observeEvent(input$createcalelement, priority=-1, {
+        #calPlotList <- reactiveValues()
+        #observeEvent(input$createcalelement, priority=-1, {
             
             
-            calPlotList[[input$calcurveelement]] <- isolate(calPlotDownload())
+            #calPlotList[[input$calcurveelement]] <- isolate(calPlotDownload())
             
-                calPlotList <<- calPlotList
+                #calPlotList <<- calPlotList
             
-            })
+            #})
         
         diagPlotList <- reactiveValues()
         #observeEvent(input$createcalelement, {
@@ -14460,14 +14838,14 @@ shinyServer(function(input, output, session) {
         calPlotList <- reactive({
             cal_plot_list <- list()
             for(i in names(calExport()$calList)){
-                cal_plot_list[[i]] <- simpleValPlot(cal_table=calExport()$calList[[i]]$Table, unit=input$plotunit, element=i)
+                cal_plot_list[[i]] <- simpleValPlot(cal_table=calExport()$calList[[i]]$Table, unit=input$plotunit, element=i, scale=input$loglinear)
             }
             cal_plot_list
         })
         
         
         output$downloadReport <- downloadHandler(
-        function() { paste(paste(c(input$calname), collapse=''), '.pdf',  sep='') },
+        function() { paste(paste(c(input$calname), "_", input$loglinear, collapse=''), '.pdf',  sep='') },
         content = function(file){
             ml = marrangeGrob(grobs=calPlotList(), nrow=1, ncol=1)
             tryCatch(ggsave(file, ml, device="pdf", dpi=300, width=plotDimensions()[1], height=plotDimensions()[2]), error=function(e) NULL)
@@ -15659,7 +16037,7 @@ observeEvent(input$actionprocess2_multi, {
             
             ggplot(slopeImportanceMulti(), aes(reorder(Element, Importance), Importance, fill=Instrument)) +
             geom_bar(stat="identity", position="dodge") +
-            theme_light() +
+            theme_light(base_size = 15) +
             coord_flip() +
             scale_x_discrete("Element", breaks=scales::pretty_breaks()) +
             scale_y_discrete(breaks=scales::pretty_breaks())
@@ -15715,7 +16093,7 @@ observeEvent(input$actionprocess2_multi, {
             ggplot(importance.frame) +
             geom_line(aes(Energy, Importance, colour=Instrument, lty=Instrument)) +
             geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=intensity.norm), colour="grey50", linetype=2)  +
-            theme_light() +
+            theme_light(base_size = 15) +
             scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
             scale_y_continuous(paste0(input$calcurveelement_multi, " Importance"), breaks=scales::pretty_breaks()) +
             coord_cartesian(xlim = importanceranges_multi$x, ylim = importanceranges_multi$y, expand = TRUE)
@@ -16215,7 +16593,7 @@ observeEvent(input$actionprocess2_multi, {
             
             if(input$radiocal_multi==1){
                 calcurve.plot <- ggplot(data=predict.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~Intensity, predict.frame[ unlist(unlist(vals_multi$keeprows), use.names=FALSE), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
                 geom_point(data = predict.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16228,7 +16606,7 @@ observeEvent(input$actionprocess2_multi, {
             
             if(input$radiocal_multi==2){
                 calcurve.plot <- ggplot(data=predict.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn_poly(lm(Concentration~Intensity + I(Intensity^2), predict.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
                 geom_point(data = predict.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16241,7 +16619,7 @@ observeEvent(input$actionprocess2_multi, {
             
             if(input$radiocal_multi==3){
                 calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
                 geom_point(aes(Intensity, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16255,7 +16633,7 @@ observeEvent(input$actionprocess2_multi, {
             
             if(input$radiocal_multi==4){
                 calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
                 geom_point(aes(Intensity, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16269,7 +16647,7 @@ observeEvent(input$actionprocess2_multi, {
             
             if(input$radiocal_multi==5){
                 calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
                 geom_point(aes(Intensity, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16355,7 +16733,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             valcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Prediction, Concentration, colour=Instrument, shape=Instrument)) +
-            theme_light() +
+            theme_light(base_size = 15) +
             #annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
             geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm", aes(fill=Instrument), alpha=0.1) +
@@ -16944,7 +17322,7 @@ observeEvent(input$actionprocess2_multi, {
             
             if(input$radiocal_multi==1){
                 calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(element.model), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
                 geom_point() +
@@ -16957,7 +17335,7 @@ observeEvent(input$actionprocess2_multi, {
             if(input$radiocal_multi==2){
                 
                 calcurve.plot <- ggplot(data=predict.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn_poly(element.model), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
                 geom_point() +
@@ -16970,7 +17348,7 @@ observeEvent(input$actionprocess2_multi, {
                 val.frame <- valFrameRandomizedRevMulti()
 
                 calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(element.model), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
                 geom_point() +
@@ -16984,7 +17362,7 @@ observeEvent(input$actionprocess2_multi, {
                 val.frame <- valFrameRandomizedRevMulti()
                 
                 calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth(alpha=0.1) +
                 geom_point() +
@@ -16998,7 +17376,7 @@ observeEvent(input$actionprocess2_multi, {
                 val.frame <- valFrameRandomizedRevMulti()
                 
                 calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
-                theme_light() +
+                theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_smooth(alpha=0.1) +
                 geom_point() +
@@ -17128,7 +17506,7 @@ observeEvent(input$actionprocess2_multi, {
             val.frame <- valFrameRandomizedMulti()
             
             valcurve.plot <- ggplot(data=val.frame, aes(Prediction, Concentration, colour=Instrument, shape=Instrument)) +
-            theme_light() +
+            theme_light(base_size = 15) +
             #annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
             geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm", aes(fill=Instrument), alpha=0.1) +

@@ -122,6 +122,8 @@ c("(Ne) Neon" = "Ne.table",
 "(Pa) Proactinum" = "Pa.table",
 "(U)  Uranium" = "U.table"),
 selected="Fe.table"),
+uiOutput("anomscatterokui"),
+uiOutput("anomscatterui"),
 
 tags$hr(),
 
@@ -136,9 +138,8 @@ fileInput('calfileinput', 'Load Cal File', accept=".quant", multiple=FALSE)
 
 mainPanel(
 tabsetPanel(
-#tabPanel("Debug", dataTableOutput('spectratest')),
 tabPanel("Spectrum",
-plotOutput("distPlot", height = 685,
+plotOutput("distPlot", height = 500,
 dblclick = "plot1_dblclick",
 brush = brushOpts(
 id = "plot1_brush",
@@ -184,7 +185,8 @@ numericInput('plotheight', "Download Height", step=1, value=5, min=1, max=20)
 ),
 
 tabPanel("Notes",
-uiOutput('notesui'))
+uiOutput('notesui')),
+#tabPanel("Debug", dataTableOutput('anomtest'))
 )
 
 
