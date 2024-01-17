@@ -981,7 +981,33 @@ narrowLineTable <- function(spectra, definition.table, elements){
     #} else if(!is.null(not.line.data)){
         #merge(line.data, not.line.data, by="Spectrum")
     #}
-   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements)
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="sum")
+   #for(i in elements){
+       #if(any(is.na(results[[i]]))){
+         # Replace NA/empty values with 0
+         #results[[i]][is.na(results[[i]])] <- 0
+       #}
+   #}
+   results
+}
+
+narrowLineTableMean <- function(spectra, definition.table, elements){
+    
+    #not.elements <- elements[!elements %in% spectralLines]
+    #elements <- elements[elements %in% spectralLines]
+    #line.data <- elementFrame(data=spectra, elements=elements)
+
+    
+    #definition.table <- definition.table[complete.cases(definition.table),]
+    #not.line.data <- tryCatch(xrf_parse(range.table = definition.table, data=spectra), error=function(e) NULL)
+
+    
+    #if(is.null(not.line.data)){
+        #line.data
+    #} else if(!is.null(not.line.data)){
+        #merge(line.data, not.line.data, by="Spectrum")
+    #}
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="mean")
    #for(i in elements){
        #if(any(is.na(results[[i]]))){
          # Replace NA/empty values with 0
@@ -1008,7 +1034,34 @@ wideLineTable <- function(spectra, definition.table, elements){
     #    merge(line.data, not.line.data, by="Spectrum")
     #}
     
-    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements)
+    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="mean")
+    #for(i in elements){
+        #if(any(is.na(results[[i]]))){
+          # Replace NA/empty values with 0
+          #results[[i]][is.na(results[[i]])] <- 0
+        #}
+    #}
+    results
+}
+
+wideLineTableMean <- function(spectra, definition.table, elements){
+    
+    #not.elements <- elements[!elements %in% spectralLines]
+    #elements <- elements[elements %in% spectralLines]
+    #line.data <- wideElementFrame(data=spectra, elements=elements)
+
+    
+    #definition.table <- definition.table[complete.cases(definition.table),]
+    #not.line.data <- tryCatch(xrf_parse(range.table = definition.table, data=spectra), error=function(e) NULL)
+
+    
+    #if(is.null(not.line.data)){
+    #    line.data
+    #} else if(!is.null(not.line.data)){
+    #    merge(line.data, not.line.data, by="Spectrum")
+    #}
+    
+    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="mean")
     #for(i in elements){
         #if(any(is.na(results[[i]]))){
           # Replace NA/empty values with 0
@@ -1019,7 +1072,7 @@ wideLineTable <- function(spectra, definition.table, elements){
 }
 
 ###Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -1031,6 +1084,12 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
         "Narrow"
     } else if(!is.null(line.type)){
         line.type
+    }
+    
+    line.structure <- if(is.null(line.structure)){
+        "sum"
+    } else if(!is.null(line.structure)){
+        line.structure
     }
     
     deconvolution <- if(is.null(deconvolution)){
@@ -1278,6 +1337,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
     cal.table <- data.frame(
                 CalType=cal.type,
                 LineType=line.type,
+                LineStructure=line.structure,
                 Deconvolution=deconvolution,
                 Compress=compress,
                 Transformation=transformation,
@@ -1324,11 +1384,12 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
                 LineType=line.type,
+                LineStructure=line.structure,
                 Deconvolution=deconvolution,
                 Compress=compress,
                 Transformation=transformation,
@@ -1391,6 +1452,11 @@ calConditionCompare <- function(cal.conditions.first, cal.conditions.second){
 deleteCalConditions <- function(element, number.of.standards){
     cal.condition <- as.numeric(3)
     line.type=as.character("Narrow")
+    line.structure <- if(element %in% spectralLines){
+        as.character("sum")
+    } else if(!element %in% spectralLines){
+        as.character("mean")
+    }
     deconvolution="None"
     compress <- as.character("100 eV")
     transformation <- as.character("None")
@@ -1436,6 +1502,7 @@ deleteCalConditions <- function(element, number.of.standards){
     cal.table <- data.frame(
     CalType=cal.condition,
     LineType=line.type,
+    LineStructure=line.structure,
     Deconvolution=deconvolution,
     Compress=compress,
     Transformation=transformation,
@@ -1496,6 +1563,11 @@ deleteCalConditions <- function(element, number.of.standards){
 defaultCalConditions <- function(element, number.of.standards){
     cal.condition <- as.numeric(3)
     line.type=as.character("Narrow")
+    line.structure <- if(element %in% spectralLines){
+        as.character("sum")
+    } else if(!element %in% spectralLines){
+        as.character("mean")
+    }
     deconvolution="None"
     compress <- as.character("100 eV")
     transformation <- as.character("None")
@@ -1541,6 +1613,7 @@ defaultCalConditions <- function(element, number.of.standards){
     cal.table <- data.frame(
         CalType=cal.condition,
         LineType=line.type,
+        LineStructure=line.structure,
         Deconvolution=deconvolution,
         Compress=compress,
         Transformation=transformation,
@@ -1619,6 +1692,12 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
          as.character(imported.cal.conditions$CalTable$LineType[1])
     } else if(!"LineType" %in% colnames(imported.cal.conditions$CalTable)){
        default.cal.conditions$CalTable$LineType
+    }
+    
+    line.structure.condition <- if("LineStructure" %in% colnames(imported.cal.conditions$CalTable)){
+         as.character(imported.cal.conditions$CalTable$LineStructure[1])
+    } else if(!"LineStructure" %in% colnames(imported.cal.conditions$CalTable)){
+       default.cal.conditions$CalTable$LineStructure
     }
     
     deconvolution <- if("Deconvolution" %in% colnames(imported.cal.conditions$CalTable)){
@@ -2007,6 +2086,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     cal.table <- data.frame(
         CalType=cal.condition,
         LineType=line.condition,
+        LineStructure=line.structure.condition,
         Deconvolution=deconvolution,
         Compress=compress.condition,
         Transformation=transformation.condition,
@@ -2075,6 +2155,12 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         as.character(imported.cal.conditions$CalTable$LineType[1])
     } else if(!"LineType" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$LineType
+    }
+    
+    line.structure.condition <- if("LineStructure" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$LineStructure[1])
+    } else if(!"LineStructure" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$LineStructure
     }
     
     deconvolution <- if("Deconvolution" %in% colnames(imported.cal.conditions$CalTable)){
@@ -2469,6 +2555,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     cal.table <- data.frame(
     CalType=cal.condition,
     LineType=line.condition,
+    LineStructure=line.structure.condition,
     Deconvolution=deconvolution,
     Compress=compress.condition,
     Transformation=transformation.condition,
@@ -2578,6 +2665,15 @@ calPre <- function(element.model.list, element, temp, env.strip=TRUE, xgb_raw=FA
             new.element.model.list$Parameters$CalTable$LineType[1] <- "Narrow"
         }
         
+        if(is.na(new.element.model.list$Parameters$CalTable$LineStructure[1])){
+                if(element %in% spectralLines){
+                    new.element.model.list$Parameters$CalTable$LineStructure[1] <- "sum"
+                } else if(!element %in% spectralLines){
+                    new.element.model.list$Parameters$CalTable$LineStructure[1] <- "mean"
+                }
+            
+        }
+        
         if("rawModel" %in% names(element.model.list)){
             new.element.model.list$rawModel <- element.model.list$rawModel
         }
@@ -2681,7 +2777,9 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     
     if(rebuild==TRUE){
         Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
+        Calibration$IntensitiesMean <- narrowLineTableMean(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
         Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
+        Calibration$WideIntensitiesMean <- wideLineTableMean(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
     }
     
 

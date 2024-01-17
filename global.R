@@ -77,7 +77,7 @@ if(packageVersion("caret")!="6.0.93.1" && get_os()=="windows"){
         tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
     } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="osx"){
         if(Sys.info()[["machine"]]=="arm64"){
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            #tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
         } else {
             tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
             }
@@ -1068,12 +1068,12 @@ black.diamond.melt <- read.csv(file=black.diamond.melt.directory, sep=",")
 
 
 
-elementGrabKalpha <- function(element, data) {
+elementGrabKalpha <- function(element, data, calculation="sum") {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1085,7 +1085,7 @@ elementGrabKalpha <- function(element, data) {
 elementGrabKalpha <- cmpfun(elementGrabKalpha)
 
 
-elementGrabKbeta <- function(element, data) {
+elementGrabKbeta <- function(element, data, calculation="sum") {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
@@ -1103,7 +1103,7 @@ elementGrabKbeta <- function(element, data) {
     }
     hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
     colnames(hold.frame) <- c("CPS", "Spectrum")
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1115,12 +1115,12 @@ elementGrabKbeta <- function(element, data) {
 elementGrabKbeta <- cmpfun(elementGrabKbeta)
 
 
-elementGrabLalpha <- function(element, data) {
+elementGrabLalpha <- function(element, data, calculation="sum") {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[11][1,]-0.02 | data$Energy > elementLine[10][1,]+0.02), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1132,12 +1132,12 @@ elementGrabLalpha <- function(element, data) {
 elementGrabLalpha <- cmpfun(elementGrabLalpha)
 
 
-elementGrabLbeta <- function(element, data) {
+elementGrabLbeta <- function(element, data, calculation="sum") {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[12][1,]-0.02 | data$Energy > elementLine[14][1,]+0.02), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1148,12 +1148,12 @@ elementGrabLbeta <- function(element, data) {
 }
 elementGrabLbeta <- cmpfun(elementGrabLbeta)
 
-elementGrabMalpha <- function(element, data) {
+elementGrabMalpha <- function(element, data, calculation="sum") {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[20][1,]-0.02 | data$Energy > elementLine[22][1,]+0.02), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1165,7 +1165,7 @@ elementGrabMalpha <- function(element, data) {
 elementGrabMalpha <- cmpfun(elementGrabMalpha)
 
 
-elementGrabpre <- function(element.line, data) {
+elementGrabpre <- function(element.line, data, calculation="mean") {
     
     element.line <- make.names(element.line)
     
@@ -1174,15 +1174,15 @@ elementGrabpre <- function(element.line, data) {
     distance <- strsplit(x=element.line, split="\\.")[[1]][3]
     
     if(destination=="K" && distance=="alpha"){
-        elementGrabKalpha(element=element, data=data)
+        elementGrabKalpha(element=element, data=data, calculation=calculation)
     } else if(destination=="K" && distance=="beta"){
-        elementGrabKbeta(element=element, data=data)
+        elementGrabKbeta(element=element, data=data, calculation=calculation)
     } else if(destination=="L" && distance=="alpha"){
-        elementGrabLalpha(element=element, data=data)
+        elementGrabLalpha(element=element, data=data, calculation=calculation)
     } else if (destination=="L" && distance=="beta"){
-        elementGrabLbeta(element=element, data=data)
+        elementGrabLbeta(element=element, data=data, calculation=calculation)
     } else if (destination=="M" && distance=="line"){
-        elementGrabMalpha(element=element, data=data)
+        elementGrabMalpha(element=element, data=data, calculation=calculation)
     }
         
 }
@@ -1191,17 +1191,17 @@ elementGrabpre <- cmpfun(elementGrabpre)
 
 
 
-range_subset_xrf <- function(range.frame, data){
+range_subset_xrf <- function(range.frame, data, calculation="mean"){
     
-    new.data <- subset(data, Energy >= range.frame$EnergyMin & Energy <= range.frame$EnergyMax, drop=TRUE)
-    newer.data <- aggregate(new.data, by=list(new.data$Spectrum), FUN=mean, na.rm=TRUE)[,c("Group.1", "CPS")]
+    new.data <- subset(data, Energy >= range.frame$EnergyMin & Energy <= range.frame$EnergyMax, drop=TRUE)[,c("Spectrum", "CPS")]
+    newer.data <- aggregate(list(new.data$CPS), by=list(new.data$Spectrum), FUN=calculation, na.rm=TRUE)
     colnames(newer.data) <- c("Spectrum", as.character(range.frame$Name))
     newer.data
 }
 range_subset_xrf <- cmpfun(range_subset_xrf)
 
 
-xrf_parse <- function(range.table, data){
+xrf_parse <- function(range.table, data, calculation="mean"){
     
     choice.lines <- range.table[complete.cases(range.table),]
     
@@ -1210,13 +1210,13 @@ xrf_parse <- function(range.table, data){
     
     index <- choice.lines[,"Name"]
     
-    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data))
+    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data, calculation=calculation))
     
     Reduce(function(...) merge(..., all=T), selected.list)
 }
 xrf_parse <- cmpfun(xrf_parse)
 
-xrf_parse_single <- function(range.table, data, element){
+xrf_parse_single <- function(range.table, data, element, calculation="mean"){
     
     choice.lines <- range.table[range.table$Name %in% element,]
     
@@ -1225,7 +1225,7 @@ xrf_parse_single <- function(range.table, data, element){
     
     index <- choice.lines[,"Name"]
     
-    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data))
+    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data, calculation=calculation))
     
     Reduce(function(...) merge(..., all=T), selected.list)
 }
@@ -1233,42 +1233,42 @@ xrf_parse_single <- cmpfun(xrf_parse_single)
 
 
 
-elementGrabPre <- function(element.line, data, range.table=NULL){
+elementGrabPre <- function(element.line, data, range.table=NULL, calculation="sum"){
     
     is.element <- element.line %in% spectralLines
     
     if(is.element==TRUE){
-        elementGrabpre(element.line, data)
+        elementGrabpre(element.line, data, calculation=calculation)
     } else if(is.element==FALSE){
-        xrf_parse_single(range.table, data, element.line)
+        xrf_parse_single(range.table, data, element.line, calculation=calculation)
     }
 
     
 }
 elementGrabPre <- cmpfun(elementGrabPre)
 
-elementGrab <- function(element.line, data, range.table=NULL){
+elementGrab <- function(element.line, data, range.table=NULL, calculation="sum"){
     
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
     colnames(error_frame) <- c("Spectrum", element.line)
     
-    tryCatch(elementGrabPre(element.line=element.line, data=data, range.table=range.table), error=function(e) error_frame)
+    tryCatch(elementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation), error=function(e) error_frame)
     
     
 }
 
 
-elementFrame <- function(data, range.table=NULL, elements){
+elementFrame <- function(data, range.table=NULL, elements, calculation="sum"){
     
     spectra.line.list <- if(get_os()=="windows"){
-        lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table))
+        lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation))
     } else if(get_os()!="windows"){
         core.mod <- if(length(elements)>=as.numeric(my.cores)){
             as.numeric(my.cores)
         } else if(length(elements)<as.numeric(my.cores)){
             length(elements)
         }
-        tryCatch(pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table)), error=function(e) lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table)))
+        tryCatch(pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation)), error=function(e) lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation)))
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
@@ -1304,7 +1304,7 @@ elementFrame <- function(data, range.table=NULL, elements){
 elementFrame <- cmpfun(elementFrame)
 
 
-wideElementGrabLine <- function(element.line, data) {
+wideElementGrabLine <- function(element.line, data, calculation="sum") {
     
     element <- strsplit(x=element.line, split="\\.")[[1]][1]
     destination <- strsplit(x=element.line, split="\\.")[[1]][2]
@@ -1329,7 +1329,7 @@ wideElementGrabLine <- function(element.line, data) {
     #hold.frame <- data[data$Energy < elementLine[2, emission] && data$Energy > elementLine[1, emission], c("CPS", "Spectrum")]
     hold.frame <- data[!(data$Energy < elementLine[1, emission] | data$Energy > elementLine[2, emission]), c("CPS", "Spectrum")]
     
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
     colnames(hold.ag) <- c("Spectrum", paste(element, line, sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1340,34 +1340,34 @@ wideElementGrabLine <- function(element.line, data) {
 }
 wideElementGrabLine <- cmpfun(wideElementGrabLine)
 
-wideElementGrabPre <- function(element.line, data, range.table=NULL){
+wideElementGrabPre <- function(element.line, data, range.table=NULL, calculation="sum"){
     
     is.element <- element.line %in% spectralLines
     
     if(is.element==TRUE){
-        wideElementGrabLine(element.line, data)
+        wideElementGrabLine(element.line, data, calculation=calculation)
     } else if(is.element==FALSE){
-        xrf_parse_single(range.table, data, element.line)
+        xrf_parse_single(range.table, data, element.line, calculation=calculation)
     }
 
     
 }
 wideElementGrabPre <- cmpfun(wideElementGrabPre)
 
-wideElementGrab <- function(element.line, data, range.table=NULL){
+wideElementGrab <- function(element.line, data, range.table=NULL, calculation="sum"){
     
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=NA)
     colnames(error_frame) <- c("Spectrum", element.line)
     
-    tryCatch(wideElementGrabPre(element.line=element.line, data=data, range.table=range.table), error=function(e) error_frame)
+    tryCatch(wideElementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation), error=function(e) error_frame)
     
     
 }
 
-wideElementFrame <- function(data, elements, range.table=NULL){
+wideElementFrame <- function(data, elements, range.table=NULL, calculation=calculation){
     
     spectra.line.list <- if(get_os()=="windows"){
-        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table))
+        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation))
     }else if(get_os()!="windows"){
         core.mod <- if(length(elements)>=as.numeric(my.cores)){
             as.numeric(my.cores)
@@ -1375,7 +1375,7 @@ wideElementFrame <- function(data, elements, range.table=NULL){
             length(elements)
         }
         #pblapply(cl=core.mod, X=elements, function(x) wideElementGrab(element.line=x, data=data))
-        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table))
+        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation))
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
@@ -2788,35 +2788,6 @@ find_peaks_xrf <- cmpfun(find_peaks_xrf)
 
 
 
-####Custom Lines
-
-
-range_subset <- function(range.frame, data){
-    
-    new.data <- subset(data, Energy >= range.frame$EnergyMin & Energy <= range.frame$EnergyMax, drop=TRUE)
-    newer.data <- aggregate(new.data, by=list(new.data$Spectrum), FUN=mean, na.rm=TRUE)[,c("Group.1", "CPS")]
-    colnames(newer.data) <- c("Spectrum", as.character(range.frame$Name))
-    newer.data
-}
-range_subset <- cmpfun(range_subset)
-
-
-xrf_parse <- function(range.table, data){
-    
-    choice.lines <- range.table[complete.cases(range.table),]
-    
-    choice.list <- split(choice.lines, f=choice.lines$Name)
-    names(choice.list) <- choice.lines[,"Name"]
-    
-    index <- choice.lines[,"Name"]
-    
-    selected.list <- lapply(index, function(x) range_subset(range.frame=choice.list[[x]], data=data))
-    
-    Reduce(function(...) merge(..., all=T), selected.list)
-}
-xrf_parse <- cmpfun(xrf_parse)
-
-
 ###Unit Transformation
 
 data_summarize <- function(xrf.table) {
@@ -3468,6 +3439,41 @@ lineTypeUI <- function(radiocal=3, selection="Narrow"){
         NULL
 
     }
+}
+
+lineStructureUI <- function(radiocal=3, selection="sum"){
+    
+    if(radiocal==0){
+        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+    } else if(radiocal==1){
+        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+    } else if(radiocal==2){
+        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+    } else if(radiocal==3){
+        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+    } else if(radiocal==4){
+        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10){
+        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+    } else if(radiocal==13){
+        NULL
+
+    }
+    
 }
 
 interceptUI <- function(radiocal=3, selection=NULL, elements){

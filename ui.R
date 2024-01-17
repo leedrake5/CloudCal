@@ -237,6 +237,7 @@ actionButton('linecommit', "Confirm Elements"),
 
 tags$hr(),
 uiOutput('linetypeui'),
+uiOutput('linestructureui'),
 conditionalPanel(
 condition='input.dataset === dataHold()',
 uiOutput('checkboxElementsKalpha'),
@@ -359,6 +360,8 @@ sliderInput("randomize", "Set Seed", min=1, max=10000, value=1, step=1),
 uiOutput('inVar2'),
 
 uiOutput('linepreferenceelementui'),
+
+uiOutput('linestructureelementui'),
 
 uiOutput('calTypeInput'),
 

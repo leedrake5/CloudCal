@@ -1569,7 +1569,13 @@ shinyServer(function(input, output, session) {
         
         lineSubset <- reactive({
             req(linevalues[["DF"]], dataHold())
-            xrf_parse(range.table = linevalues[["DF"]], data=dataHold())
+            xrf_parse(range.table = linevalues[["DF"]], data=dataHold(), calculation="sum")
+            
+        })
+        
+        lineSubsetMean <- reactive({
+            req(linevalues[["DF"]], dataHold())
+            xrf_parse(range.table = linevalues[["DF"]], data=dataHold(), calculation="mean")
             
         })
         
@@ -1713,7 +1719,7 @@ shinyServer(function(input, output, session) {
         
         spectraData <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
-            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre())
+            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="sum")
             
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
@@ -1730,7 +1736,7 @@ shinyServer(function(input, output, session) {
         
         wideSpectraData <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
-            line.data <- wideElementFrame(data=dataHold(), elements=elementallinestousepre())
+            line.data <- wideElementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="sum")
             
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
@@ -1739,6 +1745,40 @@ shinyServer(function(input, output, session) {
                 line.data
             } else if(length(table[,1])!=0){
                 merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
+            }
+            
+            merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
+            
+        })
+        
+        spectraDataMean <- reactive({
+            req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
+            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="mean")
+            
+            table <- linevalues[["DF"]]
+            table <- table[complete.cases(table),]
+            
+            the_data <- if(length(table[,1])==0){
+                line.data
+            } else if(length(table[,1])!=0){
+                merge(line.data, lineSubsetMean(), by="Spectrum", all=T, sort=T)
+            }
+            
+            merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
+            
+        })
+        
+        wideSpectraDataMean <- reactive({
+            req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
+            line.data <- wideElementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="mean")
+            
+            table <- linevalues[["DF"]]
+            table <- table[complete.cases(table),]
+            
+            the_data <- if(length(table[,1])==0){
+                line.data
+            } else if(length(table[,1])!=0){
+                merge(line.data, lineSubsetMean(), by="Spectrum", all=T, sort=T)
             }
             
             merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
@@ -1839,7 +1879,24 @@ shinyServer(function(input, output, session) {
             } else if(input$filetype=="Net"){
                 netData()
             }
-            #calMemory$Calibration$Intensities <- calMemory$Calibration$Intensities[,!colnames(calMemory$Calibration$Intensities) %in% names(otherSpectraStuff[,-1])]
+            
+            calMemory$Calibration$IntensitiesMean <- if(input$filetype=="CSV"){
+                spectraDataMean()
+            } else if(input$filetype=="Aggregate CSV File"){
+                spectraDataMean()
+            } else if(input$filetype=="TXT"){
+                spectraDataMean()
+            } else if(input$filetype=="Elio"){
+                spectraDataMean()
+            }  else if(input$filetype=="MCA"){
+                spectraDataMean()
+            }  else if(input$filetype=="SPX"){
+                spectraDataMean()
+            }  else if(input$filetype=="PDZ"){
+                spectraDataMean()
+            } else if(input$filetype=="Net"){
+                netData()
+            }
 
             
             calMemory$Calibration$WideIntensities <- if(input$filetype=="CSV"){
@@ -1859,7 +1916,24 @@ shinyServer(function(input, output, session) {
             } else if(input$filetype=="Net"){
                 netData()
             }
-            #calMemory$Calibration$WideIntensities <- calMemory$Calibration$WideIntensities[,!colnames(calMemory$Calibration$WideIntensities) %in% names(otherSpectraStuff[,-1])]
+            
+            calMemory$Calibration$WideIntensitiesMean <- if(input$filetype=="CSV"){
+                wideSpectraDataMean()
+            } else if(input$filetype=="Aggregate CSV File"){
+                wideSpectraDataMean()
+            } else if(input$filetype=="TXT"){
+                wideSpectraDataMean()
+            } else if(input$filetype=="Elio"){
+                wideSpectraDataMean()
+            }  else if(input$filetype=="MCA"){
+                wideSpectraDataMean()
+            }  else if(input$filetype=="SPX"){
+                wideSpectraDataMean()
+            }  else if(input$filetype=="PDZ"){
+                wideSpectraDataMean()
+            } else if(input$filetype=="Net"){
+                netData()
+            }
             
             calMemory$Calibration$OtherSpectraStuff <- otherSpectraStuff()
         
@@ -2040,7 +2114,11 @@ shinyServer(function(input, output, session) {
 
         
         output$linetypeui <- renderUI({
-            selectInput('linetype', "Choose Line Definition", choices=c("Narrow", "Wide", "Area"), selected=calMemory$Calibration$LinePreference)
+            selectInput('linetype', "Choose Line Definition", choices=c("Narrow", "Wide", "Area"), selected="Narrow")
+        })
+        
+        output$linestructureui <- renderUI({
+            selectInput('linestructure', "Choose Line Calculation", choices=c("mean", "sum"), selected="sum")
         })
 
         
@@ -2497,12 +2575,44 @@ shinyServer(function(input, output, session) {
             
         })
         
+        spectraLineTableMean <- reactive({
+            
+            spectra.line.table <- if(dataType()=="Spectra"){
+                calMemory$Calibration$IntensitiesMean[values[["DF"]]$Include,]
+            }else if(dataType()=="Net"){
+                calMemory$Calibration$IntensitiesMean[values[["DF"]]$Include,]
+            }
+            
+            
+            spectra.line.table <- spectra.line.table[order(as.character(spectra.line.table$Spectrum)),]
+            spectra.line.table <- spectra.line.table[complete.cases(spectra.line.table),]
+            spectra.line.table[ rowSums(spectra.line.table[,-1])!=0, ]
+            
+            
+        })
+        
         spectraLineTableWide <- reactive({
             
             spectra.line.table <- if(dataType()=="Spectra"){
                 calMemory$Calibration$WideIntensities[values[["DF"]]$Include,]
             }else if(dataType()=="Net"){
                 calMemory$Calibration$WideIntensities[values[["DF"]]$Include,]
+            }
+            
+            
+            spectra.line.table <- spectra.line.table[order(as.character(spectra.line.table$Spectrum)),]
+            spectra.line.table <- spectra.line.table[complete.cases(spectra.line.table),]
+            spectra.line.table[ rowSums(spectra.line.table[,-1])!=0, ]
+            
+            
+        })
+        
+        spectraLineTableWideMean <- reactive({
+            
+            spectra.line.table <- if(dataType()=="Spectra"){
+                calMemory$Calibration$WideIntensitiesMean[values[["DF"]]$Include,]
+            }else if(dataType()=="Net"){
+                calMemory$Calibration$WideIntensitiesMean[values[["DF"]]$Include,]
             }
             
             
@@ -2546,9 +2656,17 @@ shinyServer(function(input, output, session) {
             req(input$calcurveelement, concentrationTable(), spectraLineTable())
             
             spectra.line.table <- if(input$linepreferenceelement=="Narrow"){
-                    spectraLineTable()
+                    if(input$linestructureelement=="sum"){
+                        spectraLineTable()
+                    } else if(input$linestructureelement=="mean"){
+                        spectraLineTableMean()
+                    }
                 } else if(input$linepreferenceelement=="Wide"){
-                    spectraLineTableWide()
+                    if(input$linestructureelement=="sum"){
+                        spectraLineTableWide()
+                    } else if(input$linestructureelement=="mean"){
+                        spectraLineTableWideMean()
+                    }
                 } else if(input$linepreferenceelement=="Area"){
                     spectraLineTableDeconvolution()
                 }
@@ -2607,6 +2725,12 @@ shinyServer(function(input, output, session) {
         output$linepreferenceelementui <- renderUI({
             req(input$linetype)
             selectInput('linepreferenceelement', "Choose Line Definition", choices=c("Narrow", "Wide", "Area"), selected=input$linetype)
+            
+        })
+        
+        output$linestructureelementui <- renderUI({
+            req(input$linetype)
+            selectInput('linestructureelement', "Choose Line Calculation", choices=c("mean", "sum"), selected=input$linestructure)
             
         })
         
@@ -14862,7 +14986,7 @@ shinyServer(function(input, output, session) {
                 for (i in names(calExport()$calList)) {
                     openxlsx::addWorksheet(wb=wb, sheetName=i)
                     openxlsx::writeData(wb=wb, sheet=i, x=calExport()$calList[[i]]$Table)
-                    print(calExport()$calList[[i]]$Table)
+                    #print(calExport()$calList[[i]]$Table)
                 }
                 
                 openxlsx::saveWorkbook(wb=wb, file=file)
