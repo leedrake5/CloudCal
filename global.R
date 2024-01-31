@@ -622,14 +622,14 @@ calEvaluationSummary <- cmpfun(calEvaluationSummary)
 
 val.lmsummary <-function(lm.object){
     res<-c(paste(as.character(summary(lm.object)$call),collapse=" "),
-    lm.object$coefficients[1],
-    lm.object$coefficients[2],
-    length(lm.object$model),
-    summary(lm.object)$coefficients[2,2],
-    summary(lm.object)$r.squared,
-    summary(lm.object)$adj.r.squared,
-    summary(lm.object)$fstatistic,
-    pf(summary(lm.object)$fstatistic[1],summary(lm.object)$fstatistic[2],summary(lm.object)$fstatistic[3],lower.tail=FALSE))
+    as.numeric(lm.object$coefficients[1]),
+    as.numeric(lm.object$coefficients[2]),
+    as.numeric(length(lm.object$model)),
+    as.numeric(summary(lm.object)$coefficients[2,2]),
+    as.numeric(summary(lm.object)$r.squared),
+    as.numeric(summary(lm.object)$adj.r.squared),
+    as.numeric(summary(lm.object)$fstatistic),
+    as.numeric(pf(summary(lm.object)$fstatistic[1],summary(lm.object)$fstatistic[2],summary(lm.object)$fstatistic[3],lower.tail=FALSE)))
     names(res)<-c("Call","Intercept","Slope","n","Slope SE","R2","Adj. R2",
     "F-statistic","numdf","dendf","p-value")
     return(res)}
@@ -8231,9 +8231,14 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, cores=1){
     if(cores==1){
         new_spectra_list <- pblapply(spectra_list, deconvolute_complete)
     } else if(cores > 1){
+        num_cores <- if(length(spectra_list) > cores){
+            cores
+        } else if(length(spectra_list) <= cores){
+            length(spectra_list)
+        }
         if(get_os()=="windows"){
             my.cluster <- parallel::makeCluster(
-              cores,
+            num_cores,
               type = "PSOCK"
               )
             doParallel::registerDoParallel(cl = my.cluster)
@@ -8259,17 +8264,13 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, cores=1){
                           )
             )
         } else if(get_os()!="windows"){
-            my.cluster <- parallel::makeCluster(
-              cores,
-              type = "FORK"
-              )
-              doParallel::registerDoParallel(cl = my.cluster)
+            my.cluster <- as.numeric(num_cores)
         }
         #new_spectra_frame <- foreach(i=1:length(spectra_list), .combine="rbind") %dopar% {
             #deconvolute_complete(spectra_list[[i]])
         #}
         new_spectra_list <- pblapply(spectra_list,  deconvolute_complete, cl=my.cluster)
-        parallel::stopCluster(cl = my.cluster)
+        if(get_os()=="windows"){parallel::stopCluster(cl = my.cluster)}
     }
     only_spectra_list <- list()
     only_areas_list <- list()
