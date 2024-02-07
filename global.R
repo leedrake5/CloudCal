@@ -62,76 +62,76 @@ if(get_os()!="linux"){
 #if(packageVersion("ggplot2")!="2.2.1") devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
 
 if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6p0-93p1_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
     } else if ("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
         if(Sys.info()[["machine"]]=="arm64"){
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6p0-93p1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
         } else {
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6p0-93p1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
             }
     } else if ("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6p0-93p1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
     }
 
 if(packageVersion("caret")!="6.0.93.1" && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6p0-93p1_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
     } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="osx"){
         if(Sys.info()[["machine"]]=="arm64"){
-            #tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            #tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6p0-93p1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
         } else {
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6p0-93p1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
             }
     } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="linux"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6p0-93p1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
     }
 
 if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.3_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1p3_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
         if(Sys.info()[["machine"]]=="arm64"){
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.3_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1p3_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
         } else {
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.3_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1p3_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
             }
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.3.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1p3.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     }
 
 if(packageVersion("rPDZ")!="1.3" && get_os()=="windows"){
     remove.packages("rPDZ")
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.3_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1p3_x86_64_win.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     } else if (packageVersion("rPDZ")!="1.3" && get_os()=="osx"){
         if(Sys.info()[["machine"]]=="arm64"){
             remove.packages("rPDZ")
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.3_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1p3_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
         } else {
             remove.packages("rPDZ")
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.3_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1p3_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
             }
     } else if (packageVersion("rPDZ")!="1.3" && get_os()=="linux"){
         remove.packages("rPDZ")
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.3.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1p3.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     }
 
 
 if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0.2.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0p2.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
 } else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0.2.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0p2.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
 } else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0.2.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0p2.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
 }
 
 if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0p0p1p9000.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
     if(Sys.info()[["machine"]]=="arm64"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000_arm64.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0p0p1p9000_arm64.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
     } else {
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0p0p1p9000.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
     }
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0p0p1p9000.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
 }
 
 
@@ -1068,12 +1068,12 @@ black.diamond.melt <- read.csv(file=black.diamond.melt.directory, sep=",")
 
 
 
-elementGrabKalpha <- function(element, data, calculation="sum") {
+elementGaussianKalpha <- function(element, data, method="sum", buffer=0.02) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
+    hold.frame <- data[!(data$Energy < elementLine[6][1,]-buffer | data$Energy > elementLine[5][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1082,28 +1082,53 @@ elementGrabKalpha <- function(element, data, calculation="sum") {
     hold.ag
     
 }
-elementGrabKalpha <- cmpfun(elementGrabKalpha)
+elementGaussianKalpha <- cmpfun(elementGaussianKalpha)
+
+elementSplitKalpha <- function(element, data, method="sum", buffer=0.1) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy <= elementLine[6][1,]-buffer | data$Energy >= elementLine[6][1,]+buffer  | data$Energy >= elementLine[5][1,]+buffer | data$Energy <= elementLine[5][1,]-buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementSplitKalpha <- cmpfun(elementSplitKalpha)
 
 
-elementGrabKbeta <- function(element, data, calculation="sum") {
+elementGrabKalpha <- function(element, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1){
+    if(calculation=="gaussian"){
+        elementGaussianKalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="split"){
+        elementSplitKalpha(element=element, data=data, method="sum", buffer=split_buffer)
+    }
+}
+
+
+elementGaussianKbeta <- function(element, data, method="sum", buffer=0.02) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.cps <- if(elementLine[8][1,]!=0){
-        subset(data$CPS, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))
+        subset(data$CPS, !(data$Energy < elementLine[7][1,]-buffer | data$Energy > elementLine[8][1,]+buffer))
     } else if(elementLine[8][1,]==0){
-        subset(data$CPS, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[7][1,]+0.02))
+        subset(data$CPS, !(data$Energy < elementLine[7][1,]-buffer | data$Energy > elementLine[7][1,]+buffer))
     }
     
     
     hold.file <- if(elementLine[8][1,]!=0){
-        subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[8][1,]+0.02))
+        subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-buffer | data$Energy > elementLine[8][1,]+buffer))
     } else if(elementLine[8][1,]==0){
-            subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-0.02 | data$Energy > elementLine[7][1,]+0.02))
+            subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-buffer | data$Energy > elementLine[7][1,]+buffer))
     }
     hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
     colnames(hold.frame) <- c("CPS", "Spectrum")
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1112,15 +1137,52 @@ elementGrabKbeta <- function(element, data, calculation="sum") {
     hold.ag
     
 }
-elementGrabKbeta <- cmpfun(elementGrabKbeta)
+elementGaussianKbeta <- cmpfun(elementGaussianKbeta)
 
-
-elementGrabLalpha <- function(element, data, calculation="sum") {
+elementSplitKbeta <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy < elementLine[11][1,]-0.02 | data$Energy > elementLine[10][1,]+0.02), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
+    hold.cps <- if(elementLine[8][1,]!=0){
+        subset(data$CPS, !(data$Energy <= elementLine[7][1,]-buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy >= elementLine[8][1,]+buffer | data$Energy <= elementLine[8][1,]-buffer))
+    } else if(elementLine[8][1,]==0){
+        subset(data$CPS, !(data$Energy <= elementLine[7][1,]-buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy <= elementLine[7][1,]-buffer))
+    }
+    
+    
+    hold.file <- if(elementLine[8][1,]!=0){
+        subset(data$Spectrum, !(data$Energy <= elementLine[7][1,]-buffer | data$Energy >= elementLine[7][1,]+buffer| data$Energy >= elementLine[8][1,]+buffer | data$Energy <= elementLine[8][1,]-buffer))
+    } else if(elementLine[8][1,]==0){
+            subset(data$Spectrum, !(data$Energy <= elementLine[7][1,]-buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy <= elementLine[7][1,]-buffer))
+    }
+    hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
+    colnames(hold.frame) <- c("CPS", "Spectrum")
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementSplitKbeta <- cmpfun(elementSplitKbeta)
+
+elementGrabKbeta <- function(element, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1){
+    if(calculation=="gaussian"){
+        elementGaussianKbeta(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="split"){
+        elementSplitKbeta(element=element, data=data, method="sum", buffer=split_bufer)
+    }
+}
+
+
+elementGaussianLalpha <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[11][1,]-buffer | data$Energy > elementLine[10][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=methgod)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1129,15 +1191,40 @@ elementGrabLalpha <- function(element, data, calculation="sum") {
     hold.ag
     
 }
-elementGrabLalpha <- cmpfun(elementGrabLalpha)
+elementGaussianLalpha <- cmpfun(elementGaussianLalpha)
 
-
-elementGrabLbeta <- function(element, data, calculation="sum") {
+elementSplitLalpha <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy < elementLine[12][1,]-0.02 | data$Energy > elementLine[14][1,]+0.02), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
+    hold.frame <- data[!(data$Energy <= elementLine[11][1,]-buffer | data$Energy >= elementLine[11][1,]+buffer | data$Energy >= elementLine[10][1,]+buffer | data$Energy <= elementLine[10][1,]-buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementSplitLalpha <- cmpfun(elementSplitLalpha)
+
+elementGrabLalpha <- function(element, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1){
+    if(calculation=="gaussian"){
+        elementGaussianLalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="split"){
+        elementSplitLalpha(element=element, data=data, method="sum", buffer=split_buffer)
+    }
+}
+elementGrabLalpha <- cmpfun(elementGrabLalpha)
+
+
+elementGaussianLbeta <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[12][1,]-buffer | data$Energy > elementLine[14][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1146,14 +1233,39 @@ elementGrabLbeta <- function(element, data, calculation="sum") {
     hold.ag
     
 }
-elementGrabLbeta <- cmpfun(elementGrabLbeta)
+elementGaussianLbeta <- cmpfun(elementGaussianLbeta)
 
-elementGrabMalpha <- function(element, data, calculation="sum") {
+elementSplitLbeta <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy < elementLine[20][1,]-0.02 | data$Energy > elementLine[22][1,]+0.02), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
+    hold.frame <- data[!(data$Energy <= elementLine[12][1,]-buffer | data$Energy >= elementLine[12][1,]+buffer | data$Energy >= elementLine[14][1,]+buffer | data$Energy <= elementLine[14][1,]-buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementSplitLbeta <- cmpfun(elementSplitLbeta)
+
+elementGrabLbeta <- function(element, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1){
+    if(calculation=="gaussian"){
+        elementGaussianLbeta(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="split"){
+        elementSplitLbeta(element=element, data=data, method="sum", buffer=split_buffer)
+    }
+}
+elementGrabLbeta <- cmpfun(elementGrabLbeta)
+
+elementGaussianMalpha <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[20][1,]-buffer | data$Energy > elementLine[22][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1162,10 +1274,35 @@ elementGrabMalpha <- function(element, data, calculation="sum") {
     hold.ag
     
 }
-elementGrabMalpha <- cmpfun(elementGrabMalpha)
+elementGaussianMalpha <- cmpfun(elementGaussianMalpha)
+
+elementSplitMalpha <- function(element, data, method="sum", buffer=0.1) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy <= elementLine[20][1,]-buffer | data$Energy >= elementLine[20][1,]+buffer | data$Energy >= elementLine[22][1,]+buffer | data$Energy <= elementLine[22][1,]-buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementSplitMalpha <- cmpfun(elementSplitMalpha)
+
+elementSplitMalpha <- function(element, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1){
+    if(calculation=="gaussian"){
+        elementGaussianMalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="split"){
+        elementSplitMalpha(element=element, data=data, method="sum", buffer=split_buffer)
+    }
+}
+elementSplitMalpha <- cmpfun(elementSplitMalpha)
 
 
-elementGrabpre <- function(element.line, data, calculation="mean") {
+elementGrabpre <- function(element.line, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1) {
     
     element.line <- make.names(element.line)
     
@@ -1174,15 +1311,15 @@ elementGrabpre <- function(element.line, data, calculation="mean") {
     distance <- strsplit(x=element.line, split="\\.")[[1]][3]
     
     if(destination=="K" && distance=="alpha"){
-        elementGrabKalpha(element=element, data=data, calculation=calculation)
+        elementGrabKalpha(element=element, data=data, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer)
     } else if(destination=="K" && distance=="beta"){
-        elementGrabKbeta(element=element, data=data, calculation=calculation)
+        elementGrabKbeta(element=element, data=data, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer)
     } else if(destination=="L" && distance=="alpha"){
-        elementGrabLalpha(element=element, data=data, calculation=calculation)
+        elementGrabLalpha(element=element, data=data, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer)
     } else if (destination=="L" && distance=="beta"){
-        elementGrabLbeta(element=element, data=data, calculation=calculation)
+        elementGrabLbeta(element=element, data=data, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer)
     } else if (destination=="M" && distance=="line"){
-        elementGrabMalpha(element=element, data=data, calculation=calculation)
+        elementGrabMalpha(element=element, data=data, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer)
     }
         
 }
@@ -1191,17 +1328,36 @@ elementGrabpre <- cmpfun(elementGrabpre)
 
 
 
-range_subset_xrf <- function(range.frame, data, calculation="mean"){
+range_gaussian_xrf <- function(range.frame, data, method="mean"){
     
     new.data <- subset(data, Energy >= range.frame$EnergyMin & Energy <= range.frame$EnergyMax, drop=TRUE)[,c("Spectrum", "CPS")]
-    newer.data <- aggregate(list(new.data$CPS), by=list(new.data$Spectrum), FUN=calculation, na.rm=TRUE)
+    newer.data <- aggregate(list(new.data$CPS), by=list(new.data$Spectrum), FUN=method, na.rm=TRUE)
     colnames(newer.data) <- c("Spectrum", as.character(range.frame$Name))
     newer.data
+}
+range_gaussian_xrf <- cmpfun(range_gaussian_xrf)
+
+range_split_xrf <- function(range.frame, data, method="mean", buffer=0.1){
+    
+    new.data <- subset(data, Energy >= range.frame$EnergyMin - buffer & Energy <= range.frame$EnergyMin + buffer & Energy <= range.frame$EnergyMax + buffer & Energy >= range.frame$EnergyMax - buffer, drop=TRUE)[,c("Spectrum", "CPS")]
+    newer.data <- aggregate(list(new.data$CPS), by=list(new.data$Spectrum), FUN=method, na.rm=TRUE)
+    colnames(newer.data) <- c("Spectrum", as.character(range.frame$Name))
+    newer.data
+}
+range_split_xrf <- cmpfun(range_split_xrf)
+
+range_subset_xrf <- function(range.frame, data, calculation="gaussian", buffer=0.1){
+    if(calculation=="gaussian"){
+        range_gaussian_xrf(range.frame=range.frame, data=data, method="mean")
+    } else if(calculation=="split"){
+        #range_split_xrf(range.frame=range.frame, data=data, method="mean", buffer=buffer)
+        range_gaussian_xrf(range.frame=range.frame, data=data, method="mean")
+    }
 }
 range_subset_xrf <- cmpfun(range_subset_xrf)
 
 
-xrf_parse <- function(range.table, data, calculation="mean"){
+xrf_parse <- function(range.table, data, calculation="gaussian", buffer=0.1){
     
     choice.lines <- range.table[complete.cases(range.table),]
     
@@ -1210,13 +1366,13 @@ xrf_parse <- function(range.table, data, calculation="mean"){
     
     index <- choice.lines[,"Name"]
     
-    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data, calculation=calculation))
+    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data, calculation=calculation, buffer=buffer))
     
     Reduce(function(...) merge(..., all=T), selected.list)
 }
 xrf_parse <- cmpfun(xrf_parse)
 
-xrf_parse_single <- function(range.table, data, element, calculation="mean"){
+xrf_parse_single <- function(range.table, data, element, calculation="gaussian", buffer=0.1){
     
     choice.lines <- range.table[range.table$Name %in% element,]
     
@@ -1225,7 +1381,7 @@ xrf_parse_single <- function(range.table, data, element, calculation="mean"){
     
     index <- choice.lines[,"Name"]
     
-    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data, calculation=calculation))
+    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data, calculation=calculation, buffer=buffer))
     
     Reduce(function(...) merge(..., all=T), selected.list)
 }
@@ -1233,42 +1389,42 @@ xrf_parse_single <- cmpfun(xrf_parse_single)
 
 
 
-elementGrabPre <- function(element.line, data, range.table=NULL, calculation="sum"){
+elementGrabPre <- function(element.line, data, range.table=NULL, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1, buffer=0.1){
     
     is.element <- element.line %in% spectralLines
     
     if(is.element==TRUE){
-        elementGrabpre(element.line, data, calculation=calculation)
+        elementGrabpre(element.line, data, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer)
     } else if(is.element==FALSE){
-        xrf_parse_single(range.table, data, element.line, calculation=calculation)
+        xrf_parse_single(range.table, data, element.line, calculation=calculation, buffer=buffer)
     }
 
     
 }
 elementGrabPre <- cmpfun(elementGrabPre)
 
-elementGrab <- function(element.line, data, range.table=NULL, calculation="sum"){
+elementGrab <- function(element.line, data, range.table=NULL, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1, buffer=0.1){
     
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
     colnames(error_frame) <- c("Spectrum", element.line)
     
-    tryCatch(elementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation), error=function(e) error_frame)
+    tryCatch(elementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer), error=function(e) error_frame)
     
     
 }
 
 
-elementFrame <- function(data, range.table=NULL, elements, calculation="sum"){
+elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1, buffer=0.1){
     
     spectra.line.list <- if(get_os()=="windows"){
-        lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation))
+        lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer))
     } else if(get_os()!="windows"){
         core.mod <- if(length(elements)>=as.numeric(my.cores)){
             as.numeric(my.cores)
         } else if(length(elements)<as.numeric(my.cores)){
             length(elements)
         }
-        tryCatch(pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation)), error=function(e) lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation)))
+        tryCatch(pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation)), error=function(e) lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)))
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
@@ -1304,7 +1460,7 @@ elementFrame <- function(data, range.table=NULL, elements, calculation="sum"){
 elementFrame <- cmpfun(elementFrame)
 
 
-wideElementGrabLine <- function(element.line, data, calculation="sum") {
+wideElementGaussianLine <- function(element.line, data, method="sum") {
     
     element <- strsplit(x=element.line, split="\\.")[[1]][1]
     destination <- strsplit(x=element.line, split="\\.")[[1]][2]
@@ -1329,7 +1485,7 @@ wideElementGrabLine <- function(element.line, data, calculation="sum") {
     #hold.frame <- data[data$Energy < elementLine[2, emission] && data$Energy > elementLine[1, emission], c("CPS", "Spectrum")]
     hold.frame <- data[!(data$Energy < elementLine[1, emission] | data$Energy > elementLine[2, emission]), c("CPS", "Spectrum")]
     
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=calculation)
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, line, sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1338,36 +1494,81 @@ wideElementGrabLine <- function(element.line, data, calculation="sum") {
     hold.ag
     
 }
+wideElementGaussianLine <- cmpfun(wideElementGaussianLine)
+
+wideElementSplitLine <- function(element.line, data, method="sum", buffer=0.1) {
+    
+    element <- strsplit(x=element.line, split="\\.")[[1]][1]
+    destination <- strsplit(x=element.line, split="\\.")[[1]][2]
+    distance <- strsplit(x=element.line, split="\\.")[[1]][3]
+    
+    line <- paste0(destination, "-", distance)
+    
+    elementLine <- Wide[[element]]
+    
+    emission <- if(line=="K-alpha"){
+        "Ka1"
+    } else if(line=="K-beta"){
+        "Kb1"
+    } else if(line=="L-alpha"){
+        "La1"
+    } else if(line=="L-beta"){
+        "Lb1"
+    } else if(line=="M-line"){
+        "Ma1"
+    }
+    
+    #hold.frame <- data[data$Energy < elementLine[2, emission] && data$Energy > elementLine[1, emission], c("CPS", "Spectrum")]
+    hold.frame <- data[!(data$Energy <= elementLine[1, emission]-buffer | data$Energy >= elementLine[1, emission]+buffer | data$Energy >= elementLine[2, emission]+buffer | data$Energy <= elementLine[2, emission]-buffer), c("CPS", "Spectrum")]
+    
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, line, sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+wideElementSplitLine <- cmpfun(wideElementSplitLine)
+
+wideElementGrabLine <- function(element, data, calculation="gaussian", buffer=0.1){
+    if(calculation=="gaussian"){
+        wideElementGaussianLine(element=element, data=data, method="sum")
+    } else if(calculation=="split"){
+        wideElementSplitLine(element=element, data=data, method="sum", buffer=buffer)
+    }
+}
 wideElementGrabLine <- cmpfun(wideElementGrabLine)
 
-wideElementGrabPre <- function(element.line, data, range.table=NULL, calculation="sum"){
+wideElementGrabPre <- function(element.line, data, range.table=NULL, calculation="gaussian", buffer=0.1){
     
     is.element <- element.line %in% spectralLines
     
     if(is.element==TRUE){
-        wideElementGrabLine(element.line, data, calculation=calculation)
+        wideElementGrabLine(element.line, data, calculation=calculation, buffer=buffer)
     } else if(is.element==FALSE){
-        xrf_parse_single(range.table, data, element.line, calculation=calculation)
+        xrf_parse_single(range.table, data, element.line, calculation=calculation, buffer=buffer)
     }
 
     
 }
 wideElementGrabPre <- cmpfun(wideElementGrabPre)
 
-wideElementGrab <- function(element.line, data, range.table=NULL, calculation="sum"){
+wideElementGrab <- function(element.line, data, range.table=NULL, calculation="gaussian", buffer=0.1){
     
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=NA)
     colnames(error_frame) <- c("Spectrum", element.line)
     
-    tryCatch(wideElementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation), error=function(e) error_frame)
+    tryCatch(wideElementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation, buffer=buffer), error=function(e) error_frame)
     
     
 }
 
-wideElementFrame <- function(data, elements, range.table=NULL, calculation=calculation){
+wideElementFrame <- function(data, elements, range.table=NULL, calculation="gaussian", buffer=0.1){
     
     spectra.line.list <- if(get_os()=="windows"){
-        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation))
+        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, buffer=buffer))
     }else if(get_os()!="windows"){
         core.mod <- if(length(elements)>=as.numeric(my.cores)){
             as.numeric(my.cores)
@@ -1375,7 +1576,7 @@ wideElementFrame <- function(data, elements, range.table=NULL, calculation=calcu
             length(elements)
         }
         #pblapply(cl=core.mod, X=elements, function(x) wideElementGrab(element.line=x, data=data))
-        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation))
+        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, buffer=buffer))
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
@@ -3441,34 +3642,34 @@ lineTypeUI <- function(radiocal=3, selection="Narrow"){
     }
 }
 
-lineStructureUI <- function(radiocal=3, selection="sum"){
+lineStructureUI <- function(radiocal=3, selection="gaussian"){
     
     if(radiocal==0){
-        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+        selectInput("linestructure", "Line Calculation", choices=c("gaussian", "split"), selected=selection)
     } else if(radiocal==1){
-        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+        selectInput("linestructure", "Line Calculation", choices=c("gaussian", "split"), selected=selection)
     } else if(radiocal==2){
-        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+        selectInput("linestructure", "Line Calculation", choices=c("gaussian", "split"), selected=selection)
     } else if(radiocal==3){
-        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+        selectInput("linestructure", "Line Calculation", choices=c("gaussian", "split"), selected=selection)
     } else if(radiocal==4){
-        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+        selectInput("linestructure", "Line Calculation", choices=c("gaussian", "split"), selected=selection)
     }  else if(radiocal==5){
         NULL
     } else if(radiocal==6){
-        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+        selectInput("linestructure", "Line Calculation", choices=c("gaussian", "split"), selected=selection)
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8){
-        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+        selectInput("linestructure", "Line Calculation", choices=c("gaussian", "split"), selected=selection)
     } else if(radiocal==9){
         NULL
     } else if(radiocal==10){
-        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+        selectInput("linestructure", "Line Calculation", choices=c("gaussian", "split"), selected=selection)
     } else if(radiocal==11){
         NULL
     } else if(radiocal==12){
-        selectInput("linestructure", "Line Calculation", choices=c("mean", "sum"), selected=selection)
+        selectInput("linestructure", "Line Calculation", choices=c("gaussian", "split"), selected=selection)
     } else if(radiocal==13){
         NULL
 

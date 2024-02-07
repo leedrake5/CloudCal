@@ -238,6 +238,8 @@ actionButton('linecommit', "Confirm Elements"),
 tags$hr(),
 uiOutput('linetypeui'),
 uiOutput('linestructureui'),
+uiOutput('gausbufferui'),
+uiOutput('splitbufferui'),
 conditionalPanel(
 condition='input.dataset === dataHold()',
 uiOutput('checkboxElementsKalpha'),
@@ -456,7 +458,7 @@ mainPanel(
 tabsetPanel(
 #tabPanel("Testing", dataTableOutput('testingagain')),
 #tabPanel("Testing2", dataTableOutput('weird')),
-#tabPanel("Test", dataTableOutput("holdtest")),
+#tabPanel("Test", dataTableOutput("holdframetest")),
 tabPanel("Cal Curves",
     splitLayout(cellWidths = c("50%", "50%"),
         column(width=12,

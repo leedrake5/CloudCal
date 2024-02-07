@@ -965,7 +965,7 @@ readPDZMetadataProcess <- function(inFile=NULL){
     return(data)
 }
 
-narrowLineTable <- function(spectra, definition.table, elements){
+narrowLineTable <- function(spectra, definition.table, elements, gaus_buffer=0.02){
     
     #not.elements <- elements[!elements %in% spectralLines]
     #elements <- elements[elements %in% spectralLines]
@@ -981,7 +981,7 @@ narrowLineTable <- function(spectra, definition.table, elements){
     #} else if(!is.null(not.line.data)){
         #merge(line.data, not.line.data, by="Spectrum")
     #}
-   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="sum")
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="gaussian", gaus_buffer=gaus_buffer)
    #for(i in elements){
        #if(any(is.na(results[[i]]))){
          # Replace NA/empty values with 0
@@ -991,7 +991,7 @@ narrowLineTable <- function(spectra, definition.table, elements){
    results
 }
 
-narrowLineTableMean <- function(spectra, definition.table, elements){
+narrowLineTableSplit <- function(spectra, definition.table, elements, split_buffer=0.1){
     
     #not.elements <- elements[!elements %in% spectralLines]
     #elements <- elements[elements %in% spectralLines]
@@ -1007,7 +1007,7 @@ narrowLineTableMean <- function(spectra, definition.table, elements){
     #} else if(!is.null(not.line.data)){
         #merge(line.data, not.line.data, by="Spectrum")
     #}
-   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="mean")
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="split", split_buffer=split_buffer)
    #for(i in elements){
        #if(any(is.na(results[[i]]))){
          # Replace NA/empty values with 0
@@ -1034,7 +1034,7 @@ wideLineTable <- function(spectra, definition.table, elements){
     #    merge(line.data, not.line.data, by="Spectrum")
     #}
     
-    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="mean")
+    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="gaussian")
     #for(i in elements){
         #if(any(is.na(results[[i]]))){
           # Replace NA/empty values with 0
@@ -1044,7 +1044,7 @@ wideLineTable <- function(spectra, definition.table, elements){
     results
 }
 
-wideLineTableMean <- function(spectra, definition.table, elements){
+wideLineTableSplit <- function(spectra, definition.table, elements, split_buffer=0.1){
     
     #not.elements <- elements[!elements %in% spectralLines]
     #elements <- elements[elements %in% spectralLines]
@@ -1061,7 +1061,7 @@ wideLineTableMean <- function(spectra, definition.table, elements){
     #    merge(line.data, not.line.data, by="Spectrum")
     #}
     
-    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="mean")
+    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="split", buffer=split_buffer)
     #for(i in elements){
         #if(any(is.na(results[[i]]))){
           # Replace NA/empty values with 0
@@ -1072,7 +1072,7 @@ wideLineTableMean <- function(spectra, definition.table, elements){
 }
 
 ###Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -1087,9 +1087,21 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
     }
     
     line.structure <- if(is.null(line.structure)){
-        "sum"
+        "gaussian"
     } else if(!is.null(line.structure)){
         line.structure
+    }
+    
+    gaus.buffer <- if(is.null(gaus.buffer)){
+        0.02
+    } else if(!is.null(gaus.buffer)){
+        gaus.buffer
+    }
+    
+    split.buffer <- if(is.null(gaus.buffer)){
+        0.1
+    } else if(!is.null(split.buffer)){
+        split.buffer
     }
     
     deconvolution <- if(is.null(deconvolution)){
@@ -1338,6 +1350,8 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
                 CalType=cal.type,
                 LineType=line.type,
                 LineStructure=line.structure,
+                GausBuffer=gaus.buffer,
+                SplitBuffer=split.buffer,
                 Deconvolution=deconvolution,
                 Compress=compress,
                 Transformation=transformation,
@@ -1384,12 +1398,14 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
                 LineType=line.type,
                 LineStructure=line.structure,
+                GausBuffer=gaus.buffer,
+                SplitBuffer=split.buffer,
                 Deconvolution=deconvolution,
                 Compress=compress,
                 Transformation=transformation,
@@ -1453,10 +1469,12 @@ deleteCalConditions <- function(element, number.of.standards){
     cal.condition <- as.numeric(3)
     line.type=as.character("Narrow")
     line.structure <- if(element %in% spectralLines){
-        as.character("sum")
+        as.character("gaussian")
     } else if(!element %in% spectralLines){
-        as.character("mean")
+        as.character("gaussian")
     }
+    gaus.buffer=0.02
+    split.buffer=0.1
     deconvolution="None"
     compress <- as.character("100 eV")
     transformation <- as.character("None")
@@ -1503,6 +1521,8 @@ deleteCalConditions <- function(element, number.of.standards){
     CalType=cal.condition,
     LineType=line.type,
     LineStructure=line.structure,
+    GausBuffer=gaus.buffer,
+    SplitBuffer=split.buffer,
     Deconvolution=deconvolution,
     Compress=compress,
     Transformation=transformation,
@@ -1564,10 +1584,12 @@ defaultCalConditions <- function(element, number.of.standards){
     cal.condition <- as.numeric(3)
     line.type=as.character("Narrow")
     line.structure <- if(element %in% spectralLines){
-        as.character("sum")
+        as.character("gaussian")
     } else if(!element %in% spectralLines){
-        as.character("mean")
+        as.character("gaussian")
     }
+    gaus.buffer=0.02
+    split.buffer=0.1
     deconvolution="None"
     compress <- as.character("100 eV")
     transformation <- as.character("None")
@@ -1614,6 +1636,8 @@ defaultCalConditions <- function(element, number.of.standards){
         CalType=cal.condition,
         LineType=line.type,
         LineStructure=line.structure,
+        GausBuffer=gaus.buffer,
+        SplitBuffer=split.buffer,
         Deconvolution=deconvolution,
         Compress=compress,
         Transformation=transformation,
@@ -1698,6 +1722,18 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
          as.character(imported.cal.conditions$CalTable$LineStructure[1])
     } else if(!"LineStructure" %in% colnames(imported.cal.conditions$CalTable)){
        default.cal.conditions$CalTable$LineStructure
+    }
+    
+    gaus.buffer <- if("GausBuffer" %in% colnames(imported.cal.conditions$CalTable)){
+         as.numeric(imported.cal.conditions$CalTable$GausBuffer[1])
+    } else if(!"GausBuffer" %in% colnames(imported.cal.conditions$CalTable)){
+       default.cal.conditions$CalTable$GausBuffer
+    }
+    
+    split.buffer <- if("SplitBuffer" %in% colnames(imported.cal.conditions$CalTable)){
+         as.numeric(imported.cal.conditions$CalTable$SplitBuffer[1])
+    } else if(!"SplitBuffer" %in% colnames(imported.cal.conditions$CalTable)){
+       default.cal.conditions$CalTable$SplitBuffer
     }
     
     deconvolution <- if("Deconvolution" %in% colnames(imported.cal.conditions$CalTable)){
@@ -2087,6 +2123,8 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         CalType=cal.condition,
         LineType=line.condition,
         LineStructure=line.structure.condition,
+        GausBuffer=gaus.buffer,
+        SplitBuffer=split.buffer,
         Deconvolution=deconvolution,
         Compress=compress.condition,
         Transformation=transformation.condition,
@@ -2161,6 +2199,18 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         as.character(imported.cal.conditions$CalTable$LineStructure[1])
     } else if(!"LineStructure" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$LineStructure
+    }
+    
+    gaus.buffer <- if("GausBuffer" %in% colnames(imported.cal.conditions$CalTable)){
+         as.numeric(imported.cal.conditions$CalTable$GausBuffer[1])
+    } else if(!"GausBuffer" %in% colnames(imported.cal.conditions$CalTable)){
+       default.cal.conditions$CalTable$GausBuffer
+    }
+    
+    split.buffer <- if("SplitBuffer" %in% colnames(imported.cal.conditions$CalTable)){
+         as.numeric(imported.cal.conditions$CalTable$SplitBuffer[1])
+    } else if(!"SplitBuffer" %in% colnames(imported.cal.conditions$CalTable)){
+       default.cal.conditions$CalTable$SplitBuffer
     }
     
     deconvolution <- if("Deconvolution" %in% colnames(imported.cal.conditions$CalTable)){
@@ -2556,6 +2606,8 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     CalType=cal.condition,
     LineType=line.condition,
     LineStructure=line.structure.condition,
+    GausBuffer=gaus.buffer,
+    SplitBuffer=split.buffer,
     Deconvolution=deconvolution,
     Compress=compress.condition,
     Transformation=transformation.condition,
@@ -2774,12 +2826,15 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     
     elements <- names(Calibration$Intensities)[!names(Calibration$Intensities) %in% "Spectrum"]
 
+    if(!"LineDefaults" %in% names(Calibration)){
+        Calibration$LineDefaults <- list(GausBuffer=0.02, SplitBuffer=0.1)
+    }
     
     if(rebuild==TRUE){
-        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
-        Calibration$IntensitiesMean <- narrowLineTableMean(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
+        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
+        Calibration$IntensitiesSplit <- narrowLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer)
         Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
-        Calibration$WideIntensitiesMean <- wideLineTableMean(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
+        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer==Calibration$LineDefaults$SplitBuffer)
     }
     
 
