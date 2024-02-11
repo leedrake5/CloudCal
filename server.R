@@ -576,26 +576,26 @@ shinyServer(function(input, output, session) {
         
     dataHoldDeconvolution <- reactive({
             
-            my.cores.mod <- if(length(unique(dataHold()$Spectrum)) < my.cores){
+            my.cores.mod <- if(length(unique(dataHold()$Spectrum)) < as.numeric(my.cores)){
                 length(unique(dataHold()$Spectrum))
             } else {
-                my.cores
+                as.numeric(my.cores)
             }
             
         if(is.null(input$file1)){
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                 }
-                tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
+                tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=1)), error=function(e) NULL)
             } else if("Deconvoluted" %in% names(calMemory$Calibration)){
                 if("Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                     calMemory$Calibration$Deconvoluted
                 } else if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
-                    tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
+                    tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=1)), error=function(e) NULL)
                 }
             }
         } else if(!is.null(input$file1)){
-            tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), cores=1)), error=function(e) NULL)
+           tryCatch(spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=1))
         }
             
             
@@ -1043,6 +1043,47 @@ shinyServer(function(input, output, session) {
                 NULL
             }
             
+        })
+        
+        
+        output$deconvolutionwidthui <- renderUI({
+            if("Deconvoluted" %in% calMemory$Calibration){
+                deconvolutionWidthUI(selection=calMemory$Calibration$Parameters$Width)
+            } else {
+                deconvolutionWidthUI(selection=5)
+            }
+        })
+        
+        output$deconvolutionalphaui <- renderUI({
+            if("Deconvoluted" %in% calMemory$Calibration){
+                deconvolutionAlphaUI(selection=calMemory$Calibration$Parameters$Alpha)
+            } else {
+                deconvolutionAlphaUI(selection=2.5)
+            }
+        })
+        
+        output$deconvolutiondefaultsigmaui <- renderUI({
+            if("Deconvoluted" %in% calMemory$Calibration){
+                deconvolutionDefaultSigmaUI(selection=calMemory$Calibration$Parameters$DefaultSigma)
+            } else {
+                deconvolutionDefaultSigmaUI(selection=0.07)
+            }
+        })
+        
+        output$deconvolutionsmoothiterui <- renderUI({
+            if("Deconvoluted" %in% calMemory$Calibration){
+                deconvolutionSmoothIterUI(selection=calMemory$Calibration$Parameters$SmoothIter)
+            } else {
+                deconvolutionSmoothIterUI(selection=20)
+            }
+        })
+        
+        output$deconvolutionsnipiterui <- renderUI({
+            if("Deconvoluted" %in% calMemory$Calibration){
+                deconvolutionSnipIterUI(selection=calMemory$Calibration$Parameters$SnipIter)
+            } else {
+                deconvolutionSnipIterUI(selection=20)
+            }
         })
         
             

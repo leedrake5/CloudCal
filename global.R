@@ -3403,6 +3403,28 @@ plot.nnet <- cmpfun(plot.nnet)
 
 ###UI Choices
 
+deconvolutionWidthUI <- function(selection=5){
+    sliderInput('deconvolutionwidth', "Width of Smoothing Window", min=1, max=23, step=2, value=selection)
+}
+
+deconvolutionAlphaUI <- function(selection=2.5){
+    sliderInput('deconvolutionalpha', "Smoothing Window Focus on Center", min=1, max=15, step=0.1, value=selection)
+}
+
+deconvolutionDefaultSigmaUI <- function(selection=0.07){
+    sliderInput('deconvolutiondefaultsigma', "Default Peak Standard Deviation", min=0.01, max=1, step=0.01, value=selection)
+}
+
+deconvolutionSmoothIterUI <- function(selection=20){
+    sliderInput('deconvolutionsmoothiter', "Smoothing Iterations", min=5, max=100, step=1, value=selection)
+}
+
+deconvolutionSnipIterUI <- function(selection=20){
+    sliderInput('deconvolutionsnipiter', "Baseline Snip Iterations", min=5, max=100, step=1, value=selection)
+}
+
+
+
 deconvolutionUI <- function(radiocal=3, selection=NULL){
     
     selection <- if(is.null(selection)){
@@ -8407,7 +8429,7 @@ intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
     return(result_frame)
 }
 
-deconvolute_complete <- function(spectra_frame, energy_max=NULL){
+deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20){
     if(is.null(energy_max)){
         energy_max <- max(spectra_frame$Energy)
     }
@@ -8415,9 +8437,9 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL){
         spectrum_name <- unique(spectra_frame$Spectrum)
         spectra_tibble <- tibble_convert(spectra_frame)
         deconvoluted_spectra_tibble <-spectra_tibble %>%
-            xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = 5), .iter = 20) %>%
-            xrf_add_baseline_snip(.values = .spectra$smooth, iterations = 20) %>%
-            xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = energy_max, peaks = xrf_energies("everything", beam_energy_kev=energy_max))
+            xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = width, alpha = alpha), .iter = smooth_iter) %>%
+            xrf_add_baseline_snip(.values = .spectra$smooth, iterations = snip_iter) %>%
+            xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = energy_max, peaks = xrf_energies("everything", beam_energy_kev=energy_max), default_sigma=default_sigma)
         baseline_spectra <- spectra_frame_baseline_convert(deconvoluted_spectra_tibble)
         deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
         deconvoluted_peaks <- intensity_frame_deconvolution_convert(deconvoluted_spectra_tibble$.deconvolution_peaks[[1]], name=spectrum_name)
@@ -8428,7 +8450,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL){
     
 }
 
-spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, cores=1){
+spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, cores=1){
     spectra_frame$Spectrum <- as.character(spectra_frame$Spectrum)
     spectra_frame$Energy <- as.numeric(spectra_frame$Energy)
     spectra_frame$CPS <- as.numeric(spectra_frame$CPS)
@@ -8436,7 +8458,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, cores=1){
 
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
     if(cores==1){
-        new_spectra_list <- pblapply(spectra_list, deconvolute_complete)
+        new_spectra_list <- pblapply(spectra_list, function(x) deconvolute_complete(spectra_frame=x, energy_max=energy_max, width=width, alpha=alpha, default_sigma=default_sigma, smooth_iter=smooth_iter, snip_iter=snip_iter))
     } else if(cores > 1){
         if(get_os()=="windows"){
             my.cluster <- parallel::makeCluster(
@@ -8466,17 +8488,18 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, cores=1){
                           )
             )
         } else if(get_os()!="windows"){
-            my.cluster <- parallel::makeCluster(
-              cores,
-              type = "FORK"
-              )
-              doParallel::registerDoParallel(cl = my.cluster)
+            #my.cluster <- parallel::makeCluster(
+            #  cores,
+            #  type = "FORK"
+            #  )
+            #  doParallel::registerDoParallel(cl = my.cluster)
+            my.cluster <- as.numeric(cores)
         }
         #new_spectra_frame <- foreach(i=1:length(spectra_list), .combine="rbind") %dopar% {
             #deconvolute_complete(spectra_list[[i]])
         #}
-        new_spectra_list <- pblapply(spectra_list,  deconvolute_complete, cl=my.cluster)
-        parallel::stopCluster(cl = my.cluster)
+        new_spectra_list <- pblapply(spectra_list, function(x) deconvolute_complete(spectra_frame=x, energy_max=energy_max, width=width, alpha=alpha, default_sigma=default_sigma, smooth_iter=smooth_iter, snip_iter=snip_iter), cl=my.cluster)
+        if(get_os()=="windows"){parallel::stopCluster(cl = my.cluster)}
     }
     only_spectra_list <- list()
     only_areas_list <- list()
@@ -8495,7 +8518,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, cores=1){
     if(baseline==FALSE){
         return(list(Spectra=new_spectra_frame, Areas=new_area_frame))
     } else if(baseline==TRUE){
-        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Baseline=new_baseline_frame))
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Baseline=new_baseline_frame, Parameters=list(Width=width, Alpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter)))
     }
     
 }

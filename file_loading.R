@@ -2857,6 +2857,12 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
             }
     }
     
+    if("Deconvoluted" %in% names(Calibration)){
+        if(!"Parameters" %in% names(Calibration$Deconvoluted)){
+            Calibration$Deconvoluted$Parameters <- list(Width=5, Alpha=2.5, DefaultSigma=0.07, SmoothIter=20, SnipIter=20)
+        }
+    }
+    
     Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
         paste0(Calibration[["Notes"]], " Updated on ", Sys.time())
     } else if(is.null(Calibration[["Notes"]])){
