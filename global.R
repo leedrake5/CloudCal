@@ -438,8 +438,16 @@ fluorescence.lines.directory <- if(file.exists("data/FluorescenceLines.csv")){
     "https://raw.githubusercontent.com/leedrake5/CloudCal/master/data/FluorescenceLines.csv"
 }
 
+RDS_from_web <- function(url) {
+  
+  tempFile_location<- tempfile()
+  download.file(url, tempFile_location)
+  b <- readRDS(tempFile_location)
+  file.remove(tempFile_location)
+  b
+}
 ######Load lines
-lineLibrary <- readRDS("data/LineDefinitions.rdata")
+lineLibrary <- tryCatch(readRDS("data/LineDefinitions.rdata"), error=function(e) RDS_from_web("https://github.com/leedrake5/CloudCal/raw/master/data/LineDefinitions.rdata"))
 #temp <- tempfile()
 fluorescence.lines <- lineLibrary$FluorescenceeLines
 Wide <- lineLibrary$Wide
