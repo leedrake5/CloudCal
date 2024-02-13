@@ -18531,7 +18531,9 @@ content = function(file){
         myDeconvolutedValData <- reactive({
             spectra <- myValData()
             
-            deconvolution <- spectra_gls_deconvolute(spectra, cores=1)
+            deconvolution_parameters <- calFileContents2()$Deconvoluted$Parameters
+            
+            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$Width, alpha=deconvolution_parameters$Alpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$Width, alpha=deconvolution_parameters$Alpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1))
             
             deconvolution
             
@@ -18705,9 +18707,7 @@ content = function(file){
         
         myDeconvolutedValDataList <- reactive({
             
-            val.line.table <- tryCatch(spectra_gls_deconvolute(myValData(), cores=1), error=function(e) spectra_gls_deconvolute(myValData(), cores=1))
-            
-            val.line.table
+            myDeconvolutedValData()
 
         })
         
@@ -18759,6 +18759,37 @@ content = function(file){
 
         })
         
+        fullInputValCountsSplit <- reactive({
+            valelements <- calValElements()
+            variableelements <- calVariableElements()
+            val.data <- myValData()
+            other_spectra_stuff <- otherValSpectraStuff()
+            
+            #if(valDataType()=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
+            #if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
+            
+            
+            #if(valDataType()=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
+            
+            #if(valDataType()=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(variableelements))}
+            
+            #if(valDataType()=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
+            
+            #if(valDataType()=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", variableelements)}
+            
+            #if(valDataType()=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
+            
+            #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
+            
+            if(valDataType()=="Spectra"){val.line.table <- narrowLineTableSplit(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements())}
+            
+            
+            if(valDataType()=="Net"){val.line.table <- val.data}
+            
+            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+
+        })
+        
         fullInputValCountsWide <- reactive({
             valelements <- calValElements()
             variableelements <- calVariableElements()
@@ -18782,6 +18813,37 @@ content = function(file){
             #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
             
             if(valDataType()=="Spectra"){val.line.table <-  wideLineTable(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements())}
+
+            
+            if(valDataType()=="Net"){val.line.table <- val.data}
+            
+            if(valDataType()=="Spectra"){merge(val.line.table, otherValSpectraStuff(), by="Spectrum", all=T, sort=T)} else {val.line.table}
+
+        })
+        
+        fullInputValCountsWideSplit <- reactive({
+            valelements <- calValElements()
+            variableelements <- calVariableElements()
+            val.data <- myValData()
+            other_spectra_stuff <- otherValSpectraStuff()
+            
+            #if(valDataType()=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) wideElementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
+            #if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
+            
+            
+            #if(valDataType()=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
+            
+            #if(valDataType()=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(variableelements))}
+            
+            #if(valDataType()=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
+            
+            #if(valDataType()=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", variableelements)}
+            
+            #if(valDataType()=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
+            
+            #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
+            
+            if(valDataType()=="Spectra"){val.line.table <-  wideLineTableSplit(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements())}
 
             
             if(valDataType()=="Net"){val.line.table <- val.data}
@@ -18863,9 +18925,21 @@ content = function(file){
             
         })
         
+        output$myvaltablesplit <- renderDataTable({
+            
+            roundNumericColumns(df= fullInputValCountsSplit(), digits=input$resultrounding2)
+            
+        })
+        
         output$myvaltablewide <- renderDataTable({
             
             roundNumericColumns(df=fullInputValCountsWide(), digits=input$resultrounding2)
+            
+        })
+        
+        output$myvaltablewidesplit <- renderDataTable({
+            
+            roundNumericColumns(df=fullInputValCountsWideSplit(), digits=input$resultrounding2)
             
         })
         
@@ -18883,7 +18957,7 @@ content = function(file){
         
         
         countList <- reactive({
-             list(Narrow=fullInputValCounts(), Wide=fullInputValCountsWide(), Area=fullInputValCountsDeconvoluted())
+             list(Narrow_gaussian=fullInputValCounts(), Wide_gaussian=fullInputValCountsWide(), Narrow_split=fullInputValCountsSplit(), Wide_split=fullInputValCountsWideSplit(), Area_gaussian=fullInputValCountsDeconvoluted(), Area_split=fullInputValCountsDeconvoluted())
         })
         
         #countListDeconvoluted <- reactive({
@@ -18905,8 +18979,7 @@ content = function(file){
                 })
             } else if(input$error=="eqm"){
                 suppressWarnings({
-                    cloudCalPredictErrorEQM(Calibration=calFileContents2(), predictions=cloudCalPredictions(),
-                    count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=4, multiplier=1, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
+                    cloudCalPredictErrorEQM(Calibration=calFileContents2(), predictions=cloudCalPredictions(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=4, multiplier=1, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
                 })
             } else if(input$error=="y hat"){
                 suppressWarnings({
@@ -18974,6 +19047,22 @@ content = function(file){
         content = function(file
         ) {
             write.csv(roundNumericColumns(fullInputValCountsWide(), digits=input$resultrounding2), file)
+        }
+        )
+        
+        output$downloadValDataNarrowSplit <- downloadHandler(
+        filename = function() { paste(input$quantifiedname, "_ValDataNarrowSplit", '.csv', sep='', collapse='') },
+        content = function(file
+        ) {
+            write.csv(roundNumericColumns(fullInputValCountsSplit(), digits=input$resultrounding2), file)
+        }
+        )
+        
+        output$downloadValDataWideSplit <- downloadHandler(
+        filename = function() { paste(input$quantifiedname, "_ValDataWideSplit", '.csv', sep='', collapse='') },
+        content = function(file
+        ) {
+            write.csv(roundNumericColumns(fullInputValCountsWideSplit(), digits=input$resultrounding2), file)
         }
         )
         

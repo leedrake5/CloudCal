@@ -666,6 +666,8 @@ tabPanel('Counts',
 tabsetPanel(
 tabPanel('Narrow', dataTableOutput('myvaltable1'), downloadButton('downloadValDataNarrow', "Download")),
 tabPanel('Wide', dataTableOutput('myvaltablewide'), downloadButton('downloadValDataWide', "Download")),
+tabPanel('NarrowSplit', dataTableOutput('myvaltablesplit'), downloadButton('downloadValDataNarrowSplit', "Download")),
+tabPanel('WideSplit', dataTableOutput('myvaltablewidesplit'), downloadButton('downloadValDataWideSplit', "Download")),
 tabPanel('Deconvoluted', dataTableOutput('myvaltabledeconvoluted'), downloadButton('downloadValDataDeconvoluted', "Download"))
 #tabPanel('Wide Deconvoluted', dataTableOutput('myvaltablewidedeconvoluted'))
 ),uiOutput('rounding2ui')

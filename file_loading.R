@@ -1072,7 +1072,7 @@ wideLineTableSplit <- function(spectra, definition.table, elements, split_buffer
 }
 
 ###Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -1108,6 +1108,36 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
         "None"
     } else if(!is.null(deconvolution)){
         deconvolution
+    }
+    
+    smooth.width <- if(is.null(smooth.width)){
+        5
+    } else if(!is.null(smooth.width)){
+        smooth.width
+    }
+    
+    smooth.alpha <- if(is.null(smooth.alpha)){
+        2.5
+    } else if(!is.null(smooth.alpha)){
+        smooth.alpha
+    }
+    
+    decon.sigma <- if(is.null(decon.sigma)){
+        0.07
+    } else if(!is.null(decon.sigma)){
+        decon.sigma
+    }
+    
+    smooth.iter <- if(is.null(smooth.iter)){
+        20
+    } else if(!is.null(smooth.iter)){
+        smooth.iter
+    }
+    
+    snip.iter <- if(is.null(snip.iter)){
+        20
+    } else if(!is.null(snip.iter)){
+        snip.iter
     }
     
     compress <- if(is.null(compress)){
@@ -1353,6 +1383,11 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
                 GausBuffer=gaus.buffer,
                 SplitBuffer=split.buffer,
                 Deconvolution=deconvolution,
+                DeconvolutionSigma=decon.sigma,
+                SmoothWidth=smooth.width,
+                SmoothAlpha=smooth.alpha,
+                SmoothIter=smooth.iter,
+                SnipIter=snip.iter,
                 Compress=compress,
                 Transformation=transformation,
                 EnergyRange=energy.range,
@@ -1398,7 +1433,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -1407,6 +1442,11 @@ calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL
                 GausBuffer=gaus.buffer,
                 SplitBuffer=split.buffer,
                 Deconvolution=deconvolution,
+                DeconvolutionSigma=decon.sigma,
+                SmoothWidth=smooth.width,
+                SmoothAlpha=smooth.alpha,
+                SmoothIter=smooth.iter,
+                SnipIter=snip.iter,
                 Compress=compress,
                 Transformation=transformation,
                 EnergyRange=energy.range,
@@ -1473,9 +1513,14 @@ deleteCalConditions <- function(element, number.of.standards){
     } else if(!element %in% spectralLines){
         as.character("gaussian")
     }
-    gaus.buffer=0.02
-    split.buffer=0.1
-    deconvolution="None"
+    gaus.buffer <- 0.02
+    split.buffer <- 0.1
+    deconvolution <- "None"
+    decon.sigma <- 0.07
+    smooth.width <- 5
+    smooth.alpha <- 2.5
+    smooth.iter <- 20
+    snip.iter <- 20
     compress <- as.character("100 eV")
     transformation <- as.character("None")
     energy.range <- as.character("0.7-37")
@@ -1591,6 +1636,11 @@ defaultCalConditions <- function(element, number.of.standards){
     gaus.buffer=0.02
     split.buffer=0.1
     deconvolution="None"
+    decon.sigma <- 0.07
+    smooth.width <- 5
+    smooth.alpha <- 2.5
+    smooth.iter <- 20
+    snip.iter <- 20
     compress <- as.character("100 eV")
     transformation <- as.character("None")
     energy.range <- as.character("0.7-37")
@@ -1639,6 +1689,11 @@ defaultCalConditions <- function(element, number.of.standards){
         GausBuffer=gaus.buffer,
         SplitBuffer=split.buffer,
         Deconvolution=deconvolution,
+        DeconvolutionSigma=decon.sigma,
+        SmoothWidth=smooth.width,
+        SmoothAlpha=smooth.alpha,
+        SmoothIter=smooth.iter,
+        SnipIter=snip.iter,
         Compress=compress,
         Transformation=transformation,
         EnergyRange=energy.range,
@@ -1740,6 +1795,36 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         as.character(imported.cal.conditions$CalTable$Deconvolution[1])
     } else if(!"Deconvolution" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Deconvolution
+    }
+    
+    decon.sigma <- if("DeconvolutionSigma" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$DeconvolutionSigma[1])
+    } else if(!"DeconvolutionSigma" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$DeconvolutionSigma
+    }
+    
+    smooth.width <- if("SmoothWidth" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$SmoothWidth[1])
+    } else if(!"SmoothWidth" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$SmoothWidth
+    }
+    
+    smooth.alpha <- if("SmoothAlpha" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$SmoothAlpha[1])
+    } else if(!"SmoothAlpha" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$SmoothAlpha
+    }
+    
+    smooth.iter <- if("SmoothIter" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$SmoothIter[1])
+    } else if(!"SmoothIter" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$SmoothIter
+    }
+    
+    snip.iter <- if("SnipIter" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$SnipIter[1])
+    } else if(!"SnipIter" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$SnipIter
     }
     
     compress.condition <- if("Compress" %in% colnames(imported.cal.conditions$CalTable)){
@@ -2126,6 +2211,11 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         GausBuffer=gaus.buffer,
         SplitBuffer=split.buffer,
         Deconvolution=deconvolution,
+        DeconvolutionSigma=decon.sigma,
+        SmoothWidth=smooth.width,
+        SmoothAlpha=smooth.alpha,
+        SmoothIter=smooth.iter,
+        SnipIter=snip.iter,
         Compress=compress.condition,
         Transformation=transformation.condition,
         EnergyRange=energyrange.condition,
@@ -2217,6 +2307,36 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         as.character(imported.cal.conditions$CalTable$Deconvolution[1])
     } else if(!"Deconvolution" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Deconvolution
+    }
+    
+    decon.sigma <- if("DeconvolutionSigma" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$DeconvolutionSigma[1])
+    } else if(!"DeconvolutionSigma" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$DeconvolutionSigma
+    }
+    
+    smooth.width <- if("SmoothWidth" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$SmoothWidth[1])
+    } else if(!"SmoothWidth" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$SmoothWidth
+    }
+    
+    smooth.alpha <- if("SmoothAlpha" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$SmoothAlpha[1])
+    } else if(!"SmoothAlpha" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$SmoothAlpha
+    }
+    
+    smooth.iter <- if("SmoothIter" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$SmoothIter[1])
+    } else if(!"SmoothIter" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$SmoothIter
+    }
+    
+    snip.iter <- if("SnipIter" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$SnipIter[1])
+    } else if(!"SnipIter" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$SnipIter
     }
     
     compress.condition <- if("Compress" %in% colnames(imported.cal.conditions$CalTable)){
@@ -2609,6 +2729,11 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     GausBuffer=gaus.buffer,
     SplitBuffer=split.buffer,
     Deconvolution=deconvolution,
+    DeconvolutionSigma=decon.sigma,
+    SmoothWidth=smooth.width,
+    SmoothAlpha=smooth.alpha,
+    SmoothIter=smooth.iter,
+    SnipIter=snip.iter,
     Compress=compress.condition,
     Transformation=transformation.condition,
     EnergyRange=energyrange.condition,
