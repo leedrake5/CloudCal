@@ -11165,8 +11165,8 @@ shinyServer(function(input, output, session) {
             xgbGrid <- expand.grid(
             nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
             alpha=elementModel()$bestTune$alpha,
-            eta = elementModel()$bestTune$alpha,
-            lambda = elementModel()$bestTune$alpha
+            eta = elementModel()$bestTune$eta,
+            lambda = elementModel()$bestTune$lambda
             )
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
@@ -11344,8 +11344,8 @@ shinyServer(function(input, output, session) {
             xgbGrid <- expand.grid(
             nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
             alpha=elementModel()$bestTune$alpha,
-            eta = elementModel()$bestTune$alpha,
-            lambda = elementModel()$bestTune$alpha
+            eta = elementModel()$bestTune$eta,
+            lambda = elementModel()$bestTune$lambda
             )
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
@@ -11631,8 +11631,8 @@ shinyServer(function(input, output, session) {
             xgbGrid <- expand.grid(
             nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
             alpha=elementModel()$bestTune$alpha,
-            eta = elementModel()$bestTune$alpha,
-            lambda = elementModel()$bestTune$alpha
+            eta = elementModel()$bestTune$eta,
+            lambda = elementModel()$bestTune$lambda
             )
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
