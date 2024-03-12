@@ -1768,12 +1768,17 @@ shinyServer(function(input, output, session) {
             
         })
         
+        bufferGaus <- reactive({input$gausbuffer})
+        bufferSplit <- reactive({input$splitbuffer})
         
         
         spectraData <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
             
-            buffer <- input$gausbuffer
+            print(paste("gausbuffer:", input$gausbuffer))
+            print(paste("splitbuffer:", input$splitbuffer))
+            
+            buffer <- bufferGaus()
             line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="gaussian", gaus_buffer=buffer)
             
             table <- linevalues[["DF"]]
@@ -1810,7 +1815,7 @@ shinyServer(function(input, output, session) {
         spectraDataSplit <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
 
-            buffer <- input$splitbuffer
+            buffer <- bufferSplit()
             line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="split", split_buffer=buffer)
             
             table <- linevalues[["DF"]]
@@ -1828,7 +1833,7 @@ shinyServer(function(input, output, session) {
         
         wideSpectraDataSplit <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
-            buffer <- input$splitbuffer
+            buffer <- bufferSplit()
             line.data <- wideElementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="split", buffer=buffer)
             
             table <- linevalues[["DF"]]
@@ -1846,9 +1851,9 @@ shinyServer(function(input, output, session) {
         
         spectraDataFirst <- reactive({
             
-            buffer <- input$gausbuffer
+            buffer <- bufferGaus()
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
-            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="first", gaus_buffer=buffer)
+            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="first", gaus_buffer=bufferGaus())
             
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
@@ -1865,7 +1870,7 @@ shinyServer(function(input, output, session) {
         
         spectraDataSecond <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
-            buffer <- input$gausbuffer
+            buffer <- bufferGaus()
             line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="second", gaus_buffer=buffer)
             
             table <- linevalues[["DF"]]
@@ -1955,7 +1960,7 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$linecommit, priority = 2, {
             
-            calMemory$Calibration$LineDefaults <- list(GausBuffer=input$gausbuffer, SplitBuffer=input$splitbuffer)
+            calMemory$Calibration$LineDefaults <- list(GausBuffer=bufferGaus(), SplitBuffer=bufferSplit())
             calMemory$Calibration$Deconvoluted <- dataHoldDeconvolution()
             
             calMemory$Calibration$Intensities <- if(input$filetype=="CSV"){
@@ -1967,7 +1972,7 @@ shinyServer(function(input, output, session) {
             } else if(input$filetype=="Elio"){
                 spectraData()
             }  else if(input$filetype=="MCA"){
-                spectraData()
+                isolate(spectraData())
             }  else if(input$filetype=="SPX"){
                 spectraData()
             }  else if(input$filetype=="PDZ"){

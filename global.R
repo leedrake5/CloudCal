@@ -1517,8 +1517,8 @@ elementSplitMalpha <- function(element, data, calculation="gaussian", gaus_buffe
 elementSplitMalpha <- cmpfun(elementSplitMalpha)
 
 
-standardElementGrab <- function(element.line, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1) {
-    
+standardElementGrab <- function(element.line, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1){
+
     element.line <- make.names(element.line)
     
     element <- strsplit(x=element.line, split="\\.")[[1]][1]
@@ -1639,7 +1639,7 @@ elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian
         } else if(length(elements)<as.numeric(my.cores)){
             length(elements)
         }
-        tryCatch(pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation)), error=function(e) lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)))
+        tryCatch(pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)), error=function(e) lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)))
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
