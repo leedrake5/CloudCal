@@ -407,23 +407,23 @@ shinyServer(function(input, output, session) {
         
         observeEvent(!is.null(input$file1) | !is.null(input$calfileinput), {
             if(is.null(input$calfileinput) && is.null(input$file1)){
-                calMemory$Calibration <- list()
+                calMemory$Calibration <- list(LineDefaults=list(GausBuffer=0.02, SplitBuffer=0.1))
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- calFileContents()
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- calFileContents()
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
-                calMemory$Calibration <- list()
+                calMemory$Calibration <- list(LineDefaults=list(GausBuffer=0.02, SplitBuffer=0.1))
             }
             
             if(is.null(input$calfileinput) && is.null(input$file1)){
-                calMemory$Calibration <- list()
+                calMemory$Calibration <- list(LineDefaults=list(GausBuffer=0.02, SplitBuffer=0.1))
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- defaultCalList(calMemory$Calibration)
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- defaultCalList(calMemory$Calibration, temp=TRUE)
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
-                calMemory$Calibration <- list()
+                calMemory$Calibration <- list(LineDefaults=list(GausBuffer=0.02, SplitBuffer=0.1))
             }
         })
         
@@ -1589,7 +1589,7 @@ shinyServer(function(input, output, session) {
         
         output$gausbufferui <- renderUI({
             
-            sliderInput("gausbuffer", "Narrow Line Thickness", min=0.02, max=1, value=calMemory$Calibration$LineDefaults$GausBuffer)
+            sliderInput("gausbuffer", "Narrow Line Width", min=0.02, max=1, value=calMemory$Calibration$LineDefaults$GausBuffer)
             
         })
         
@@ -1772,7 +1772,9 @@ shinyServer(function(input, output, session) {
         
         spectraData <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
-            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="gaussian", gaus_buffer=input$gausbuffer)
+            
+            buffer <- input$gausbuffer
+            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="gaussian", gaus_buffer=buffer)
             
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
@@ -1789,6 +1791,7 @@ shinyServer(function(input, output, session) {
         
         wideSpectraData <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
+            
             line.data <- wideElementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="gaussian")
             
             table <- linevalues[["DF"]]
@@ -1807,7 +1810,8 @@ shinyServer(function(input, output, session) {
         spectraDataSplit <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
 
-            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="split", split_buffer=input$splitbuffer)
+            buffer <- input$splitbuffer
+            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="split", split_buffer=buffer)
             
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
@@ -1824,8 +1828,45 @@ shinyServer(function(input, output, session) {
         
         wideSpectraDataSplit <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
-
-            line.data <- wideElementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="split", buffer=input$splitbuffer)
+            buffer <- input$splitbuffer
+            line.data <- wideElementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="split", buffer=buffer)
+            
+            table <- linevalues[["DF"]]
+            table <- table[complete.cases(table),]
+            
+            the_data <- if(length(table[,1])==0){
+                line.data
+            } else if(length(table[,1])!=0){
+                merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
+            }
+            
+            merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
+            
+        })
+        
+        spectraDataFirst <- reactive({
+            
+            buffer <- input$gausbuffer
+            req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
+            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="first", gaus_buffer=buffer)
+            
+            table <- linevalues[["DF"]]
+            table <- table[complete.cases(table),]
+            
+            the_data <- if(length(table[,1])==0){
+                line.data
+            } else if(length(table[,1])!=0){
+                merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
+            }
+            
+            merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
+            
+        })
+        
+        spectraDataSecond <- reactive({
+            req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
+            buffer <- input$gausbuffer
+            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="second", gaus_buffer=buffer)
             
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
@@ -1949,6 +1990,42 @@ shinyServer(function(input, output, session) {
                 spectraDataSplit()
             }  else if(input$filetype=="PDZ"){
                 spectraDataSplit()
+            } else if(input$filetype=="Net"){
+                netData()
+            }
+            
+            calMemory$Calibration$IntensitiesFirst <- if(input$filetype=="CSV"){
+                spectraDataFirst()
+            } else if(input$filetype=="Aggregate CSV File"){
+                spectraDataFirst()
+            } else if(input$filetype=="TXT"){
+                spectraDataFirst()
+            } else if(input$filetype=="Elio"){
+                spectraDataFirst()
+            }  else if(input$filetype=="MCA"){
+                spectraDataFirst()
+            }  else if(input$filetype=="SPX"){
+                spectraDataFirst()
+            }  else if(input$filetype=="PDZ"){
+                spectraDataFirst()
+            } else if(input$filetype=="Net"){
+                netData()
+            }
+            
+            calMemory$Calibration$IntensitiesSecond <- if(input$filetype=="CSV"){
+                spectraDataSecond()
+            } else if(input$filetype=="Aggregate CSV File"){
+                spectraDataSecond()
+            } else if(input$filetype=="TXT"){
+                spectraDataSecond()
+            } else if(input$filetype=="Elio"){
+                spectraDataSecond()
+            }  else if(input$filetype=="MCA"){
+                spectraDataSecond()
+            }  else if(input$filetype=="SPX"){
+                spectraDataSecond()
+            }  else if(input$filetype=="PDZ"){
+                spectraDataSecond()
             } else if(input$filetype=="Net"){
                 netData()
             }
@@ -2108,6 +2185,62 @@ shinyServer(function(input, output, session) {
             full
         })
         
+        tableSplitInput <- reactive({
+            
+            elements <- elementallinestouse()
+            
+            
+            select.line.table <- calMemory$Calibration$IntensitiesSplit
+            
+            rounded <- round(select.line.table[,c(elements, "Baseline", "Total")], digits=0)
+            full <- data.frame(select.line.table$Spectrum, rounded)
+            colnames(full) <- c("Spectrum", elements, "Baseline", "Total")
+            
+            full
+        })
+        
+        wideSplitTableInput <- reactive({
+            
+            elements <- elementallinestouse()
+            
+            
+            select.line.table <- calMemory$Calibration$WideIntensitiesSplit
+            
+            rounded <- round(select.line.table[,c(elements, "Baseline", "Total")], digits=0)
+            full <- data.frame(select.line.table$Spectrum, rounded)
+            colnames(full) <- c("Spectrum", elements, "Baseline", "Total")
+            
+            full
+        })
+        
+        tableFirstInput <- reactive({
+            
+            elements <- elementallinestouse()
+            
+            
+            select.line.table <- calMemory$Calibration$IntensitiesFirst
+            
+            rounded <- round(select.line.table[,c(elements, "Baseline", "Total")], digits=0)
+            full <- data.frame(select.line.table$Spectrum, rounded)
+            colnames(full) <- c("Spectrum", elements, "Baseline", "Total")
+            
+            full
+        })
+        
+        tableSecondInput <- reactive({
+            
+            elements <- elementallinestouse()
+            
+            
+            select.line.table <- calMemory$Calibration$IntensitiesSecond
+            
+            rounded <- round(select.line.table[,c(elements, "Baseline", "Total")], digits=0)
+            full <- data.frame(select.line.table$Spectrum, rounded)
+            colnames(full) <- c("Spectrum", elements, "Baseline", "Total")
+            
+            full
+        })
+        
         tableInputDeconvoluted <- reactive({
             
             elements <- colnames(calMemory$Calibration$Deconvoluted$Areas)[-1]
@@ -2154,6 +2287,38 @@ shinyServer(function(input, output, session) {
             
         })
         
+        output$mytablesplit1 <- renderDataTable({
+            
+            base.table <- tableSplitInput()[,-1]
+            rownames(base.table) <- tableSplitInput()$Spectrum
+            base.table
+            
+        })
+        
+        output$mytablefirst <- renderDataTable({
+            
+            base.table <- tableFirstInput()[,-1]
+            rownames(base.table) <- tableSplitInput()$Spectrum
+            base.table
+            
+        })
+        
+        output$mytablesecond <- renderDataTable({
+            
+            base.table <- tableSecondInput()[,-1]
+            rownames(base.table) <- tableSplitInput()$Spectrum
+            base.table
+            
+        })
+        
+        output$mytablesplit2 <- renderDataTable({
+            
+            base.table <- wideSplitTableInput()[,-1]
+            rownames(base.table) <- wideSplitTableInput()$Spectrum
+            base.table
+            
+        })
+        
         output$mytable3 <- renderDataTable({
             
             base.table <- tableInputDeconvoluted()[,-1]
@@ -2161,6 +2326,8 @@ shinyServer(function(input, output, session) {
             base.table
             
         })
+        
+        
         
         #output$mytable4 <- renderDataTable({
             
@@ -2177,7 +2344,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$linestructureui <- renderUI({
-            selectInput('linestructure', "Choose Line Calculation", choices=c("gaussian", "split"), selected="gaussian")
+            selectInput('linestructure', "Choose Line Calculation", choices=c("gaussian", "split", "first", "second"), selected="gaussian")
         })
 
         
@@ -2250,8 +2417,27 @@ shinyServer(function(input, output, session) {
 
         })
         
+        lineSplitTableForDownload <- reactive({
+            calMemory$Calibration$IntensitiesSplit[,c("Spectrum", elementallinestouse(), "Baseline", "Total")]
+
+        })
+        
+        lineFirstTableForDownload <- reactive({
+            calMemory$Calibration$IntensitiesFirst[,c("Spectrum", elementallinestouse(), "Baseline", "Total")]
+
+        })
+        
+        lineSecondableForDownload <- reactive({
+            calMemory$Calibration$IntensitiesSecond[,c("Spectrum", elementallinestouse(), "Baseline", "Total")]
+
+        })
+        
         wideLineTableForDownload <- reactive({
             calMemory$Calibration$WideIntensities[,c("Spectrum", elementallinestouse(), "Baseline", "Total")]
+        })
+        
+        wideSplitLineTableForDownload <- reactive({
+            calMemory$Calibration$WideIntensitiesSplit[,c("Spectrum", elementallinestouse(), "Baseline", "Total")]
         })
         
         output$download_covarlines <- downloadHandler(
@@ -2270,11 +2456,43 @@ shinyServer(function(input, output, session) {
         }
         )
         
+        output$downloadSplitData <- downloadHandler(
+        filename = function() { paste0(input$calname, "_NarrowSplitIntensityTable", '.csv') },
+        content = function(file
+        ) {
+            write.csv(lineSplitTableForDownload(), file)
+        }
+        )
+        
+        output$downloadFirstData <- downloadHandler(
+        filename = function() { paste0(input$calname, "_NarrowFirstIntensityTable", '.csv') },
+        content = function(file
+        ) {
+            write.csv(lineFirstTableForDownload(), file)
+        }
+        )
+        
+        output$downloadSecondData <- downloadHandler(
+        filename = function() { paste0(input$calname, "_NarrowSecondIntensityTable", '.csv') },
+        content = function(file
+        ) {
+            write.csv(lineSecondTableForDownload(), file)
+        }
+        )
+        
         output$downloadWideData <- downloadHandler(
         filename = function() { paste0(input$calname, "_WideIntensityTable", '.csv') },
         content = function(file
         ) {
             write.csv(wideLineTableForDownload(), file)
+        }
+        )
+        
+        output$downloadSplitWideData <- downloadHandler(
+        filename = function() { paste0(input$calname, "_SplitWideIntensityTable", '.csv') },
+        content = function(file
+        ) {
+            write.csv(wideSplitLineTableForDownload(), file)
         }
         )
         
@@ -2719,12 +2937,18 @@ shinyServer(function(input, output, session) {
                         calMemory$Calibration$Intensities
                     } else if(input$linestructureelement=="split"){
                         calMemory$Calibration$IntensitiesSplit
+                    } else if(input$linestructureelement=="first"){
+                        calMemory$Calibration$IntensitiesFirst
+                    } else if(input$linestructureelement=="second"){
+                        calMemory$Calibration$IntensitiesSecond
                     }
                 } else if(input$linepreferenceelement=="Wide"){
                     if(input$linestructureelement=="gaussian"){
                         calMemory$Calibration$WideIntensities
                     } else if(input$linestructureelement=="split"){
                         calMemory$Calibration$WideIntensitiesSplit
+                    } else {
+                        calMemory$Calibration$WideIntensities
                     }
                 } else if(input$linepreferenceelement=="Area"){
                     spectraLineTableDeconvolution()
@@ -2789,7 +3013,7 @@ shinyServer(function(input, output, session) {
         
         output$linestructureelementui <- renderUI({
             req(input$linetype)
-            selectInput('linestructureelement', "Choose Line Calculation", choices=c("gaussian", "split"), selected=input$linestructure)
+            selectInput('linestructureelement', "Choose Line Calculation", choices=c("gaussian", "split", "first", "second"), selected=input$linestructure)
             
         })
         
@@ -18759,6 +18983,68 @@ content = function(file){
 
         })
         
+        fullInputValCountsFirst <- reactive({
+            valelements <- calValElements()
+            variableelements <- calVariableElements()
+            val.data <- myValData()
+            other_spectra_stuff <- otherValSpectraStuff()
+            
+            #if(valDataType()=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
+            #if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
+            
+            
+            #if(valDataType()=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
+            
+            #if(valDataType()=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(variableelements))}
+            
+            #if(valDataType()=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
+            
+            #if(valDataType()=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", variableelements)}
+            
+            #if(valDataType()=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
+            
+            #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
+            
+            if(valDataType()=="Spectra"){val.line.table <- narrowLineTableFirst(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements())}
+            
+            
+            if(valDataType()=="Net"){val.line.table <- val.data}
+            
+            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+
+        })
+        
+        fullInputValCountsSecond <- reactive({
+            valelements <- calValElements()
+            variableelements <- calVariableElements()
+            val.data <- myValData()
+            other_spectra_stuff <- otherValSpectraStuff()
+            
+            #if(valDataType()=="Spectra"){spectra.line.list <- lapply(variableelements, function(x) elementGrab(element.line=x, data=val.data, range.table=calDefinitions()))}
+            #if(valDataType()=="Spectra"){element.count.list <- lapply(spectra.line.list, `[`, 2)}
+            
+            
+            #if(valDataType()=="Spectra"){spectra.line.vector <- as.numeric(unlist(element.count.list))}
+            
+            #if(valDataType()=="Spectra"){dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(variableelements))}
+            
+            #if(valDataType()=="Spectra"){spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector)}
+            
+            #if(valDataType()=="Spectra"){colnames(spectra.line.frame) <- c("Spectrum", variableelements)}
+            
+            #if(valDataType()=="Spectra"){spectra.line.frame <- as.data.frame(spectra.line.frame)}
+            
+            #if(valDataType()=="Spectra"){val.line.table <- spectra.line.frame[c("Spectrum", variableelements)]}
+            
+            if(valDataType()=="Spectra"){val.line.table <- narrowLineTableSecond(spectra=val.data, definition.table=calFileContents2()$Definitions, elements=calVariableElements())}
+            
+            
+            if(valDataType()=="Net"){val.line.table <- val.data}
+            
+            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+
+        })
+        
         fullInputValCountsSplit <- reactive({
             valelements <- calValElements()
             variableelements <- calVariableElements()
@@ -18957,7 +19243,19 @@ content = function(file){
         
         
         countList <- reactive({
-             list(Narrow_gaussian=fullInputValCounts(), Wide_gaussian=fullInputValCountsWide(), Narrow_split=fullInputValCountsSplit(), Wide_split=fullInputValCountsWideSplit(), Area_gaussian=fullInputValCountsDeconvoluted(), Area_split=fullInputValCountsDeconvoluted())
+             list(Narrow_gaussian=fullInputValCounts(),
+                 Narrow_split=fullInputValCountsSplit(),
+                 Narrow_first=fullInputValCountsFirst(),
+                 Narrow_second=fullInputValCountsSecond(),
+                 Wide_gaussian=fullInputValCountsWide(),
+                 Wide_split=fullInputValCountsWideSplit(),
+                 Wide_first=fullInputValCountsWide(),
+                 Wide_second=fullInputValCountsWide(),
+                 Area_gaussian=fullInputValCountsDeconvoluted(),
+                 Area_split=fullInputValCountsDeconvoluted(),
+                 Area_first=fullInputValCountsDeconvoluted(),
+                 Area_second=fullInputValCountsDeconvoluted()
+                 )
         })
         
         #countListDeconvoluted <- reactive({

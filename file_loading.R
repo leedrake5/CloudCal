@@ -1037,6 +1037,58 @@ narrowLineTable <- function(spectra, definition.table, elements, gaus_buffer=0.0
    results
 }
 
+narrowLineTableFirst <- function(spectra, definition.table, elements, gaus_buffer=0.02){
+    
+    #not.elements <- elements[!elements %in% spectralLines]
+    #elements <- elements[elements %in% spectralLines]
+    #line.data <- elementFrame(data=spectra, elements=elements)
+
+    
+    #definition.table <- definition.table[complete.cases(definition.table),]
+    #not.line.data <- tryCatch(xrf_parse(range.table = definition.table, data=spectra), error=function(e) NULL)
+
+    
+    #if(is.null(not.line.data)){
+        #line.data
+    #} else if(!is.null(not.line.data)){
+        #merge(line.data, not.line.data, by="Spectrum")
+    #}
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="first", gaus_buffer=gaus_buffer)
+   #for(i in elements){
+       #if(any(is.na(results[[i]]))){
+         # Replace NA/empty values with 0
+         #results[[i]][is.na(results[[i]])] <- 0
+       #}
+   #}
+   results
+}
+
+narrowLineTableSecond <- function(spectra, definition.table, elements, gaus_buffer=0.02){
+    
+    #not.elements <- elements[!elements %in% spectralLines]
+    #elements <- elements[elements %in% spectralLines]
+    #line.data <- elementFrame(data=spectra, elements=elements)
+
+    
+    #definition.table <- definition.table[complete.cases(definition.table),]
+    #not.line.data <- tryCatch(xrf_parse(range.table = definition.table, data=spectra), error=function(e) NULL)
+
+    
+    #if(is.null(not.line.data)){
+        #line.data
+    #} else if(!is.null(not.line.data)){
+        #merge(line.data, not.line.data, by="Spectrum")
+    #}
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="second", gaus_buffer=gaus_buffer)
+   #for(i in elements){
+       #if(any(is.na(results[[i]]))){
+         # Replace NA/empty values with 0
+         #results[[i]][is.na(results[[i]])] <- 0
+       #}
+   #}
+   results
+}
+
 narrowLineTableSplit <- function(spectra, definition.table, elements, split_buffer=0.1){
     
     #not.elements <- elements[!elements %in% spectralLines]

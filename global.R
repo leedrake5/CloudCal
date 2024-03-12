@@ -1092,11 +1092,43 @@ elementGaussianKalpha <- function(element, data, method="sum", buffer=0.02) {
 }
 elementGaussianKalpha <- cmpfun(elementGaussianKalpha)
 
+elementFirstKalpha <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[5][1,]-buffer | data$Energy > elementLine[5][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementFirstKalpha <- cmpfun(elementFirstKalpha)
+
+elementSecondKalpha <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[6][1,]-buffer | data$Energy > elementLine[6][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementSecondKalpha <- cmpfun(elementSecondKalpha)
+
 elementSplitKalpha <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy <= elementLine[6][1,]-buffer | data$Energy >= elementLine[6][1,]+buffer  | data$Energy >= elementLine[5][1,]+buffer | data$Energy <= elementLine[5][1,]-buffer), c("CPS", "Spectrum")]
+    hold.frame <- data[((data$Energy >= elementLine[6][1,]-buffer & data$Energy <= elementLine[6][1,]+buffer) | (data$Energy >= elementLine[5][1,]-buffer & data$Energy <= elementLine[5][1,]+buffer)), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
@@ -1114,6 +1146,10 @@ elementGrabKalpha <- function(element, data, calculation="gaussian", gaus_buffer
         elementGaussianKalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
     } else if(calculation=="split"){
         elementSplitKalpha(element=element, data=data, method="sum", buffer=split_buffer)
+    } else if(calculation=="first"){
+        elementFirstKalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="second"){
+        elementSecondKalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
     }
 }
 
@@ -1147,12 +1183,71 @@ elementGaussianKbeta <- function(element, data, method="sum", buffer=0.02) {
 }
 elementGaussianKbeta <- cmpfun(elementGaussianKbeta)
 
+elementFirstKbeta <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.cps <- if(elementLine[8][1,]!=0){
+        subset(data$CPS, !(data$Energy < elementLine[7][1,]-buffer | data$Energy > elementLine[7][1,]+buffer))
+    } else if(elementLine[8][1,]==0){
+        subset(data$CPS, !(data$Energy < elementLine[7][1,]-buffer | data$Energy > elementLine[7][1,]+buffer))
+    }
+    
+    
+    hold.file <- if(elementLine[8][1,]!=0){
+        subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-buffer | data$Energy > elementLine[7][1,]+buffer))
+    } else if(elementLine[8][1,]==0){
+            subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-buffer | data$Energy > elementLine[7][1,]+buffer))
+    }
+    hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
+    colnames(hold.frame) <- c("CPS", "Spectrum")
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementFirstKbeta <- cmpfun(elementFirstKbeta)
+
+elementSecondKbeta <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.cps <- if(elementLine[8][1,]!=0){
+        subset(data$CPS, !(data$Energy < elementLine[8][1,]-buffer | data$Energy > elementLine[8][1,]+buffer))
+    } else if(elementLine[8][1,]==0){
+        subset(data$CPS, !(data$Energy < elementLine[7][1,]-buffer | data$Energy > elementLine[7][1,]+buffer))
+    }
+    
+    
+    hold.file <- if(elementLine[8][1,]!=0){
+        subset(data$Spectrum, !(data$Energy < elementLine[8][1,]-buffer | data$Energy > elementLine[8][1,]+buffer))
+    } else if(elementLine[8][1,]==0){
+            subset(data$Spectrum, !(data$Energy < elementLine[7][1,]-buffer | data$Energy > elementLine[7][1,]+buffer))
+    }
+    hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
+    colnames(hold.frame) <- c("CPS", "Spectrum")
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementSecondKbeta <- cmpfun(elementSecondKbeta)
+
+
 elementSplitKbeta <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.cps <- if(elementLine[8][1,]!=0){
-        subset(data$CPS, !(data$Energy <= elementLine[7][1,]-buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy >= elementLine[8][1,]+buffer | data$Energy <= elementLine[8][1,]-buffer))
+        subset(data$CPS, !(data$Energy <= elementLine[7][1,]-buffer & data$Energy >= elementLine[7][1,]+buffer | data$Energy >= elementLine[8][1,]+buffer & data$Energy <= elementLine[8][1,]-buffer))
     } else if(elementLine[8][1,]==0){
         subset(data$CPS, !(data$Energy <= elementLine[7][1,]-buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy <= elementLine[7][1,]-buffer))
     }
@@ -1181,6 +1276,10 @@ elementGrabKbeta <- function(element, data, calculation="gaussian", gaus_buffer=
         elementGaussianKbeta(element=element, data=data, method="sum", buffer=gaus_buffer)
     } else if(calculation=="split"){
         elementSplitKbeta(element=element, data=data, method="sum", buffer=split_bufer)
+    } else if(calculation=="first"){
+        elementFirstKbeta(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="second"){
+        elementSecondKbeta(element=element, data=data, method="sum", buffer=gaus_buffer)
     }
 }
 
@@ -1201,11 +1300,43 @@ elementGaussianLalpha <- function(element, data, method="sum", buffer=0.02) {
 }
 elementGaussianLalpha <- cmpfun(elementGaussianLalpha)
 
+elementFirstLalpha <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[10][1,]-buffer | data$Energy > elementLine[10][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=methgod)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementFirstLalpha <- cmpfun(elementFirstLalpha)
+
+elementSecondLalpha <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[11][1,]-buffer | data$Energy > elementLine[11][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=methgod)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementSecondLalpha <- cmpfun(elementSecondLalpha)
+
 elementSplitLalpha <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy <= elementLine[11][1,]-buffer | data$Energy >= elementLine[11][1,]+buffer | data$Energy >= elementLine[10][1,]+buffer | data$Energy <= elementLine[10][1,]-buffer), c("CPS", "Spectrum")]
+    hold.frame <- data[!(data$Energy <= elementLine[11][1,]-buffer & data$Energy >= elementLine[11][1,]+buffer | data$Energy >= elementLine[10][1,]+buffer & data$Energy <= elementLine[10][1,]-buffer), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
@@ -1222,6 +1353,10 @@ elementGrabLalpha <- function(element, data, calculation="gaussian", gaus_buffer
         elementGaussianLalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
     } else if(calculation=="split"){
         elementSplitLalpha(element=element, data=data, method="sum", buffer=split_buffer)
+    } else if(calculation=="first"){
+        elementFirstLalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="second"){
+        elementSecondLalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
     }
 }
 elementGrabLalpha <- cmpfun(elementGrabLalpha)
@@ -1243,11 +1378,43 @@ elementGaussianLbeta <- function(element, data, method="sum", buffer=0.02) {
 }
 elementGaussianLbeta <- cmpfun(elementGaussianLbeta)
 
+elementFirstLbeta <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[12][1,]-buffer | data$Energy > elementLine[12][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementFirstLbeta <- cmpfun(elementFirstLbeta)
+
+elementSecondLbeta <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[14][1,]-buffer | data$Energy > elementLine[14][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementSecondLbeta <- cmpfun(elementSecondLbeta)
+
 elementSplitLbeta <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy <= elementLine[12][1,]-buffer | data$Energy >= elementLine[12][1,]+buffer | data$Energy >= elementLine[14][1,]+buffer | data$Energy <= elementLine[14][1,]-buffer), c("CPS", "Spectrum")]
+    hold.frame <- data[!(data$Energy <= elementLine[12][1,]-buffer & data$Energy >= elementLine[12][1,]+buffer | data$Energy >= elementLine[14][1,]+buffer & data$Energy <= elementLine[14][1,]-buffer), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
@@ -1264,6 +1431,10 @@ elementGrabLbeta <- function(element, data, calculation="gaussian", gaus_buffer=
         elementGaussianLbeta(element=element, data=data, method="sum", buffer=gaus_buffer)
     } else if(calculation=="split"){
         elementSplitLbeta(element=element, data=data, method="sum", buffer=split_buffer)
+    } else if(calculation=="first"){
+        elementFirstLbeta(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="second"){
+        elementSecondLbeta(element=element, data=data, method="sum", buffer=gaus_buffer)
     }
 }
 elementGrabLbeta <- cmpfun(elementGrabLbeta)
@@ -1284,11 +1455,43 @@ elementGaussianMalpha <- function(element, data, method="sum", buffer=0.02) {
 }
 elementGaussianMalpha <- cmpfun(elementGaussianMalpha)
 
+elementFirstMalpha <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[20][1,]-buffer | data$Energy > elementLine[20][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementFirstMalpha <- cmpfun(elementFirstMalpha)
+
+elementSecondMalpha <- function(element, data, method="sum", buffer=0.02) {
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
+    
+    hold.frame <- data[!(data$Energy < elementLine[22][1,]-buffer | data$Energy > elementLine[22][1,]+buffer), c("CPS", "Spectrum")]
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+elementSecondMalpha <- cmpfun(elementSecondMalpha)
+
 elementSplitMalpha <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy <= elementLine[20][1,]-buffer | data$Energy >= elementLine[20][1,]+buffer | data$Energy >= elementLine[22][1,]+buffer | data$Energy <= elementLine[22][1,]-buffer), c("CPS", "Spectrum")]
+    hold.frame <- data[!(data$Energy <= elementLine[20][1,]-buffer & data$Energy >= elementLine[20][1,]+buffer | data$Energy >= elementLine[22][1,]+buffer & data$Energy <= elementLine[22][1,]-buffer), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
@@ -1305,12 +1508,16 @@ elementSplitMalpha <- function(element, data, calculation="gaussian", gaus_buffe
         elementGaussianMalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
     } else if(calculation=="split"){
         elementSplitMalpha(element=element, data=data, method="sum", buffer=split_buffer)
+    } else if(calculation=="first"){
+        elementFirstMalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="second"){
+        elementSecondMalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
     }
 }
 elementSplitMalpha <- cmpfun(elementSplitMalpha)
 
 
-elementGrabpre <- function(element.line, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1) {
+standardElementGrab <- function(element.line, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1) {
     
     element.line <- make.names(element.line)
     
@@ -1331,7 +1538,7 @@ elementGrabpre <- function(element.line, data, calculation="gaussian", gaus_buff
     }
         
 }
-elementGrabpre <- cmpfun(elementGrabpre)
+standardElementGrab <- cmpfun(standardElementGrab)
 
 
 
@@ -1402,7 +1609,7 @@ elementGrabPre <- function(element.line, data, range.table=NULL, calculation="ga
     is.element <- element.line %in% spectralLines
     
     if(is.element==TRUE){
-        elementGrabpre(element.line, data, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer)
+        standardElementGrab(element.line, data, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer)
     } else if(is.element==FALSE){
         xrf_parse_single(range.table, data, element.line, calculation=calculation, buffer=buffer)
     }
@@ -1504,6 +1711,42 @@ wideElementGaussianLine <- function(element.line, data, method="sum") {
 }
 wideElementGaussianLine <- cmpfun(wideElementGaussianLine)
 
+wideElementGaussianLine <- function(element.line, data, method="sum") {
+    
+    element <- strsplit(x=element.line, split="\\.")[[1]][1]
+    destination <- strsplit(x=element.line, split="\\.")[[1]][2]
+    distance <- strsplit(x=element.line, split="\\.")[[1]][3]
+    
+    line <- paste0(destination, "-", distance)
+    
+    elementLine <- Wide[[element]]
+    
+    emission <- if(line=="K-alpha"){
+        "Ka1"
+    } else if(line=="K-beta"){
+        "Kb1"
+    } else if(line=="L-alpha"){
+        "La1"
+    } else if(line=="L-beta"){
+        "Lb1"
+    } else if(line=="M-line"){
+        "Ma1"
+    }
+    
+    #hold.frame <- data[data$Energy < elementLine[2, emission] && data$Energy > elementLine[1, emission], c("CPS", "Spectrum")]
+    hold.frame <- data[!(data$Energy < elementLine[1, emission] | data$Energy > elementLine[2, emission]), c("CPS", "Spectrum")]
+    
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    colnames(hold.ag) <- c("Spectrum", paste(element, line, sep=" "))
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
+    hold.ag
+    
+}
+wideElementGaussianLine <- cmpfun(wideElementGaussianLine)
+
 wideElementSplitLine <- function(element.line, data, method="sum", buffer=0.1) {
     
     element <- strsplit(x=element.line, split="\\.")[[1]][1]
@@ -1527,7 +1770,7 @@ wideElementSplitLine <- function(element.line, data, method="sum", buffer=0.1) {
     }
     
     #hold.frame <- data[data$Energy < elementLine[2, emission] && data$Energy > elementLine[1, emission], c("CPS", "Spectrum")]
-    hold.frame <- data[!(data$Energy <= elementLine[1, emission]-buffer | data$Energy >= elementLine[1, emission]+buffer | data$Energy >= elementLine[2, emission]+buffer | data$Energy <= elementLine[2, emission]-buffer), c("CPS", "Spectrum")]
+    hold.frame <- data[!(data$Energy <= elementLine[1, emission]-buffer & data$Energy >= elementLine[1, emission]+buffer | data$Energy >= elementLine[2, emission]+buffer & data$Energy <= elementLine[2, emission]-buffer), c("CPS", "Spectrum")]
     
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, line, sep=" "))
@@ -5829,12 +6072,18 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
     if(is.null(count.list)){
         count.list <- list(
             Narrow_gaussian=merge(narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
+            Narrow_first=merge(narrowLineTableFirst(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
+            Narrow_second=merge(narrowLineTableSecond(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
             Wide_gaussian=merge(wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
             Narrow_split=merge(narrowLineTableSplit(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
             Wide_split=merge(wideLineTableSplit(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T)
             )
         count.list$Area_gaussian <- merge(deconvolutionIntensityFrame(deconvoluted_valdata$Areas, count.list$Narrow_gaussian), other_spectra_stuff, by="Spectrum", all=T, sort=T)
         count.list$Area_split <- count.list$Area_gaussian
+        count.list$Area_first <- count.list$Area_gaussian
+        count.list$Area_second <- count.list$Area_gaussian
+        count.list$Wide_first <- count.list$Wide_gaussian
+        count.list$Wide_second <- count.list$Wide_gaussian
     }
     
 
