@@ -3118,6 +3118,13 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
                 Calibration$calList[[i]] <- NULL
             }
         }, error=function(e) NULL)
+        
+        null.list2 <- pbsapply(Calibration$calList, function(x) tryCatch(length(x)<=1, error=function(e) NULL))
+        tryCatch(for(i in names(Calibration$calList)){
+            if(null.list2[i]==TRUE){
+                Calibration$calList[[i]] <- NULL
+            }
+        }, error=function(e) NULL)
 
     }
     
