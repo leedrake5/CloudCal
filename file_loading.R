@@ -3076,13 +3076,19 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     
     if(deconvolution==TRUE){
         if(!"Deconvoluted" %in% names(Calibration)){
-            Calibration$Deconvoluted <-                 tryCatch(spectra_gls_deconvolute(Calibration$Spectra, cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(Calibration$Spectra, cores=1))
+            Calibration$Deconvoluted <- tryCatch(spectra_gls_deconvolute(Calibration$Spectra, cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(Calibration$Spectra, cores=1))
             }
     }
     
     if("Deconvoluted" %in% names(Calibration)){
         if(!"Parameters" %in% names(Calibration$Deconvoluted)){
-            Calibration$Deconvoluted$Parameters <- list(Width=5, Alpha=2.5, DefaultSigma=0.07, SmoothIter=20, SnipIter=20)
+            Calibration$Deconvoluted$Parameters <- list(SmoothWidth=5, SmoothAlpha=2.5, DefaultSigma=0.07, SmoothIter=20, SnipIter=20)
+        }
+        if("Parameters" %in% names(Calibration$Deconvoluted)){
+            if("Width" %in% names(Calibration$Deconvoluted$Parameters)){
+                old_param <- Calibration$Deconvoluted$Parameters
+                Calibration$Deconvoluted$Parameters <- list(SmoothWidth=old_param$Width, SmoothAlpha=old_param$Alpha, DefaultSigma=old_param$DefaultSigma, SmoothIter=old_param$SmoothIter, SnipIter=old_param$SnipIter)
+            }
         }
     }
     

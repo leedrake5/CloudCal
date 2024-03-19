@@ -3,11 +3,11 @@ options(shiny.maxRequestSize=30*1024^40)
 
 shinyServer(function(input, output, session) {
     
-    print("Loading Calibration")
 
 
     calFileContents <- reactive(label="calFileContents", {
-        
+        print("Loading Calibration")
+
         existingCalFile <- input$calfileinput
         
         if (is.null(existingCalFile)) return(NULL)
@@ -1035,8 +1035,13 @@ shinyServer(function(input, output, session) {
         })
         
         deconvolutionFunnel <- reactive({
+            req(input$calfileinput)
             if("Deconvoluted" %in% names(calMemory$Calibration)){
-                calMemory$Calibration$Parameters
+                if("Parameters" %in% names(calMemory$Calibration)){
+                    calMemory$Calibration$Parameters
+                } else {
+                    list(SmoothWidth=5, SmoothAlpha=2.5, DefaultSigma=0.07, SmoothIter=20, SnipIter=20)
+                }
             } else {
                 list(SmoothWidth=5, SmoothAlpha=2.5, DefaultSigma=0.07, SmoothIter=20, SnipIter=20)
             }
@@ -1065,7 +1070,7 @@ shinyServer(function(input, output, session) {
         
         
         output$deconvolutionwidthui <- renderUI({
-            if("Deconvoluted" %in% calMemory$Calibration){
+            if("Deconvoluted" %in% names(calMemory$Calibration)){
                 deconvolutionWidthUI(selection=deconvolutionFunnel()$SmoothWidth)
             } else {
                 deconvolutionWidthUI(selection=5)
@@ -1073,7 +1078,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$deconvolutionalphaui <- renderUI({
-            if("Deconvoluted" %in% calMemory$Calibration){
+            if("Deconvoluted" %in% names(calMemory$Calibration)){
                 deconvolutionAlphaUI(selection=deconvolutionFunnel()$SmoothAlpha)
             } else {
                 deconvolutionAlphaUI(selection=2.5)
@@ -1081,7 +1086,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$deconvolutiondefaultsigmaui <- renderUI({
-            if("Deconvoluted" %in% calMemory$Calibration){
+            if("Deconvoluted" %in% names(calMemory$Calibration)){
                 deconvolutionDefaultSigmaUI(selection=deconvolutionFunnel()$DefaultSigma)
             } else {
                 deconvolutionDefaultSigmaUI(selection=0.07)
@@ -1089,7 +1094,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$deconvolutionsmoothiterui <- renderUI({
-            if("Deconvoluted" %in% calMemory$Calibration){
+            if("Deconvoluted" %in% names(calMemory$Calibration)){
                 deconvolutionSmoothIterUI(selection=deconvolutionFunnel()$SmoothIter)
             } else {
                 deconvolutionSmoothIterUI(selection=20)
@@ -1097,7 +1102,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$deconvolutionsnipiterui <- renderUI({
-            if("Deconvoluted" %in% calMemory$Calibration){
+            if("Deconvoluted" %in% names(calMemory$Calibration)){
                 deconvolutionSnipIterUI(selection=deconvolutionFunnel()$SnipIter)
             } else {
                 deconvolutionSnipIterUI(selection=20)
@@ -1221,11 +1226,11 @@ shinyServer(function(input, output, session) {
             
             spectraSummaryPlot <- reactive({
                 
-                print("Processing spectral data")
+                #print("Processing spectral data")
                 data <- spectraPlotData()
                 
                 data.summary <- spectraSummary()
-                print("Finished processing spectral data")
+                #print("Finished processing spectral data")
 
                 id.seq <- seq(1, 2048,1)
                 
@@ -1238,7 +1243,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 
-                print("Rendering plot")
+                #print("Rendering plot")
                 ggplot(data.summary) +
                 geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max), alpha=0.2, fill="#619CFF", colour="grey20") +
                 geom_line(aes(Energy, Mean), lty=2) +
@@ -1322,7 +1327,7 @@ shinyServer(function(input, output, session) {
             
             plotInput <- reactive({
                 
-                "Starting spectral plot"
+                #"Starting spectral plot"
                 
                 if(input$showlegend==TRUE){
                     spectraWithLabels()
@@ -1337,7 +1342,7 @@ shinyServer(function(input, output, session) {
                     
                 }
                 
-                "Finished spectral plot"
+                #"Finished spectral plot"
 
             })
             

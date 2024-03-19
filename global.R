@@ -2222,8 +2222,8 @@ spectra_stats <- function(spectra.frame, norm.type, norm.min, norm.max, compress
     
     
     data.sum <- as.data.frame(apply(data.sum, 2, james.cp), stringsAsFactors=FALSE)
-    
-    data.sum[!duplicated(data.sum), ]
+    return(data.sum)
+    #data.sum[!duplicated(data.sum), ]
     
 }
 spectra_stats <- cmpfun(spectra_stats)
@@ -8780,7 +8780,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     if(baseline==FALSE){
         return(list(Spectra=new_spectra_frame, Areas=new_area_frame))
     } else if(baseline==TRUE){
-        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Baseline=new_baseline_frame, Parameters=list(Width=width, Alpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter)))
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Baseline=new_baseline_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter)))
     }
     
 }
