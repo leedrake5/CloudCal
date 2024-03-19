@@ -141,6 +141,7 @@ if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows
 tryCatch(library(rPDZ), error=function(e) NULL)
 library(reactlog)
 options(shiny.reactlog = TRUE)
+reactlog_enable()
 shiny::devmode(TRUE)
 options(shiny.fullstacktrace=TRUE)
 ###update packages
@@ -2222,7 +2223,7 @@ spectra_stats <- function(spectra.frame, norm.type, norm.min, norm.max, compress
     
     data.sum <- as.data.frame(apply(data.sum, 2, james.cp), stringsAsFactors=FALSE)
     
-    data.sum
+    data.sum[!duplicated(data.sum), ]
     
 }
 spectra_stats <- cmpfun(spectra_stats)

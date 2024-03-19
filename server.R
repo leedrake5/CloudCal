@@ -3,7 +3,7 @@ options(shiny.maxRequestSize=30*1024^40)
 
 shinyServer(function(input, output, session) {
     
-    
+    print("Loading Calibration")
 
 
     calFileContents <- reactive(label="calFileContents", {
@@ -16,7 +16,8 @@ shinyServer(function(input, output, session) {
         Calibration <- calRDS(existingCalFile$datapath, xgb_raw=FALSE, sort=TRUE)
         #Calibration <- readRDS(existingCalFile$datapath)
 
-        Calibration
+        print("Finished loading calibration")
+        return(Calibration)
         
     })
     
@@ -400,8 +401,10 @@ shinyServer(function(input, output, session) {
     
     
         calListPrep <- reactive(label="calListPrep", {
+            print("Processing element models")
             calpre <- lapply(names(calFileContents()[["calList"]]), function(x) list(importCalConditions(element=x, calList=calFileContents()[["calList"]]), calFileContents()[["calList"]][[x]][[2]]))
             names(calpre) <- names(calFileContents()[["calList"]])
+            print("Finished processing element models")
             calpre
         })
         
@@ -419,7 +422,9 @@ shinyServer(function(input, output, session) {
             if(is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- list(LineDefaults=list(GausBuffer=0.02, SplitBuffer=0.1))
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
+                print("Processing calibration")
                 calMemory$Calibration <- defaultCalList(calMemory$Calibration)
+                print("Finished processing calibration")
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- defaultCalList(calMemory$Calibration, temp=TRUE)
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
@@ -470,6 +475,7 @@ shinyServer(function(input, output, session) {
         
         myDataPre <- reactive(label="myDataPre", {
             req(input$filetype)
+            print("Loading spectra")
                 data <- if(input$filetype=="CSV"){
                     fullSpectra()
                 } else if(input$filetype=="Aggregate CSV File"){
@@ -490,6 +496,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 data <- data[complete.cases(data),]
+                print("Finished loading spectra")
                 data
         })
         
@@ -575,14 +582,15 @@ shinyServer(function(input, output, session) {
         })
         
     dataHoldDeconvolution <- reactive({
-            
+        req(input$deconvolutionwidth, input$deconvolutionalpha, input$deconvolutiondefaultsigma, input$deconvolutionsmoothiter, input$deconvolutionsnipiter)
+            print("Starting deconvolution")
             my.cores.mod <- if(length(unique(dataHold()$Spectrum)) < as.numeric(my.cores)){
                 length(unique(dataHold()$Spectrum))
             } else {
                 as.numeric(my.cores)
             }
             
-        if(is.null(input$file1)){
+        deconvolution_data <- if(is.null(input$file1)){
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                 }
@@ -597,7 +605,9 @@ shinyServer(function(input, output, session) {
         } else if(!is.null(input$file1)){
            tryCatch(spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=1))
         }
-            
+        
+        print("Finished deconvolution")
+        deconvolution_data
             
         })
         
@@ -1024,6 +1034,14 @@ shinyServer(function(input, output, session) {
             
         })
         
+        deconvolutionFunnel <- reactive({
+            if("Deconvoluted" %in% names(calMemory$Calibration)){
+                calMemory$Calibration$Parameters
+            } else {
+                list(SmoothWidth=5, SmoothAlpha=2.5, DefaultSigma=0.07, SmoothIter=20, SnipIter=20)
+            }
+        })
+        
         
         output$comptonminspectraui <- renderUI({
             
@@ -1048,7 +1066,7 @@ shinyServer(function(input, output, session) {
         
         output$deconvolutionwidthui <- renderUI({
             if("Deconvoluted" %in% calMemory$Calibration){
-                deconvolutionWidthUI(selection=calMemory$Calibration$Parameters$Width)
+                deconvolutionWidthUI(selection=deconvolutionFunnel()$SmoothWidth)
             } else {
                 deconvolutionWidthUI(selection=5)
             }
@@ -1056,7 +1074,7 @@ shinyServer(function(input, output, session) {
         
         output$deconvolutionalphaui <- renderUI({
             if("Deconvoluted" %in% calMemory$Calibration){
-                deconvolutionAlphaUI(selection=calMemory$Calibration$Parameters$Alpha)
+                deconvolutionAlphaUI(selection=deconvolutionFunnel()$SmoothAlpha)
             } else {
                 deconvolutionAlphaUI(selection=2.5)
             }
@@ -1064,7 +1082,7 @@ shinyServer(function(input, output, session) {
         
         output$deconvolutiondefaultsigmaui <- renderUI({
             if("Deconvoluted" %in% calMemory$Calibration){
-                deconvolutionDefaultSigmaUI(selection=calMemory$Calibration$Parameters$DefaultSigma)
+                deconvolutionDefaultSigmaUI(selection=deconvolutionFunnel()$DefaultSigma)
             } else {
                 deconvolutionDefaultSigmaUI(selection=0.07)
             }
@@ -1072,7 +1090,7 @@ shinyServer(function(input, output, session) {
         
         output$deconvolutionsmoothiterui <- renderUI({
             if("Deconvoluted" %in% calMemory$Calibration){
-                deconvolutionSmoothIterUI(selection=calMemory$Calibration$Parameters$SmoothIter)
+                deconvolutionSmoothIterUI(selection=deconvolutionFunnel()$SmoothIter)
             } else {
                 deconvolutionSmoothIterUI(selection=20)
             }
@@ -1080,7 +1098,7 @@ shinyServer(function(input, output, session) {
         
         output$deconvolutionsnipiterui <- renderUI({
             if("Deconvoluted" %in% calMemory$Calibration){
-                deconvolutionSnipIterUI(selection=calMemory$Calibration$Parameters$SnipIter)
+                deconvolutionSnipIterUI(selection=deconvolutionFunnel()$SnipIter)
             } else {
                 deconvolutionSnipIterUI(selection=20)
             }
@@ -1107,6 +1125,8 @@ shinyServer(function(input, output, session) {
                     compress="100 eV",
                     energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy))
                     )
+                    
+                    
             })
             
             spectraSummaryDeconvolution <- reactive({
@@ -1201,10 +1221,12 @@ shinyServer(function(input, output, session) {
             
             spectraSummaryPlot <- reactive({
                 
+                print("Processing spectral data")
                 data <- spectraPlotData()
                 
                 data.summary <- spectraSummary()
-                
+                print("Finished processing spectral data")
+
                 id.seq <- seq(1, 2048,1)
                 
                 n <- length(data$Energy)
@@ -1216,7 +1238,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 
-                
+                print("Rendering plot")
                 ggplot(data.summary) +
                 geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max), alpha=0.2, fill="#619CFF", colour="grey20") +
                 geom_line(aes(Energy, Mean), lty=2) +
@@ -1300,6 +1322,8 @@ shinyServer(function(input, output, session) {
             
             plotInput <- reactive({
                 
+                "Starting spectral plot"
+                
                 if(input$showlegend==TRUE){
                     spectraWithLabels()
                 } else if(input$showlegend==FALSE && input$variancespectrum==FALSE){
@@ -1312,6 +1336,8 @@ shinyServer(function(input, output, session) {
                     }
                     
                 }
+                
+                "Finished spectral plot"
 
             })
             

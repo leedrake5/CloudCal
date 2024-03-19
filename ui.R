@@ -14,7 +14,7 @@ sidebarPanel(width=3,
 
 
 textInput("calname", label = "Calibration Name", value="myCalibration"),
-
+checkboxInput("qualitycheck", "Quality Checks", value=TRUE),
 checkboxInput('energycal', label = "Automatic Energy Calibration", value=TRUE),
 #checkboxInput('advanced', "Advanced", value=FALSE),
 #uiOutput('gainshiftui'),
