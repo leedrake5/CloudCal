@@ -5604,7 +5604,7 @@ shinyServer(function(input, output, session) {
                               }
                               
                     OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-                    bounds = list(nrounds = as.integer(c(1, parameters$ForestTrees)),
+                    bounds = list(nrounds = as.integer(c(10, parameters$ForestTrees)),
                                    alpha = xgbalpha.vec,
                                    eta = xgbeta.vec,
                                    lambda = xgblambda.vec),
@@ -6342,7 +6342,7 @@ shinyServer(function(input, output, session) {
             
             
             xgbGrid <- generate_grid(bounds=list(
-            nrounds = as.integer(c(1, parameters$ForestTrees)),
+            nrounds = as.integer(c(10, parameters$ForestTrees)),
             alpha=c(xgbalpha.vec[1], xgbalpha.vec[2]),
             eta = c(xgbeta.vec[1], xgbeta.vec[2]),
             lambda = c(xgblambda.vec[1], xgblambda.vec[2])),
@@ -9893,7 +9893,7 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==8){
                 xgboostIntensityModel()
             } else if(input$radiocal==9){
-                tryCatch(xgboostSpectraModel(), error=function(e) NULL)
+                xgboostSpectraModel()
             } else if(input$radiocal==10){
                 tryCatch(bayesIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==11){
@@ -10700,12 +10700,13 @@ shinyServer(function(input, output, session) {
         
         
         calValTable <- reactive(label="calValTable",{
-            
+            req(valFrame(), holdFrame())
             standard.table <- valFrame()
             hold.frame <- holdFrame()
             
-            standard.table.summary <- data.frame(hold.frame$Spectrum, as.numeric(as.character(standard.table$Concentration)), as.numeric(as.character(standard.table$Prediction)), as.numeric(as.character(standard.table$Concentration-standard.table$Prediction)), ((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration), stringsAsFactors=FALSE)
-            colnames(standard.table.summary) <- c("Standard", "Concentration", "Prediction", "Difference", "Relative")
+            empty.table.summary <- data.frame(Standard=hold.frame$Spectrum, Concentration=0, Prediction=0, Difference=0, Relative=0)
+            
+            standard.table.summary <- tryCatch(data.frame(Standard=hold.frame$Spectrum, Concentration=as.numeric(as.character(standard.table$Concentration)), Prediction=as.numeric(as.character(standard.table$Prediction)), Difference=as.numeric(as.character(standard.table$Concentration-standard.table$Prediction)), Relative=((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration), stringsAsFactors=FALSE), error=function(e) empty.table.summary)
             
           
             this.table <- standard.table.summary
