@@ -2285,9 +2285,9 @@ shinyServer(function(input, output, session) {
             #select.line.table <- calMemory$Calibration$Deconvoluted$Intensities
             select.line.table <- calMemory$Calibration$Deconvoluted$Areas
             
-            rounded <- round(select.line.table[,c(elements, , "Baseline", "Total")], digits=0)
+            rounded <- round(select.line.table[,c(elements, "Baseline")], digits=0)
             full <- data.frame(select.line.table$Spectrum, rounded)
-            colnames(full) <- c("Spectrum", elements, "Baseline", "Total")
+            colnames(full) <- c("Spectrum", elements, "Baseline")
             
             full
         })

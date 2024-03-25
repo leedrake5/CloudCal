@@ -1629,8 +1629,25 @@ elementGrab <- function(element.line, data, range.table=NULL, calculation="gauss
     
 }
 
+elementGrabError <- function(data, element.line){
+    error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
+    colnames(error_frame) <- c("Spectrum", element.line)
+    return(error_frame)
+}
+
+add_missing_columns <- function(df, colnames) {
+  for (colname in colnames) {
+    if (!(colname %in% names(df))) {
+      df[[colname]] <- rep(0, nrow(df))
+    }
+  }
+  return(df)
+}
+
 
 elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1, buffer=0.1){
+    
+    error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
     
     spectra.line.list <- if(get_os()=="windows"){
         lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer))
@@ -1644,7 +1661,7 @@ elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
-    
+        
     #spectra.line.vector <- as.numeric(unlist(element.count.list))
     
     #dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
@@ -1655,9 +1672,17 @@ elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian
     
     spectra.line.frame <- Reduce(function(x, y) merge(x, y, all=TRUE), spectra.line.list)
     spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
-
-    colnames(spectra.line.frame) <- c("Spectrum", elements)
     
+    good_elements <- make.names(names(spectra.line.frame)[-1])
+    missing_elements <- elements[!elements %in% good_elements]
+
+    if(length(missing_elements >= 1)){
+        spectra.line.frame <- add_missing_columns(df=spectra.line.frame, colnames=elements)
+    }
+    colnames(spectra.line.frame)  <- make.names(colnames(spectra.line.frame))
+
+    #colnames(spectra.line.frame) <- c("Spectrum", elements)
+
     spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
     
     spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]

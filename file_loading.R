@@ -3056,6 +3056,8 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     if(rebuild==TRUE){
         Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
         Calibration$IntensitiesSplit <- narrowLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer)
+        Calibration$IntensitiesFirst <- narrowLineTableFirst(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
+        Calibration$IntensitiesSecond <- narrowLineTableSecond(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
         Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
         Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer==Calibration$LineDefaults$SplitBuffer)
     }
@@ -3067,8 +3069,12 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         Calibration$Spectra <- Calibration$Spectra[order(Calibration$Spectra$Spectrum, Calibration$Spectra$Energy),]
         Calibration$Values <- Calibration$Values[Calibration$Values$Spectrum %in% unique(Calibration$Spectra$Spectrum),]
         Calibration$Spectra <- Calibration$Spectra[Calibration$Spectra$Spectrum %in% unique(Calibration$Values$Spectrum),]
-        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)[,-1]
-        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)[,-1]
+        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
+        Calibration$IntensitiesSplit <- narrowLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer)
+        Calibration$IntensitiesFirst <- narrowLineTableFirst(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
+        Calibration$IntensitiesSecond <- narrowLineTableSecond(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
+        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
+        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer==Calibration$LineDefaults$SplitBuffer)
     }
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
