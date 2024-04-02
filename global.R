@@ -593,7 +593,20 @@ unfold <- function(spectrum){
 unfold <- cmpfun(unfold)
 
 
-
+correlationcoeff <- function(x,y){
+    n = length(x)
+    yl = length(y)
+    xy = x * y
+    sx = sum(x)
+    sy = sum(y)
+    sxy = sum(xy)
+    x2 = x ^ 2
+    y2 = y ^ 2
+    sx2 = sum(x2)
+    sy2 = sum(y2)
+    r = ((n*sxy) - (sx * sy)) / (sqrt((((n*sx2)-(sx^2)) * ((n*sy2)-(sy^2)))))
+    return(r)
+}
 
 cal.lmsummary <-function(lm.object){
     res<-c(paste(as.character(summary(lm.object)$call),collapse=" "),
