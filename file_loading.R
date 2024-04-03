@@ -1011,7 +1011,7 @@ readPDZMetadataProcess <- function(inFile=NULL){
     return(data)
 }
 
-narrowLineTable <- function(spectra, definition.table, elements, gaus_buffer=0.02){
+narrowLineTable <- function(spectra, definition.table, elements, gaus_buffer=0.02, allowParallel=TRUE){
     
     #not.elements <- elements[!elements %in% spectralLines]
     #elements <- elements[elements %in% spectralLines]
@@ -1027,7 +1027,7 @@ narrowLineTable <- function(spectra, definition.table, elements, gaus_buffer=0.0
     #} else if(!is.null(not.line.data)){
         #merge(line.data, not.line.data, by="Spectrum")
     #}
-   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="gaussian", gaus_buffer=gaus_buffer)
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="gaussian", gaus_buffer=gaus_buffer, allowParallel=allowParallel)
    #for(i in elements){
        #if(any(is.na(results[[i]]))){
          # Replace NA/empty values with 0
@@ -1037,7 +1037,7 @@ narrowLineTable <- function(spectra, definition.table, elements, gaus_buffer=0.0
    results
 }
 
-narrowLineTableFirst <- function(spectra, definition.table, elements, gaus_buffer=0.02){
+narrowLineTableFirst <- function(spectra, definition.table, elements, gaus_buffer=0.02, allowParallel=TRUE){
     
     #not.elements <- elements[!elements %in% spectralLines]
     #elements <- elements[elements %in% spectralLines]
@@ -1053,7 +1053,7 @@ narrowLineTableFirst <- function(spectra, definition.table, elements, gaus_buffe
     #} else if(!is.null(not.line.data)){
         #merge(line.data, not.line.data, by="Spectrum")
     #}
-   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="first", gaus_buffer=gaus_buffer)
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="first", gaus_buffer=gaus_buffer, allowParallel=allowParallel)
    #for(i in elements){
        #if(any(is.na(results[[i]]))){
          # Replace NA/empty values with 0
@@ -1063,7 +1063,7 @@ narrowLineTableFirst <- function(spectra, definition.table, elements, gaus_buffe
    results
 }
 
-narrowLineTableSecond <- function(spectra, definition.table, elements, gaus_buffer=0.02){
+narrowLineTableSecond <- function(spectra, definition.table, elements, gaus_buffer=0.02, allowParallel=TRUE){
     
     #not.elements <- elements[!elements %in% spectralLines]
     #elements <- elements[elements %in% spectralLines]
@@ -1079,7 +1079,7 @@ narrowLineTableSecond <- function(spectra, definition.table, elements, gaus_buff
     #} else if(!is.null(not.line.data)){
         #merge(line.data, not.line.data, by="Spectrum")
     #}
-   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="second", gaus_buffer=gaus_buffer)
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="second", gaus_buffer=gaus_buffer, allowParallel=allowParallel)
    #for(i in elements){
        #if(any(is.na(results[[i]]))){
          # Replace NA/empty values with 0
@@ -1089,7 +1089,7 @@ narrowLineTableSecond <- function(spectra, definition.table, elements, gaus_buff
    results
 }
 
-narrowLineTableSplit <- function(spectra, definition.table, elements, split_buffer=0.1){
+narrowLineTableSplit <- function(spectra, definition.table, elements, split_buffer=0.1, allowParallel=TRUE){
     
     #not.elements <- elements[!elements %in% spectralLines]
     #elements <- elements[elements %in% spectralLines]
@@ -1105,7 +1105,7 @@ narrowLineTableSplit <- function(spectra, definition.table, elements, split_buff
     #} else if(!is.null(not.line.data)){
         #merge(line.data, not.line.data, by="Spectrum")
     #}
-   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="split", split_buffer=split_buffer)
+   results <- elementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="split", split_buffer=split_buffer, allowParallel=allowParallel)
    #for(i in elements){
        #if(any(is.na(results[[i]]))){
          # Replace NA/empty values with 0
@@ -1115,7 +1115,7 @@ narrowLineTableSplit <- function(spectra, definition.table, elements, split_buff
    results
 }
 
-wideLineTable <- function(spectra, definition.table, elements){
+wideLineTable <- function(spectra, definition.table, elements, allowParallel=TRUE){
     
     #not.elements <- elements[!elements %in% spectralLines]
     #elements <- elements[elements %in% spectralLines]
@@ -1132,7 +1132,7 @@ wideLineTable <- function(spectra, definition.table, elements){
     #    merge(line.data, not.line.data, by="Spectrum")
     #}
     
-    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="gaussian")
+    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="gaussian", allowParallel=allowParallel)
     #for(i in elements){
         #if(any(is.na(results[[i]]))){
           # Replace NA/empty values with 0
@@ -1142,7 +1142,7 @@ wideLineTable <- function(spectra, definition.table, elements){
     results
 }
 
-wideLineTableSplit <- function(spectra, definition.table, elements, split_buffer=0.1){
+wideLineTableSplit <- function(spectra, definition.table, elements, split_buffer=0.1, allowParallel=TRUE){
     
     #not.elements <- elements[!elements %in% spectralLines]
     #elements <- elements[elements %in% spectralLines]
@@ -1159,7 +1159,7 @@ wideLineTableSplit <- function(spectra, definition.table, elements, split_buffer
     #    merge(line.data, not.line.data, by="Spectrum")
     #}
     
-    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="split", buffer=split_buffer)
+    results <- wideElementFrame(data=spectra, range.table=definition.table, elements=elements, calculation="split", buffer=split_buffer, allowParallel=allowParallel)
     #for(i in elements){
         #if(any(is.na(results[[i]]))){
           # Replace NA/empty values with 0
@@ -3042,7 +3042,7 @@ intensity_fix <- function(calibration, keep_labels=TRUE){
     return(calibration)
 }
 
-calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE, deconvolution=TRUE, rebuild=FALSE){
+calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE, deconvolution=TRUE, rebuild=FALSE, allowParallel=TRUE){
     if(is.null(Calibration)){
         Calibration <- readRDS(calibration.directory)
     }
@@ -3054,12 +3054,12 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     }
     
     if(rebuild==TRUE){
-        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
-        Calibration$IntensitiesSplit <- narrowLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer)
-        Calibration$IntensitiesFirst <- narrowLineTableFirst(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
-        Calibration$IntensitiesSecond <- narrowLineTableSecond(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
-        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
-        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer==Calibration$LineDefaults$SplitBuffer)
+        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
+        Calibration$IntensitiesSplit <- narrowLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
+        Calibration$IntensitiesFirst <- narrowLineTableFirst(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
+        Calibration$IntensitiesSecond <- narrowLineTableSecond(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
+        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, allowParallel=allowParallel)
+        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer==Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
     }
     
 
@@ -3069,12 +3069,12 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         Calibration$Spectra <- Calibration$Spectra[order(Calibration$Spectra$Spectrum, Calibration$Spectra$Energy),]
         Calibration$Values <- Calibration$Values[Calibration$Values$Spectrum %in% unique(Calibration$Spectra$Spectrum),]
         Calibration$Spectra <- Calibration$Spectra[Calibration$Spectra$Spectrum %in% unique(Calibration$Values$Spectrum),]
-        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
-        Calibration$IntensitiesSplit <- narrowLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer)
-        Calibration$IntensitiesFirst <- narrowLineTableFirst(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
-        Calibration$IntensitiesSecond <- narrowLineTableSecond(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer)
-        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements)
-        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer==Calibration$LineDefaults$SplitBuffer)
+        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
+        Calibration$IntensitiesSplit <- narrowLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
+        Calibration$IntensitiesFirst <- narrowLineTableFirst(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
+        Calibration$IntensitiesSecond <- narrowLineTableSecond(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
+        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, allowParallel=allowParallel)
+        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer==Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
     }
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
@@ -3082,7 +3082,11 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     
     if(deconvolution==TRUE){
         if(!"Deconvoluted" %in% names(Calibration)){
-            Calibration$Deconvoluted <- tryCatch(spectra_gls_deconvolute(Calibration$Spectra, cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(Calibration$Spectra, cores=1))
+            if(allowParallel==TRUE){
+                Calibration$Deconvoluted <- tryCatch(spectra_gls_deconvolute(Calibration$Spectra, cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(Calibration$Spectra, cores=1))
+            } else if(allowParallel==FALSE){
+                Calibration$Deconvoluted <- spectra_gls_deconvolute(Calibration$Spectra, cores=1)
+            }
             }
     }
     

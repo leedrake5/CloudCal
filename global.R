@@ -1658,7 +1658,7 @@ add_missing_columns <- function(df, colnames) {
 }
 
 
-elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1, buffer=0.1){
+elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1, buffer=0.1, allowParallel=TRUE){
     
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
     
@@ -1670,7 +1670,11 @@ elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian
         } else if(length(elements)<as.numeric(my.cores)){
             length(elements)
         }
-        tryCatch(pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)), error=function(e) lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)))
+        if(allowParallel==TRUE){
+            tryCatch(pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)), error=function(e) lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)))
+        } else if(allowParallel==FALSE){
+            lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer))
+        }
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
@@ -1855,7 +1859,7 @@ wideElementGrab <- function(element.line, data, range.table=NULL, calculation="g
     
 }
 
-wideElementFrame <- function(data, elements, range.table=NULL, calculation="gaussian", buffer=0.1){
+wideElementFrame <- function(data, elements, range.table=NULL, calculation="gaussian", buffer=0.1, allowParallel=TRUE){
     
     spectra.line.list <- if(get_os()=="windows"){
         lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, buffer=buffer))
