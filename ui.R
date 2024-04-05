@@ -310,7 +310,7 @@ textInput("calunits", label = "Units", value="Weight %")
 
 mainPanel(
 tabsetPanel(
-id = 'dataset',
+id = 'concentrations',
 tabPanel('Enter Concentrations', rHandsontableOutput('hot')),
 tabPanel('Covariance', plotOutput('covarianceplotvalues', height=800),
 tags$hr(),
