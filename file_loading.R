@@ -2676,7 +2676,30 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         Calibration <- readRDS(calibration.directory)
     }
     
+    Calibration$Spectra$Spectrum <- make.names(Calibration$Spectra$Spectrum, unique=FALSE)
+    Calibration$Values$Spectrum <- make.names(Calibration$Values$Spectrum, unique=FALSE)
+    if("Intensities" %in% names(Calibration)){
+        if("Spectrum" %in% names(Calibration$Intensities)){
+            Calibration$Intensities$Spectrum <- make.names(Calibration$Intensities$Spectrum, unique=FALSE)
+        }
+    }
+    if("WideIntensities" %in% names(Calibration)){
+        if("Spectrum" %in% names(Calibration$WideIntensities)){
+            Calibration$WideIntensities$Spectrum <- make.names(Calibration$WideIntensities$Spectrum, unique=FALSE)
+        }
+    }
+    if("Deconvoluted" %in% names(Calibration)){
+        Calibration$Deconvoluted$Areas$Spectrum <- make.names(Calibration$Deconvoluted$Areas$Spectrum, unique=FALSE)
+        Calibration$Deconvoluted$Spectra$Spectrum <- make.names(Calibration$Deconvoluted$Spectra$Spectrum, unique=FALSE)
+        if("Baseline" %in% names(Calibration$Deconvoluted)){
+            Calibration$Deconvoluted$Baseline$Spectrum <- make.names(Calibration$Deconvoluted$Baseline$Spectrum, unique=FALSE)
+
+        }
+    }
+    
+    
     elements <- names(Calibration$Intensities)[!names(Calibration$Intensities) %in% "Spectrum"]
+    
 
     
     if(rebuild==TRUE){
@@ -2700,8 +2723,13 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     
     if(deconvolution==TRUE){
         if(!"Deconvoluted" %in% names(Calibration)){
-            Calibration$Deconvoluted <-                 tryCatch(spectra_gls_deconvolute(Calibration$Spectra, cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(Calibration$Spectra, cores=1))
+            Calibration$Deconvoluted <-                 tryCatch(spectra_gls_deconvolute(Calibration$Spectra, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(Calibration$Spectra, cores=1))
             }
+        
+        if(!"Baseline" %in% names(Calibration$Deconvoluted$Areas)){
+            Calibration$Deconvoluted <-                 tryCatch(spectra_gls_deconvolute(Calibration$Spectra, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(Calibration$Spectra, cores=1))
+
+        }
     }
     
     Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
@@ -2773,7 +2801,9 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     if(!"OtherSpectraStuff" %in% names(Calibration)){
         Calibration$OtherSpectraStuff <- totalCountsGen(Calibration$Spectra)
         if("Deconvoluted" %in% names(Calibration)){
-            Calibration$OtherSpectraStuff <- merge(Calibration$OtherSpectraStuff, Calibration$Deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=TRUE, sort=TRUE)
+            if("Baseline" %in% names(Calibration$Deconvoluted$Areas)){
+                Calibration$OtherSpectraStuff <- merge(Calibration$OtherSpectraStuff, Calibration$Deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=TRUE, sort=TRUE)
+            }
         }
     }
     

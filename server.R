@@ -490,6 +490,7 @@ shinyServer(function(input, output, session) {
                 
                 
                 data <- data[complete.cases(data),]
+                data$Spectrum <- make.names(data$Spectrum, unique=FALSE)
                 data
         })
         
