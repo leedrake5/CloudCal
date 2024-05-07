@@ -1875,14 +1875,19 @@ wideElementFrame <- function(data, elements, range.table=NULL, calculation="gaus
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
     
-    spectra.line.vector <- as.numeric(unlist(element.count.list))
+    spectra.line.frame <- Reduce(function(x, y) merge(x, y, all=TRUE), spectra.line.list)
+    spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
     
-    dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
-    
-    spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector, stringsAsFactors=FALSE)
-    
-    colnames(spectra.line.frame) <- c("Spectrum", elements)
-    
+    good_elements <- make.names(names(spectra.line.frame)[-1])
+    missing_elements <- elements[!elements %in% good_elements]
+
+    if(length(missing_elements >= 1)){
+        spectra.line.frame <- add_missing_columns(df=spectra.line.frame, colnames=elements)
+    }
+    colnames(spectra.line.frame)  <- make.names(colnames(spectra.line.frame))
+
+    #colnames(spectra.line.frame) <- c("Spectrum", elements)
+
     spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
     
     spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]
@@ -1893,7 +1898,6 @@ wideElementFrame <- function(data, elements, range.table=NULL, calculation="gaus
     spectra.line.frame$Spectrum <- gsub(".spt", "", spectra.line.frame$Spectrum)
     spectra.line.frame$Spectrum <- gsub(".mca", "", spectra.line.frame$Spectrum)
     spectra.line.frame$Spectrum <- gsub(".spx", "", spectra.line.frame$Spectrum)
-    
     
     spectra.line.frame
     
@@ -8764,46 +8768,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     if(cores==1){
         new_spectra_list <- pblapply(spectra_list, function(x) deconvolute_complete(spectra_frame=x, energy_max=energy_max, width=width, alpha=alpha, default_sigma=default_sigma, smooth_iter=smooth_iter, snip_iter=snip_iter))
     } else if(cores > 1){
-        if(get_os()=="windows"){
-            my.cluster <- parallel::makeCluster(
-              cores,
-              type = "PSOCK"
-              )
-            doParallel::registerDoParallel(cl = my.cluster)
-            
-            ## Pull libraries
-            clusterEvalQ(cl= my.cluster, {library(tidyverse)
-              library(xrftools)
-            })
-            
-            ## Export all necessary functions to the instances
-            clusterExport(my.cluster, 
-                          list("as_tibble"
-                               , "tibble_convert"
-                               , "spectra_frame_deconvolution_convert"
-                               , "deconvolute_complete"
-                               , "xrf_add_deconvolution_gls"
-                               , "spectra_frame_baseline_convert"
-                               , "intensity_frame_deconvolution_convert"
-                               , "atomic_order_vector"
-                               , "atomic_order"
-                               , 'fluorescence.lines'
-                               , "line_strip"
-                          )
-            )
-        } else if(get_os()!="windows"){
-            #my.cluster <- parallel::makeCluster(
-            #  cores,
-            #  type = "FORK"
-            #  )
-            #  doParallel::registerDoParallel(cl = my.cluster)
-            my.cluster <- as.numeric(cores)
-        }
-        #new_spectra_frame <- foreach(i=1:length(spectra_list), .combine="rbind") %dopar% {
-            #deconvolute_complete(spectra_list[[i]])
-        #}
-        new_spectra_list <- pblapply(spectra_list, function(x) deconvolute_complete(spectra_frame=x, energy_max=energy_max, width=width, alpha=alpha, default_sigma=default_sigma, smooth_iter=smooth_iter, snip_iter=snip_iter), cl=my.cluster)
-        if(get_os()=="windows"){parallel::stopCluster(cl = my.cluster)}
+        new_spectra_list <- pblapply(spectra_list, function(x) deconvolute_complete(spectra_frame=x, energy_max=energy_max, width=width, alpha=alpha, default_sigma=default_sigma, smooth_iter=smooth_iter, snip_iter=snip_iter), cl=cores)
     }
     only_spectra_list <- list()
     only_areas_list <- list()

@@ -18793,9 +18793,14 @@ content = function(file){
         myDeconvolutedValData <- reactive({
             spectra <- myValData()
             
-            deconvolution_parameters <- calFileContents2()$Deconvoluted$Parameters
+            if("Parameters" %in% names(calFileContents2()$Deconvoluted)){
+                deconvolution_parameters <- calFileContents2()$Deconvoluted$Parameters
+            } else {
+                deconvolution_parameters <- list(SmoothWidth=5, SmoothAlpha=2.5, DefaultSigma=0.07, SmoothIter=20, SnipIter=20)
+            }
             
-            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$Width, alpha=deconvolution_parameters$Alpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$Width, alpha=deconvolution_parameters$Alpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1))
+            
+            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1))
             
             deconvolution
             
