@@ -143,7 +143,7 @@ if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows
 tryCatch(library(rPDZ), error=function(e) NULL)
 library(reactlog)
 options(shiny.reactlog = TRUE)
-shiny::devmode(TRUE)
+shiny::devmode(FALSE)
 options(shiny.fullstacktrace=TRUE)
 ###update packages
 #update.packages(repos='http://cran.rstudio.com/', ask=FALSE)
