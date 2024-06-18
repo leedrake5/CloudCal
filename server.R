@@ -1792,7 +1792,7 @@ shinyServer(function(input, output, session) {
         otherSpectraStuff <- reactive({
             
             spectra <- dataHold()
-            deconvoluted <- dataHoldDeconvolution()
+            deconvoluted <- calMemory$Calibration$Deconvoluted
             
             spectra_stuff <- totalCountsGen(spectra)
             other_spectra_stuff <- merge(spectra_stuff, deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=T, sort=T)
@@ -1919,9 +1919,9 @@ shinyServer(function(input, output, session) {
         })
         
         spectraDataDeconvolution <- reactive({
-            req(dataHoldDeconvolution(), elementallinestousepre(), linevalues[["DF"]])
+            req(calMemory$Calibration$Deconvoluted, elementallinestousepre(), linevalues[["DF"]])
 
-            line.data <- deconvolutionIntensityFrame(deconvolution_areas=dataHoldDeconvolution()$Areas, intensity_frame=spectraData())
+            line.data <- deconvolutionIntensityFrame(deconvolution_areas=calMemory$Calibration$Deconvoluted$Areas, intensity_frame=spectraData())
             
             merge(line.data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
             
@@ -1992,116 +1992,116 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$linecommit, priority = 2, {
             
-            calMemory$Calibration$LineDefaults <- list(GausBuffer=bufferGaus(), SplitBuffer=bufferSplit())
-            calMemory$Calibration$Deconvoluted <- dataHoldDeconvolution()
+            calMemory$Calibration$LineDefaults <- isolate(list(GausBuffer=bufferGaus(), SplitBuffer=bufferSplit()))
+            calMemory$Calibration$Deconvoluted <- isolate(dataHoldDeconvolution())
             
             calMemory$Calibration$Intensities <- if(input$filetype=="CSV"){
-                spectraData()
+                isolate(spectraData())
             } else if(input$filetype=="Aggregate CSV File"){
-                spectraData()
+                isolate(spectraData())
             } else if(input$filetype=="TXT"){
-                spectraData()
+                isolate(spectraData())
             } else if(input$filetype=="Elio"){
-                spectraData()
+                isolate(spectraData())
             }  else if(input$filetype=="MCA"){
                 isolate(spectraData())
             }  else if(input$filetype=="SPX"){
-                spectraData()
+                isolate(spectraData())
             }  else if(input$filetype=="PDZ"){
-                spectraData()
+                isolate(spectraData())
             } else if(input$filetype=="Net"){
-                netData()
+                isolate(netData())
             }
             
             calMemory$Calibration$IntensitiesSplit <- if(input$filetype=="CSV"){
-                spectraDataSplit()
+                isolate(spectraDataSplit())
             } else if(input$filetype=="Aggregate CSV File"){
-                spectraDataSplit()
+                isolate(spectraDataSplit())
             } else if(input$filetype=="TXT"){
-                spectraDataSplit()
+                isolate(spectraDataSplit())
             } else if(input$filetype=="Elio"){
-                spectraDataSplit()
+                isolate(spectraDataSplit())
             }  else if(input$filetype=="MCA"){
-                spectraDataSplit()
+                isolate(spectraDataSplit())
             }  else if(input$filetype=="SPX"){
-                spectraDataSplit()
+                isolate(spectraDataSplit())
             }  else if(input$filetype=="PDZ"){
-                spectraDataSplit()
+                isolate(spectraDataSplit())
             } else if(input$filetype=="Net"){
-                netData()
+                isolate(netData())
             }
             
             calMemory$Calibration$IntensitiesFirst <- if(input$filetype=="CSV"){
-                spectraDataFirst()
+                isolate(spectraDataFirst())
             } else if(input$filetype=="Aggregate CSV File"){
-                spectraDataFirst()
+                isolate(spectraDataFirst())
             } else if(input$filetype=="TXT"){
-                spectraDataFirst()
+                isolate(spectraDataFirst())
             } else if(input$filetype=="Elio"){
-                spectraDataFirst()
+                isolate(spectraDataFirst())
             }  else if(input$filetype=="MCA"){
-                spectraDataFirst()
+                isolate(spectraDataFirst())
             }  else if(input$filetype=="SPX"){
-                spectraDataFirst()
+                isolate(spectraDataFirst())
             }  else if(input$filetype=="PDZ"){
-                spectraDataFirst()
+                isolate(spectraDataFirst())
             } else if(input$filetype=="Net"){
-                netData()
+                isolate(netData())
             }
             
             calMemory$Calibration$IntensitiesSecond <- if(input$filetype=="CSV"){
-                spectraDataSecond()
+                isolate(spectraDataSecond())
             } else if(input$filetype=="Aggregate CSV File"){
-                spectraDataSecond()
+                isolate(spectraDataSecond())
             } else if(input$filetype=="TXT"){
-                spectraDataSecond()
+                isolate(spectraDataSecond())
             } else if(input$filetype=="Elio"){
-                spectraDataSecond()
+                isolate(spectraDataSecond())
             }  else if(input$filetype=="MCA"){
-                spectraDataSecond()
+                isolate(spectraDataSecond())
             }  else if(input$filetype=="SPX"){
-                spectraDataSecond()
+                isolate(spectraDataSecond())
             }  else if(input$filetype=="PDZ"){
-                spectraDataSecond()
+                isolate(spectraDataSecond())
             } else if(input$filetype=="Net"){
-                netData()
+                isolate(netData())
             }
 
             
             calMemory$Calibration$WideIntensities <- if(input$filetype=="CSV"){
-                wideSpectraData()
+                isolate(wideSpectraData())
             } else if(input$filetype=="Aggregate CSV File"){
-                wideSpectraData()
+                isolate(wideSpectraData())
             } else if(input$filetype=="TXT"){
-                wideSpectraData()
+                isolate(wideSpectraData())
             } else if(input$filetype=="Elio"){
-                wideSpectraData()
+                isolate(wideSpectraData())
             }  else if(input$filetype=="MCA"){
-                wideSpectraData()
+                isolate(wideSpectraData())
             }  else if(input$filetype=="SPX"){
-                wideSpectraData()
+                isolate(wideSpectraData())
             }  else if(input$filetype=="PDZ"){
-                wideSpectraData()
+                isolate(wideSpectraData())
             } else if(input$filetype=="Net"){
-                netData()
+                isolate(netData())
             }
             
             calMemory$Calibration$WideIntensitiesSplit <- if(input$filetype=="CSV"){
-                wideSpectraDataSplit()
+                isolate(wideSpectraDataSplit())
             } else if(input$filetype=="Aggregate CSV File"){
-                wideSpectraDataSplit()
+                isolate(wideSpectraDataSplit())
             } else if(input$filetype=="TXT"){
-                wideSpectraDataSplit()
+                isolate(wideSpectraDataSplit())
             } else if(input$filetype=="Elio"){
-                wideSpectraDataSplit()
+                isolate(wideSpectraDataSplit())
             }  else if(input$filetype=="MCA"){
-                wideSpectraDataSplit()
+                isolate(wideSpectraDataSplit())
             }  else if(input$filetype=="SPX"){
-                wideSpectraDataSplit()
+                isolate(wideSpectraDataSplit())
             }  else if(input$filetype=="PDZ"){
-                wideSpectraDataSplit()
+                isolate(wideSpectraDataSplit())
             } else if(input$filetype=="Net"){
-                netData()
+                isolate(netData())
             }
             
             calMemory$Calibration$OtherSpectraStuff <- otherSpectraStuff()

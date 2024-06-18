@@ -8883,4 +8883,45 @@ simpleValPlot <- function(cal_table, unit="%", element, scale="Linear"){
     return(plot)
 }
 
+spectra_select <- function(spectra, pattern="name"){
+    sub_spectra <- spectra[!grepl(pattern, spectra$Spectrum),]
+    return(sub_spectra)
+}
 
+spectra_stack <- function(spectra, rep_delim="_"){
+    spectra_names <- unique(spectra$Spectrum)
+    channel_length <- nrow(spectra[spectra$Spectrum == spectra_names[1],])
+    spectra$Channel <- seq(1, channel_length, 1)
+    spectra_reps <- as.numeric(sapply(spectra_names, function(x) strsplit(x=x, split=rep_delim)[[1]][length(strsplit(x=x, split=rep_delim)[[1]])]))
+    for(i in unique(spectra_reps)){
+        spectra$Spectrum <- gsub(paste0(rep_delim, i), "", spectra$Spectrum)
+    }
+    spectra_list <- split(spectra, f=spectra$Spectrum)
+    aggregate_spectra_list <- list()
+    for(i in names(spectra_list)){
+        spectra_list[[i]] <- as.data.table(spectra_list[[i]][!colnames(spectra_list[[i]]) %in% "Spectrum"])
+        aggregate_spectra_list[[i]] <- as.data.frame(spectra_list[[i]][, lapply(.SD, mean, na.rm=TRUE), by="Channel" ])
+        aggregate_spectra_list[[i]] <- data.frame(Spectrum=i, Energy=aggregate_spectra_list[[i]]$Energy, CPS=aggregate_spectra_list[[i]]$CPS)
+    }
+    aggregate_spectra <- as.data.frame(data.table::rbindlist(aggregate_spectra_list))
+    return(aggregate_spectra)
+}
+
+values_stack <- function(values, rep_delim="_"){
+    value_names <- unique(values$Spectrum)
+    value_reps <- as.numeric(sapply(value_names, function(x) strsplit(x=x, split=rep_delim)[[1]][length(strsplit(x=x, split=rep_delim)[[1]])]))
+    for(i in unique(value_reps)){
+        values$Spectrum <- gsub(paste0(rep_delim, i), "", values$Spectrum)
+    }
+    values_frame <- data.frame(Include=TRUE, as.data.table(values[,-1])[, lapply(.SD, mean, na.rm=TRUE), by="Spectrum"])
+    return(values_frame)
+}
+
+calibration_stack <- function(calibration, rep_delim="_"){
+    calibration$Spectra <- spectra_stack(calibration$Spectra, rep_delim=rep_delim)
+    calibration$Values <- values_stack(calibration$Values, rep_delim=rep_delim)
+    calibration$OtherSpectraStuff <- NULL
+    calibration$Deconvoluted <- NULL
+    new_calibration <- calRDS(Calibration=calibration, rebuild=TRUE, sort=TRUE)
+    return(new_calibration)
+}
