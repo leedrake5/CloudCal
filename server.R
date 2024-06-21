@@ -1621,7 +1621,7 @@ shinyServer(function(input, output, session) {
         
         output$gausbufferui <- renderUI({
             
-            sliderInput("gausbuffer", "Narrow Line Width", min=0.02, max=1, value=calMemory$Calibration$LineDefaults$GausBuffer)
+            sliderInput("gausbuffer", "Narrow Line Width", min=0.02, max=3, value=calMemory$Calibration$LineDefaults$GausBuffer)
             
         })
         
