@@ -903,6 +903,18 @@ multipleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParal
     return(data)
 }
 
+multipleFileLoaderCommand <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE, use_native_calibration=TRUE){
+     files <- list.files(path=filepath, ignore.case=TRUE, full.names=FALSE)
+     data_list <- if(allowParallel==FALSE){
+         lapply(files, function(x) singleFileLoader(filepath=paste0(filepath, x), filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration))
+     } else if(allowParallel==TRUE){
+         parallel::mclapply(files, function(x) singleFileLoader(filepath=paste0(filepath, x), filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration), mc.cores = as.integer(my.cores), mc.silent = TRUE)
+     }
+
+     data <- as.data.frame(data.table::rbindlist(data_list, use.names = T, fill = T))
+     return(data)
+}
+
 readPDZMetadata <- function(filepath, filename=NULL) {
     
     if(is.null(filename)){
