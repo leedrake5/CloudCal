@@ -1128,7 +1128,7 @@ shinyServer(function(input, output, session) {
                     norm.type=input$normspectra,
                     norm.min=input$comptonminspectra,
                     norm.max=input$comptonmaxspectra,
-                    compress="100 eV",
+                    compress=input$compressplot,
                     energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy))
                     )
                     
@@ -1141,7 +1141,7 @@ shinyServer(function(input, output, session) {
                     norm.type=input$normspectra,
                     norm.min=input$comptonminspectra,
                     norm.max=input$comptonmaxspectra,
-                    compress="100 eV",
+                    compress=input$compressplot,
                     energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy))
                     )
             })
@@ -1157,11 +1157,11 @@ shinyServer(function(input, output, session) {
             })
             
             spectraPlotDataNormal <- reactive({
-                 just_spectra_summary_apply(spectra.frame=dataHold(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra, energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy)))
+                 just_spectra_summary_apply(spectra.frame=dataHold(), compress=input$compressplot, normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra, energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy)))
             })
             
             spectraPlotDataDeconvolution <- reactive({
-                just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionSpectra(), normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra, energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy)))
+                just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionSpectra(), compress=input$compressplot, normalization=input$normspectra, min=input$comptonminspectra, max=input$comptonmaxspectra, energy.range=c(min(dataHold()$Energy), max(dataHold()$Energy)))
             })
             
             
