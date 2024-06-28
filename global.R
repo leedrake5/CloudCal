@@ -1388,7 +1388,7 @@ elementGrabPre <- function(element.line, data, range.table=NULL){
 }
 elementGrabPre <- cmpfun(elementGrabPre)
 
-elementGrab <- function(element.line, data, range.table=NULL){
+elementGrab <- function(element.line, data, range.table=NULL, ...){
     
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
     colnames(error_frame) <- c("Spectrum", element.line)
@@ -1495,7 +1495,7 @@ wideElementGrabPre <- function(element.line, data, range.table=NULL){
 }
 wideElementGrabPre <- cmpfun(wideElementGrabPre)
 
-wideElementGrab <- function(element.line, data, range.table=NULL){
+wideElementGrab <- function(element.line, data, range.table=NULL, ...){
     
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=NA)
     colnames(error_frame) <- c("Spectrum", element.line)
