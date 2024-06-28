@@ -1438,7 +1438,7 @@ elementGaussianLalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[11][1,]-buffer | data$Energy > elementLine[10][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=methgod)
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1454,7 +1454,7 @@ elementFirstLalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[10][1,]-buffer | data$Energy > elementLine[10][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=methgod)
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1470,7 +1470,7 @@ elementSecondLalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[11][1,]-buffer | data$Energy > elementLine[11][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=methgod)
+    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
