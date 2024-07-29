@@ -1424,7 +1424,7 @@ elementGrabKbeta <- function(element, data, calculation="gaussian", gaus_buffer=
     if(calculation=="gaussian"){
         elementGaussianKbeta(element=element, data=data, method="sum", buffer=gaus_buffer)
     } else if(calculation=="split"){
-        elementSplitKbeta(element=element, data=data, method="sum", buffer=split_bufer)
+        elementSplitKbeta(element=element, data=data, method="sum", buffer=split_buffer)
     } else if(calculation=="first"){
         elementFirstKbeta(element=element, data=data, method="sum", buffer=gaus_buffer)
     } else if(calculation=="second"){
@@ -1665,6 +1665,20 @@ elementSplitMalpha <- function(element, data, calculation="gaussian", gaus_buffe
 }
 elementSplitMalpha <- cmpfun(elementSplitMalpha)
 
+elementSplitLbeta <- cmpfun(elementSplitLbeta)
+
+elementGrabMalpha <- function(element, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1){
+    if(calculation=="gaussian"){
+        elementGaussianMalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="split"){
+        elementSplitMalpha(element=element, data=data, method="sum", buffer=split_buffer)
+    } else if(calculation=="first"){
+        elementFirstMalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
+    } else if(calculation=="second"){
+        elementSecondMalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
+    }
+}
+elementGrabMalpha <- cmpfun(elementGrabMalpha)
 
 standardElementGrab <- function(element.line, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1){
 
@@ -1711,12 +1725,12 @@ range_split_xrf <- function(range.frame, data, method="mean", buffer=0.1){
 range_split_xrf <- cmpfun(range_split_xrf)
 
 range_subset_xrf <- function(range.frame, data, calculation="gaussian", buffer=0.1){
-    if(calculation=="gaussian"){
+    #if(calculation=="gaussian"){
         range_gaussian_xrf(range.frame=range.frame, data=data, method="mean")
-    } else if(calculation=="split"){
+    #} else if(calculation=="split"){
         #range_split_xrf(range.frame=range.frame, data=data, method="mean", buffer=buffer)
-        range_gaussian_xrf(range.frame=range.frame, data=data, method="mean")
-    }
+    #    range_gaussian_xrf(range.frame=range.frame, data=data, method="mean")
+    #}
 }
 range_subset_xrf <- cmpfun(range_subset_xrf)
 
@@ -1760,7 +1774,7 @@ elementGrabPre <- function(element.line, data, range.table=NULL, calculation="ga
     if(is.element==TRUE){
         standardElementGrab(element.line, data, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer)
     } else if(is.element==FALSE){
-        xrf_parse_single(range.table, data, element.line, calculation=calculation, buffer=buffer)
+        xrf_parse_single(range.table, data, element.line, calculation="gaussian", buffer=buffer)
     }
 
     
@@ -1772,7 +1786,9 @@ elementGrab <- function(element.line, data, range.table=NULL, calculation="gauss
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
     colnames(error_frame) <- c("Spectrum", element.line)
     
-    tryCatch(elementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer), error=function(e) error_frame)
+    tryCatch(
+        elementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)
+        , error=function(e) error_frame)
     
     
 }
