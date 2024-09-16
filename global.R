@@ -8017,7 +8017,7 @@ mclValGen <- function(model, data, predict.frame, dependent.transformation, y_mi
     } else if(dependent.transformation=="Scale"){
         scaleDecode(values=predict.frame$Concentration, y_min=y_min, y_max=y_max)
     }
-    
+        
     val.frame <- data.frame(Concentration=concentration, Intensity=as.vector(cal.est.conc.pred.luc), Prediction=as.vector(cal.est.conc.pred.luc))
     
     return(val.frame)

@@ -10707,10 +10707,24 @@ shinyServer(function(input, output, session) {
             
             empty.table.summary <- data.frame(Standard=hold.frame$Spectrum, Concentration=0, Prediction=0, Difference=0, Relative=0)
             
-            standard.table.summary <- tryCatch(data.frame(Standard=hold.frame$Spectrum, Concentration=as.numeric(as.character(standard.table$Concentration)), Prediction=as.numeric(as.character(standard.table$Prediction)), Difference=as.numeric(as.character(standard.table$Concentration-standard.table$Prediction)), Relative=((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration), stringsAsFactors=FALSE), error=function(e) empty.table.summary)
+            
+            point.table <- calValFrame()
+            
+
+            concentration.table <- holdFrame()
+            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
+            hold.table$Concentration[hold.table$Concentration==""] <- NA
+            hold.table <- hold.table[complete.cases(hold.table), ]
+            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
+            hold.table <- na.omit(hold.table)
+
+            standard.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
+            standard.table$Difference <- as.numeric(as.character(standard.table$Concentration-standard.table$Prediction))
+            standard.table$Relative=((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration)
+            standard.table.summary <- tryCatch(standard.table, error=function(e) empty.table.summary)
             
           
-            this.table <- standard.table.summary
+            this.table <- standard.table.summary[,c("Spectrum", "Concentration", "Prediction", "Difference", "Relative")]
             this.table
             
         })
@@ -10720,8 +10734,8 @@ shinyServer(function(input, output, session) {
             
             
             standard.table.summary <- calValTable()
-            standard.table.summary[,-1] <-round(standard.table.summary[,-1],4)
-            standard.table.summary[,5] <- as.character(percent(standard.table.summary[,5]))
+            standard.table.summary[,-1] <-round(standard.table.summary[,!colnames(standard.table.summary) %in% "Spectrum"],7)
+            standard.table.summary[,5] <- as.character(percent(standard.table.summary$Relative))
             
             standard.table.summary
             
