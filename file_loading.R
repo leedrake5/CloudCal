@@ -225,19 +225,19 @@ netCountsProcess <- function(inFile=NULL){
 not_all_na <- function(x) any(!is.na(x))
 not_any_na <- function(x) all(!is.na(x))
 
-importCSVFrame <- function(filepath, choosen_beam="1"){
-    csv_import <- read.csv("~/Google Drive/Reply to Frahm 2019/Export Results from Vanta/beamspectra-804734-2019-09-28-15-29-14.csv", header=F, stringsAsFactors=FALSE)
+importCSVFrame <- function(filepath, chosen_beam="1"){
+    csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
     
     if(csv_import[1, "V1"]=="Std#"){
-        importCSVFrameBasic(filepath)
+        importCSVFrameBasic(filepath=filepath, choosen_beam=chosen_beam)
     } else if(csv_import[1, "V1"]=="sep="){
-        importCSVFrameDetailed(csv_import)
+        importCSVFrameDetailed(csv_import=csv_import, choosen_beam=chosen_beam)
     }
 
 }
 importCSVFrame <- cmpfun(importCSVFrame)
 
-importCSVFrameBasic <- function(filepath){
+importCSVFrameBasic <- function(filepath, chosen_beam="1"){
     csv.frame <- read.csv(filepath)
     metadata <- csv.frame[1,]
     spectra.data <- csv.frame[-1,]
@@ -247,13 +247,35 @@ importCSVFrameBasic <- function(filepath){
 }
 importCSVFrameBasic <- cmpfun(importCSVFrameBasic)
 
-uniqueBeamsDetailed <- function(csv_import){
-
-    csv_import <- csv_import %>% select_if(not_all_na)
-    csv_import <- csv_import[-1,]
-    beams <- as.vector((unlist(csv_import[csv_import$V1=="Exposure Number",-1])))
-    unique_beams <- unique(beams)
-    return(unique_beams)
+uniqueBeamsDetailed <- function(csv_import, chosen_beam = "1") {
+    # Remove columns where all values are NA
+    csv_import <- csv_import %>% select_if(~ !all(is.na(.)))
+    
+    # Remove the first row if it's not needed (adjust as necessary)
+     csv_import <- csv_import[-1, ]
+    
+    # Get the "Exposure Number" row
+    exposure_row <- csv_import %>% filter(V1 == "Exposure Number")
+    
+    if (nrow(exposure_row) == 0) {
+        stop("The row 'Exposure Number' was not found in the data.")
+    }
+    
+    # Get exposure numbers from the exposure row, excluding the first column (V1)
+    exposure_numbers <- as.character(unlist(exposure_row[1, -1]))
+    
+    # Identify columns that match the chosen beam
+    matching_columns <- which(exposure_numbers == chosen_beam)
+    
+    if (length(matching_columns) == 0) {
+        stop(paste("No data found for Exposure Number", chosen_beam))
+    }
+    
+    # Keep the first column (V1) and the columns that match the chosen beam
+    columns_to_keep <- c(1, matching_columns + 1)  # +1 to account for V1
+    filtered_csv_import <- csv_import[, columns_to_keep]
+    
+    return(filtered_csv_import)
 }
 uniqueBeamsDetailed <- cmpfun(uniqueBeamsDetailed)
 

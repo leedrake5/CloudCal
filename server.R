@@ -144,7 +144,7 @@ shinyServer(function(input, output, session) {
     
     output$beamnoui <- renderUI({
         if(input$filetype=="Aggregate CSV File"){
-            selectInput("beamno", "Choose Beam", uniqueBeams(input$file1))
+            selectInput("beamno", "Choose Beam", uniqueBeams(input$file1$datapath))
         } else if(input$filetype!="Aggregate CSV File"){
             NULL
         }
@@ -185,7 +185,7 @@ shinyServer(function(input, output, session) {
             inFile <- inFile()
             if (is.null(inFile)) return(NULL)
             
-            importCSVFrame(filepath=inFile$datapath)
+            importCSVFrame(filepath=inFile$datapath, chosen_beam=input$beamno)
     })
     
     
