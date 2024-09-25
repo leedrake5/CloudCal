@@ -788,7 +788,7 @@ uniqueBeamsDetailed <- function(csv_import){
 uniqueBeamsDetailed <- cmpfun(uniqueBeamsDetailed)
 
 uniqueBeams <- function(filepath){
-    csv_import <- read.csv("/Users/lee/Google Drive/Reply to Frahm 2019/Export Results from Vanta/beamspectra-804734-2019-09-28-15-29-14.csv", header=F, stringsAsFactors=FALSE)
+    csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
     
     if(csv_import[1, "V1"]=="Std#"){
         "1"
