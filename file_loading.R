@@ -232,10 +232,23 @@ importCSVFrame <- function(filepath, chosen_beam="1"){
         importCSVFrameBasic(filepath=filepath, choosen_beam=chosen_beam)
     } else if(csv_import[1, "V1"]=="sep="){
         importCSVFrameDetailed(csv_import=csv_import, choosen_beam=chosen_beam)
+    } else {
+        importCSVFrameNaive(csv_import=csv_import[,-1)
     }
 
 }
 importCSVFrame <- cmpfun(importCSVFrame)
+
+importCSVFrameNaive <- function(filepath=NULL, csv_import=NULL){
+    if(is.null(csv_import)){
+        csv_import <- read.csv(filepath)[,-1]
+    }
+    
+   
+    spectra_frame <- reshape2::melt(csv_import, id="Energy")
+    colnames(spectra_frame) <- c("Energy", "Spectrum", "CPS")
+    return(spectra_frame)
+}
 
 importCSVFrameBasic <- function(filepath, chosen_beam="1"){
     csv.frame <- read.csv(filepath)

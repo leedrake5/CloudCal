@@ -179,13 +179,26 @@ shinyServer(function(input, output, session) {
 
     })
     
+    
+    
+    importCSVFrameNaive <- function(filepath=NULL, csv_import=NULL){
+        if(is.null(csv_import)){
+            csv_import <- read.csv(filepath)[,-1]
+        }
+        
+       
+        spectra_frame <- reshape2::melt(csv_import, id="Energy")
+        colnames(spectra_frame) <- c("Energy", "Spectrum", "CPS")
+        return(spectra_frame)
+    }
+    
     importedCSV <- reactive(label="importedCSV", {
         req(input$file1)
         
             inFile <- inFile()
             if (is.null(inFile)) return(NULL)
             
-            importCSVFrame(filepath=inFile$datapath, chosen_beam=input$beamno)
+            tryCatch(importCSVFrame(filepath=inFile$datapath, chosen_beam=input$beamno), error=function(e) importCSVFrameNaive(filepath=inFile$datapath))
     })
     
     
