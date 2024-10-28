@@ -233,7 +233,7 @@ importCSVFrame <- function(filepath, chosen_beam="1"){
     } else if(csv_import[1, "V1"]=="sep="){
         importCSVFrameDetailed(csv_import=csv_import, choosen_beam=chosen_beam)
     } else {
-        importCSVFrameNaive(csv_import=csv_import[,-1)
+        importCSVFrameNaive(csv_import=csv_import[,-1])
     }
 
 }
