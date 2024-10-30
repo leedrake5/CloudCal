@@ -924,7 +924,51 @@ readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calib
 }
 readPDZ24Data <- cmpfun(readPDZ24Data)
 
-
+readPDZManualData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE, start=361, size=2048){
+    
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
+    
+    filename <- make.names(gsub(".pdz", "", filename))
+    filename.vector <- rep(filename, 2020)
+    
+    nbrOfRecords <- 2020
+    integers <- readPDZManual(filepath, start=start, size=size)
+    sequence <- seq(1, length(integers), 1)
+    
+    time.est <- integers[21]
+    
+    evch <- if(pdzprep==TRUE){
+        readPDZ24DoubleFetch(filepath, 50)/1000
+    } else if(pdzprep==FALSE){
+        0.02
+    }
+    
+    channels <- sequence
+    energy <- if(use_native_calibration==TRUE){
+        sequence*evch
+    } else if(use_native_calibration==FALSE){
+        sequence
+    }
+    counts <- if(pdzprep==TRUE){
+        integers/as.numeric(readPDZ24FloatFetch(filepath, 354))
+    } else if(pdzprep==FALSE){
+        integers/(integers[21]/10)
+    }
+    
+    result <- data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    
+    #final_result <-  if(sum(result$CPS)==0){
+    #     NULL
+    # } else {
+    #     result
+    # }
+     
+     return(result)
+    
+}
+readPDZ24Data <- cmpfun(readPDZ24Data)
 
 readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE) {
     
@@ -938,8 +982,10 @@ readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibr
     
     if(floats[[9]]=="5"){
         readPDZ25Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
-    }else {
+    } else if(floats[[9]]==""){
         readPDZ24Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
+    } else if(floats[[9]]=="\xd6"){
+        readPDZManualData(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
     }
 
     
