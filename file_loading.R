@@ -857,8 +857,10 @@ readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibr
     
     if(floats[[9]]=="5"){
         readPDZ25Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
-    }else {
+    } else if(floats[[9]]==""){
         readPDZ24Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
+    } else if(floats[[9]]=="\xd6"){
+        readPDZManualData(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
     }
 
     
