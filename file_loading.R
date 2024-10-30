@@ -912,7 +912,7 @@ readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calib
     }
     
     result <- data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
-    
+    result$CPS[result$Energy < 0.6] <- 0
     #final_result <-  if(sum(result$CPS)==0){
     #     NULL
     # } else {
@@ -924,7 +924,7 @@ readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calib
 }
 readPDZ24Data <- cmpfun(readPDZ24Data)
 
-readPDZManualData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE, start=361, size=2048){
+readPDZManualData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE, start=362, size=2020){
     
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -958,6 +958,7 @@ readPDZManualData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_
     }
     
     result <- data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    result$CPS[result$Energy < 0.6] <- 0
     
     #final_result <-  if(sum(result$CPS)==0){
     #     NULL
@@ -968,7 +969,7 @@ readPDZManualData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_
      return(result)
     
 }
-readPDZ24Data <- cmpfun(readPDZ24Data)
+readPDZManualData <- cmpfun(readPDZManualData)
 
 readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE) {
     
