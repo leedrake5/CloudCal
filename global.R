@@ -87,27 +87,27 @@ if(packageVersion("caret")!="6.0.93.1" && get_os()=="windows"){
     }
 
 if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.4.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.6.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
         if(Sys.info()[["machine"]]=="arm64"){
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.4_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.6_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
         } else {
             tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL)
             }
     } else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.4.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.6.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     }
 
-if(packageVersion("rPDZ")!="1.4" && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.4.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
-} else if (packageVersion("rPDZ")!="1.4" && get_os()=="osx"){
+if(packageVersion("rPDZ")!="1.6" && get_os()=="windows"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.6.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+} else if (packageVersion("rPDZ")!="1.6" && get_os()=="osx"){
     if(Sys.info()[["machine"]]=="arm64"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.4_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.6_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     } else {
         tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL)
         }
-} else if (packageVersion("rPDZ")!="1.4" && get_os()=="linux"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.4.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+} else if (packageVersion("rPDZ")!="1.6" && get_os()=="linux"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.6.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
 }
 
 

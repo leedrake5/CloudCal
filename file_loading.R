@@ -714,13 +714,16 @@ readPDZ24DataExpiremental <- cmpfun(readPDZ24DataExpiremental)
 
 readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE){
     
+    
+    records <- readPDZ25(filepath)
+    
     if(is.null(filename)){
         filename <- basename(filepath)
     }
     
     filename <- make.names(gsub(".pdz", "", filename))
     
-    integers <- as.vector(readPDZ25(filepath))
+    integers <- records[[3]]$SpectrumData
     
     sequence <- seq(1, length(integers), 1)
     filename.vector <- rep(filename, length(integers))
@@ -728,7 +731,7 @@ readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_cali
     time.est <- integers[21]
     
     evch <- if(pdzprep==TRUE){
-        as.numeric(readPDZ25eVCH(filepath))/1000
+        records[[3]]$EVPerChannel/1000
     } else if(pdzprep==FALSE){
         0.02
     }
@@ -740,7 +743,7 @@ readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_cali
         sequence
     }
     counts <- if(pdzprep==TRUE){
-        integers/as.numeric(readPDZ25LiveTime(filepath))
+        integers/records[[3]]$TotalLive
     } else if(pdzprep==FALSE){
         integers/(integers[21]/10)
     }
@@ -842,6 +845,53 @@ readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calib
     
 }
 readPDZ24Data <- cmpfun(readPDZ24Data)
+
+readPDZManualData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE, start=362, size=2020){
+    
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
+    
+    filename <- make.names(gsub(".pdz", "", filename))
+    filename.vector <- rep(filename, 2020)
+    
+    nbrOfRecords <- 2020
+    integers <- readPDZManual(filepath, start=start, size=size)
+    sequence <- seq(1, length(integers), 1)
+    
+    time.est <- integers[21]
+    
+    evch <- if(pdzprep==TRUE){
+        readPDZ24DoubleFetch(filepath, 50)/1000
+    } else if(pdzprep==FALSE){
+        0.02
+    }
+    
+    channels <- sequence
+    energy <- if(use_native_calibration==TRUE){
+        sequence*evch
+    } else if(use_native_calibration==FALSE){
+        sequence
+    }
+    counts <- if(pdzprep==TRUE){
+        integers/as.numeric(readPDZ24FloatFetch(filepath, 354))
+    } else if(pdzprep==FALSE){
+        integers/(integers[21]/10)
+    }
+    
+    result <- data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
+    result$CPS[result$Energy < 0.6] <- 0
+    
+    #final_result <-  if(sum(result$CPS)==0){
+    #     NULL
+    # } else {
+    #     result
+    # }
+     
+     return(result)
+    
+}
+readPDZManualData <- cmpfun(readPDZManualData)
 
 
 
