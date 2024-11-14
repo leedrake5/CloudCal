@@ -809,8 +809,8 @@ readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calib
     filename <- make.names(gsub(".pdz", "", filename))
     filename.vector <- rep(filename, 2020)
     
-    nbrOfRecords <- 2020
-    integers <- readPDZ24(filepath)
+    nbrOfRecords <- 2048
+    integers <- readPDZ24(filepath, start=362)
     sequence <- seq(1, length(integers), 1)
     
     time.est <- integers[21]
@@ -908,7 +908,7 @@ readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibr
     if(floats[[9]]=="5"){
         readPDZ25Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
     } else if(floats[[9]]==""){
-        readPDZ24Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
+        tryCatch(readPDZ24Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration), error=function(e) readPDZManualData(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration))
     } else if(floats[[9]]=="\xd6"){
         readPDZManualData(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
     }
