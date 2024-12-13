@@ -627,6 +627,9 @@ readPMCAData2048 <- function(filepath, filename=NULL, full=NULL, use_native_cali
     }
     
     time <- remove_na(as.numeric(strsplit(full[find_row_with_string(full, "LIVE_TIME"),], " ")[[1]]))
+    if(time==0){
+        time <- remove_na(as.numeric(strsplit(full[find_row_with_string(full, "REAL_TIME"),], " ")[[1]]))
+    }
     
     cps <- as.numeric(full[(find_row_with_string(full, "<<DATA>>")+1):(find_row_with_string(full, "<<END>>")-1), 1])/time
     newdata <- as.data.frame(seq(1, length(cps), 1), stringsAsFactors=FALSE)
