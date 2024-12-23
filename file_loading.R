@@ -92,7 +92,7 @@ csvFrame <- function(filepath, filename=NULL, use_native_calibration=TRUE){
         ret[,"V1"] <- c(ret$V1[1:21], as.vector(seq(0, 2047, 1)))
     }
     
-    return.res <- as.numeric(as.vector(ret[ret$V1 %in% "eV per channel",]$V2))/1000
+    return.res <- tryCatch(as.numeric(as.vector(ret[ret$V1 %in% "eV per channel",]$V2))/1000, error=function(e) 0.02)
     return.chan.counts <-as.numeric(as.vector(ret$V1[(n-2048):n]))
     return.energy <- if(use_native_calibration==TRUE){
             return.chan.counts*return.res
@@ -1028,9 +1028,9 @@ singleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE, use_native_c
 
 multipleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE, use_native_calibration=TRUE){
     data_list <- if(allowParallel==FALSE){
-        lapply(filepath, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration))
+        lapply(filepath, function(x) tryCatch(singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration), error=function(e) NULL))
     } else if(allowParallel==TRUE){
-        parallel::mclapply(filepath, function(x) singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration), mc.cores = as.integer(my.cores), mc.silent = TRUE)
+        parallel::mclapply(filepath, function(x) tryCatch(singleFileLoader(filepath=x, filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration), error=function(e) NULL), mc.cores = as.integer(my.cores), mc.silent = TRUE)
     }
 
     data <- as.data.frame(data.table::rbindlist(data_list, use.names = T, fill = T))
@@ -1040,9 +1040,9 @@ multipleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParal
 multipleFileLoaderCommand <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE, use_native_calibration=TRUE){
     files <- list.files(path=filepath, ignore.case=TRUE, full.names=FALSE)
     data_list <- if(allowParallel==FALSE){
-        lapply(files, function(x) singleFileLoader(filepath=paste0(filepath, x), filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration))
+        lapply(files, function(x) tryCatch(singleFileLoader(filepath=paste0(filepath, x), filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration), error=function(e) NULL))
     } else if(allowParallel==TRUE){
-        parallel::mclapply(files, function(x) singleFileLoader(filepath=paste0(filepath, x), filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration), mc.cores = as.integer(my.cores), mc.silent = TRUE)
+        parallel::mclapply(files, function(x) tryCatch(singleFileLoader(filepath=paste0(filepath, x), filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration), error=function(e) NULL), mc.cores = as.integer(my.cores), mc.silent = TRUE)
     }
 
     data <- as.data.frame(data.table::rbindlist(data_list, use.names = T, fill = T))
