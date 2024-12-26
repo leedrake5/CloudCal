@@ -2684,10 +2684,12 @@ shinyServer(function(input, output, session) {
                 value.frame[3:length(value.frame)]
             }
             
+            hold.frame$Spectrum <- spectrumNameVector(hold.frame$Spectrum)
+            value.frame$Spectrum <- spectrumNameVector(value.frame$Spectrum)
+
             rownames(hold.frame.reduced) <- hold.frame$Spectrum
             rownames(value.frame.reduced) <- value.frame$Spectrum
-            
-            
+ 
             hotable.new = hold.frame.reduced %>% add_rownames %>%
             full_join(value.frame.reduced %>% add_rownames) %>%
             group_by(rowname) %>%

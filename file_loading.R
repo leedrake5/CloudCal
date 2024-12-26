@@ -3142,48 +3142,64 @@ intensity_fix <- function(calibration, keep_labels=TRUE){
     return(calibration)
 }
 
+spectrumNameSingle <- function(spectrum_name){
+    spectrum_name <- gsub(".pdz", "", spectrum_name)
+    spectrum_name <- gsub(".csv", "", spectrum_name)
+    spectrum_name <- gsub(".CSV", "", spectrum_name)
+    spectrum_name <- gsub(".spt", "", spectrum_name)
+    spectrum_name <- gsub(".mca", "", spectrum_name)
+    spectrum_name <- gsub(".spx", "", spectrum_name)
+    return(spectrum_name)
+}
+
+spectrumNameVector <- function(spectrum_vector){
+    new_spectrum_vector <- as.vector(unlist(sapply(spectrum_vector, spectrumNameSingle)))
+    return(new_spectrum_vector)
+}
+
 calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE, deconvolution=TRUE, rebuild=FALSE, allowParallel=TRUE){
     if(is.null(Calibration)){
         Calibration <- readRDS(calibration.directory)
     }
     
-    Calibration$Spectra$Spectrum <- make.names(Calibration$Spectra$Spectrum, unique=FALSE)
-       Calibration$Values$Spectrum <- make.names(Calibration$Values$Spectrum, unique=FALSE)
+    
+    Calibration$Spectra$Spectrum <- make.names(spectrumNameVector(Calibration$Spectra$Spectrum), unique=FALSE)
+    Calibration$Values$Spectrum <- make.names(spectrumNameVector(Calibration$Values$Spectrum), unique=FALSE)
        if("Intensities" %in% names(Calibration)){
            if("Spectrum" %in% names(Calibration$Intensities)){
-               Calibration$Intensities$Spectrum <- make.names(Calibration$Intensities$Spectrum, unique=FALSE)
+               Calibration$Intensities$Spectrum <- make.names(spectrumNameVector(Calibration$Intensities$Spectrum), unique=FALSE)
            }
        }
        if("IntensitiesSplit" %in% names(Calibration)){
            if("Spectrum" %in% names(Calibration$IntensitiesSplit)){
-               Calibration$IntensitiesSplit$Spectrum <- make.names(Calibration$IntensitiesSplit$Spectrum, unique=FALSE)
+               Calibration$IntensitiesSplit$Spectrum <- make.names(spectrumNameVector(Calibration$IntensitiesSplit$Spectrum), unique=FALSE)
            }
        }
        if("IntensitiesFirst" %in% names(Calibration)){
            if("Spectrum" %in% names(Calibration$IntensitiesFirst)){
-               Calibration$IntensitiesFirst$Spectrum <- make.names(Calibration$IntensitiesFirst$Spectrum, unique=FALSE)
+               Calibration$IntensitiesFirst$Spectrum <- make.names(spectrumNameVector(Calibration$IntensitiesFirst$Spectrum), unique=FALSE)
            }
        }
        if("IntensitiesSecond" %in% names(Calibration)){
            if("Spectrum" %in% names(Calibration$IntensitiesSecond)){
-               Calibration$IntensitiesSecond$Spectrum <- make.names(Calibration$IntensitiesSecond$Spectrum, unique=FALSE)
+               Calibration$IntensitiesSecond$Spectrum <- make.names(spectrumNameVector(Calibration$IntensitiesSecond$Spectrum), unique=FALSE)
            }
        }
        if("WideIntensities" %in% names(Calibration)){
            if("Spectrum" %in% names(Calibration$WideIntensities)){
-               Calibration$WideIntensities$Spectrum <- make.names(Calibration$WideIntensities$Spectrum, unique=FALSE)
+               Calibration$WideIntensities$Spectrum <- make.names(spectrumNameVector(Calibration$WideIntensities$Spectrum), unique=FALSE)
            }
        }
        if("WideIntensitiesSplit" %in% names(Calibration)){
            if("Spectrum" %in% names(Calibration$WideIntensitiesSplit)){
-               Calibration$WideIntensitiesSplit$Spectrum <- make.names(Calibration$WideIntensitiesSplit$Spectrum, unique=FALSE)
+               Calibration$WideIntensitiesSplit$Spectrum <- make.names(spectrumNameVector(Calibration$WideIntensitiesSplit$Spectrum), unique=FALSE)
            }
        }
        if("Deconvoluted" %in% names(Calibration)){
-           Calibration$Deconvoluted$Areas$Spectrum <- make.names(Calibration$Deconvoluted$Areas$Spectrum, unique=FALSE)
-           Calibration$Deconvoluted$Spectra$Spectrum <- make.names(Calibration$Deconvoluted$Spectra$Spectrum, unique=FALSE)
+           Calibration$Deconvoluted$Areas$Spectrum <- make.names(spectrumNameVector(Calibration$Deconvoluted$Areas$Spectrum), unique=FALSE)
+           Calibration$Deconvoluted$Spectra$Spectrum <- make.names(spectrumNameVector(Calibration$Deconvoluted$Spectra$Spectrum), unique=FALSE)
            if("Baseline" %in% names(Calibration$Deconvoluted)){
-               Calibration$Deconvoluted$Baseline$Spectrum <- make.names(Calibration$Deconvoluted$Baseline$Spectrum, unique=FALSE)
+               Calibration$Deconvoluted$Baseline$Spectrum <- make.names(spectrumNameVector(Calibration$Deconvoluted$Baseline$Spectrum), unique=FALSE)
 
            }
        }
