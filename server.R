@@ -198,7 +198,8 @@ shinyServer(function(input, output, session) {
             inFile <- inFile()
             if (is.null(inFile)) return(NULL)
             
-            tryCatch(importCSVFrame(filepath=inFile$datapath, chosen_beam=input$beamno), error=function(e) importCSVFrameNaive(filepath=inFile$datapath))
+            #tryCatch(
+            importCSVFrame(filepath=inFile$datapath, chosen_beam=input$beamno)#, error=function(e) importCSVFrameNaive(filepath=inFile$datapath))
     })
     
     

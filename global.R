@@ -789,27 +789,6 @@ val.lmsummary <-function(lm.object){
 val.lmsummary <- cmpfun(val.lmsummary)
 
 
-uniqueBeamsDetailed <- function(csv_import){
-
-    csv_import <- csv_import %>% select_if(not_all_na)
-    csv_import <- csv_import[-1,]
-    beams <- as.vector((unlist(csv_import[csv_import$V1=="Exposure Number",-1])))
-    unique_beams <- unique(beams)
-    return(unique_beams)
-}
-uniqueBeamsDetailed <- cmpfun(uniqueBeamsDetailed)
-
-uniqueBeams <- function(filepath){
-    csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
-    
-    if(csv_import[1, "V1"]=="Std#"){
-        "1"
-    } else if(csv_import[1, "V1"]=="sep="){
-        uniqueBeamsDetailed(csv_import)
-    }
-}
-
-
 
 
 

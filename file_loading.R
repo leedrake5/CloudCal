@@ -229,10 +229,26 @@ importCSVFrame <- function(filepath, chosen_beam="1"){
     csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
     
     if(csv_import[1, "V1"]=="Std#"){
-        importCSVFrameBasic(filepath=filepath, choosen_beam=chosen_beam)
+        importCSVFrameBasic(filepath=filepath, chosen_beam=chosen_beam)
     } else if(csv_import[1, "V1"]=="sep="){
-        importCSVFrameDetailed(csv_import=csv_import, choosen_beam=chosen_beam)
+        importCSVFrameDetailed(csv_import=csv_import, chosen_beam=chosen_beam)
     } else {
+        importCSVFrameNaive(csv_import=csv_import[,-1])
+    }
+
+}
+importCSVFrame <- cmpfun(importCSVFrame)
+
+importCSVFrame <- function(filepath, chosen_beam="1"){
+    instrument <- get_instrument_and_beams(filepath)$instrument
+    
+    if(instrument=="Niton"){
+        importNiton(filepath, chosen_beam=chosen_beam)
+    } else if(instrument=="Olympus"){
+        csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
+        importCSVFrameDetailed(csv_import, chosen_beam=chosen_beam)
+    } else {
+        csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
         importCSVFrameNaive(csv_import=csv_import[,-1])
     }
 
@@ -292,23 +308,84 @@ uniqueBeamsDetailed <- function(csv_import, chosen_beam = "1") {
 }
 uniqueBeamsDetailed <- cmpfun(uniqueBeamsDetailed)
 
-uniqueBeams <- function(filepath){
-    csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
+get_instrument_and_beams <- function(filepath) {
+  # Read in the first few lines of the file to inspect the header.
+  # (Adjust n as needed.)
+  header_lines <- readLines(filepath, n = 20)
+  
+  # Check if any header line contains "Main Range" (Company 1)
+  if (any(grepl("Main Range", header_lines))) {
+    instrument <- "Niton"
     
-    if(csv_import[1, "V1"]=="Std#"){
-        "1"
-    } else if(csv_import[1, "V1"]=="sep="){
-        uniqueBeamsDetailed(csv_import)
+    # For Company 1, we assume that the CSV has a header line with names like:
+    # keV    418(Main Range)    418(Low Range)    418(High Range)
+    #
+    # Read the file as a tab- or comma-separated file. You may need to adjust the 'sep'
+    # depending on your file (here I assume tab-delimited):
+    df <- read.csv(filepath, sep = ",", nrows = 20)
+    
+    # The beam names are embedded in the column names (skip the first column "keV").
+    # Use a regular expression to extract the string inside the parentheses.
+    beam_names <- unique(gsub("\\.", " ", sub("\\.$", "", sub("^[^.]+\\.", "", colnames(df)))))
+    beam_names <- beam_names[!beam_names %in% "keV"]
+    
+  } else if (any(grepl("Exposure Number", header_lines))) {
+    instrument <- "Olympus"
+    
+    # For Company 2 the metadata is stored in a header block.
+    # We need to find the row that begins with "Exposure Number"
+    # (Assuming the file is tab- or comma-delimited)
+    # Here we use readLines to get the header row; you may have to adjust
+    # the splitting if your file uses commas or tabs.
+    df <- read.csv(filepath, sep = ",", header=FALSE, nrows = 20)
+    
+    # Find the row where the first column equals "Exposure Number"
+    exp_row_index <- which(df[, 1] == "Exposure Number")
+    
+    if (length(exp_row_index) == 0) {
+      stop("Could not find a row with 'Exposure Number' in the first column!")
     }
+    
+    # Extract that row (as a data frame row)
+    exposure_row <- df[exp_row_index, ]
+
+    # Get all unique values from that row, excluding the first column (the label)
+    unique_beams <- unique(as.character(unlist(exposure_row[-1])))
+    beam_names <- unique_beams[!is.na(unique_beams)]
+    
+    
+  } else {
+    stop("Unrecognized file format")
+  }
+  
+  return(list(instrument = instrument, beams = beam_names))
 }
 
+uniqueBeams <- function(filepath){
+    file_check <- get_instrument_and_beams(filepath)
+    file_check$beams
+}
 
-importCSVFrameDetailed <- function(csv_import, choosen_beam="1"){
+importNiton <- function(filepath, chosen_beam="Main Range"){
+    csv_import <- read.csv(filepath)
+    
+    beam_cols <- grep(make.names(chosen_beam), names(csv_import), value = TRUE)
+    csv_range <- csv_import[, beam_cols, drop = FALSE]
+    data_list <- list()
+    for(i in beam_cols){
+        data_list[[i]] <- data.frame(Spectrum=i, Energy=csv_import$keV, CPS=as.numeric(csv_import[,i]))
+    }
+    spectra_frame <- as.data.frame(data.table::rbindlist(data_list))
+    spectra_frame$Spectrum <- gsub(paste0(".", make.names(chosen_beam), "."), "", spectra_frame$Spectrum)
+    spectra_frame
+}
+
+importCSVFrameDetailed <- function(csv_import, chosen_beam="1"){
     csv_import <- csv_import %>% select_if(not_all_na)
     csv_import <- csv_import[-1,]
     beams <- as.vector((unlist(csv_import[csv_import$V1=="Exposure Number",-1])))
     unique_beams <- unique(beams)
-    csv_frame <- csv_import[complete.cases(as.numeric(csv_import$V1)),c(TRUE, beams==choosen_beam)]
+    csv_frame <- csv_import[complete.cases(as.numeric(csv_import$V1)),c(TRUE, beams==chosen_beam)]
     spectra.data <- as.data.frame(apply(csv_frame, 2, function(x) as.numeric(as.character(x))), stringsAsFactors=FALSE)
     
     melt.frame <- reshape2::melt(spectra.data, id="V1")
