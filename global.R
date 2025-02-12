@@ -6307,7 +6307,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
 
         val.data.type <- if(Calibration[["FileType"]]=="Spectra"){
                 "Spectra"
-             } else if(Calibration[["FileType"]]=="CSV"){
+            } else if(Calibration[["FileType"]]=="CSV"){
+                "Spectra"
+            } else if(Calibration[["FileType"]]=="Aggregate CSV File"){
                 "Spectra"
             } else if(Calibration[["FileType"]]=="TXT"){
                 "Spectra"

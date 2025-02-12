@@ -659,6 +659,7 @@ tags$hr(),
 
 uiOutput('filevalgrab'),
 uiOutput("pdzprepvalui"),
+uiOutput("beamnoui_val"),
 
 uiOutput('valfiletypeui'),
 

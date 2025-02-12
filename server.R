@@ -18665,6 +18665,13 @@ content = function(file){
         
     })
     
+    output$beamnoui_val <- renderUI({
+        if(input$valfiletype=="Aggregate CSV File"){
+            selectInput("beamno_val", "Choose Beam", uniqueBeams(input$loadvaldata$datapath))
+        } else if(input$valfiletype!="Aggregate CSV File"){
+            NULL
+        }
+    })
     
 
     
@@ -18683,7 +18690,7 @@ content = function(file){
                 inFile <- input$loadvaldata
                 if (is.null(inFile)) return(NULL)
                 
-                importCSVFrame(filepath=inFile$datapath)
+                importCSVFrame(filepath=inFile$datapath, chosen_beam=input$beamno_val)#, error=function(e) importCSVFrameNaive(filepath=inFile$datapath))
         })
         
         readValTXT <- reactive({
