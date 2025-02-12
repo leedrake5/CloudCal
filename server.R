@@ -425,16 +425,21 @@ shinyServer(function(input, output, session) {
         observeEvent(!is.null(input$file1) | !is.null(input$calfileinput), {
             if(is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- list(LineDefaults=list(GausBuffer=0.02, SplitBuffer=0.1))
+                tryCatch(calMemory$Calibration$Beam <- input$beamno)
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- calFileContents()
+                tryCatch(calMemory$Calibration$Beam <- input$beamno)
             } else if(!is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- calFileContents()
+                tryCatch(calMemory$Calibration$Beam <- input$beamno)
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- list(LineDefaults=list(GausBuffer=0.02, SplitBuffer=0.1))
+                tryCatch(calMemory$Calibration$Beam <- input$beamno)
             }
             
             if(is.null(input$calfileinput) && is.null(input$file1)){
                 calMemory$Calibration <- list(LineDefaults=list(GausBuffer=0.02, SplitBuffer=0.1))
+                tryCatch(calMemory$Calibration$Beam <- input$beamno)
             } else if(!is.null(input$calfileinput) && is.null(input$file1)){
                 print("Processing calibration")
                 calMemory$Calibration <- defaultCalList(calMemory$Calibration)
@@ -443,6 +448,7 @@ shinyServer(function(input, output, session) {
                 calMemory$Calibration <- defaultCalList(calMemory$Calibration, temp=TRUE)
             } else if(is.null(input$calfileinput) && !is.null(input$file1)){
                 calMemory$Calibration <- list(LineDefaults=list(GausBuffer=0.02, SplitBuffer=0.1))
+                tryCatch(calMemory$Calibration$Beam <- input$beamno)
             }
         })
         
@@ -18665,9 +18671,17 @@ content = function(file){
         
     })
     
+    beamSelect <- reactive({
+        if("Beam" %in% names(calFileContents2())){
+            calFileContents2()$Beam
+        } else {
+            NULL
+        }
+    })
+    
     output$beamnoui_val <- renderUI({
         if(input$valfiletype=="Aggregate CSV File"){
-            selectInput("beamno_val", "Choose Beam", uniqueBeams(input$loadvaldata$datapath))
+            selectInput("beamno_val", "Choose Beam", uniqueBeams(input$loadvaldata$datapath), selected=beamSelect())
         } else if(input$valfiletype!="Aggregate CSV File"){
             NULL
         }
