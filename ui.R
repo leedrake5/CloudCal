@@ -86,6 +86,7 @@ c("(Ne) Neon" = "Ne.table",
 "(Xe) Xenon" = "Xe.table",
 "(Cs) Cesium" = "Cs.table",
 "(Ba) Barium" = "Ba.table",
+"(La) Lanthanum" = "La.table",
 "(Ce) Cerium" = "Ce.table",
 "(Pr) Praeseodymeum" = "Pr.table",
 "(Nd) Neodymeum" = "Nd.table",
@@ -191,6 +192,10 @@ splitLayout(cellWidths = c("50%", "50%"),
 tags$hr(),
 numericInput('plotwidth', "Download Width", step=1, value=5, min=1, max=20),
 numericInput('plotheight', "Download Height", step=1, value=5, min=1, max=20)
+),
+
+tabPanel("EnergyCal",
+plotOutput('energyplot')
 ),
 
 tabPanel("Notes",

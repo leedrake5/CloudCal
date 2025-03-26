@@ -411,6 +411,33 @@ shinyServer(function(input, output, session) {
         
     })
     
+    energyModelPlot <- reactive({
+        
+        num_channels <- numChannels()
+        channel_vector <- as.numeric(c(0, input$firstchannel, input$secondchannel, num_channels))
+        energy_vector <- as.numeric(c(input$zeroenergy, input$firstenergy, input$secondenergy, input$maxenergy))
+        
+        energy.frame <- data.frame(x=channel_vector, y=energy_vector)
+        
+        
+        ggplot(energy.frame, aes(x, y)) +
+          geom_point() +
+          stat_smooth(method="lm") +
+          scale_x_continuous("# Channels") +
+          scale_y_continuous("Energy (keV)") +
+          geom_text(x = -Inf, y = Inf,
+                    label = lm_eqn_simple(energy.frame),
+                    parse = TRUE,
+                    hjust = -0.1,   # pushes the text slightly to the right of the left edge
+                    vjust = 1.1) +  # pulls the text slightly downward from the top edge
+          theme_bw()
+        
+    })
+    
+    output$energyplot <- renderPlot({
+        energyModelPlot()
+    })
+    
     
     
     
@@ -10045,6 +10072,8 @@ shinyServer(function(input, output, session) {
         })
         
     
+        #rangescalcurve <- reactiveValues(x = c(my.min(predictFrame()$Intensity), my.max(predictFrame()$Intensity)), y = c(my.min(predictFrame()$Concentration), my.max(predictFrame()$Concentration)))
+
         
         rangescalcurve <- reactiveValues(x = NULL, y = NULL)
         
@@ -10058,10 +10087,16 @@ shinyServer(function(input, output, session) {
                 input$calcurveelement
             }
             
-            intens <- " Counts per Second"
-            norma <- " Normalized"
-            norma.comp <- " Compton Normalized"
-            norma.tc <- " Valid Counts Normalized"
+            intens <- if(input$normcal==1){
+                "Counts per Second"
+            } else if(input$normcal==2){
+                "% Counts Normalized"
+            } else if(input$normcal==3){
+                "ROI Normalized Counts"
+            }
+            norma <- intens
+            norma.comp <- intens
+            norma.tc <- intens
             conen <- paste0(" ", input$plotunit)
             predi <- paste0(" Estimate ", input$plotunit)
             log <- "Log "
@@ -10075,8 +10110,14 @@ shinyServer(function(input, output, session) {
             concentration.name <- c(element.name, conen)
             prediction.name <- c(element.name, predi)
             
-            x_label_pos <- if(is.null(rangescalcurve$x[1])){
+            x_hold <- if(input$radiocal==3){
                 0
+            } else if(input$radiocal!=3){
+                my.min(predictFrame()$Intensity)
+            }
+            
+            x_label_pos <- if(is.null(rangescalcurve$x[1])){
+                x_hold
             } else if(!is.null(rangescalcurve$x[1])){
                 rangescalcurve$x[1]
             }
