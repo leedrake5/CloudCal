@@ -38,9 +38,9 @@ shinyServer(function(input, output, session) {
     
     output$filetypeui <- renderUI({
         if(is.null(input$calfileinput)){
-            selectInput("filetype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="CSV")
+            selectInput("filetype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected="CSV")
         } else if(!is.null(input$calfileinput)){
-            selectInput("filetype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected=oldCalCompatibility())
+            selectInput("filetype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected=oldCalCompatibility())
         }
         
     })
@@ -72,6 +72,9 @@ shinyServer(function(input, output, session) {
         } else if(input$filetype=="PDZ") {
             fileInput('file1', 'Choose PDZ File', multiple=TRUE,
             accept=c(".pdz"))
+        } else if(input$filetype=="SPE") {
+            fileInput('file1', 'Choose SPE File', multiple=TRUE,
+            accept=c(".spe"))
         }
         
     })
@@ -85,6 +88,17 @@ shinyServer(function(input, output, session) {
         }
         
     })
+    
+    output$dfl_load <- renderUI({
+        
+        if(input$filetype!="SPE"){
+            NULL
+        } else if(input$filetype=="SPE"){
+            fileInput('dfl_eds', "Load DFL", multiple=FALSE, accept=".dfl")
+        }
+    })
+    
+    
     
     
     output$variancespectrumui <- renderUI({
@@ -238,6 +252,13 @@ shinyServer(function(input, output, session) {
         req(input$file1)
         
         readSPXProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
+        
+    })
+    
+    readSPE <- reactive(label="readSPE", {
+        req(input$file1)
+        
+        readSPEProcess(inFile=inFile(), inEn=input$dfl_eds)
         
     })
     
@@ -539,6 +560,8 @@ shinyServer(function(input, output, session) {
                     readSPX()
                 }  else if(input$filetype=="PDZ"){
                     readPDZ()
+                }  else if(input$filetype=="SPE"){
+                    readSPE()
                 }
                 
                 
@@ -603,7 +626,8 @@ shinyServer(function(input, output, session) {
             data$Spectrum <- gsub(".spt", "", data$Spectrum)
             data$Spectrum <- gsub(".mca", "", data$Spectrum)
             data$Spectrum <- gsub(".spx", "", data$Spectrum)
-            
+            data$Spectrum <- gsub(".spe", "", data$Spectrum)
+
             data
             
         })
@@ -1489,6 +1513,8 @@ shinyServer(function(input, output, session) {
                 spectralLines
             }  else if(input$filetype=="PDZ"){
                 spectralLines
+            }  else if(input$filetype=="SPE"){
+                spectralLines
             } else if(input$filetype=="Net"){
                 colnames(spectra.line.table[2:n])
             }
@@ -2027,6 +2053,8 @@ shinyServer(function(input, output, session) {
                 spectraData()
             }  else if(input$filetype=="PDZ"){
                 spectraData()
+            }  else if(input$filetype=="SPE"){
+                spectraData()
             } else if(input$filetype=="Net"){
                 netData()
             }
@@ -2056,6 +2084,8 @@ shinyServer(function(input, output, session) {
                 isolate(spectraData())
             }  else if(input$filetype=="PDZ"){
                 isolate(spectraData())
+            }  else if(input$filetype=="SPE"){
+                isolate(spectraData())
             } else if(input$filetype=="Net"){
                 isolate(netData())
             }
@@ -2073,6 +2103,8 @@ shinyServer(function(input, output, session) {
             }  else if(input$filetype=="SPX"){
                 isolate(spectraDataSplit())
             }  else if(input$filetype=="PDZ"){
+                isolate(spectraDataSplit())
+            }  else if(input$filetype=="SPE"){
                 isolate(spectraDataSplit())
             } else if(input$filetype=="Net"){
                 isolate(netData())
@@ -2092,6 +2124,8 @@ shinyServer(function(input, output, session) {
                 isolate(spectraDataFirst())
             }  else if(input$filetype=="PDZ"){
                 isolate(spectraDataFirst())
+            }  else if(input$filetype=="SPE"){
+                isolate(spectraDataFirst())
             } else if(input$filetype=="Net"){
                 isolate(netData())
             }
@@ -2109,6 +2143,8 @@ shinyServer(function(input, output, session) {
             }  else if(input$filetype=="SPX"){
                 isolate(spectraDataSecond())
             }  else if(input$filetype=="PDZ"){
+                isolate(spectraDataSecond())
+            }  else if(input$filetype=="SPE"){
                 isolate(spectraDataSecond())
             } else if(input$filetype=="Net"){
                 isolate(netData())
@@ -2129,6 +2165,8 @@ shinyServer(function(input, output, session) {
                 isolate(wideSpectraData())
             }  else if(input$filetype=="PDZ"){
                 isolate(wideSpectraData())
+            }  else if(input$filetype=="SPE"){
+                isolate(wideSpectraData())
             } else if(input$filetype=="Net"){
                 isolate(netData())
             }
@@ -2146,6 +2184,8 @@ shinyServer(function(input, output, session) {
             }  else if(input$filetype=="SPX"){
                 isolate(wideSpectraDataSplit())
             }  else if(input$filetype=="PDZ"){
+                isolate(wideSpectraDataSplit())
+            }  else if(input$filetype=="SPE"){
                 isolate(wideSpectraDataSplit())
             } else if(input$filetype=="Net"){
                 isolate(netData())
@@ -2737,6 +2777,8 @@ shinyServer(function(input, output, session) {
             hotable.new$Spectrum <- gsub(".spt", "", hotable.new$Spectrum)
             hotable.new$Spectrum <- gsub(".mca", "", hotable.new$Spectrum)
             hotable.new$Spectrum <- gsub(".spx", "", hotable.new$Spectrum)
+            hotable.new$Spectrum <- gsub(".spe", "", hotable.new$Spectrum)
+
             
             #hotable.new <- hotable.new[hotable.new$Spectrum %in% unique(calMemory$Calibration$Spectra$Spectrum)]
             old.vals <- calMemory$Calibration$Values
@@ -2904,6 +2946,8 @@ shinyServer(function(input, output, session) {
             }  else if(input$filetype=="SPX"){
                 "Spectra"
             }  else if(input$filetype=="PDZ"){
+                "Spectra"
+            }  else if(input$filetype=="SPE"){
                 "Spectra"
             } else if (input$filetype=="Net"){
                 "Net"
@@ -18662,17 +18706,29 @@ content = function(file){
         } else if(input$valfiletype=="PDZ") {
             fileInput('loadvaldata', 'Choose PDZ File', multiple=TRUE,
             accept=c(".pdz"))
+        } else if(input$valfiletype=="SPE") {
+            fileInput('loadvaldata', 'Choose SPE File', multiple=TRUE,
+            accept=c(".spe"))
         }
         
+    })
+    
+    output$dfl_val_load <- renderUI({
+        
+        if(input$valfiletype!="SPE"){
+            NULL
+        } else if(input$valfiletype=="SPE"){
+            fileInput('dfl_val_eds', "Load DFL", multiple=FALSE, accept=".dfl")
+        }
     })
     
     
     output$valfiletypeui <- renderUI({
         
         if(is.null(input$calfileinput2)){
-            selectInput("valfiletype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected="CSV")
+            selectInput("valfiletype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected="CSV")
         } else if(!is.null(input$calfileinput2)){
-            selectInput("valfiletype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ"), selected=calFileContents2()[["FileType"]])
+            selectInput("valfiletype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected=calFileContents2()[["FileType"]])
         
         }
     
@@ -18817,6 +18873,12 @@ content = function(file){
             readSPXProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
             
         })
+        
+        readValSPE <- reactive({
+            
+            readSPEProcess(inFile=input$loadvaldata, inEn=input$dfl_val_path)
+            
+        })
             
             
             readvalPDZ <- reactive({
@@ -18850,6 +18912,8 @@ content = function(file){
                 readValSPX()
             }  else if(input$valfiletype=="PDZ") {
                 readvalPDZ()
+            }  else if(input$valfiletype=="SPE") {
+                readvalSPE()
             }
             
             data$CPS <- as.numeric(data$CPS)
@@ -18863,7 +18927,8 @@ content = function(file){
             data$Spectrum <- gsub(".spt", "", data$Spectrum)
             data$Spectrum <- gsub(".mca", "", data$Spectrum)
             data$Spectrum <- gsub(".spx", "", data$Spectrum)
-            
+            data$Spectrum <- gsub(".spe", "", data$Spectrum)
+
             data
             
         })
@@ -19005,6 +19070,8 @@ content = function(file){
             } else if(input$valfiletype=="PDZ") {
                 "Spectra"
             } else if(input$valfiletype=="Spectra") {
+                "Spectra"
+            } else if(input$valfiletype=="SPE") {
                 "Spectra"
             }
             

@@ -512,6 +512,46 @@ readElioProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibratio
     return(data)
 }
 
+readSPEData <- function(filepath, filename=NULL, dfl_path){
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
+    filename <- make.names(gsub(".spe", "", filename))
+    filename.vector <- rep(filename, 2048)
+    
+    full <- read.table(filepath, sep="\t", fill=T)
+    livetime_row <- full[full$V1 == "livetime", ]
+
+    livetime <- as.numeric(livetime_row$V2)
+    
+    
+    init <- as.data.frame(itraxR::itrax_spectra(filename = filepath, parameters = dfl_path))
+    
+    results <- data.frame(Energy = init$energy, CPS=init$count/livetime, Spectrum=filename.vector)
+    
+    return(results)
+
+}
+
+
+readSPEProcess <- function(inFile=NULL, inEn=NULL){
+    
+    if (is.null(inFile)) return(NULL)
+    
+    n <- length(inFile$datapath)
+    names <- inFile$name
+    
+    n.seq <- seq(1, nrow(inFile), 1)
+    
+    if (is.null(inEn)) return(NULL)
+    
+    data.list = pblapply(n.seq, function(x) readSPEData(filepath=inFile[x,"datapath"], dfl_path=inEn$datapath))
+    data <- do.call("rbind", data.list)
+    data <- as.data.frame(data, stringsAsFactors=FALSE)
+    
+    return(data)
+    
+}
 
 readMCAData4096 <- function(filepath, filename=NULL, full=NULL, use_native_calibration=TRUE){
     if(is.null(filename)){
@@ -3226,6 +3266,7 @@ spectrumNameSingle <- function(spectrum_name){
     spectrum_name <- gsub(".spt", "", spectrum_name)
     spectrum_name <- gsub(".mca", "", spectrum_name)
     spectrum_name <- gsub(".spx", "", spectrum_name)
+    spectrum_name <- gsub(".spe", "", spectrum_name)
     return(spectrum_name)
 }
 

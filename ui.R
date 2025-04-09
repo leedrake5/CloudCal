@@ -34,6 +34,7 @@ uiOutput('filegrab'),
 uiOutput("filetypeui"),
 uiOutput("pdzprepui"),
 uiOutput("beamnoui"),
+uiOutput("dfl_load"),
 
 tags$hr(),
 
@@ -195,7 +196,8 @@ numericInput('plotheight', "Download Height", step=1, value=5, min=1, max=20)
 ),
 
 tabPanel("EnergyCal",
-plotOutput('energyplot')
+plotOutput('energyplot'),
+tags$hr()
 ),
 
 tabPanel("Notes",
@@ -667,7 +669,7 @@ uiOutput("pdzprepvalui"),
 uiOutput("beamnoui_val"),
 
 uiOutput('valfiletypeui'),
-
+uiOutput('dfl_val_load'),
 
 
 tags$hr(),
