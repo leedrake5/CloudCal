@@ -10008,11 +10008,7 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$createcalelement, priority=100, {
             calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
-            if(input$userandom==FALSE){
-                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelGen(), table=calValTable(), compress=TRUE))
-            } else if(input$userandom==TRUE){
-                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelRandom(), table=calValTable(), compress=TRUE))
-            }
+            calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelGen(), table=calValTable(), compress=TRUE))
                 calSettings$calList[[input$calcurveelement]] <- NULL
                 calSettings$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=NULL, table=calValTable(), compress=TRUE))
 
@@ -10593,7 +10589,7 @@ shinyServer(function(input, output, session) {
         
         
         valCurvePlotPre <- reactive(label="valCurvePlotPre",{
-
+            req(input$plotunit)
             
             element.name <- if(input$calcurveelement %in% spectralLines){
                 gsub("[.]", "", substr(input$calcurveelement, 1, 2))
@@ -10826,12 +10822,10 @@ shinyServer(function(input, output, session) {
             hold.table <- na.omit(hold.table)
 
             standard.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
-            standard.table$Difference <- as.numeric(as.character(standard.table$Concentration-standard.table$Prediction))
-            standard.table$Relative=((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration)
-            standard.table.summary <- tryCatch(standard.table, error=function(e) empty.table.summary)
-            
+             tryCatch(standard.table$Difference <- as.numeric(as.character(standard.table$Concentration-standard.table$Prediction)), error=function(e) NULL)
+             tryCatch(standard.table$Relative <- ((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration), error=function(e) NULL)
           
-            this.table <- standard.table.summary[,c("Spectrum", "Concentration", "Prediction", "Difference", "Relative")]
+            this.table <- tryCatch(standard.table[c("Spectrum", "Concentration", "Prediction", "Difference", "Relative")], error=function(e) tryCatch(standard.table[c("Spectrum", "Concentration", "Prediction")], error=function(e) empty.table.summary))
             this.table
             
         })
