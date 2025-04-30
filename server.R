@@ -5790,7 +5790,7 @@ shinyServer(function(input, output, session) {
             colsample <- xgboostColSampleSelection()
 			minchildweight <- xgboostMinChildSelection()
             maxdeltastep <- xgboostMaxDeltaStepSelection()
-            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basicNormType(), norm.min=basicNormMin(), norm.max=basicNormMax(), dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgbtreeSpectraModelData <- reactive(label="xgbtreeSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=xgbtreeSpectraParameters()$CalTable$Compress, transformation=xgbtreeSpectraParameters()$CalTable$Transformation, dependent.transformation=xgbtreeSpectraParameters()$CalTable$DepTrans,  energy.range=as.numeric(unlist(strsplit(as.character(xgbtreeSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=xgbtreeSpectraParameters()$CalTable$NormType, norm.min=xgbtreeSpectraParameters()$CalTable$Min, norm.max=xgbtreeSpectraParameters()$CalTable$Max, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -9975,7 +9975,7 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==2){
                 tryCatch(nonLinearModel(), error=function(e) NULL)
             } else if(input$radiocal==3){
-                lucasToothModel()
+                tryCatch(lucasToothModel(), error=function(e) NULL)
             } else if(input$radiocal==4){
                 tryCatch(forestModel(), error=function(e) NULL)
             } else if(input$radiocal==5){
@@ -9985,9 +9985,9 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==7){
                 tryCatch(neuralNetworkSpectraModel(), error=function(e) NULL)
             } else if(input$radiocal==8){
-                xgboostIntensityModel()
+                tryCatch(xgboostIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==9){
-                xgboostSpectraModel()
+                tryCatch(xgboostSpectraModel(), error=function(e) NULL)
             } else if(input$radiocal==10){
                 tryCatch(bayesIntensityModel(), error=function(e) NULL)
             } else if(input$radiocal==11){
@@ -10626,8 +10626,8 @@ shinyServer(function(input, output, session) {
             }
             
             val.frame <- valFrame()
-            val.frame$Concentration <- val.frame$Concentration*multiplier
-            val.frame$Prediction <- val.frame$Prediction*multiplier
+            tryCatch(val.frame$Concentration <- val.frame$Concentration*multiplier, error=function(e) NULL)
+            tryCatch(val.frame$Prediction <- val.frame$Prediction*multiplier, error=function(e) NULL)
 
             
             valcurve.plot <- if(input$loglinear=="Linear"){

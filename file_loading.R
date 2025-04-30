@@ -1413,7 +1413,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
         gaus.buffer
     }
     
-    split.buffer <- if(is.null(gaus.buffer)){
+    split.buffer <- if(is.null(split.buffer)){
         0.1
     } else if(!is.null(split.buffer)){
         split.buffer
@@ -1732,8 +1732,8 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
                 xgbSubSample=xgbsubsample,
                 xgbColSample=xgbcolsample,
                 xgbMinChild=xgbminchild,
-		  		 xgbMaxDeltaStep=xgbmaxdeltastep,
-				 xgbScalePosWeight=xgbscaleposweight,
+                xgbMaxDeltaStep=xgbmaxdeltastep,
+                xgbScalePosWeight=xgbscaleposweight,
                 bartK=bartk,
                 bartBeta=bartbeta,
                 bartNu=bartnu,
