@@ -28,7 +28,7 @@ if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
 
-list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "remotes", "tidyverse", "tools", "shinycssloaders", "openxlsx", "itraxR")
+list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "remotes", "tidyverse", "tools", "shinycssloaders", "openxlsx", "itraxR", "pbmclapply")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
@@ -201,6 +201,7 @@ library(caret)
 library(DescTools)
 library(pls)
 library(shinycssloaders)
+tryCatch(library(pbmcapply), error=function(e) NULL)
 
 #source("xgbTree.R")
 #source("xgbDART.R")
@@ -294,139 +295,200 @@ generate_grid <- function(bounds, init_points, init_grid_dt = NULL){
 }
 
 
-BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points = 0,
-    n_iter, acq = "ei", kappa = 2.576, eps = 0, kernel = list(type = "exponential",
-        power = 2), verbose = TRUE)
-{
-    DT_bounds <- data.table(Parameter = names(bounds), Lower = sapply(bounds,
-    magrittr::extract2, 1), Upper = sapply(bounds, magrittr::extract2, 2), Type = sapply(bounds,
-        class))
-    setDT(init_grid_dt)
-    if (nrow(init_grid_dt) != 0) {
-        if (identical(names(init_grid_dt), DT_bounds[, Parameter]) ==
-            TRUE) {
-            init_grid_dt[, `:=`(Value, -Inf)]
-        }
-        else if (identical(names(init_grid_dt), c(DT_bounds[,
-            Parameter], "Value")) == TRUE) {
-            paste(nrow(init_grid_dt), "points in hyperparameter space were pre-sampled\n",
-                sep = " ") %>% cat(.)
-        }
-        else {
-            stop("bounds and init_grid_dt should be compatible")
-        }
+BayesianOptimization <- function(
+  FUN,
+  bounds,
+  init_grid_dt = NULL,
+  init_points = 0,
+  n_iter,
+  acq = "ei",
+  kappa = 2.576,
+  eps = 0,
+  kernel = list(type = "exponential", power = 2),
+  verbose = TRUE
+) {
+  # Prepare bounds table
+  DT_bounds <- data.table(
+    Parameter = names(bounds),
+    Lower     = sapply(bounds, magrittr::extract2, 1),
+    Upper     = sapply(bounds, magrittr::extract2, 2),
+    Type      = sapply(bounds, class)
+  )
+  ParameterCols <- DT_bounds$Parameter
+
+  # Ensure init_grid_dt has correct structure
+  setDT(init_grid_dt)
+  if (nrow(init_grid_dt) > 0) {
+    if (identical(names(init_grid_dt), DT_bounds[, Parameter])) {
+      init_grid_dt[, `:=`(Value = NA_real_, Status = "pending")]
+    } else if (identical(names(init_grid_dt), c(DT_bounds[, Parameter], "Value"))) {
+      init_grid_dt[, Status := ifelse(is.na(Value), "pending", "pending")]
+      cat(nrow(init_grid_dt), "points in hyperparameter space were pre-sampled\n")
+    } else {
+      stop("bounds and init_grid_dt should be compatible")
     }
-    init_points_dt <- Matrix_runif(n = init_points, lower = DT_bounds[,
-        Lower], upper = DT_bounds[, Upper]) %>% data.table(.) %T>%
-        setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>%
-        {
-            if (any(DT_bounds[, Type] == "integer")) {
-                set(., j = DT_bounds[Type == "integer", Parameter],
-                  value = round(extract(., j = DT_bounds[Type ==
-                    "integer", Parameter], with = FALSE)))
-            }
-            else {
-                .
-            }
-        } %T>% extract(., j = `:=`(Value, -Inf))
-    iter_points_dt_backup <- Matrix_runif(n = init_points+n_iter, lower = DT_bounds[,
-            Lower], upper = DT_bounds[, Upper]) %>% data.table(.) %T>%
-            setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>%
-            {
-                if (any(DT_bounds[, Type] == "integer")) {
-                    set(., j = DT_bounds[Type == "integer", Parameter],
-                      value = round(extract(., j = DT_bounds[Type ==
-                        "integer", Parameter], with = FALSE)))
-                }
-                else {
-                    .
-                }
-            }
-    iter_points_dt <- data.table(matrix(-Inf, nrow = n_iter,
-        ncol = nrow(DT_bounds) + 1)) %>% setnames(., old = names(.),
-        new = c(DT_bounds[, Parameter], "Value"))
-    DT_history <- rbind(init_grid_dt, init_points_dt, iter_points_dt) %>%
-        cbind(data.table(Round = 1:nrow(.)), .)
-    Pred_list <- vector(mode = "list", length = nrow(DT_history))
-    for (i in 1:(nrow(init_grid_dt) + nrow(init_points_dt))) {
-        if (is.infinite(DT_history[i, Value]) == TRUE) {
-            This_Par <- DT_history[i, DT_bounds[, Parameter],
-                with = FALSE]
-        }
-        else {
-            next
-        }
-        This_Log <- utils::capture.output({
-            This_Time <- system.time({
-                This_Score_Pred <- tryCatch(do.call(what = FUN, args = as.list(This_Par)), error=function(e) list(Score=sample(-150:-100, 1)))
-            })
-        })
-        data.table::set(DT_history, i = as.integer(i), j = "Value",
-            value = as.list(c(This_Score_Pred$Score)))
-        Pred_list[[i]] <- This_Score_Pred$Pred
-        if (verbose == TRUE) {
-            paste(c("elapsed", names(DT_history)), c(format(This_Time["elapsed"],
-                trim = FALSE, digits = 3, nsmall = 2), format(DT_history[i,
-                "Round", with = FALSE], trim = FALSE, digits = NULL,
-                nsmall = 0), format(DT_history[i, -"Round", with = FALSE],
-                trim = FALSE, digits = 3, nsmall = 3)), sep = " = ",
-                collapse = "\t") %>% cat(., "\n")
-        }
+  }
+
+  # Random initial points
+  init_points_dt <- Matrix_runif(
+    n     = init_points,
+    lower = DT_bounds[, Lower],
+    upper = DT_bounds[, Upper]
+  ) %>%
+    data.table() %>%
+    setnames(old = names(.), new = DT_bounds[, Parameter]) %>%
+    {
+      if (any(DT_bounds[, Type] == "integer")) {
+        .[, (DT_bounds[Type == "integer", Parameter]) :=
+             lapply(.SD, round), .SDcols = DT_bounds[Type == "integer", Parameter]]
+      } else .
+    } %>%
+    .[, `:=`(Value = NA_real_, Status = "pending")]
+
+  # Backup grid for random proposals
+  iter_points_dt_backup <- Matrix_runif(
+    n     = init_points + n_iter,
+    lower = DT_bounds[, Lower],
+    upper = DT_bounds[, Upper]
+  ) %>%
+    data.table() %>%
+    setnames(old = names(.), new = DT_bounds[, Parameter]) %>%
+    {
+      if (any(DT_bounds[, Type] == "integer")) {
+        .[, (DT_bounds[Type == "integer", Parameter]) :=
+             lapply(.SD, round), .SDcols = DT_bounds[Type == "integer", Parameter]]
+      } else .
     }
-   for (j in (nrow(init_grid_dt) + nrow(init_points_dt) + 1):nrow(DT_history)) {
-       if (nrow(iter_points_dt) == 0) {
-            next
+
+  # Placeholder rows for Bayesian iterations
+  iter_points_dt <- data.table(matrix(
+    NA_real_,
+    nrow = n_iter,
+    ncol = nrow(DT_bounds) + 2  # +Value +Status
+  )) %>%
+    setnames(old = names(.), new = c(DT_bounds[, Parameter], "Value", "Status")) %>%
+    .[, Status := "pending"]
+
+  # Combine history
+  DT_history <- rbind(init_grid_dt, init_points_dt, iter_points_dt, fill = TRUE)
+  DT_history[, Round := .I]
+  setcolorder(DT_history, c("Round", DT_bounds[, Parameter], "Value", "Status"))
+
+  Pred_list <- vector("list", nrow(DT_history))
+
+  # 1) Initial evaluations with suppressed FUN output
+  n_init <- nrow(init_grid_dt) + nrow(init_points_dt)
+  for (i in seq_len(n_init)) {
+    if (DT_history[i, Status] == "pending") {
+      params <- as.list(DT_history[i, ParameterCols, with = FALSE])
+      res <- tryCatch({
+        tmp <- NULL
+        invisible(capture.output({
+          tmp <- suppressWarnings(suppressMessages(
+            do.call(FUN, params)
+          ))
+        }, file = NULL))
+        tmp
+      }, error = function(e) NULL)
+
+      if (!is.null(res)) {
+        DT_history[i, `:=`(Value = res$Score, Status = "success")]
+        Pred_list[[i]] <- res$Pred
+        if (verbose) {
+          cat("Round", DT_history[i, Round], ": ",
+              paste0(ParameterCols, "=",
+                     unlist(DT_history[i, ParameterCols, with=FALSE]),
+                     collapse = ", "),
+              ", Value=", DT_history[i, Value], "\n")
         }
-        Par_Mat <- Min_Max_Scale_Mat(as.matrix(DT_history[1:(j -
-            1), DT_bounds[, Parameter], with = FALSE]), lower = DT_bounds[,
-            Lower], upper = DT_bounds[, Upper])
-        Rounds_Unique <- setdiff(1:(j - 1), which(duplicated(Par_Mat) ==
-            TRUE))
-        Value_Vec <- DT_history[1:(j - 1), Value]
-        GP_Log <- utils::capture.output({
-            GP <- GPfit::GP_fit(X = Par_Mat[Rounds_Unique, ],
-                Y = Value_Vec[Rounds_Unique], corr = kernel)
-        })
-        Next_Par <- tryCatch(Utility_Max(DT_bounds, GP, acq = acq, y_max = max(DT_history[,
-            Value]), kappa = kappa, eps = eps) %>% Min_Max_Inverse_Scale_Vec(.,
-            lower = DT_bounds[, Lower], upper = DT_bounds[, Upper]) %>%
-            magrittr::set_names(., DT_bounds[, Parameter]) %>%
-            inset(., DT_bounds[Type == "integer", Parameter],
-                round(extract(., DT_bounds[Type == "integer",
-                  Parameter]))), error=function(e) unlist(iter_points_dt_backup[j,]))
-        Next_Log <- tryCatch(utils::capture.output({
-            Next_Time <- system.time({
-                Next_Score_Pred <- tryCatch(do.call(what = FUN, args = as.list(Next_Par)), error=function(e) list(Score=sample(-200:-150, 1)))
-            })
-        }), error=function(e) NULL)
-        tryCatch(data.table::set(DT_history, i = as.integer(j), j = c(DT_bounds[,
-            Parameter], "Value"), value = as.list(c(Next_Par,
-            Value = Next_Score_Pred$Score))), error=function(e) NULL)
-        tryCatch(Pred_list[[j]] <- Next_Score_Pred$Pred, error=function(e) NULL)
-        if (verbose == TRUE) {
-            tryCatch(paste(c("elapsed", names(DT_history)), c(format(Next_Time["elapsed"],
-                trim = FALSE, digits = NULL, nsmall = 2), format(DT_history[j,
-                "Round", with = FALSE], trim = FALSE, digits = NULL,
-                nsmall = 0), format(DT_history[j, -"Round", with = FALSE],
-                trim = FALSE, digits = NULL, nsmall = 4)), sep = " = ",
-                collapse = "\t") %>% cat(., "\n"), error=function(e) NULL)
-        }#, error=function(e) NULL})
+      } else {
+        DT_history[i, Status := "fail"]
+        #if (verbose) message("Init run #", i, " failed—marked as fail")
+      }
     }
-    Best_Par <- as.numeric(DT_history[which.max(Value), DT_bounds[,
-        Parameter], with = FALSE]) %>% magrittr::set_names(.,
-        DT_bounds[, Parameter])
-    Best_Value <- max(DT_history[, Value], na.rm = TRUE)
-    Pred_DT <- data.table::as.data.table(Pred_list)
-    Result <- list(Best_Par = Best_Par, Best_Value = Best_Value,
-        History = DT_history, Pred = Pred_DT)
-    cat("\n Best Parameters Found: \n")
-    paste(names(DT_history), c(format(DT_history[which.max(Value),
-        "Round", with = FALSE], trim = FALSE, digits = NULL,
-        nsmall = 0), format(DT_history[which.max(Value), -"Round",
-        with = FALSE], trim = FALSE, digits = NULL, nsmall = 4)),
-        sep = " = ", collapse = "\t") %>% cat(., "\n")
-    return(Result)
+  }
+
+  # 2) Bayesian iterations with suppressed FUN output
+  for (j in (n_init + 1):nrow(DT_history)) {
+    valid_idx <- which(DT_history[1:(j-1), Status] == "success")
+
+    if (length(valid_idx) > 0) {
+      Xv <- Min_Max_Scale_Mat(
+        as.matrix(DT_history[valid_idx, ParameterCols, with = FALSE]),
+        lower = DT_bounds[, Lower],
+        upper = DT_bounds[, Upper]
+      )
+      Yv <- DT_history[valid_idx, Value]
+      GP  <- GPfit::GP_fit(X = Xv, Y = Yv, corr = kernel)
+
+      Next_Par <- Utility_Max(
+        DT_bounds, GP,
+        acq   = acq,
+        y_max = max(DT_history[Status=="success", Value], na.rm = TRUE),
+        kappa = kappa,
+        eps   = eps
+      ) %>%
+        Min_Max_Inverse_Scale_Vec(
+          ., lower = DT_bounds[, Lower], upper = DT_bounds[, Upper]
+        ) %>%
+        set_names(DT_bounds[, Parameter])
+
+      for (p in DT_bounds[Type == "integer", Parameter]) {
+        Next_Par[[p]] <- round(Next_Par[[p]])
+      }
+    } else {
+      Next_Par <- as.list(unlist(iter_points_dt_backup[j, ParameterCols, with = FALSE]))
+    }
+
+    res <- tryCatch({
+      tmp <- NULL
+      invisible(capture.output({
+        tmp <- suppressWarnings(suppressMessages(
+          do.call(FUN, Next_Par)
+        ))
+      }, file = NULL))
+      tmp
+    }, error = function(e) NULL)
+
+    if (!is.null(res)) {
+      DT_history[j, `:=`(
+        (c(ParameterCols, "Value", "Status")) :=
+          c(Next_Par, res$Score, "success")
+      )]
+      Pred_list[[j]] <- res$Pred
+      if (verbose) {
+        cat("Round", DT_history[j, Round], ": ",
+            paste0(ParameterCols, "=",
+                   unlist(DT_history[j, ParameterCols, with=FALSE]),
+                   collapse = ", "),
+            ", Value=", DT_history[j, Value], "\n")
+      }
+    } else {
+      DT_history[j, Status := "fail"]
+      #if (verbose) message("Bayes iter #", j, " failed—marked as fail")
+    }
+  }
+
+  # Summarize results
+  best_row   <- which.max(DT_history$Value)
+  Best_Par   <- as.numeric(DT_history[best_row, ParameterCols, with = FALSE])
+  names(Best_Par) <- ParameterCols
+  Best_Value <- DT_history[best_row, Value]
+  Pred_DT    <- as.data.table(Pred_list)
+  Failed_DT  <- DT_history[Status == "fail", c("Round", ParameterCols), with = FALSE]
+
+  cat("\nBest Parameters Found:\n")
+  print(DT_history[best_row])
+
+  list(
+    Best_Par   = Best_Par,
+    Best_Value = Best_Value,
+    History    = DT_history,
+    Pred       = Pred_DT,
+    Failed     = Failed_DT
+  )
 }
+
 
 
 BayesianOptimizationDebug <- function(FUN, bounds, init_grid_dt = NULL, init_points = 0,
@@ -8900,12 +8962,42 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     spectra_frame$CPS <- as.numeric(spectra_frame$CPS)
     spectra_frame <- spectra_frame[complete.cases(spectra_frame),]
 
+    cores <- as.integer(cores)
+    if (cores > 1) {
+      cl <- makeCluster(cores)
+      on.exit(stopCluster(cl), add = TRUE)
+    } else {
+      cl <- NULL
+    }
+    
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
     if(cores==1){
-        new_spectra_list <- pblapply(spectra_list, function(x) deconvolute_complete(spectra_frame=x, energy_max=energy_max, width=width, alpha=alpha, default_sigma=default_sigma, smooth_iter=smooth_iter, snip_iter=snip_iter))
-    } else if(cores > 1){
-        new_spectra_list <- pblapply(spectra_list, function(x) deconvolute_complete(spectra_frame=x, energy_max=energy_max, width=width, alpha=alpha, default_sigma=default_sigma, smooth_iter=smooth_iter, snip_iter=snip_iter), cl=cores)
+        new_spectra_list <- pblapply(
+            spectra_list,
+            function(x) deconvolute_complete(
+                spectra_frame=x,
+                energy_max=energy_max,
+                width=width,
+                alpha=alpha,
+                default_sigma=default_sigma,
+                smooth_iter=smooth_iter,
+                snip_iter=snip_iter))
+    } else (if cores >=2){
+        new_spectra_list <- pbmclapply(
+          spectra_list,
+          function(x) deconvolute_complete(
+            spectra_frame = x,
+            energy_max      = energy_max,
+            width           = width,
+            alpha           = alpha,
+            default_sigma   = default_sigma,
+            smooth_iter     = smooth_iter,
+            snip_iter       = snip_iter
+          ),
+          mc.cores = cores
+        )
     }
+
     only_spectra_list <- list()
     only_areas_list <- list()
     only_background_list <- list()

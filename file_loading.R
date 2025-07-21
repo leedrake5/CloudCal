@@ -386,10 +386,13 @@ importCSVFrameDetailed <- function(csv_import, chosen_beam="1"){
     beams <- as.vector((unlist(csv_import[csv_import$V1=="Exposure Number",-1])))
     unique_beams <- unique(beams)
     csv_frame <- csv_import[complete.cases(as.numeric(csv_import$V1)),c(TRUE, beams==chosen_beam)]
+    csv_index <- csv_import[,c(TRUE, beams==chosen_beam)]
     spectra.data <- as.data.frame(apply(csv_frame, 2, function(x) as.numeric(as.character(x))), stringsAsFactors=FALSE)
-    
-    melt.frame <- reshape2::melt(spectra.data, id="V1")
-    data.frame(Energy=as.numeric(as.vector(melt.frame$V1)), CPS=as.numeric(as.vector(melt.frame$value)), Spectrum=as.vector(melt.frame$variable), stringsAsFactors=FALSE)
+    colnames(spectra.data) <- csv_index[3,]
+    colnames(spectra.data)[1] <- "Energy"
+
+    melt.frame <- reshape2::melt(spectra.data, id="Energy")
+    data.frame(Energy=as.numeric(as.vector(melt.frame$Energy)), CPS=as.numeric(as.vector(melt.frame$value)), Spectrum=as.vector(melt.frame$variable), stringsAsFactors=FALSE)
 }
 importCSVFrameDetailed <- cmpfun(importCSVFrameDetailed)
 
