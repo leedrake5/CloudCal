@@ -8982,7 +8982,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
                 default_sigma=default_sigma,
                 smooth_iter=smooth_iter,
                 snip_iter=snip_iter))
-    } else (if cores >=2){
+    } else if( cores >=2){
         new_spectra_list <- pbmclapply(
           spectra_list,
           function(x) deconvolute_complete(
