@@ -28,7 +28,7 @@ if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
 
-list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "remotes", "tidyverse", "tools", "shinycssloaders", "openxlsx", "itraxR", "pbmclapply")
+list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "remotes", "tidyverse", "tools", "shinycssloaders", "openxlsx", "itraxR", "pbmcapply")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(get_os()!="linux"){
     if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
@@ -73,17 +73,17 @@ if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
         tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
     }
 
-if(packageVersion("caret")!="6.0.93.1" && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
-    } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="osx"){
-        if(Sys.info()[["machine"]]=="arm64"){
+#if(packageVersion("caret")!="6.0.93.1" && get_os()=="windows"){
+#        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+#    } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="osx"){
+#        if(Sys.info()[["machine"]]=="arm64"){
             #tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
-        } else {
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret.6.0-93.1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
-            }
-    } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="linux"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
-    }
+#        } else {
+#            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret.6.0-93.1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+#            }
+#    } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="linux"){
+#        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+#    }
 
 if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
         tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_1.3.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
@@ -295,200 +295,133 @@ generate_grid <- function(bounds, init_points, init_grid_dt = NULL){
 }
 
 
-BayesianOptimization <- function(
-  FUN,
-  bounds,
-  init_grid_dt = NULL,
-  init_points = 0,
-  n_iter,
-  acq = "ei",
-  kappa = 2.576,
-  eps = 0,
-  kernel = list(type = "exponential", power = 2),
-  verbose = TRUE
-) {
-  # Prepare bounds table
-  DT_bounds <- data.table(
-    Parameter = names(bounds),
-    Lower     = sapply(bounds, magrittr::extract2, 1),
-    Upper     = sapply(bounds, magrittr::extract2, 2),
-    Type      = sapply(bounds, class)
-  )
-  ParameterCols <- DT_bounds$Parameter
+BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points = 0,
+                                 n_iter, acq = "ei", kappa = 2.576, eps = 0,
+                                 kernel = list(type = "exponential", power = 2),
+                                 verbose = TRUE) {
+  require(data.table)
+  DT_bounds <- data.table(Parameter = names(bounds),
+                          Lower = sapply(bounds, `[[`, 1),
+                          Upper = sapply(bounds, `[[`, 2),
+                          Type = sapply(bounds, class))
 
-  # Ensure init_grid_dt has correct structure
   setDT(init_grid_dt)
-  if (nrow(init_grid_dt) > 0) {
-    if (identical(names(init_grid_dt), DT_bounds[, Parameter])) {
-      init_grid_dt[, `:=`(Value = NA_real_, Status = "pending")]
-    } else if (identical(names(init_grid_dt), c(DT_bounds[, Parameter], "Value"))) {
-      init_grid_dt[, Status := ifelse(is.na(Value), "pending", "pending")]
-      cat(nrow(init_grid_dt), "points in hyperparameter space were pre-sampled\n")
+  
+  # Initialize error tracking dataframe
+  Error_DT <- data.table()
+
+  if (!is.null(init_grid_dt) && nrow(init_grid_dt) != 0) {
+    if (identical(names(init_grid_dt), DT_bounds$Parameter)) {
+      init_grid_dt[, Value := NA_real_]
+    } else if (identical(names(init_grid_dt), c(DT_bounds$Parameter, "Value"))) {
+      if (verbose) cat(nrow(init_grid_dt), "points pre-sampled\n")
     } else {
       stop("bounds and init_grid_dt should be compatible")
     }
   }
 
-  # Random initial points
-  init_points_dt <- Matrix_runif(
-    n     = init_points,
-    lower = DT_bounds[, Lower],
-    upper = DT_bounds[, Upper]
-  ) %>%
-    data.table() %>%
-    setnames(old = names(.), new = DT_bounds[, Parameter]) %>%
-    {
-      if (any(DT_bounds[, Type] == "integer")) {
-        .[, (DT_bounds[Type == "integer", Parameter]) :=
-             lapply(.SD, round), .SDcols = DT_bounds[Type == "integer", Parameter]]
-      } else .
-    } %>%
-    .[, `:=`(Value = NA_real_, Status = "pending")]
+  # Initialize points
+  init_points_dt <- Matrix_runif(n = init_points, lower = DT_bounds$Lower,
+                                 upper = DT_bounds$Upper) %>%
+    data.table() %>% setnames(DT_bounds$Parameter)
 
-  # Backup grid for random proposals
-  iter_points_dt_backup <- Matrix_runif(
-    n     = init_points + n_iter,
-    lower = DT_bounds[, Lower],
-    upper = DT_bounds[, Upper]
-  ) %>%
-    data.table() %>%
-    setnames(old = names(.), new = DT_bounds[, Parameter]) %>%
-    {
-      if (any(DT_bounds[, Type] == "integer")) {
-        .[, (DT_bounds[Type == "integer", Parameter]) :=
-             lapply(.SD, round), .SDcols = DT_bounds[Type == "integer", Parameter]]
-      } else .
-    }
+  # Round integers
+  for (param in DT_bounds[Type == "integer", Parameter]) {
+    init_points_dt[, (param) := round(get(param))]
+  }
+  init_points_dt[, Value := NA_real_]
 
-  # Placeholder rows for Bayesian iterations
-  iter_points_dt <- data.table(matrix(
-    NA_real_,
-    nrow = n_iter,
-    ncol = nrow(DT_bounds) + 2  # +Value +Status
-  )) %>%
-    setnames(old = names(.), new = c(DT_bounds[, Parameter], "Value", "Status")) %>%
-    .[, Status := "pending"]
-
-  # Combine history
-  DT_history <- rbind(init_grid_dt, init_points_dt, iter_points_dt, fill = TRUE)
+  DT_history <- rbind(init_grid_dt, init_points_dt, fill=TRUE)
   DT_history[, Round := .I]
-  setcolorder(DT_history, c("Round", DT_bounds[, Parameter], "Value", "Status"))
 
-  Pred_list <- vector("list", nrow(DT_history))
+  Pred_list <- vector(mode = "list", length = nrow(DT_history) + n_iter)
 
-  # 1) Initial evaluations with suppressed FUN output
-  n_init <- nrow(init_grid_dt) + nrow(init_points_dt)
-  for (i in seq_len(n_init)) {
-    if (DT_history[i, Status] == "pending") {
-      params <- as.list(DT_history[i, ParameterCols, with = FALSE])
-      res <- tryCatch({
-        tmp <- NULL
-        invisible(capture.output({
-          tmp <- suppressWarnings(suppressMessages(
-            do.call(FUN, params)
-          ))
-        }, file = NULL))
-        tmp
-      }, error = function(e) NULL)
-
-      if (!is.null(res)) {
-        DT_history[i, `:=`(Value = res$Score, Status = "success")]
-        Pred_list[[i]] <- res$Pred
-        if (verbose) {
-          cat("Round", DT_history[i, Round], ": ",
-              paste0(ParameterCols, "=",
-                     unlist(DT_history[i, ParameterCols, with=FALSE]),
-                     collapse = ", "),
-              ", Value=", DT_history[i, Value], "\n")
-        }
-      } else {
-        DT_history[i, Status := "fail"]
-        #if (verbose) message("Init run #", i, " failed—marked as fail")
-      }
-    }
-  }
-
-  # 2) Bayesian iterations with suppressed FUN output
-  for (j in (n_init + 1):nrow(DT_history)) {
-    valid_idx <- which(DT_history[1:(j-1), Status] == "success")
-
-    if (length(valid_idx) > 0) {
-      Xv <- Min_Max_Scale_Mat(
-        as.matrix(DT_history[valid_idx, ParameterCols, with = FALSE]),
-        lower = DT_bounds[, Lower],
-        upper = DT_bounds[, Upper]
-      )
-      Yv <- DT_history[valid_idx, Value]
-      GP  <- GPfit::GP_fit(X = Xv, Y = Yv, corr = kernel)
-
-      Next_Par <- Utility_Max(
-        DT_bounds, GP,
-        acq   = acq,
-        y_max = max(DT_history[Status=="success", Value], na.rm = TRUE),
-        kappa = kappa,
-        eps   = eps
-      ) %>%
-        Min_Max_Inverse_Scale_Vec(
-          ., lower = DT_bounds[, Lower], upper = DT_bounds[, Upper]
-        ) %>%
-        set_names(DT_bounds[, Parameter])
-
-      for (p in DT_bounds[Type == "integer", Parameter]) {
-        Next_Par[[p]] <- round(Next_Par[[p]])
-      }
+  # Evaluation loop
+  for (i in seq_len(nrow(DT_history) + n_iter)) {
+    if (i <= nrow(DT_history)) {
+      This_Par <- DT_history[i, ..DT_bounds$Parameter]
     } else {
-      Next_Par <- as.list(unlist(iter_points_dt_backup[j, ParameterCols, with = FALSE]))
+      # Fit GP model on good data
+      valid_rows <- DT_history[!is.na(Value)]
+
+      if (nrow(valid_rows) < 2) {
+        warning("Not enough valid points for GP fitting; skipping iteration.")
+        next
+      }
+
+      Par_Mat <- Min_Max_Scale_Mat(as.matrix(valid_rows[, ..DT_bounds$Parameter]),
+                                   DT_bounds$Lower, DT_bounds$Upper)
+
+      GP <- tryCatch(GPfit::GP_fit(X = Par_Mat, Y = valid_rows$Value, corr = kernel),
+                     error = function(e) {
+                       Error_DT <<- rbind(Error_DT, data.table(Round=i, Step="GP_fit", Message=e$message))
+                       NULL
+                     })
+
+      if (is.null(GP)) next
+
+      Next_Par <- tryCatch(
+        Utility_Max(DT_bounds, GP, acq, max(valid_rows$Value), kappa, eps) %>%
+          Min_Max_Inverse_Scale_Vec(DT_bounds$Lower, DT_bounds$Upper) %>%
+          setNames(DT_bounds$Parameter),
+        error = function(e) {
+          Error_DT <<- rbind(Error_DT, data.table(Round=i, Step="Utility_Max", Message=e$message))
+          Matrix_runif(1, DT_bounds$Lower, DT_bounds$Upper)
+        })
+
+      # Round integers
+      for (param in DT_bounds[Type == "integer", Parameter]) {
+        Next_Par[param] <- round(Next_Par[param])
+      }
+      This_Par <- as.data.table(as.list(Next_Par))
+      DT_history <- rbind(DT_history, cbind(This_Par, Value=NA_real_, Round=i), fill=TRUE)
     }
 
-    res <- tryCatch({
-      tmp <- NULL
-      invisible(capture.output({
-        tmp <- suppressWarnings(suppressMessages(
-          do.call(FUN, Next_Par)
-        ))
-      }, file = NULL))
-      tmp
-    }, error = function(e) NULL)
+    # Evaluate function quietly
+    This_Score_Pred <- tryCatch(
+      suppressMessages(suppressWarnings(capture.output(
+        do.call(FUN, as.list(This_Par))
+      ))),
+      error = function(e) NULL
+    )
 
-    if (!is.null(res)) {
-      DT_history[j, `:=`(
-        (c(ParameterCols, "Value", "Status")) :=
-          c(Next_Par, res$Score, "success")
-      )]
-      Pred_list[[j]] <- res$Pred
+    if (is.null(This_Score_Pred) || is.null(This_Score_Pred$Score)) {
+      DT_history[i, Value := NA_real_]
+      Error_DT <- rbind(Error_DT, data.table(Round=i, Step="FUN", Message="Returned NULL or missing Score"))
+      Pred_list[[i]] <- NULL
+      if (verbose) cat(sprintf("Round %d failed; error logged.\n", i))
+    } else {
+      DT_history[i, Value := This_Score_Pred$Score]
+      Pred_list[[i]] <- This_Score_Pred$Pred
       if (verbose) {
-        cat("Round", DT_history[j, Round], ": ",
-            paste0(ParameterCols, "=",
-                   unlist(DT_history[j, ParameterCols, with=FALSE]),
-                   collapse = ", "),
-            ", Value=", DT_history[j, Value], "\n")
+        cat(sprintf("Round %d completed successfully. Value = %0.4f\n", i, This_Score_Pred$Score))
       }
-    } else {
-      DT_history[j, Status := "fail"]
-      #if (verbose) message("Bayes iter #", j, " failed—marked as fail")
     }
   }
 
-  # Summarize results
-  best_row   <- which.max(DT_history$Value)
-  Best_Par   <- as.numeric(DT_history[best_row, ParameterCols, with = FALSE])
-  names(Best_Par) <- ParameterCols
-  Best_Value <- DT_history[best_row, Value]
-  Pred_DT    <- as.data.table(Pred_list)
-  Failed_DT  <- DT_history[Status == "fail", c("Round", ParameterCols), with = FALSE]
+  # Final best results
+  valid_history <- DT_history[!is.na(Value)]
+  Best_Par <- as.numeric(valid_history[which.max(Value), ..DT_bounds$Parameter]) %>%
+    setNames(DT_bounds$Parameter)
+  Best_Value <- max(valid_history$Value)
 
-  cat("\nBest Parameters Found:\n")
-  print(DT_history[best_row])
+  if (verbose) {
+    cat("\nBest Parameters Found:\n")
+    cat(paste(names(Best_Par), round(Best_Par,4), sep="=", collapse=", "), "\n")
+    cat(sprintf("Best Value: %0.4f\n", Best_Value))
+    if (nrow(Error_DT) > 0) {
+      cat("\nSome evaluations encountered errors. See 'Error_Log' in results.\n")
+    }
+  }
 
-  list(
-    Best_Par   = Best_Par,
-    Best_Value = Best_Value,
-    History    = DT_history,
-    Pred       = Pred_DT,
-    Failed     = Failed_DT
-  )
+  Result <- list(Best_Par = Best_Par,
+                 Best_Value = Best_Value,
+                 History = DT_history,
+                 Pred = Pred_list,
+                 Error_Log = Error_DT)
+
+  return(Result)
 }
-
 
 
 BayesianOptimizationDebug <- function(FUN, bounds, init_grid_dt = NULL, init_points = 0,
@@ -2872,7 +2805,15 @@ general_prep_xrf <- function(spectra.line.table, element.line) {
 general_prep_xrf <- cmpfun(general_prep_xrf)
 
 
-simple_tc_prep_xrf <- function(data,spectra.line.table, element.line) {
+simple_tc_prep_xrf <- function(data,spectra.line.table, element.line, deconvolution=NULL, compton.type="Raw") {
+    
+    data <- if(compton.type=="Raw"){
+        data
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     
     intensity <- spectra.line.table[,element.line]
     
@@ -2889,8 +2830,15 @@ simple_tc_prep_xrf <- function(data,spectra.line.table, element.line) {
 simple_tc_prep_xrf <- cmpfun(simple_tc_prep_xrf)
 
 
-simple_comp_prep_xrf <- function(data, spectra.line.table, element.line, norm.min, norm.max) {
+simple_comp_prep_xrf <- function(data, spectra.line.table, deconvolution=NULL, element.line, norm.min, norm.max, compton.type="Raw") {
     
+    data <- if(compton.type=="Raw"){
+        data
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     
     
     intensity <- spectra.line.table[,element.line]
@@ -2969,8 +2917,15 @@ lucas_simp_prep_xrf <- function(spectra.line.table, element.line, slope.element.
 lucas_simp_prep_xrf <- cmpfun(lucas_simp_prep_xrf)
 
 
-lucas_tc_prep_xrf <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines=NULL) {
+lucas_tc_prep_xrf <- function(data, spectra.line.table, deconvolution=NULL, element.line, slope.element.lines, intercept.element.lines=NULL, compton.type="Raw") {
     
+    data <- if(compton.type=="Raw"){
+        data
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3008,8 +2963,15 @@ lucas_tc_prep_xrf <- cmpfun(lucas_tc_prep_xrf)
 
 
 
-lucas_comp_prep_xrf <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines=NULL, norm.min, norm.max) {
+lucas_comp_prep_xrf <- function(data, spectra.line.table, deconvolution=NULL, element.line, slope.element.lines, intercept.element.lines=NULL, norm.min, norm.max, compton.type="Raw") {
     
+    data <- if(compton.type=="Raw"){
+        data
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3074,7 +3036,15 @@ general_prep_xrf_net <- function(spectra.line.table, element.line) {
 general_prep_xrf_net <- cmpfun(general_prep_xrf_net)
 
 
-simple_tc_prep_xrf_net <- function(data,spectra.line.table, element.line) {
+simple_tc_prep_xrf_net <- function(data,spectra.line.table, deconvolution=NULL, element.line, compton.type="Raw") {
+    
+    data <- if(compton.type=="Raw"){
+        data
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3091,9 +3061,15 @@ simple_tc_prep_xrf_net <- function(data,spectra.line.table, element.line) {
 simple_tc_prep_xrf_net <- cmpfun(simple_tc_prep_xrf_net)
 
 
-simple_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, norm.min, norm.max) {
+simple_comp_prep_xrf_net <- function(data, spectra.line.table, deconvolution=NULL, element.line, norm.min, norm.max, compton.type="Raw") {
     
-    
+    data <- if(compton.type=="Raw"){
+        data
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3157,8 +3133,15 @@ lucas_simp_prep_xrf_net <- cmpfun(lucas_simp_prep_xrf_net)
 
 
 
-lucas_tc_prep_xrf_net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines) {
+lucas_tc_prep_xrf_net <- function(data, spectra.line.table, deconvolution=NULL, element.line, slope.element.lines, intercept.element.lines, compton.type="Raw") {
     
+    data <- if(compton.type=="Raw"){
+        data
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3201,8 +3184,15 @@ lucas_tc_prep_xrf_net <- function(data, spectra.line.table, element.line, slope.
 lucas_tc_prep_xrf_net <- cmpfun(lucas_tc_prep_xrf_net)
 
 
-lucas_comp_prep_xrf_net <- function(data, spectra.line.table, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max) {
+lucas_comp_prep_xrf_net <- function(data, spectra.line.table, deconvolution=NULL, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max, compton.type="Raw") {
     
+    data <- if(compton.type=="Raw"){
+        data
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     
     intensity <- spectra.line.table[,element.line]
     
@@ -5578,9 +5568,15 @@ spectrumSelect <- function(spectra, hold.frame){
     return(data[data$Spectrum %in% hold.frame$Spectrum, ])
 }
 
-predictIntensitySimpPreGen <- function(spectra, hold.frame, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictIntensitySimpPreGen <- function(spectra, hold.frame, deconvolution = NULL, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw"){
     
-    data <- spectra
+    data <- if(compton.type=="Raw"){
+        spectra
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     spectra.line.table <- hold.frame
     
     
@@ -5623,12 +5619,12 @@ scaleDecode <- function(values, y_min, y_max){
 }
 
 
-predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="None", element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1, seed=NULL){
+predictFrameSimpGen <- function(spectra, hold.frame, deconvolution=NULL, dependent.transformation="None", element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw", y_min=0, y_max=1, seed=NULL){
     
     data <- spectra
     spectra.line.table <- hold.frame
     
-    predict.intensity.simp <- predictIntensitySimpPreGen(spectra=spectra, hold.frame=hold.frame, element=element, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    predict.intensity.simp <- predictIntensitySimpPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
     
     predict.frame.simp <- data.frame(predict.intensity.simp, spectra.line.table[,"Concentration"])
     colnames(predict.frame.simp) <- c(names(predict.intensity.simp), "Concentration")
@@ -5656,9 +5652,16 @@ predictIntensitySimp <- function(predict.frame){
     predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
 }
 
-predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercepts=NULL, slopes=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictIntensityForestPreGen <- function(spectra, hold.frame, deconvolution=NULL, element, intercepts=NULL, slopes=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw"){
     
-    data <- spectra
+    data <- if(compton.type=="Raw"){
+        spectra
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
+    
     spectra.line.table <- hold.frame
     element.lines.to.use <- if(is.null(slopes)){
         names(hold.frame)[!names(hold.frame) %in% c("Spectrum", "Concentration")]
@@ -5753,20 +5756,20 @@ predictIntensityForest <- function(predict.frame){
     predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
 }
 
-predictIntensityLucPreGen <- function(spectra, hold.frame, element, intercepts=NULL, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictIntensityLucPreGen <- function(spectra, hold.frame, deconvolution = NULL, element, intercepts=NULL, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw"){
     
-    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
 
     predict.intensity.forest[,c("Intensity", slopes)]
     
 }
 
-predictFrameLucGen <- function(seed=1, spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
+predictFrameLucGen <- function(seed=1, spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", deconvolution = NULL, norm.type, norm.min=NULL, norm.max=NULL, compton.type="Raw", data.type="Spectra", y_min=0, y_max=1){
     
     data <- spectra
     spectra.line.table <- hold.frame
 
-    predict.intensity.luc <- predictIntensityLucPreGen(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, slopes=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    predict.intensity.luc <- predictIntensityLucPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, intercepts=intercepts, slopes=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
     
     predict.frame.luc <- data.frame(predict.intensity.luc, spectra.line.table[,"Concentration"])
     predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc),]
@@ -6426,6 +6429,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                             ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
                         element.line=x
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
@@ -6441,6 +6446,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             spectra.line.table=as.data.frame(
                             count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                                 ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
                             element.line=x,
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
@@ -6474,6 +6481,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                             ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
@@ -6491,12 +6500,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                             ),
-                        element.line=x,
-                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
-                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -6527,6 +6538,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
@@ -6545,6 +6558,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
@@ -6627,6 +6642,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
@@ -6645,6 +6662,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]][,variables]
                         ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
@@ -6728,10 +6747,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
-                    ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
@@ -6746,11 +6767,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1],the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]] [,colnames(the.cal[[x]][["Model"]][["trainingData"]][,c(-1, -2)])]
-                    ),
-                    element.line=x,
-                    slope.element.lines=colnames(the.cal[[x]][["Model"]][["trainingData"]][,c(-1, -2)]),
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    ))),
+                        ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=colnames(the.cal[[x]][["Model"]][["trainingData"]][,c(-1, -2)]),
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ))),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -6766,13 +6789,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     data=valdata,
                     spectra.line.table=as.data.frame(
                     count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
-                ),
-                element.line=x,
-                slope.element.lines=variables,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                ),
+                    ),
+                    deconvolution = deconvoluted_valdata,
+                    compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                 ymin=the.cal[[x]][[1]][1]$Scale$Min,
                 ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -6850,10 +6875,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -6868,12 +6895,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -6950,10 +6979,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     data=valdata,
                     spectra.line.table=as.data.frame(
                     count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
-                ),
-                element.line=x,
-                slope.element.lines=variables,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    deconvolution = deconvoluted_valdata,
+                    compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                 confidence=confidence,
@@ -6966,13 +6997,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     data=valdata,
                     spectra.line.table=as.data.frame(
                     count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
-                ),
-                element.line=x,
-                slope.element.lines=variables,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                ),
+                    ),
+                    deconvolution = deconvoluted_valdata,
+                    compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                 ymin=the.cal[[x]][[1]][1]$Scale$Min,
                 ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7046,8 +7079,10 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                             ),
-                        element.line=x
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7061,10 +7096,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             spectra.line.table=as.data.frame(
                             count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                                 ),
-                            element.line=x,
-                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                            ),
+                                deconvolution = deconvoluted_valdata,
+                                compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                                element.line=x,
+                                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                                ),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                             ymin=the.cal[[x]][[1]][1]$Scale$Min,
                             ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7094,10 +7131,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]][,variables]
                             ),
-                        element.line=x,
-                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
-                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7111,12 +7150,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                             ),
-                        element.line=x,
-                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
-                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7147,10 +7188,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7165,12 +7208,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7247,10 +7292,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7265,12 +7312,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7348,11 +7397,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
-                    ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    ),
+                        ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7366,11 +7417,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,colnames(the.cal[[x]][["Model"]][["trainingData"]][,c(-1, -2)])]
-                    ),
-                    element.line=x,
-                    slope.element.lines=colnames(the.cal[[x]][["Model"]][["trainingData"]][,c(-1, -2)]),
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    ))),
+                        ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=colnames(the.cal[[x]][["Model"]][["trainingData"]][,c(-1, -2)]),
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ))),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7385,13 +7438,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     data=deconvoluted_valdata,
                     spectra.line.table=as.data.frame(
                     count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
-                ),
-                element.line=x,
-                slope.element.lines=variables,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                ),
+                    ),
+                    deconvolution = deconvoluted_valdata,
+                    compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                 ymin=the.cal[[x]][[1]][1]$Scale$Min,
                 ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7469,10 +7524,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7487,12 +7544,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7551,11 +7610,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_simp_prep_xrf(
                     spectra.line.table=as.data.frame(
                     count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
-                ),
-                element.line=x,
-                slope.element.lines=variables,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                ),
+                    ),
+                    deconvolution = deconvoluted_valdata,
+                    compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                 ymin=the.cal[[x]][[1]][1]$Scale$Min,
                 ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7569,11 +7630,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     data=deconvoluted_valdata,
                     spectra.line.table=as.data.frame(
                     count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
-                ),
-                element.line=x,
-                slope.element.lines=variables,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                ),
+                    ),
+                    deconvolution = deconvoluted_valdata,
+                    compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                 confidence=confidence,
                 finalModel=TRUE
@@ -7585,13 +7648,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     data=deconvoluted_valdata,
                     spectra.line.table=as.data.frame(
                     count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
-                ),
-                element.line=x,
-                slope.element.lines=variables,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                ),
+                    ),
+                    deconvolution = deconvoluted_valdata,
+                    compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                 ymin=the.cal[[x]][[1]][1]$Scale$Min,
                 ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7663,6 +7728,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
                             element.line=x
                             ),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
@@ -7678,10 +7745,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
-                        element.line=x,
-                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7711,10 +7780,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
-                        element.line=x,
-                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
-                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7728,12 +7799,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
-                        element.line=x,
-                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
-                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7764,10 +7837,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
-                        element.line=x,
-                        slope.element.lines=variables,
-                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=variables,
+                            intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         confidence=confidence,
                         finalModel=TRUE
@@ -7780,12 +7855,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     spectra.line.table=as.data.frame(
                         count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7817,10 +7894,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
-                        element.line=x,
-                        slope.element.lines=variables,
-                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=variables,
+                            intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7835,12 +7914,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     spectra.line.table=as.data.frame(
                         count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7872,10 +7953,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
-                        element.line=x,
-                        slope.element.lines=variables,
-                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=variables,
+                            intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7890,12 +7973,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     spectra.line.table=as.data.frame(
                         count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                         ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                    ),
+                        deconvolution = deconvoluted_valdata,
+                        compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7927,10 +8012,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
-                        element.line=x,
-                        slope.element.lines=variables,
-                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=variables,
+                            intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7945,12 +8032,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     spectra.line.table=as.data.frame(
                         count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                    ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7982,10 +8071,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
-                        element.line=x,
-                        slope.element.lines=variables,
-                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=variables,
+                            intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                            ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -8000,12 +8091,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     spectra.line.table=as.data.frame(
                         count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
-                    element.line=x,
-                    slope.element.lines=variables,
-                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
-                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
-                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                    ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                        element.line=x,
+                        slope.element.lines=variables,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                     ymin=the.cal[[x]][[1]][1]$Scale$Min,
                     ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -8982,7 +9075,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
                 default_sigma=default_sigma,
                 smooth_iter=smooth_iter,
                 snip_iter=snip_iter))
-    } else if( cores >=2){
+    } else if(cores >= 2){
         new_spectra_list <- pbmclapply(
           spectra_list,
           function(x) deconvolute_complete(

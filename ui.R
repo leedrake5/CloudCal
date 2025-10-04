@@ -475,6 +475,8 @@ uiOutput('comptonMinInput'),
 
 uiOutput('comptonMaxInput'),
 
+uiOutput('comptonType'),
+
 uiOutput('dependenttransformationui'),
 
 uiOutput('deconvolutionui'),

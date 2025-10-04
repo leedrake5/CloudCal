@@ -396,13 +396,67 @@ importCSVFrameDetailed <- function(csv_import, chosen_beam="1"){
 }
 importCSVFrameDetailed <- cmpfun(importCSVFrameDetailed)
 
+extract_hitachi_energy_calibration <- function(line) {
+  # Match pattern: Energy Calibration: -0.010000 keV 0.025033 keV/channel
+  pattern <- "Energy Calibration:\\s*([-+]?[0-9]*\\.?[0-9]+)\\s*keV\\s*([-+]?[0-9]*\\.?[0-9]+)\\s*keV/channel"
+  
+  m <- regexec(pattern, line)
+  matches <- regmatches(line, m)
+  
+  if (length(matches[[1]]) == 3) {
+    intercept <- as.numeric(matches[[1]][2])
+    slope <- as.numeric(matches[[1]][3])
+    return(list(intercept = intercept, slope = slope))
+  } else {
+    warning("No valid energy calibration line found.")
+    return(NULL)
+  }
+}
 
-readTXTData <- function(filepath, filename, use_native_calibration=TRUE){
+readTXTDataHitachi <- function(file=NULL, filepath, filename=NULL, use_native_calibration=TRUE){
+    
+        if(is.null(filename)){
+            filename <- basename(filepath)
+        }
+        filename <- make.names(gsub(".txt", "", filename, ignore.case=TRUE))
+        
+        if(is.null(file)){
+             text <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
+         } else {
+             text <- file
+         }
+        channels = seq(1, as.numeric(text[1,1])-1, 1)
+        
+        energy_cal <- extract_hitachi_energy_calibration(text[find_row_with_string(text, "Energy Calibration: "),])
+        
+        energies <- if(use_native_calibration==TRUE){
+            channels*energy_cal$slope + energy_cal$intercept
+        } else {
+            channels
+        }
+        
+        counts <- as.numeric(text[2:as.numeric(text[1,1])+1,])
+        
+        live_time <- as.numeric(gsub(" s", "", gsub("Live Time: ", "", text[as.numeric(find_row_with_string(text, "Live Time:")[1]),])))
+        
+        live_counts <- counts/live_time
+    
+    data.frame(Energy=energies, CPS=live_counts, Spectrum=filename)
+}
+    
+
+readTXTDataOG <- function(file=NULL, filepath, filename=NULL, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)
     }
     filename <- make.names(gsub(".txt", "", filename, ignore.case=TRUE))
-    text <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
+   
+   if(is.null(file)){
+        text <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
+    } else {
+        text <- file
+    }
+    
     channels <- seq(1, length(text$V1)-4, 1)
     counts <- as.numeric(as.character(text$V1[5:length(text$V1)]))
     filename.vector <- rep(filename, length(text$V1)-4)
@@ -416,7 +470,19 @@ readTXTData <- function(filepath, filename, use_native_calibration=TRUE){
     data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
     
 }
-readTXTData <- cmpfun(readTXTData)
+readTXTDataOG <- cmpfun(readTXTDataOG)
+
+readTXTData <- function(filepath, filename=NULL, use_native_calibration=TRUE){
+
+    file <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
+
+    if(file[1,1]==2048){
+        readTXTDataHitachi(file=file, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
+    } else {
+        readTXTDataOG(file=file, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
+    }
+    
+}
 
 readTXTProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration=TRUE){
     
@@ -1011,9 +1077,9 @@ readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calib
     }
     
     filename <- make.names(gsub(".pdz", "", filename))
-    filename.vector <- rep(filename, 2020)
+    filename.vector <- rep(filename, 2048)
     
-    nbrOfRecords <- 2020
+    nbrOfRecords <- 2048
     integers <- readPDZ24(filepath)
     sequence <- seq(1, length(integers), 1)
     
@@ -1390,7 +1456,7 @@ wideLineTableSplit <- function(spectra, definition.table, elements, split_buffer
 }
 
 ###Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -1498,6 +1564,12 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
         11.1
     } else if(!is.null(norm.max)){
         norm.max
+    }
+    
+    compton.type <- if(is.null(compton.type)){
+        "Raw"
+    } else if(!is.null(compton.type)){
+        compton.type
     }
     
     foresttry <- if(is.null(foresttry)){
@@ -1712,6 +1784,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
                 NormType=norm.type,
                 Min=norm.min,
                 Max=norm.max,
+                ComptonType=compton.type,
                 DepTrans=dependent.transformation,
                 ForestTry=foresttry,
                 ForestMetric=forestmetric,
@@ -1751,7 +1824,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, comptony.type=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -1771,6 +1844,7 @@ calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL
                 NormType=norm.type,
                 Min=norm.min,
                 Max=norm.max,
+                ComptonType=compton.type,
                 DepTrans=dependent.transformation,
                 ForestTry=foresttry,
                 ForestMetric=forestmetric,
@@ -1845,6 +1919,7 @@ deleteCalConditions <- function(element, number.of.standards){
     norm.condition <- as.numeric(1)
     norm.min <- as.numeric(11)
     norm.max <- as.numeric(11.2)
+    compton.type <- as.character("Raw")
     dependent.transformation <- as.character("None")
     
     foresttry <- as.numeric(7)
@@ -1893,6 +1968,7 @@ deleteCalConditions <- function(element, number.of.standards){
     NormType=norm.condition,
     Min=norm.min,
     Max=norm.max,
+    ComptonType=compton.type,
     DepTrans=dependent.transformation,
     ForestTry=foresttry,
     ForestMetric=forestmetric,
@@ -1965,6 +2041,7 @@ defaultCalConditions <- function(element, number.of.standards){
     norm.condition <- as.numeric(1)
     norm.min <- as.numeric(11)
     norm.max <- as.numeric(11.2)
+    compton.type <- as.character("Raw")
     dependent.transformation <- as.character("None")
 
     foresttry <- as.numeric(7)
@@ -2018,6 +2095,7 @@ defaultCalConditions <- function(element, number.of.standards){
         NormType=norm.condition,
         Min=norm.min,
         Max=norm.max,
+        ComptonType=compton.type,
         DepTrans=dependent.transformation,
         ForestTry=foresttry,
         ForestMetric=forestmetric,
@@ -2180,6 +2258,12 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         as.numeric(as.character(imported.cal.conditions$CalTable$Max[1]))
     } else if(!"Max" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Max
+    }
+    
+    compton.type <- if("ComptonType" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$ComptonType[1])
+    } else if(!"ComptonType" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ComptonType
     }
     
     dependent.transformation <- if("DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
@@ -2540,6 +2624,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         NormType=norm.condition,
         Min=norm.min,
         Max=norm.max,
+        ComptonType=compton.type,
         DepTrans=dependent.transformation,
         ForestTry=foresttry,
         ForestMetric=forestmetric,
@@ -2692,6 +2777,12 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         as.numeric(as.character(imported.cal.conditions$CalTable$Max[1]))
     } else if(!"Max" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$Max
+    }
+    
+    compton.type <- if("ComptonType" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$ComptonType[1])
+    } else if(!"ComptonType" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$ComptonType
     }
     
     dependent.transformation <- if("DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
@@ -3058,6 +3149,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     NormType=norm.condition,
     Min=norm.min,
     Max=norm.max,
+    ComptonType=compton.type,
     DepTrans=dependent.transformation,
     ForestTry=foresttry,
     ForestMetric=forestmetric,
