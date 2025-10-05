@@ -79,14 +79,17 @@ csvFrameOld <- function(filepath, filename=NULL){
 }
 csvFrameOld <- cmpfun(csvFrameOld)
 
-csvFrame <- function(filepath, filename=NULL, use_native_calibration=TRUE){
+csvFrameOG <- function(ret=NULL, filepath, filename=NULL, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- as.character(basename(filepath))
     }
     filename <- make.names(filename)
     filename <- gsub(".csv", "", filename, ignore.case=TRUE)
     
-    ret <- read.csv(file=filepath, sep=",", header=FALSE)
+    if(is.null(ret)){
+        ret <- read.csv(file=filepath, sep=",", header=FALSE)
+    }
+    
     n <- nrow(ret)
     if(ret[nrow(ret), "V1"]=="2048"){
         ret[,"V1"] <- c(ret$V1[1:21], as.vector(seq(0, 2047, 1)))
@@ -108,6 +111,51 @@ csvFrame <- function(filepath, filename=NULL, use_native_calibration=TRUE){
     spectra.frame <- spectra.frame[complete.cases(spectra.frame),]
     
     return(spectra.frame)
+}
+
+
+promote_first_row_to_header <- function(df) {
+  if (nrow(df) < 1L)
+    stop("Data frame has no rows to promote as header.")
+
+  names(df) <- as.character(unlist(df[1, ]))
+  df <- df[-1, , drop = FALSE]
+  rownames(df) <- NULL
+  df
+}
+
+csvFrameSimple <- function(ret=NULL, filepath, filename=NULL, use_native_calibration=TRUE){
+    if(is.null(filename)){
+        filename <- as.character(basename(filepath))
+    }
+    filename <- make.names(filename)
+    filename <- gsub(".csv", "", filename, ignore.case=TRUE)
+    
+    if(is.null(ret)){
+        ret <- read.csv(file=filepath, sep=",", header=TRUE)
+    } else {
+        ret <- promote_first_row_to_header(ret)
+    }
+    
+    colnames(ret) <- c("Energy", "CPS")
+    ret$Spectrum <- filename
+    ret$Energy <- as.numeric(ret$Energy)
+    ret$CPS <- as.numeric(ret$CPS)
+    
+    if(use_native_calibration==FALSE){
+        ret$Energy <- seq(1, nrow(ret), 1)
+    }
+
+    return(ret)
+}
+
+csvFrame <- function(filepath, filename=NULL, use_native_calibration=TRUE){
+    ret <- read.csv(file=filepath, sep=",", header=FALSE)
+    if(ret[1,1]=="Energy (keV)"){
+        csvFrameSimple(ret=ret, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
+    } else {
+        csvFrameOG(ret=ret, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
+    }
 }
 
 
