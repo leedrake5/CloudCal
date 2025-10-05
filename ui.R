@@ -385,6 +385,7 @@ checkboxInput('modelcompress', label="Reduce File Size", value=TRUE),
 tags$hr(),
 downloadButton('downloadReport', "PDF"),
 downloadButton('downloadTableReport', "Worksheet"),
+downloadButton('downloadPlotData', "Geom"),
 #uiOutput('usecalsep'),
 #uiOutput('usecalui'),
 

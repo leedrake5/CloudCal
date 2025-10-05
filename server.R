@@ -15425,6 +15425,14 @@ shinyServer(function(input, output, session) {
             
             dev.off()
         })
+        
+        output$downloadPlotData <- downloadHandler(
+        function() { paste(paste(c(input$calname), "_", input$loglinear, collapse=''), '.rdata',  sep='') },
+        content = function(file){
+            ml = calPlotList()
+            tryCatch(saveRDS(ml, file, compress="xz"), error=function(e) NULL)
+        })
+
 
         
         output$downloadTableReport <- downloadHandler(
