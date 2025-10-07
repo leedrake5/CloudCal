@@ -5693,11 +5693,11 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, deconvolution=NULL
     return(predict.intensity)
 }
 
-predictFrameXGBoostGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
+predictFrameXGBoostGen <- function(spectra, hold.frame, deconvolution=NULL, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1, compton.type="Raw"){
     
     spectra.line.table <- hold.frame
     
-    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, element=element, slopes=slopes, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, slopes=slopes, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type="Raw")
 
     
     
@@ -5722,11 +5722,11 @@ predictIntensityXGBoost <- function(predict.frame){
 }
 
 
-predictFrameForestGen <- function(seed=1, spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
+predictFrameForestGen <- function(seed=1, spectra, hold.frame, deconvolution=NULL, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1, compton.type="Raw"){
     
     spectra.line.table <- hold.frame
     
-    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, element=element, slopes=slopes, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, slopes=slopes, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
 
     
     

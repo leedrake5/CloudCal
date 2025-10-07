@@ -16023,7 +16023,7 @@ observeEvent(input$actionprocess2_multi, {
             
             index <- seq(from=1, to=length(cal.names), by=1)
             
-            spectra.line.list <- lapply(quantNames(),function(x) data.frame(Spectrum=quantValues()[[x]][,"Spectrum"], spectra.line.table[[x]]))
+            spectra.line.list <- lapply(quantNames(),function(x) data.frame(spectra.line.table[[x]]))
             
                 names(spectra.line.list) <- quantNames()
             
@@ -19594,5 +19594,7 @@ content = function(file){
 
 
 })
+    
+    
 
  })
