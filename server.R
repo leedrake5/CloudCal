@@ -3498,12 +3498,12 @@ shinyServer(function(input, output, session) {
         })
         
         
-        observeEvent(input$trainslopes, {
-            
-            isolate(basichold$normtype <- bestNormVars()[["Type"]])
-            isolate(basichold$normmin <- bestNormVars()[["Compton"]][1])
-            isolate(basichold$normmax <- bestNormVars()[["Compton"]][2])
-            
+        observeEvent(input$trainslopes, ignoreInit = TRUE, {
+          programmatic(TRUE)
+          updateSelectInput(session, "normcal", selected = bestNormVars()[["Type"]])
+          updateNumericInput(session, "comptonmin", value = bestNormVars()[["Compton"]][1])
+          updateNumericInput(session, "comptonmax", value = bestNormVars()[["Compton"]][2])
+          programmatic(FALSE)
         })
         
         calNormSelection <- reactive({
@@ -9421,17 +9421,37 @@ shinyServer(function(input, output, session) {
             svmhold$svmlength
         })
         
+        
+        
+        programmatic <- reactiveVal(FALSE)  # guard flag
+
+        # Initialize these inputs when external things change (e.g., new element, train slopes):
+        observeEvent(input$calcurveelement, ignoreInit = TRUE, {
+          programmatic(TRUE)
+          updateSelectInput(session, "normcal", selected = calNormSelectionpre())
+          updateSelectInput(session, "comptontype", selected = comptonTypeSelection())
+          updateNumericInput(session, "comptonmin", value = normMinPre())
+          updateNumericInput(session, "comptonmax", value = normMaxPre())
+          programmatic(FALSE)
+        })
+        
         observeEvent(input$normcal, {
-            basichold$normtype <- input$normcal
-        })
-        
+          if (programmatic()) return()
+          basichold$normtype <- input$normcal
+          calConditions$hold[["CalTable"]]$NormType <- as.numeric(input$normcal)
+        }, ignoreInit = TRUE)
+
         observeEvent(input$comptonmin, {
-            basichold$normmin <- input$comptonmin
-        })
-        
+          if (programmatic()) return()
+          basichold$normmin <- input$comptonmin
+          calConditions$hold[["CalTable"]]$Min <- as.numeric(input$comptonmin)
+        }, ignoreInit = TRUE)
+
         observeEvent(input$comptonmax, {
-            basichold$normmax <- input$comptonmax
-        })
+          if (programmatic()) return()
+          basichold$normmax <- input$comptonmax
+          calConditions$hold[["CalTable"]]$Max <- as.numeric(input$comptonmax)
+        }, ignoreInit = TRUE)
         
         observeEvent(input$deconvolution, {
              basichold$deconvolution <- input$deconvolution

@@ -470,11 +470,9 @@ uiOutput('svmsigmaui'),
 
 uiOutput('svmlengthui'),
 
-uiOutput('normTypeInput'),
-
-uiOutput('comptonMinInput'),
-
-uiOutput('comptonMaxInput'),
+numericInput('comptonmin', label = h6("Min"),  step = 0.001, value = 0, min = 0, max = 50, width = '30%'),
+numericInput('comptonmax', label = h6("Max"),  step = 0.001, value = 0, min = 0, max = 50, width = '30%'),
+selectInput('normcal', "Normalization", choices = list("Time" = 1, "Total Counts" = 2, "ROI" = 3), selected = 1),
 
 uiOutput('comptonType'),
 
