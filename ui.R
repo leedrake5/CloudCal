@@ -400,9 +400,9 @@ sliderInput("randomize", "Set Seed", min=1, max=10000, value=1, step=1),
 
 uiOutput('inVar2'),
 
-uiOutput('linepreferenceelementui'),
+selectInput('linepreferenceelement', "Choose Line Definition", choices=c("Narrow", "Wide", "Area")),
 
-uiOutput('linestructureelementui'),
+selectInput('linestructureelement', "Choose Line Calculation", choices=c("gaussian", "split", "first", "second")),
 
 uiOutput('calTypeInput'),
 

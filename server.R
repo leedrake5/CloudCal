@@ -3539,6 +3539,23 @@ shinyServer(function(input, output, session) {
             }
         })
         
+        lineTypeSelection <- reactive({
+            
+            if(!"LineType" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calConditions$hold[["CalTable"]][["LineType"]]
+            } else if("LineType" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$LineType[1]
+            }
+        })
+        
+        lineStructureSelection <- reactive({
+            
+            if(!"LineStructure" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calConditions$hold[["CalTable"]][["LineStructure"]]
+            } else if("LineStructure" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
+                calSettings$calList[[input$calcurveelement]][[1]]$CalTable$LineStructure[1]
+            }
+        })
         
         output$normTypeInput <- renderUI({
             req(input$radiocal)
@@ -9430,6 +9447,8 @@ shinyServer(function(input, output, session) {
           programmatic(TRUE)
           updateSelectInput(session, "normcal", selected = calNormSelectionpre())
           updateSelectInput(session, "comptontype", selected = comptonTypeSelection())
+          updateSelectInput(session, "linepreferenceelement", selected = lineTypeSelection())
+          updateSelectInput(session, "linestructureelement", selected = lineStructureSelection())
           updateNumericInput(session, "comptonmin", value = normMinPre())
           updateNumericInput(session, "comptonmax", value = normMaxPre())
           programmatic(FALSE)
@@ -9451,6 +9470,18 @@ shinyServer(function(input, output, session) {
           if (programmatic()) return()
           basichold$normmax <- input$comptonmax
           calConditions$hold[["CalTable"]]$Max <- as.numeric(input$comptonmax)
+        }, ignoreInit = TRUE)
+        
+        observeEvent(input$linepreferenceelement, {
+          if (programmatic()) return()
+          basichold$linepreferenceelement <- input$linepreferenceelement
+          calConditions$hold[["CalTable"]]$LineType <- as.numeric(input$linepreferenceelement)
+        }, ignoreInit = TRUE)
+        
+        observeEvent(input$linestructureelement, {
+          if (programmatic()) return()
+          basichold$linestructureelement <- input$linestructureelement
+          calConditions$hold[["CalTable"]]$LineStructure <- as.numeric(input$linestructureelement)
         }, ignoreInit = TRUE)
         
         observeEvent(input$deconvolution, {
