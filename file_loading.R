@@ -754,10 +754,10 @@ readPMCAData4096 <- function(filepath, filename=NULL, full=NULL, use_native_cali
         energy <- if(use_native_calibration==TRUE){
             as.vector(predict.lm(energy.cal, newdata=newdata))
         } else if(use_native_calibration==FALSE){
-            seq(1, length(cps), 1)
+            seq(1, length(cps), 1)*0.025001
         }
     } else {
-        energy <- seq(1, length(cps), 1)
+        energy <- seq(1, length(cps), 1)*0.025001
     }
     spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
