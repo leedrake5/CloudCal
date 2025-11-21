@@ -22,7 +22,7 @@ shinyServer(function(input, output, session) {
     })
     
     calMemory <- reactiveValues()
-    calMemory$Calibration <- list()
+    calMemory$Calibration <- list(Spectra=NULL)
     
     oldCalCompatibility <- reactive(label="oldCalCompatibility", {
         choice <- if(!is.null(input$calfileinput) && calFileContents()[["FileType"]]=="Spectra"){
@@ -38,9 +38,9 @@ shinyServer(function(input, output, session) {
     
     output$filetypeui <- renderUI({
         if(is.null(input$calfileinput)){
-            selectInput("filetype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected="CSV")
+            selectInput("filetype", label="Filetype", c("CSV", "JSON", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected="CSV")
         } else if(!is.null(input$calfileinput)){
-            selectInput("filetype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected=oldCalCompatibility())
+            selectInput("filetype", label="Filetype", c("CSV", "JSON", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected=oldCalCompatibility())
         }
         
     })
@@ -51,7 +51,10 @@ shinyServer(function(input, output, session) {
         if(input$filetype=="CSV") {
             fileInput('file1', 'Choose CSV', multiple=TRUE,
             accept=c(".csv"))
-        } else if(input$filetype=="Aggregate CSV File") {
+        } else if(input$filetype=="JSON") {
+            fileInput('file1', 'Choose JSON', multiple=TRUE,
+            accept=c(".json"))
+        }  else if(input$filetype=="Aggregate CSV File") {
             fileInput('file1', 'Choose CSV', multiple=TRUE,
             accept=c(".csv"))
         } else if(input$filetype=="TXT") {
@@ -156,13 +159,31 @@ shinyServer(function(input, output, session) {
         
     })
     
-    output$beamnoui <- renderUI({
-        if(input$filetype=="Aggregate CSV File"){
-            selectInput("beamno", "Choose Beam", uniqueBeams(input$file1$datapath))
-        } else if(input$filetype!="Aggregate CSV File"){
-            NULL
-        }
+    jsonBeams <- reactive({
+      req(isTruthy(input$filetype), identical(input$filetype, "JSON"))
+      path <- first_path(input$file1); req(isTruthy(path), file.exists(path))
+      get_exposure_numbers(path)   # returns character vector
     })
+    
+    output$beamnoui <- renderUI({
+      req(isTruthy(input$filetype))  # avoid length-0 logical in `if`
+      if (identical(input$filetype, "Aggregate CSV File")) {
+        path <- first_path(input$file1); req(isTruthy(path), file.exists(path))
+        selectInput("beamno", "Choose Beam", uniqueBeams(path))
+      } else if (identical(input$filetype, "JSON")) {
+        path <- first_path(input$file1); req(isTruthy(path), file.exists(path))
+        selectInput("beamno", "Choose Beam", jsonBeams())
+      } else {
+        NULL
+      }
+    })
+    
+    observeEvent(input$file1, {
+      req(isTruthy(input$filetype), identical(input$filetype, "JSON"))
+      beams <- jsonBeams(); req(length(beams))
+      sel <- isolate(if (!is.null(input$beamno) && input$beamno %in% beams) input$beamno else beams[[1]])
+      updateSelectInput(session, "beamno", label = "Choose Beam", choices = beams, selected = sel)
+    }, ignoreInit = TRUE)
     
     inFile <- reactive({
         req(input$file1)
@@ -191,6 +212,21 @@ shinyServer(function(input, output, session) {
         
         fullSpectraMetadataProcess(inFile=inFile())
 
+    })
+    
+    fullJSON <- reactive(label = "fullJSON", {
+      req(isTruthy(input$filetype), identical(input$filetype, "JSON"))
+      path <- first_path(input$file1); req(isTruthy(path), file.exists(path))
+
+      beams <- jsonBeams(); req(length(beams))
+      chosen <- input$beamno %||% beams[[1]]
+      #validate(need(chosen %in% beams, "Invalid beam selection."))
+
+      inFile <- inFile()
+      if (is.null(inFile)) return(NULL)
+      
+      # If you support multiple uploads elsewhere, adapt this; here we read just the first:
+      readJSONProcess(inFile = (is.null(inFile)), chosen_beam = chosen)
     })
     
     
@@ -543,33 +579,39 @@ shinyServer(function(input, output, session) {
         
         myDataPre <- reactive(label="myDataPre", {
             req(input$filetype)
-            print("Loading spectra")
-                data <- if(input$filetype=="CSV"){
-                    fullSpectra()
-                } else if(input$filetype=="Aggregate CSV File"){
-                    importedCSV()
-                } else if(input$filetype=="TXT"){
-                    readTXT()
-                } else if(input$filetype=="Net"){
-                    netCounts()
-                } else if(input$filetype=="Elio"){
-                    readElio()
-                }  else if(input$filetype=="MCA"){
-                    readMCA()
-                }  else if(input$filetype=="SPX"){
-                    readSPX()
-                }  else if(input$filetype=="PDZ"){
-                    readPDZ()
-                }  else if(input$filetype=="SPE"){
-                    readSPE()
+            if(!is.null(input$file1)){
+                print("Loading spectra")
+                    data <- if(input$filetype=="CSV"){
+                        fullSpectra()
+                    } else if(input$filetype=="JSON"){
+                        fullJSON()
+                    } else if(input$filetype=="Aggregate CSV File"){
+                        importedCSV()
+                    } else if(input$filetype=="TXT"){
+                        readTXT()
+                    } else if(input$filetype=="Net"){
+                        netCounts()
+                    } else if(input$filetype=="Elio"){
+                        readElio()
+                    }  else if(input$filetype=="MCA"){
+                        readMCA()
+                    }  else if(input$filetype=="SPX"){
+                        readSPX()
+                    }  else if(input$filetype=="PDZ"){
+                        readPDZ()
+                    }  else if(input$filetype=="SPE"){
+                        readSPE()
+                    }
+                    data$Spectrum <- make.names(data$Spectrum, unique=FALSE)
+                    data <- data[complete.cases(data),]
+                } else if(is.null(input$file1) && !is.null(calfileinput)){
+                    data <- calFileContents()$Spectra
                 }
-                
-                
-                data <- data[complete.cases(data),]
-                data$Spectrum <- make.names(data$Spectrum, unique=FALSE)
+                                
                 print("Finished loading spectra")
                 data
         })
+
         
         myData <- reactive(label="myData", {
             
@@ -617,6 +659,9 @@ shinyServer(function(input, output, session) {
                     myData()
                 }
             }
+            
+            data$Energy <- data$Energy + input$energynudge
+
             
             data <- data[order(as.character(data$Spectrum)),]
             
@@ -1472,6 +1517,8 @@ shinyServer(function(input, output, session) {
             
             if(is.null(calMemory$Calibration$Intensities) && input$filetype=="CSV"){
                 standard
+            } else if(is.null(calMemory$Calibration$Intensities) && input$filetype=="JSON"){
+                standard
             } else if(is.null(calMemory$Calibration$Intensities) && input$filetype=="Aggregate CSV File"){
                 standard
             } else if(is.null(calMemory$Calibration$Intensities) && input$filetype=="TXT"){
@@ -1500,6 +1547,8 @@ shinyServer(function(input, output, session) {
             
             
             choices <- if(input$filetype=="CSV"){
+                spectralLines
+            } else if(input$filetype=="JSON"){
                 spectralLines
             } else if(input$filetype=="Aggregate CSV File"){
                 spectralLines
@@ -2041,6 +2090,8 @@ shinyServer(function(input, output, session) {
             
             select.line.table <- if(input$filetype=="CSV"){
                 spectraData()
+            } else if(input$filetype=="JSON"){
+                spectraData()
             } else if(input$filetype=="Aggregate CSV File"){
                 spectraData()
             } else if(input$filetype=="TXT"){
@@ -2072,6 +2123,8 @@ shinyServer(function(input, output, session) {
             
             calMemory$Calibration$Intensities <- if(input$filetype=="CSV"){
                 isolate(spectraData())
+            } else if(input$filetype=="JSON"){
+                isolate(spectraData())
             } else if(input$filetype=="Aggregate CSV File"){
                 isolate(spectraData())
             } else if(input$filetype=="TXT"){
@@ -2091,6 +2144,8 @@ shinyServer(function(input, output, session) {
             }
             
             calMemory$Calibration$IntensitiesSplit <- if(input$filetype=="CSV"){
+                isolate(spectraDataSplit())
+            } else if(input$filetype=="JSON"){
                 isolate(spectraDataSplit())
             } else if(input$filetype=="Aggregate CSV File"){
                 isolate(spectraDataSplit())
@@ -2112,6 +2167,8 @@ shinyServer(function(input, output, session) {
             
             calMemory$Calibration$IntensitiesFirst <- if(input$filetype=="CSV"){
                 isolate(spectraDataFirst())
+            } else if(input$filetype=="JSON"){
+                isolate(spectraDataFirst())
             } else if(input$filetype=="Aggregate CSV File"){
                 isolate(spectraDataFirst())
             } else if(input$filetype=="TXT"){
@@ -2132,7 +2189,9 @@ shinyServer(function(input, output, session) {
             
             calMemory$Calibration$IntensitiesSecond <- if(input$filetype=="CSV"){
                 isolate(spectraDataSecond())
-            } else if(input$filetype=="Aggregate CSV File"){
+            } else if(input$filetype=="JSON"){
+                isolate(spectraDataSecond())
+            }  else if(input$filetype=="Aggregate CSV File"){
                 isolate(spectraDataSecond())
             } else if(input$filetype=="TXT"){
                 isolate(spectraDataSecond())
@@ -2153,7 +2212,9 @@ shinyServer(function(input, output, session) {
             
             calMemory$Calibration$WideIntensities <- if(input$filetype=="CSV"){
                 isolate(wideSpectraData())
-            } else if(input$filetype=="Aggregate CSV File"){
+            } else if(input$filetype=="JSON"){
+                isolate(wideSpectraData())
+            }  else if(input$filetype=="Aggregate CSV File"){
                 isolate(wideSpectraData())
             } else if(input$filetype=="TXT"){
                 isolate(wideSpectraData())
@@ -2173,7 +2234,9 @@ shinyServer(function(input, output, session) {
             
             calMemory$Calibration$WideIntensitiesSplit <- if(input$filetype=="CSV"){
                 isolate(wideSpectraDataSplit())
-            } else if(input$filetype=="Aggregate CSV File"){
+            } else if(input$filetype=="JSON"){
+                isolate(wideSpectraDataSplit())
+            }  else if(input$filetype=="Aggregate CSV File"){
                 isolate(wideSpectraDataSplit())
             } else if(input$filetype=="TXT"){
                 isolate(wideSpectraDataSplit())
@@ -2197,7 +2260,9 @@ shinyServer(function(input, output, session) {
             
                 #calMemory$Calibration$Deconvoluted$Intensities <- if(input$filetype=="CSV"){
                  #   spectraDataDeconvolution()
-                #} else if(input$filetype=="Aggregate CSV File"){
+                #} else if(input$filetype=="JSON"){
+                #    spectraDataDeconvolution()
+                #}  else if(input$filetype=="Aggregate CSV File"){
                 #    spectraDataDeconvolution()
                 #} else if(input$filetype=="TXT"){
                 #    spectraDataDeconvolution()
@@ -2935,7 +3000,9 @@ shinyServer(function(input, output, session) {
             req(input$filetype)
             if(input$filetype=="CSV"){
                 "Spectra"
-            } else if(input$filetype=="Aggregate CSV File"){
+            } else if(input$filetype=="JSON"){
+                "Spectra"
+            }  else if(input$filetype=="Aggregate CSV File"){
                 "Spectra"
             } else if(input$filetype=="TXT"){
                 "Spectra"
@@ -18792,9 +18859,9 @@ content = function(file){
     output$valfiletypeui <- renderUI({
         
         if(is.null(input$calfileinput2)){
-            selectInput("valfiletype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected="CSV")
+            selectInput("valfiletype", label="Filetype", c("CSV", "JSON", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected="CSV")
         } else if(!is.null(input$calfileinput2)){
-            selectInput("valfiletype", label="Filetype", c("CSV", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected=calFileContents2()[["FileType"]])
+            selectInput("valfiletype", label="Filetype", c("CSV", "JSON", "Aggregate CSV File", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected=calFileContents2()[["FileType"]])
         
         }
     
@@ -18845,6 +18912,8 @@ content = function(file){
     output$beamnoui_val <- renderUI({
         if(input$valfiletype=="Aggregate CSV File"){
             selectInput("beamno_val", "Choose Beam", uniqueBeams(input$loadvaldata$datapath), selected=beamSelect())
+        } else if(input$valfiletype=="JSON"){
+            selectInput("beamno_val", "Choose Beam", get_exposure_numbers(input$loadvaldata$datapath), selected=beamSelect())
         } else if(input$valfiletype!="Aggregate CSV File"){
             NULL
         }
@@ -18859,6 +18928,15 @@ content = function(file){
             
             fullSpectraProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
                     
+        })
+        
+        valJSON <- reactive(label="importedCSV", {
+            req(input$loadvaldata)
+            
+                inFile <- input$loadvaldata
+                if (is.null(inFile)) return(NULL)
+                
+                readJSONProcess(filepath=inFile$datapath, chosen_beam=input$beamno_val)#, error=function(e) importCSVFrameNaive(filepath=inFile$datapath))
         })
         
         valImportedCSV <- reactive(label="importedCSV", {
@@ -18964,7 +19042,9 @@ content = function(file){
             
             data <- if(input$valfiletype=="CSV"){
                 fullValSpectra()
-            } else if(input$valfiletype=="Aggregate CSV File"){
+            } else if(input$valfiletype=="JSON"){
+                valJSON()
+            }  else if(input$valfiletype=="Aggregate CSV File"){
                 valImportedCSV()
             } else if(input$valfiletype=="TXT"){
                 readValTXT()
@@ -18988,6 +19068,7 @@ content = function(file){
             data <- data[complete.cases(data),]
             
             data$Spectrum <- gsub(".pdz", "", data$Spectrum)
+            data$Spectrum <- gsub(".json", "", data$Spectrum)
             data$Spectrum <- gsub(".csv", "", data$Spectrum)
             data$Spectrum <- gsub(".CSV", "", data$Spectrum)
             data$Spectrum <- gsub(".spt", "", data$Spectrum)
@@ -19121,7 +19202,9 @@ content = function(file){
             
             if(input$valfiletype=="CSV"){
                 "Spectra"
-            } else if(input$valfiletype=="Aggregate CSV File"){
+            } else if(input$valfiletype=="JSON"){
+                "Spectra"
+            }  else if(input$valfiletype=="Aggregate CSV File"){
                 "Spectra"
             } else if(input$valfiletype=="TXT"){
                 "Spectra"

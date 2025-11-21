@@ -247,6 +247,125 @@ fullSpectraMetadataProcess <- function(inFile=NULL){
        return(data)
    }
 
+
+library(jsonlite)
+library(dplyr)
+library(tibble)
+
+`%||%` <- function(a, b) if (!is.null(a)) a else b
+
+# 1) Read CloudCal JSON safely (single object, array of objects, or stream of objects)
+safe_cloudcal_load <- function(filepath) {
+  # Try the simple case first
+  obj <- tryCatch(fromJSON(filepath, simplifyVector = FALSE), error = identity)
+  if (!inherits(obj, "error")) {
+    # Coerce to a list of "analyses"
+    if (is.list(obj) && !is.null(obj$spectra)) return(list(obj))
+    if (is.list(obj)) return(obj) # already a list/array of records
+  }
+  # Fallback: treat file as a stream of JSON objects (NDJSON or comma-separated)
+  txt <- readLines(filepath, warn = FALSE)
+  txt <- trimws(txt)
+  txt <- txt[nzchar(txt)]
+  # Heuristic: if we see multiple top-level objects without [ ... ],
+  # wrap them into an array and parse.
+  if (length(txt)) {
+    joined <- paste(txt, collapse = "\n")
+    if (!grepl("^\\s*\\[", joined) && grepl("\\}\\s*,?\\s*\\{", joined)) {
+      joined <- paste0("[", joined, "]")
+    }
+    obj2 <- fromJSON(joined, simplifyVector = FALSE)
+    if (is.list(obj2) && !is.null(obj2$spectra)) return(list(obj2))
+    if (is.list(obj2)) return(obj2)
+  }
+  stop("Unrecognized JSON layout; could not parse as object, array, or stream.")
+}
+
+# 2) Pull all analyses that actually have spectra
+.find_spectra_analyses <- function(records) {
+  Filter(function(r) is.list(r) && !is.null(r$spectra) && length(r$spectra) > 0, records)
+}
+
+# 3) Choose the best analysis for plotting (prefer NORMAL/SAMPLE with spectra)
+.choose_primary_analysis <- function(records) {
+  cand <- .find_spectra_analyses(records)
+  if (!length(cand)) stop("No analyses with spectra found.")
+  # Prefer NORMAL/SAMPLE types; else first with spectra
+  score <- vapply(cand, function(r) {
+    tt <- toupper(as.character(r$analysis$testType %||% ""))
+    if (tt %in% c("NORMAL","SAMPLE")) 2L else if (nzchar(tt)) 1L else 0L
+  }, integer(1))
+  cand[[ which.max(score) ]]
+}
+
+# 4) List exposure numbers (union across all analyses with spectra)
+get_exposure_numbers <- function(filepath) {
+  recs <- safe_cloudcal_load(filepath)
+  cand <- .find_spectra_analyses(recs)
+  if (!length(cand)) stop("No spectra entries in JSON.")
+  exp_vec <- unlist(lapply(cand, function(r) vapply(r$spectra, function(s) as.numeric(s$exposureNumber %||% NA_real_), numeric(1))), use.names = FALSE)
+  as.character(sort(unique(na.omit(exp_vec))))
+}
+
+# 5) Find first "Sample ID" recursively
+.find_sample_id <- function(x) {
+  if (is.list(x)) {
+    if (!is.null(x[["Sample ID"]])) return(as.character(x[["Sample ID"]]))
+    for (nm in names(x)) {
+      got <- .find_sample_id(x[[nm]])
+      if (!is.null(got)) return(got)
+    }
+  }
+  NULL
+}
+
+# 6) Live time helper (be forgiving with key names)
+.get_live_time <- function(s) {
+  for (k in c("liveTimeFromHardware","liveTime","live_time","live_time_from_hardware")) {
+    v <- s[[k]]
+    if (!is.null(v)) {
+      v <- as.numeric(v)
+      if (!is.na(v) && v > 0) return(v)
+    }
+  }
+  NA_real_
+}
+
+# 7) Read one beam as Energy/CPS/Spectrum from a possibly multi-record file
+readJSONFile <- function(filepath, chosen_beam = "1") {
+  exposureNumber <- as.integer(chosen_beam)
+  if (length(exposureNumber) != 1L || is.na(exposureNumber))
+    stop("chosen_beam must be a single integer-like value")
+
+  recs <- safe_cloudcal_load(filepath)
+  rec  <- .choose_primary_analysis(recs)
+
+  spectra <- rec$spectra
+  if (!is.list(spectra) || !length(spectra)) stop("No spectra found.")
+
+  beam_idx <- which(vapply(spectra, function(s) isTRUE(s$exposureNumber == exposureNumber), logical(1)))
+  if (!length(beam_idx)) stop(sprintf("No spectrum with exposureNumber == %s found.", exposureNumber))
+  s <- spectra[[beam_idx[1]]]
+
+  counts <- as.numeric(s$data)
+  if (!length(counts)) stop("Selected spectrum has no 'data' counts.")
+
+  lt <- .get_live_time(s)
+  if (is.na(lt) || lt <= 0) stop("Missing or non-positive live time.")
+
+  e_off   <- as.numeric(s$energyOffset)
+  e_slope <- as.numeric(s$energySlope)
+  if (is.na(e_off) || is.na(e_slope)) stop("Missing energyOffset/energySlope.")
+
+  ch <- seq_along(counts) - 1L
+  tibble(
+    Energy   = e_off + e_slope * ch,
+    CPS      = counts / lt,
+    Spectrum = .find_sample_id(rec) %||% basename(filepath)
+  )
+}
+
+
 netCountsProcess <- function(inFile=NULL){
     
         if (is.null(inFile)) return(NULL)
@@ -368,8 +487,6 @@ get_instrument_and_beams <- function(filepath) {
     # For Company 1, we assume that the CSV has a header line with names like:
     # keV    418(Main Range)    418(Low Range)    418(High Range)
     #
-    # Read the file as a tab- or comma-separated file. You may need to adjust the 'sep'
-    # depending on your file (here I assume tab-delimited):
     df <- read.csv(filepath, sep = ",", nrows = 20)
     
     # The beam names are embedded in the column names (skip the first column "keV").
@@ -383,8 +500,6 @@ get_instrument_and_beams <- function(filepath) {
     # For Company 2 the metadata is stored in a header block.
     # We need to find the row that begins with "Exposure Number"
     # (Assuming the file is tab- or comma-delimited)
-    # Here we use readLines to get the header row; you may have to adjust
-    # the splitting if your file uses commas or tabs.
     df <- read.csv(filepath, sep = ",", header=FALSE, nrows = 20)
     
     # Find the row where the first column equals "Exposure Number"
