@@ -1743,13 +1743,13 @@ shinyServer(function(input, output, session) {
         
         output$gausbufferui <- renderUI({
             
-            sliderInput("gausbuffer", "Narrow Line Width", min=0.02, max=3, value=calMemory$Calibration$LineDefaults$GausBuffer)
+            numericInput("gausbuffer", "Narrow Line Width", min=0.02, max=3, value=calMemory$Calibration$LineDefaults$GausBuffer)
             
         })
         
         output$splitbufferui <- renderUI({
             
-            sliderInput("splitbuffer", "Split Width", min=0.02, max=3, value=calMemory$Calibration$LineDefaults$SplitBuffer)
+            numericInput("splitbuffer", "Split Width", min=0.02, max=3, value=calMemory$Calibration$LineDefaults$SplitBuffer)
             
         })
         
