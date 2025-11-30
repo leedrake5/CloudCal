@@ -3,6 +3,14 @@ options(shiny.maxRequestSize=30*1024^40)
 
 shinyServer(function(input, output, session) {
     
+    
+    output$calnameui <- renderUI({
+        if(is.null(input$calfileinput)){
+            textInput("calname", label = "Calibration Name", value="myCalibration")
+        } else if(!is.null(input$calfileinput)){
+            textInput("calname", label = "Calibration Name", value=gsub(".quant", "", basename(input$calfileinput$name)))
+        }
+    })
 
 
     calFileContents <- reactive(label="calFileContents", {
@@ -107,7 +115,7 @@ shinyServer(function(input, output, session) {
     output$variancespectrumui <- renderUI({
         
         if(input$showlegend==FALSE){
-            checkboxInput('variancespectrum', "Variance Spectrum", value=TRUE)
+            checkboxInput('variancespectrum', "Variance Spectrum", value=FALSE)
         } else if(input$showlegend==TRUE){
             p()
         }
