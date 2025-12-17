@@ -2499,7 +2499,15 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, com
 spectra_simp_prep_xrf <- cmpfun(spectra_simp_prep_xrf)
 
 
-spectra_tc_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, compress="100 eV", transformation="None"){
+spectra_tc_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, compress="100 eV", transformation="None", compton.type="Raw", deconvolution=NULL){
+    
+    norm_data <- if(compton.type=="Raw"){
+        spectra
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     
     spectra$CPS[spectra$CPS<0] <- 0.0000000000001
     
@@ -2536,25 +2544,39 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, compr
         transformSpectra(spectra, transformation=transformation)
     }
     
-    spectra$Energy <- if(compress=="100 eV"){spectra$Energy <- round(spectra$Energy, 1)
+    spectra$Energy <- if(compress=="100 eV"){
+        spectra$Energy <- round(spectra$Energy, 1)
     } else if(compress=="50 eV"){
         round(spectra$Energy/0.05)*0.05
     } else if(compress=="25 eV"){
         round(spectra$Energy/0.025)*0.025
     }
     
+    norm_data$Energy <- if(compress=="100 eV"){
+        norm_data$Energy <- round(spectra$Energy, 1)
+    } else if(compress=="50 eV"){
+        round(norm_data$Energy/0.05)*0.05
+    } else if(compress=="25 eV"){
+        round(norm_data$Energy/0.025)*0.025
+    }
+    
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
+    norm_data <- subset(norm_data, !(norm_data$Energy < energy.min | norm_data$Energy > energy.max))
     
     spectra <- data.table(spectra)
     spectra.aggregate <- spectra[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
     
-    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
+    norm_data <- data.table(norm_data)
+    norm_data.aggregate <- norm_data[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum,Energy)]
     
+    data <- as.data.frame(dcast.data.table(spectra.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
+    norm_data <- as.data.frame(dcast.data.table(norm_data.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
+
     #test <- apply(test, 2, as.numeric)
     colnames(data) <- make.names(colnames(data))
     #data <- data[,complete.cases(data)]
     
-    total.counts <- rowSums(data[,-1], na.rm=TRUE)
+    total.counts <- rowSums(norm_data[,-1], na.rm=TRUE)
     
     data <- data.frame(Spectrum=data$Spectrum, data[,-1]/total.counts, stringsAsFactors=FALSE)
     spectra.frame <- do.call(data.frame,lapply(data, function(x) replace(x, is.infinite(x),0)))
@@ -2565,10 +2587,17 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, compr
 spectra_tc_prep_xrf <- cmpfun(spectra_tc_prep_xrf)
 
 
-spectra_comp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, norm.min, norm.max, compress="100 eV", transformation="None"){
+spectra_comp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, norm.min, norm.max, compress="100 eV", transformation="None", compton.type="Raw", deconvolution=NULL){
     
     spectra$CPS[spectra$CPS<0] <- 0.0000000000001
 
+    norm_data <- if(compton.type=="Raw"){
+        spectra
+    } else if(compton.type=="Baseline"){
+        deconvolution$Baseline
+    } else if(compton.type=="Net"){
+        deconvolution$Spectra
+    }
     
     energy.min <- if(is.null(energy.min)){
         0.7
@@ -2600,8 +2629,8 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, nor
         transformSpectra(spectra, transformation=transformation)
     }
 
-    compton.norm <- subset(spectra$CPS, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
-    compton.file <- subset(spectra$Spectrum, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
+    compton.norm <- subset(norm_data$CPS, !(norm_data$Energy < norm.min | norm_data$Energy > norm.max))
+    compton.file <- subset(norm_data$Spectrum, !(norm_data$Energy < norm.min | norm_data$Energy > norm.max))
     compton.frame <- data.frame(is.0(compton.norm, compton.file))
     colnames(compton.frame) <- c("Compton", "Spectrum")
     compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
@@ -2861,14 +2890,14 @@ simple_comp_prep_xrf <- function(data, spectra.line.table, deconvolution=NULL, e
 }
 simple_comp_prep_xrf <- cmpfun(simple_comp_prep_xrf)
 
-just_spectra_summary_apply <- function(spectra.frame, normalization, min=NULL, max=NULL, compress="100 eV", transformation="None", energy.range=c(0.7, 37)){
+just_spectra_summary_apply <- function(spectra.frame, normalization, min=NULL, max=NULL, compress="100 eV", transformation="None", energy.range=c(0.7, 37), compton.type="Raw", deconvolution=NULL){
     
     new.spectrum <- if(normalization==1){
         spectra_simp_prep_xrf(spectra=spectra.frame, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2])
     } else if(normalization==2){
-        spectra_tc_prep_xrf(spectra=spectra.frame, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2])
+        spectra_tc_prep_xrf(spectra=spectra.frame, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2], compton.type=compton.type, deconvolution=deconvolution)
     } else if(normalization==3){
-        spectra_comp_prep_xrf(spectra=spectra.frame, norm.min=min, norm.max=max, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2])
+        spectra_comp_prep_xrf(spectra=spectra.frame, norm.min=min, norm.max=max, compress=compress, transformation=transformation, energy.min=energy.range[1], energy.max=energy.range[2], compton.type=compton.type, deconvolution=deconvolution)
     }
     
     newer.spectrum <- reshape2::melt(new.spectrum, id.var="Spectrum")
