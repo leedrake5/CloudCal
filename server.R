@@ -1,5 +1,5 @@
 
-options(shiny.maxRequestSize=30*1024^40)
+options(shiny.maxRequestSize=30*1024^2)
 
 shinyServer(function(input, output, session) {
     
@@ -234,7 +234,7 @@ shinyServer(function(input, output, session) {
       if (is.null(inFile)) return(NULL)
       
       # If you support multiple uploads elsewhere, adapt this; here we read just the first:
-      readJSONProcess(inFile = (is.null(inFile)), chosen_beam = chosen)
+      readJSONProcess(inFile = inFile, chosen_beam = chosen)
     })
     
     
@@ -612,7 +612,7 @@ shinyServer(function(input, output, session) {
                     }
                     data$Spectrum <- make.names(data$Spectrum, unique=FALSE)
                     data <- data[complete.cases(data),]
-                } else if(is.null(input$file1) && !is.null(calfileinput)){
+                } else if(is.null(input$file1) && !is.null(input$calfileinput)){
                     data <- calFileContents()$Spectra
                 }
                                 
@@ -1177,20 +1177,20 @@ shinyServer(function(input, output, session) {
             
             if(input$normspectra==3){
                 numericInput('comptonminspectra', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%')
-            } else if(normspectra!=3){
+            } else if(input$normspectra!=3){
                 NULL
             }
             
         })
         
         output$comptonmaxspectraui <- renderUI({
-            
+
             if(input$normspectra==3){
                 numericInput('comptonmaxspectra', label=h6("Max"), step=0.001, value=10.2, min=0, max=50, width='30%')
-            } else if(normspectra!=3){
+            } else if(input$normspectra!=3){
                 NULL
             }
-            
+
         })
         
         
@@ -2289,23 +2289,23 @@ shinyServer(function(input, output, session) {
         
         
         output$comptonminintensitiesui <- renderUI({
-            
+
             if(input$normintensities==3){
                 numericInput('comptonminintensities', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%')
-            } else if(normintensities!=3){
+            } else if(input$normintensities!=3){
                 NULL
             }
-            
+
         })
         
         output$comptonmaxintensitiesui <- renderUI({
-            
+
             if(input$normintensities==3){
                 numericInput('comptonmaxintensities', label=h6("Max"), step=0.001, value=10.2, min=0, max=50, width='30%')
-            } else if(normintensities!=3){
+            } else if(input$normintensities!=3){
                 NULL
             }
-            
+
         })
         
         totalSpectraCounts <- reactive({
@@ -2493,19 +2493,19 @@ shinyServer(function(input, output, session) {
         })
         
         output$mytablefirst <- renderDataTable({
-            
+
             base.table <- tableFirstInput()[,-1]
-            rownames(base.table) <- tableSplitInput()$Spectrum
+            rownames(base.table) <- tableFirstInput()$Spectrum
             base.table
-            
+
         })
         
         output$mytablesecond <- renderDataTable({
-            
+
             base.table <- tableSecondInput()[,-1]
-            rownames(base.table) <- tableSplitInput()$Spectrum
+            rownames(base.table) <- tableSecondInput()$Spectrum
             base.table
-            
+
         })
         
         output$mytablesplit2 <- renderDataTable({
@@ -2624,7 +2624,7 @@ shinyServer(function(input, output, session) {
 
         })
         
-        lineSecondableForDownload <- reactive({
+        lineSecondTableForDownload <- reactive({
             calMemory$Calibration$IntensitiesSecond[,c("Spectrum", elementallinestouse(), "Baseline", "Total")]
 
         })

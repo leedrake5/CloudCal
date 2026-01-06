@@ -715,7 +715,7 @@ readSPTData <- function(filepath, filename, use_native_calibration=TRUE){
     energy <- if(use_native_calibration==TRUE){
         as.vector(predict.lm(energy.cal, newdata=newdata))
         } else if(use_native_calibration==FALSE){
-            eq(1, 4096, 1)
+            seq(1, 4096, 1)
         }
     energy2 <- newdata[,1]*summary(energy.cal)$coef[2]
     spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
@@ -725,8 +725,7 @@ readSPTData <- function(filepath, filename, use_native_calibration=TRUE){
 readSPTData <- cmpfun(readSPTData)
 
 readElioProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration=TRUE){
-    
-        inFile <- input$file1
+
         if (is.null(inFile)) return(NULL)
         
         n <- length(inFile$datapath)
@@ -1359,9 +1358,9 @@ singleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE, use_native_c
                 } else if(filetype=="TXT"){
                     readTXTData(filepath=filepath, use_native_calibration=use_native_calibration)
                 } else if(filetype=="Net"){
-                    netCountsData(filepath=filepath)
+                    read_csv_net(filepath=filepath)
                 } else if(filetype=="Elio"){
-                    readElioData(filepath=filepath, use_native_calibration=use_native_calibration)
+                    readSPTData(filepath=filepath, filename=basename(filepath), use_native_calibration=use_native_calibration)
                 }  else if(filetype=="MCA"){
                     readMCAData(filepath=filepath, use_native_calibration=use_native_calibration)
                 }  else if(filetype=="SPX"){
@@ -1987,7 +1986,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, comptony.type=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=droptree, skipdrop=skipdrop, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -2603,12 +2602,12 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
             paste0(calList[[element]][[2]]$bestTune$colsample_bytree, "-", calList[[element]][[2]]$bestTune$colsample_bytree)
         } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
+            as.character(imported.cal.conditions$CalTable$xgbColSample[1])
         }
     } else if(!"xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbColSample
     }
-    
+
     xgbminchild <- if("xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
            calList[[element]][[2]]$bestTune$min_child_weight
@@ -3121,9 +3120,9 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     
     xgbcolsample <- if("xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
-            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
+            as.character(imported.cal.conditions$CalTable$xgbColSample[1])
         } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
+            as.character(imported.cal.conditions$CalTable$xgbColSample[1])
         }
     } else if(!"xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
         default.cal.conditions$CalTable$xgbColSample
@@ -3490,7 +3489,7 @@ intensity_fix <- function(calibration, keep_labels=TRUE){
     
     other_spectra_stuff <- totalCountsGen(calibration$Spectra)
     if("Deconvoluted" %in% names(calibration)){
-        other_spectra_stuff <- merge(other_spectra_stuff, calibration$Deconvoluted$Areas$Baseline, all=T, sourt=T)
+        other_spectra_stuff <- merge(other_spectra_stuff, calibration$Deconvoluted$Areas$Baseline, all=T, sort=T)
     }
     
     if(length(variable_elements)>0){
@@ -3625,12 +3624,12 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         Calibration$IntensitiesSecond <- merge(Calibration$IntensitiesSecond, Calibration$OtherSpectraStuff, by="Spectrum")
         Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, allowParallel=allowParallel)
         Calibration$WideIntensities <- merge(Calibration$WideIntensities, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer==Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
+        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
         Calibration$WideIntensitiesSplit <- merge(Calibration$WideIntensitiesSplit, Calibration$OtherSpectraStuff, by="Spectrum")
     }
-    
 
-    
+
+
     if(sort==TRUE){
         Calibration$Values <- Calibration$Values[order(Calibration$Values$Spectrum),]
         Calibration$Spectra <- Calibration$Spectra[order(Calibration$Spectra$Spectrum, Calibration$Spectra$Energy),]
@@ -3646,10 +3645,10 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         Calibration$IntensitiesSecond <- merge(Calibration$IntensitiesSecond, Calibration$OtherSpectraStuff, by="Spectrum")
         Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, allowParallel=allowParallel)
         Calibration$WideIntensities <- merge(Calibration$WideIntensities, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer==Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
+        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
         Calibration$WideIntensitiesSplit <- merge(Calibration$WideIntensitiesSplit, Calibration$OtherSpectraStuff, by="Spectrum")
     }
-    
+
     if(deconvolution==TRUE){
         if(!"Deconvoluted" %in% names(Calibration)){
             if(allowParallel==TRUE){

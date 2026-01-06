@@ -6332,14 +6332,6 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         deconvoluted_valdata <- deconvoluted_data
     }
 
-    
-    if(any(unlist(sapply(Calibration$calList, function(x) x[[1]][["CalTable"]][["Deconvolution"]]!="None")))){
-        if(is.null(deconvoluted_valdata)){
-
-            
-        }
-        }
-    
     other_spectra_stuff <- totalCountsGen(valdata)
     other_spectra_stuff <- merge(other_spectra_stuff, deconvoluted_valdata$Areas[,c("Spectrum", "Baseline")], all=T, sort=T)
         
@@ -8591,23 +8583,23 @@ rmse_gather <- function(calibration, lm.list, element){
     }
 }
 
-rmspe_gather <- function(calibration, element){
+rmspe_gather <- function(calibration, element, predictions){
     tryCatch(MLmetrics::RMSPE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL)
 }
 
-mae_gather <- function(calibration, lm.list, element){
+mae_gather <- function(calibration, lm.list, element, predictions){
         if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
             tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL)
     } else {
-        tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "MAE"]), ]$MAE, error=function(e) tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL), error=function(e) NULL)
+        tryCatch(calibration[["calList"]][[element]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "MAE"]), ]$MAE, error=function(e) tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL), error=function(e) NULL)
     }
 }
 
-mape_gather <- function(calibration, lm.list, element){
+mape_gather <- function(calibration, lm.list, element, predictions){
        if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
             tryCatch(MLmetrics::MAPE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL)
     } else {
-        tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "MAE"]), ]$MAPE, error=function(e) tryCatch(MLmetrics::MAPE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL), error=function(e) NULL)
+        tryCatch(calibration[["calList"]][[element]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "MAE"]), ]$MAPE, error=function(e) tryCatch(MLmetrics::MAPE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL), error=function(e) NULL)
     }
 }
 
@@ -8863,7 +8855,7 @@ caretTrainNewdata <- function(object, newdata, na.action = na.omit){
         newdata <- newdata[, colnames(newdata) %in% object$finalModel$xNames,
                            drop = FALSE]
     if(!is.null(object$preProcess))
-       newdata <- predict(preProc, newdata)
+       newdata <- predict(object$preProcess, newdata)
     if(!is.data.frame(newdata) &&
       !is.null(object$modelInfo$predict) &&
       any(grepl("as.data.frame", as.character(body(object$modelInfo$predict)))))
@@ -9027,7 +9019,7 @@ tibble_convert <- function(spectra_frame){
 
     new_frame <- data.frame(energy_kev=spectra_frame$Energy, counts=spectra_frame$CPS, background=0, fit=0, cps=spectra_frame$CPS, baseline=0, smooth=0)
     new_tibble <- tibble::as_tibble(new_frame)
-    new_tibble_list <- list(.path=unique(spectra_frame$Spectrum), .position <- 1, .spectra=list(new_tibble))
+    new_tibble_list <- list(.path=unique(spectra_frame$Spectrum), .position = 1, .spectra=list(new_tibble))
     return(new_tibble_list)
 }
 

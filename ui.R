@@ -38,7 +38,7 @@ uiOutput("dfl_load"),
 
 tags$hr(),
 
-element <- selectInput(
+selectInput(
 "element", "Element:",
 c("(Ne) Neon" = "Ne.table",
 "(Na) Sodium" = "Na.table",
@@ -261,7 +261,7 @@ uiOutput('linestructureui'),
 uiOutput('gausbufferui'),
 uiOutput('splitbufferui'),
 conditionalPanel(
-condition='input.dataset === dataHold()',
+condition='input.dataset === "Custom Lines"',
 uiOutput('checkboxElementsKalpha'),
 uiOutput('checkboxElementsKbeta'),
 uiOutput('checkboxElementsLalpha'),
