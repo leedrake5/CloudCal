@@ -218,8 +218,7 @@ fullSpectraProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibra
            n.seq <- seq(1, nrow(inFile), 1)
            
            data.list <- pblapply(n.seq, function(x) csvFrame(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], use_native_calibration=use_native_calibration))
-           data <- do.call("rbind", data.list)
-           data <- as.data.frame(data, stringsAsFactors=FALSE)
+           data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
        
        if(gainshiftvalue>0){
            data$Energy <- data$Energy + gainshiftvalue
@@ -241,8 +240,7 @@ fullSpectraMetadataProcess <- function(inFile=NULL){
            n.seq <- seq(1, nrow(inFile), 1)
            
            data.list <- pblapply(n.seq, function(x) csvFrameMetadata(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
-           data <- do.call("rbind", data.list)
-           data <- as.data.frame(data, stringsAsFactors=FALSE)
+           data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
        
        return(data)
    }
@@ -378,7 +376,7 @@ netCountsProcess <- function(inFile=NULL){
         
         myfiles.frame.list <- pblapply(myfiles, data.frame, stringsAsFactors=FALSE)
         nms = unique(unlist(pblapply(myfiles.frame.list, names)))
-        myfiles.frame <- as.data.frame(do.call(rbind, lapply(myfiles.frame.list, "[", nms)))
+        myfiles.frame <- as.data.frame(data.table::rbindlist(lapply(myfiles.frame.list, "[", nms), use.names=TRUE, fill=TRUE))
         myfiles.frame <- as.data.frame(sapply(myfiles.frame, as.numeric))
         
         united.frame <- data.frame(net.names, myfiles.frame)
@@ -657,8 +655,7 @@ readTXTProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration
         n.seq <- seq(1, nrow(inFile), 1)
         
         data.list <- pblapply(n.seq, function(x) readTXTData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], use_native_calibration=use_native_calibration))
-        data <- do.call("rbind", data.list)
-        data <- as.data.frame(data, stringsAsFactors=FALSE)
+        data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
     
     if(gainshiftvalue>0){
         data$Energy <- data$Energy + gainshiftvalue
@@ -734,8 +731,7 @@ readElioProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibratio
         n.seq <- seq(1, nrow(inFile), 1)
         
         data.list <- pblapply(n.seq, function(x) readSPTData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], use_native_calibration=use_native_calibration))
-        data <- do.call("rbind", data.list)
-        data <- as.data.frame(data, stringsAsFactors=FALSE)
+        data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
     
     if(gainshiftvalue>0){
         data$Energy <- data$Energy + gainshiftvalue
@@ -777,8 +773,7 @@ readSPEProcess <- function(inFile=NULL, inEn=NULL){
     if (is.null(inEn)) return(NULL)
     
     data.list = pblapply(n.seq, function(x) readSPEData(filepath=inFile[x,"datapath"], dfl_path=inEn$datapath))
-    data <- do.call("rbind", data.list)
-    data <- as.data.frame(data, stringsAsFactors=FALSE)
+    data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
     
     return(data)
     
@@ -1030,9 +1025,7 @@ readMCAProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration
         
         data.list <- pblapply(n.seq, function(x) readMCAData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], use_native_calibration=use_native_calibration))
 
-        
-        data <- do.call("rbind", data.list)
-        data <- as.data.frame(data, stringsAsFactors=FALSE)
+        data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
             
     if(gainshiftvalue>0){
         data$Energy <- data$Energy + gainshiftvalue
@@ -1081,8 +1074,7 @@ readSPXProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration
         n.seq <- seq(1, nrow(inFile), 1)
         
         data.list <- pblapply(n.seq, function(x) readSPXData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], use_native_calibration=use_native_calibration))
-        data <- do.call("rbind", data.list)
-        data <- as.data.frame(data, stringsAsFactors=FALSE)
+        data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
             
     if(gainshiftvalue>0){
         data$Energy <- data$Energy + gainshiftvalue
@@ -1429,12 +1421,10 @@ readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binary
         
         if(advanced==FALSE){
             data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], pdzprep=pdzprep, use_native_calibration=use_native_calibration))
-            data <- do.call("rbind", data.list)
-            data <- as.data.frame(data, stringsAsFactors=FALSE)
+            data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
         } else if(advanced==TRUE){
             data.list <- pblapply(n.seq, function(x) readPDZ25DataManual(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], binaryshift=binaryshift, pdzprep=pdzprep, use_native_calibration=use_native_calibration))
-            data <- do.call("rbind", data.list)
-            data <- as.data.frame(data, stringsAsFactors=FALSE)
+            data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
         }
     
    if(gainshiftvalue>0){
@@ -1453,9 +1443,8 @@ readPDZMetadataProcess <- function(inFile=NULL){
         n.seq <- seq(1, nrow(inFile), 1)
         
         data.list <- pblapply(n.seq, function(x) readPDZMetadata(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
-        data <- do.call("rbind", data.list)
-        data <- as.data.frame(data, stringsAsFactors=FALSE)
-    
+        data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
+
     return(data)
 }
 

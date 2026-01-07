@@ -673,16 +673,10 @@ shinyServer(function(input, output, session) {
             
             data <- data[order(as.character(data$Spectrum)),]
             
-            data$Spectrum <- gsub(".pdz", "", data$Spectrum)
-            data$Spectrum <- gsub(".csv", "", data$Spectrum)
-            data$Spectrum <- gsub(".CSV", "", data$Spectrum)
-            data$Spectrum <- gsub(".spt", "", data$Spectrum)
-            data$Spectrum <- gsub(".mca", "", data$Spectrum)
-            data$Spectrum <- gsub(".spx", "", data$Spectrum)
-            data$Spectrum <- gsub(".spe", "", data$Spectrum)
+            data$Spectrum <- gsub("\\.(pdz|csv|CSV|spt|mca|spx|spe)$", "", data$Spectrum)
 
             data
-            
+
         })
         
         observeEvent(input$linecommit, {
@@ -2844,13 +2838,7 @@ shinyServer(function(input, output, session) {
             
             colnames(hotable.new)[1] <- "Spectrum"
             
-            hotable.new$Spectrum <- gsub(".pdz", "", hotable.new$Spectrum)
-            hotable.new$Spectrum <- gsub(".csv", "", hotable.new$Spectrum)
-            hotable.new$Spectrum <- gsub(".CSV", "", hotable.new$Spectrum)
-            hotable.new$Spectrum <- gsub(".spt", "", hotable.new$Spectrum)
-            hotable.new$Spectrum <- gsub(".mca", "", hotable.new$Spectrum)
-            hotable.new$Spectrum <- gsub(".spx", "", hotable.new$Spectrum)
-            hotable.new$Spectrum <- gsub(".spe", "", hotable.new$Spectrum)
+            hotable.new$Spectrum <- gsub("\\.(pdz|csv|CSV|spt|mca|spx|spe)$", "", hotable.new$Spectrum)
 
             
             #hotable.new <- hotable.new[hotable.new$Spectrum %in% unique(calMemory$Calibration$Spectra$Spectrum)]
@@ -16735,9 +16723,9 @@ observeEvent(input$actionprocess2_multi, {
             for(i in 1:length(quantNames())){
                 forest.imp[[i]]$Instrument <- rep(quantNames()[[i]], length(forest.imp[[i]][,1]))
             }
-            
-            do.call("rbind", forest.imp)
-            
+
+            as.data.frame(data.table::rbindlist(forest.imp, use.names=TRUE, fill=TRUE))
+
         })
         
         slopeImportancePlotMulti <- reactive({
@@ -16774,8 +16762,8 @@ observeEvent(input$actionprocess2_multi, {
             )
             names(importance.frame) <- quantNames()
 
-            do.call("rbind", importance.frame)
-            
+            as.data.frame(data.table::rbindlist(importance.frame, use.names=TRUE, fill=TRUE))
+
         })
         
         
@@ -17084,13 +17072,12 @@ observeEvent(input$actionprocess2_multi, {
 
             
             cal.frame <- predictFrameMulti()
-            
+
             cal.frame <- lapply(quantNames(),function(x) data.frame(cal.frame[[x]], Instrument=x))
             names(cal.frame) <- quantNames()
-            
-            do.call("rbind", cal.frame)
-            
-            
+
+            as.data.frame(data.table::rbindlist(cal.frame, use.names=TRUE, fill=TRUE))
+
         })
         
         
@@ -17247,8 +17234,8 @@ observeEvent(input$actionprocess2_multi, {
             
             val.frame <- lapply(quantNames(),function(x) data.frame(val.frame[[x]], Instrument=x))
             names(val.frame) <- quantNames()
-            do.call("rbind", val.frame)
-            
+            as.data.frame(data.table::rbindlist(val.frame, use.names=TRUE, fill=TRUE))
+
             #val.frame$Instrument <- holdFrameMulti()$Instrument
             
             
@@ -17490,11 +17477,11 @@ observeEvent(input$actionprocess2_multi, {
         
         
         calValTableMulti <- reactive({
-            
+
             standard.table <- valFrameMulti()
-            
-            concentration.table <- do.call("rbind", holdFrameMulti())
-            
+
+            concentration.table <- as.data.frame(data.table::rbindlist(holdFrameMulti(), use.names=TRUE, fill=TRUE))
+
             hold.table <- as.vector(concentration.table[,"Spectrum"])
             
             
@@ -17600,14 +17587,12 @@ observeEvent(input$actionprocess2_multi, {
 
             
             predict.frame <- predictFrameRandomMulti()
-            
+
             predict.frame <- lapply(quantNames(),function(x) data.frame(predict.frame[[x]], Instrument=x))
             names(predict.frame) <- quantNames()
-            
-            
-            do.call("rbind", predict.frame)
 
-            
+            as.data.frame(data.table::rbindlist(predict.frame, use.names=TRUE, fill=TRUE))
+
         })
         
 
@@ -17838,8 +17823,7 @@ observeEvent(input$actionprocess2_multi, {
             val.frame[[x]][val.frame[[x]][, "Concentration"] > min(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE) & val.frame[[x]][, "Concentration"] < max(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE), ]))
             names(val.frame) <- quantNames()
 
-            
-            do.call("rbind", val.frame)
+            as.data.frame(data.table::rbindlist(val.frame, use.names=TRUE, fill=TRUE))
 
         })
         
@@ -17981,8 +17965,8 @@ observeEvent(input$actionprocess2_multi, {
             
             val.frame <- lapply(quantNames(),function(x) data.frame(val.frame[[x]], Instrument=x))
             names(val.frame) <- quantNames()
-            do.call("rbind", val.frame)
-            
+            as.data.frame(data.table::rbindlist(val.frame, use.names=TRUE, fill=TRUE))
+
         })
         
         
@@ -18122,10 +18106,9 @@ observeEvent(input$actionprocess2_multi, {
             predict.frame <- lapply(quantNames(), function(x) as.data.frame(
             predict.frame[[x]][predict.frame[[x]][, "Concentration"] > min(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE) & predict.frame[[x]][, "Concentration"] < max(concentration.table.rev[[x]][,"Concentration"], na.rm = TRUE), ]))
             names(predict.frame) <- quantNames()
-            
-            hold.table <- do.call("rbind", predict.frame)
-            
-            
+
+            hold.table <- as.data.frame(data.table::rbindlist(predict.frame, use.names=TRUE, fill=TRUE))
+
             standard.table$Spectrum <- hold.table[,"Spectrum"]
             
             standard.table.summary <- data.frame(standard.table$Instrument, standard.table$Spectrum, standard.table$Concentration, standard.table$Prediction, standard.table$Concentration-standard.table$Prediction, ((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration))
@@ -18269,7 +18252,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             
-            concentration.table <- do.call("rbind", holdFrameMulti())
+            concentration.table <- as.data.frame(data.table::rbindlist(holdFrameMulti(), use.names=TRUE, fill=TRUE))
             hold.table <- concentration.table[,c("Spectrum", "Concentration")]
             hold.table$Concentration[hold.table$Concentration==""] <- NA
             hold.table <- hold.table[complete.cases(hold.table), ]
@@ -18346,15 +18329,13 @@ observeEvent(input$actionprocess2_multi, {
             
            
             
-            concentration.table <- do.call("rbind", na.omit(predict.frame))
+            concentration.table <- as.data.frame(data.table::rbindlist(na.omit(predict.frame), use.names=TRUE, fill=TRUE))
             hold.table <- concentration.table[,c("Spectrum", "Concentration")]
             hold.table$Concentration[hold.table$Concentration==""] <- NA
             hold.table <- hold.table[complete.cases(hold.table), ]
             hold.table <- hold.table[!is.na(hold.table$Concentration), ]
             hold.table <- na.omit(hold.table)
-            #hold.table <- as.vector(concentration.table[,"Spectrum"])
-            
-            
+
             point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
 
             
@@ -18478,9 +18459,8 @@ observeEvent(input$actionprocess2_multi, {
             point.table <- valFrameMulti()
             concentration.table.rev <- predictFrameRandomMulti()
 
-            
-            concentration.table <- do.call("rbind", holdFrameMulti())
-            
+            concentration.table <- as.data.frame(data.table::rbindlist(holdFrameMulti(), use.names=TRUE, fill=TRUE))
+
             hold.table <- concentration.table[,c("Spectrum", "Concentration")]
             hold.table$Concentration[hold.table$Concentration==""] <- NA
             hold.table <- hold.table[complete.cases(hold.table), ]
@@ -18541,10 +18521,8 @@ observeEvent(input$actionprocess2_multi, {
             
             predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][(randomizeDataMulti()), ]))
             names(predict.frame) <- quantNames()
-            
-            
-            
-            concentration.table <- do.call("rbind", na.omit(holdFrameRandomMulti()))
+
+            concentration.table <- as.data.frame(data.table::rbindlist(na.omit(holdFrameRandomMulti()), use.names=TRUE, fill=TRUE))
             hold.table <- concentration.table[,c("Spectrum", "Concentration")]
             hold.table$Concentration[hold.table$Concentration==""] <- NA
             hold.table <- hold.table[complete.cases(hold.table), ]
@@ -18987,7 +18965,7 @@ content = function(file){
                 
                 myfiles.frame.list <- pblapply(myfiles, data.frame, stringsAsFactors=FALSE)
                 nms = unique(unlist(pblapply(myfiles.frame.list, names)))
-                myfiles.frame <- as.data.frame(do.call(rbind, lapply(myfiles.frame.list, "[", nms)))
+                myfiles.frame <- as.data.frame(data.table::rbindlist(lapply(myfiles.frame.list, "[", nms), use.names=TRUE, fill=TRUE))
                 myfiles.frame <- as.data.frame(sapply(myfiles.frame, as.numeric))
                 
                 
@@ -19075,19 +19053,12 @@ content = function(file){
 
             data <- data[complete.cases(data),]
             
-            data$Spectrum <- gsub(".pdz", "", data$Spectrum)
-            data$Spectrum <- gsub(".json", "", data$Spectrum)
-            data$Spectrum <- gsub(".csv", "", data$Spectrum)
-            data$Spectrum <- gsub(".CSV", "", data$Spectrum)
-            data$Spectrum <- gsub(".spt", "", data$Spectrum)
-            data$Spectrum <- gsub(".mca", "", data$Spectrum)
-            data$Spectrum <- gsub(".spx", "", data$Spectrum)
-            data$Spectrum <- gsub(".spe", "", data$Spectrum)
+            data$Spectrum <- gsub("\\.(pdz|json|csv|CSV|spt|mca|spx|spe)$", "", data$Spectrum)
 
             data
-            
+
         })
-        
+
         myValData <- reactive({
             
             spectra <- myValDataPre()

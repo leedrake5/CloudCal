@@ -25,14 +25,7 @@ fluorescence.lines <- read.csv(fluorescence.lines.directory, sep=",")
 
 
 line_strip <- function(elements){
-    elements <- gsub(".K.alpha", "", elements)
-    elements <- gsub(".K.beta", "", elements)
-    elements <- gsub(".L.alpha", "", elements)
-    elements <- gsub(".L.beta", "", elements)
-    elements <- gsub(".M.line", "", elements)
-    elements <- gsub(".K12", "", elements)
-    elements <- gsub(".L1", "", elements)
-    elements
+    gsub("\\.(K\\.(alpha|beta)|L\\.(alpha|beta)|M\\.line|K12|L1)$", "", elements)
 }
 line_strip <- cmpfun(line_strip)
 
