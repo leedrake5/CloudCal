@@ -3624,6 +3624,17 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         Calibration$Spectra <- Calibration$Spectra[order(Calibration$Spectra$Spectrum, Calibration$Spectra$Energy),]
         Calibration$Values <- Calibration$Values[Calibration$Values$Spectrum %in% unique(Calibration$Spectra$Spectrum),]
         Calibration$Spectra <- Calibration$Spectra[Calibration$Spectra$Spectrum %in% unique(Calibration$Values$Spectrum),]
+
+        # Ensure OtherSpectraStuff exists before merging
+        if(!"OtherSpectraStuff" %in% names(Calibration)){
+            Calibration$OtherSpectraStuff <- totalCountsGen(Calibration$Spectra)
+            if("Deconvoluted" %in% names(Calibration)){
+                if("Baseline" %in% names(Calibration$Deconvoluted$Areas)){
+                    Calibration$OtherSpectraStuff <- merge(Calibration$OtherSpectraStuff, Calibration$Deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=TRUE, sort=TRUE)
+                }
+            }
+        }
+
         Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
         Calibration$Intensities <- merge(Calibration$Intensities, Calibration$OtherSpectraStuff, by="Spectrum")
         Calibration$IntensitiesSplit <- narrowLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
