@@ -457,9 +457,20 @@ shinyServer(function(input, output, session) {
         nrow(spectra)/length(unique(spectra$Spectrum))
     })
     
+    myDataChannels <- reactive({
+      spectra <- myDataPre()
+      dt <- as.data.table(spectra)
+
+      n_channels <- numChannels()
+
+      dt[, Energy := seq_len(n_channels), by = Spectrum]
+
+      as.data.frame(dt)
+    })
+    
     energyCalibration <- reactive({
         
-        spectra <- myDataPre()
+        spectra <- myDataChannels()
         
         num_channels <- numChannels()
         
@@ -622,16 +633,23 @@ shinyServer(function(input, output, session) {
 
         
         myData <- reactive(label="myData", {
-            
-            spectra <- myDataPre()
-            channels <- spectra$Energy
+          spectra <- myDataPre()
 
-            if(input$energycal==FALSE){
-                energy_cal <- energyCalibration()
-                spectra$Energy <- predict(object=energy_cal, newdata=list(channel_vector=channels))
-            }
-            
-            spectra
+
+          if (isTRUE(input$energycal == FALSE)) {
+              dt <- as.data.table(spectra)
+
+              # Per-spectrum channel index based on actual rows in each group
+              dt[, Energy := seq_len(.N), by = Spectrum]
+              channels <- dt$Energy
+              
+            energy_cal <- energyCalibration()
+            dt[, Energy := as.numeric(predict(energy_cal, newdata = list(channel_vector = channels)))]
+            spectra <- as.data.frame(dt)
+          }
+
+          spectra
+          
         })
         
         output$spectratest <- renderDataTable({
@@ -658,16 +676,10 @@ shinyServer(function(input, output, session) {
         
         
         dataHold <- reactive(label="dataHold", {
-            data <- if(is.null(calMemory$Calibration$Spectra)){
-                myData()
-            } else if(!is.null(calMemory$Calibration$Spectra)){
-                if(is.null(input$file1)){
-                    calMemory$Calibration[["Spectra"]]
-                } else if(!is.null(input$file1)){
-                    myData()
-                }
-            }
-            
+            # Always route through myData() to enable energy calibration for all sources
+            # including .quant files (myDataPre handles .quant spectra at line 616)
+            data <- myData()
+
             data$Energy <- data$Energy + input$energynudge
 
             
