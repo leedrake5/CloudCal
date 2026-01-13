@@ -62,15 +62,15 @@ if(get_os()!="linux"){
 #if(packageVersion("ggplot2")!="2.2.1") devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
 
 if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/caret_6.0.93.1.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
     } else if ("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
         if(Sys.info()[["machine"]]=="arm64"){
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/caret_6.0.93.1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
         } else {
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/caret_6.0.93.1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
             }
     } else if ("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/caret_6.0.93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
     }
 
 #if(packageVersion("caret")!="6.0.93.1" && get_os()=="windows"){
@@ -86,37 +86,29 @@ if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 #    }
 
 if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_2.0.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     } else if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()!="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_2.0.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     }
 
 if(packageVersion("rPDZ")!="2.0" && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_2.0.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
 } else if(packageVersion("rPDZ")!="2.0" && get_os()!="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_2.0.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
 }
 
 
 if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0.2.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
-} else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0.2.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
-} else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0.2.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/Peaks_0.3.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/Peaks"), error=function(e) NULL))
+} else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()!="windows"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/Peaks_0.3.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/Peaks"), error=function(e) NULL))
 }
 
 if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
-} else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    if(Sys.info()[["machine"]]=="arm64"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000_arm64.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
-    } else {
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
+} else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()!="windows"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
     }
-} else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
-}
 
 
 
@@ -9029,7 +9021,7 @@ intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
     return(result_frame)
 }
 
-deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20){
+deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, use_qr=TRUE){
     if(is.null(energy_max)){
         energy_max <- max(spectra_frame$Energy)
     }
@@ -9039,7 +9031,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
         deconvoluted_spectra_tibble <-spectra_tibble %>%
             xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = width, alpha = alpha), .iter = smooth_iter) %>%
             xrf_add_baseline_snip(.values = .spectra$smooth, iterations = snip_iter) %>%
-            xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = energy_max, peaks = xrf_energies("everything", beam_energy_kev=energy_max), default_sigma=default_sigma)
+            xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = energy_max, peaks = xrf_energies("everything", beam_energy_kev=energy_max), default_sigma=default_sigma, use_qr=use_qr)
         baseline_spectra <- spectra_frame_baseline_convert(deconvoluted_spectra_tibble)
         deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
         deconvoluted_peaks <- intensity_frame_deconvolution_convert(deconvoluted_spectra_tibble$.deconvolution_peaks[[1]], name=spectrum_name)
@@ -9047,7 +9039,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
     } else if(!is.data.frame(spectra_frame)){
         NULL
     }
-    
+
 }
 
 spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, cores=1){
@@ -9057,13 +9049,9 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     spectra_frame <- spectra_frame[complete.cases(spectra_frame),]
 
     cores <- as.integer(cores)
-    if (cores > 1) {
-      cl <- makeCluster(cores)
-      on.exit(stopCluster(cl), add = TRUE)
-    } else {
-      cl <- NULL
-    }
-    
+    # Use fast QR for single-core, fork-safe lm() for multicore
+    use_qr <- (cores == 1)
+
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
     if(cores==1){
         new_spectra_list <- pblapply(
@@ -9075,7 +9063,8 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
                 alpha=alpha,
                 default_sigma=default_sigma,
                 smooth_iter=smooth_iter,
-                snip_iter=snip_iter))
+                snip_iter=snip_iter,
+                use_qr=use_qr))
     } else if(cores >= 2){
         new_spectra_list <- pbmclapply(
           spectra_list,
@@ -9086,7 +9075,8 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
             alpha           = alpha,
             default_sigma   = default_sigma,
             smooth_iter     = smooth_iter,
-            snip_iter       = snip_iter
+            snip_iter       = snip_iter,
+            use_qr          = use_qr
           ),
           mc.cores = cores
         )
