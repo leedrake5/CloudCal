@@ -87,7 +87,7 @@ if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 
 if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
         tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_2.0.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
-    } else {
+    } else if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()!="windows"){
         tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_2.0.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
     }
 
