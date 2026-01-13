@@ -887,17 +887,15 @@ shinyServer(function(input, output, session) {
         })
         
         output$anomscatterokui <- renderUI({
-            
-            if(input$variancespectrum==TRUE){
+            if(isTRUE(input$variancespectrum)){
                 checkboxInput("anomscatterok", "Show Element Scatter", value=FALSE)
-            } else if(input$variancespectrum==FALSE){
+            } else {
                 NULL
             }
-            
         })
         
         output$anomscatterui <- renderUI({
-            if(input$anomscatterok==TRUE){
+            if(isTRUE(input$anomscatterok)){
                 element <- selectInput(
                 "anomscatterelement", "Element Scatter:",
                 c("(Ne) Neon" = "Ne",
@@ -983,11 +981,9 @@ shinyServer(function(input, output, session) {
                 "(Pa) Proactinum" = "Pa",
                 "(U)  Uranium" = "U"),
                 selected="Fe")
-            } else if(input$anomscatterok==FALSE){
+            } else {
                 NULL
             }
-            
-            
         })
         
         absorptionInput <- reactive({

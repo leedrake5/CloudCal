@@ -329,7 +329,23 @@ get_exposure_numbers <- function(filepath) {
   NA_real_
 }
 
-# 7) Read one beam as Energy/CPS/Spectrum from a possibly multi-record file
+# 7) Get sample identifier from a record (prefer testInfo['Sample ID'], fallback to tidName)
+.get_sample_name <- function(rec, fallback = "Unknown") {
+  # First try testInfo$`Sample ID`
+  sample_id <- rec$testInfo$`Sample ID`
+  if (!is.null(sample_id) && nzchar(as.character(sample_id))) {
+    return(as.character(sample_id))
+  }
+  # Fallback to analysis$tidName
+  tid <- rec$analysis$tidName
+  if (!is.null(tid) && nzchar(as.character(tid))) {
+    return(as.character(tid))
+  }
+  # Final fallback
+  fallback
+}
+
+# 8) Read one beam as Energy/CPS/Spectrum from a possibly multi-record file
 readJSONFile <- function(filepath, chosen_beam = "1") {
   exposureNumber <- as.integer(chosen_beam)
   if (length(exposureNumber) != 1L || is.na(exposureNumber))
@@ -359,8 +375,113 @@ readJSONFile <- function(filepath, chosen_beam = "1") {
   tibble(
     Energy   = e_off + e_slope * ch,
     CPS      = counts / lt,
-    Spectrum = .find_sample_id(rec) %||% basename(filepath)
+    Spectrum = .get_sample_name(rec, basename(filepath))
   )
+}
+
+# 9) Process all records in a JSON file for the chosen beam
+# Returns combined data.frame with Energy, CPS, Spectrum columns
+readJSONAllRecords <- function(filepath, chosen_beam = "1", filename = NULL) {
+  exposureNumber <- as.integer(chosen_beam)
+  if (length(exposureNumber) != 1L || is.na(exposureNumber))
+    stop("chosen_beam must be a single integer-like value")
+
+  recs <- safe_cloudcal_load(filepath)
+
+  # Find all records with spectra (skip CALCHECK and other non-sample records)
+  sample_recs <- Filter(function(r) {
+    if (!is.list(r) || is.null(r$spectra) || length(r$spectra) == 0) return(FALSE)
+    test_type <- toupper(as.character(r$analysis$testType %||% ""))
+    # Include NORMAL and SAMPLE types, exclude CALCHECK
+    test_type %in% c("NORMAL", "SAMPLE")
+  }, recs)
+
+  if (!length(sample_recs)) {
+    stop("No NORMAL/SAMPLE records with spectra found in JSON file.")
+  }
+
+  # Process each record
+  result_list <- lapply(sample_recs, function(rec) {
+    spectra <- rec$spectra
+
+    # Find spectrum with matching exposure number
+    beam_idx <- which(vapply(spectra, function(s) isTRUE(s$exposureNumber == exposureNumber), logical(1)))
+
+    # Skip this record if it doesn't have the requested beam
+    if (!length(beam_idx)) return(NULL)
+
+    s <- spectra[[beam_idx[1]]]
+
+    counts <- as.numeric(s$data)
+    if (!length(counts)) return(NULL)
+
+    lt <- .get_live_time(s)
+    if (is.na(lt) || lt <= 0) return(NULL)
+
+    e_off   <- as.numeric(s$energyOffset)
+    e_slope <- as.numeric(s$energySlope)
+    if (is.na(e_off) || is.na(e_slope)) return(NULL)
+
+    ch <- seq_along(counts) - 1L
+
+    # Get sample name
+    sample_name <- .get_sample_name(rec, paste0("Sample_", rec$analysis$testId %||% "Unknown"))
+
+    data.frame(
+      Energy   = e_off + e_slope * ch,
+      CPS      = counts / lt,
+      Spectrum = rep(sample_name, length(counts)),
+      stringsAsFactors = FALSE
+    )
+  })
+
+  # Remove NULL entries (records without the requested beam)
+  result_list <- Filter(Negate(is.null), result_list)
+
+  if (!length(result_list)) {
+    stop(sprintf("No records found with exposureNumber == %s", exposureNumber))
+  }
+
+  # Combine all records
+  result <- do.call(rbind, result_list)
+
+  # Make spectrum names unique if there are duplicates
+  result$Spectrum <- make.names(result$Spectrum, unique = FALSE)
+
+  return(result)
+}
+
+# 10) Process JSON file(s) - wrapper for single or multiple files
+readJSONProcess <- function(inFile = NULL, filepath = NULL, chosen_beam = "1") {
+  # Handle both inFile (Shiny upload) and filepath (direct path) inputs
+  if (!is.null(inFile)) {
+    # Shiny file input - can be multiple files
+    if (is.data.frame(inFile)) {
+      # Multiple files uploaded
+      result_list <- lapply(seq_len(nrow(inFile)), function(i) {
+        tryCatch(
+          readJSONAllRecords(inFile$datapath[i], chosen_beam = chosen_beam, filename = inFile$name[i]),
+          error = function(e) {
+            warning(paste("Error processing", inFile$name[i], ":", e$message))
+            NULL
+          }
+        )
+      })
+      result_list <- Filter(Negate(is.null), result_list)
+      if (!length(result_list)) stop("No valid JSON data could be processed.")
+      result <- do.call(rbind, result_list)
+    } else {
+      # Single file
+      result <- readJSONAllRecords(inFile$datapath, chosen_beam = chosen_beam, filename = inFile$name)
+    }
+  } else if (!is.null(filepath)) {
+    # Direct filepath
+    result <- readJSONAllRecords(filepath, chosen_beam = chosen_beam)
+  } else {
+    stop("Either inFile or filepath must be provided")
+  }
+
+  return(result)
 }
 
 
