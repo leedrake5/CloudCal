@@ -1460,7 +1460,7 @@ readPDZMetadata <- function(filepath, filename=NULL) {
     # Get comprehensive metadata from rPDZ
     meta <- getPDZMetadata(filepath)
 
-    num_spectra <- meta$spectrumCount
+    num_spectra <- meta$spectrum_count
 
     # Build data.frame with one row per spectrum
     result_list <- lapply(seq_len(num_spectra), function(i) {
@@ -1471,14 +1471,17 @@ readPDZMetadata <- function(filepath, filename=NULL) {
             filename
         }
 
+        # Per-spectrum metadata is in meta$spectra list (0-indexed in C++, but R list is 1-indexed)
+        spec_meta <- meta$spectra[[i]]
+
         data.frame(
             Spectrum = spec_name,
-            FormatVersion = meta$version,
+            FormatVersion = meta$format_version,
             SpectrumIndex = i,
             TotalSpectra = num_spectra,
-            eVCh = meta$eVCh[i],
-            LiveTime = meta$liveTime[i],
-            TubeVoltage = meta$tubeVoltage[i],
+            eVCh = meta$eVCh,
+            LiveTime = spec_meta$live_time_s,
+            TubeVoltage = spec_meta$tube_voltage_kV,
             stringsAsFactors = FALSE
         )
     })
