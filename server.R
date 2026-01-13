@@ -172,7 +172,13 @@ shinyServer(function(input, output, session) {
       path <- first_path(input$file1); req(isTruthy(path), file.exists(path))
       get_exposure_numbers(path)   # returns character vector
     })
-    
+
+    pdzBeamsReactive <- reactive({
+      req(isTruthy(input$filetype), identical(input$filetype, "PDZ File"))
+      path <- first_path(input$file1); req(isTruthy(path), file.exists(path))
+      pdzBeams(path)   # returns character vector "1", "2", etc.
+    })
+
     output$beamnoui <- renderUI({
       req(isTruthy(input$filetype))  # avoid length-0 logical in `if`
       if (identical(input$filetype, "Aggregate CSV File")) {
@@ -181,14 +187,30 @@ shinyServer(function(input, output, session) {
       } else if (identical(input$filetype, "JSON")) {
         path <- first_path(input$file1); req(isTruthy(path), file.exists(path))
         selectInput("beamno", "Choose Beam", jsonBeams())
+      } else if (identical(input$filetype, "PDZ File")) {
+        path <- first_path(input$file1); req(isTruthy(path), file.exists(path))
+        beams <- pdzBeamsReactive()
+        # Only show beam selector for multi-spectrum PDZ files
+        if (length(beams) > 1) {
+          selectInput("beamno", "Choose Beam", beams)
+        } else {
+          NULL
+        }
       } else {
         NULL
       }
     })
-    
+
     observeEvent(input$file1, {
       req(isTruthy(input$filetype), identical(input$filetype, "JSON"))
       beams <- jsonBeams(); req(length(beams))
+      sel <- isolate(if (!is.null(input$beamno) && input$beamno %in% beams) input$beamno else beams[[1]])
+      updateSelectInput(session, "beamno", label = "Choose Beam", choices = beams, selected = sel)
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$file1, {
+      req(isTruthy(input$filetype), identical(input$filetype, "PDZ File"))
+      beams <- pdzBeamsReactive(); req(length(beams) > 1)
       sel <- isolate(if (!is.null(input$beamno) && input$beamno %in% beams) input$beamno else beams[[1]])
       updateSelectInput(session, "beamno", label = "Choose Beam", choices = beams, selected = sel)
     }, ignoreInit = TRUE)
@@ -309,11 +331,14 @@ shinyServer(function(input, output, session) {
     
     readPDZ <- reactive(label="readPDZ", {
         req(input$file1)
-        
+
         #binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
-        
-        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=FALSE, binaryshift=100, pdzprep=input$pdzprep, use_native_calibration=input$energycal)
-        
+
+        # Get beam selection (NULL if not applicable or single-spectrum)
+        beam_selection <- if(identical(input$filetype, "PDZ File") && !is.null(input$beamno)) input$beamno else NULL
+
+        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=FALSE, binaryshift=100, pdzprep=input$pdzprep, use_native_calibration=input$energycal, chosen_beam=beam_selection)
+
     })
     
     readPDZMetadata <- reactive(label="readPDZMetadata", {
@@ -18912,7 +18937,15 @@ content = function(file){
             selectInput("beamno_val", "Choose Beam", uniqueBeams(input$loadvaldata$datapath), selected=beamSelect())
         } else if(input$valfiletype=="JSON"){
             selectInput("beamno_val", "Choose Beam", get_exposure_numbers(input$loadvaldata$datapath), selected=beamSelect())
-        } else if(input$valfiletype!="Aggregate CSV File"){
+        } else if(input$valfiletype=="PDZ File"){
+            beams <- pdzBeams(input$loadvaldata$datapath)
+            # Only show beam selector for multi-spectrum PDZ files
+            if(length(beams) > 1) {
+                selectInput("beamno_val", "Choose Beam", beams, selected=beamSelect())
+            } else {
+                NULL
+            }
+        } else {
             NULL
         }
     })
@@ -19024,12 +19057,15 @@ content = function(file){
             
             
             readvalPDZ <- reactive({
-                
+
             #binaryshiftvalue <- tryCatch(binaryHold(), error=function(e) NULL)
-                
-            readPDZProcess(inFile=input$loadvaldata, gainshiftvalue=0, advanced=FALSE, binaryshift=100, pdzprep=input$pdzprepval)
-                
-                
+
+            # Get beam selection for validation (NULL if not applicable or single-spectrum)
+            beam_selection <- if(identical(input$valfiletype, "PDZ File") && !is.null(input$beamno_val)) input$beamno_val else NULL
+
+            readPDZProcess(inFile=input$loadvaldata, gainshiftvalue=0, advanced=FALSE, binaryshift=100, pdzprep=input$pdzprepval, chosen_beam=beam_selection)
+
+
             })
             
             

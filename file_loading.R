@@ -527,6 +527,13 @@ uniqueBeams <- function(filepath){
     file_check$beams
 }
 
+pdzBeams <- function(filepath){
+    # Returns available beam/spectrum numbers for PDZ files
+    # Uses rPDZ::getPDZSpectrumCount to detect number of spectra
+    num_spectra <- getPDZSpectrumCount(filepath)
+    as.character(seq_len(num_spectra))
+}
+
 importNiton <- function(filepath, chosen_beam="Main Range"){
     csv_import <- read.csv(filepath)
     
@@ -1317,25 +1324,77 @@ readPDZManualData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_
 }
 readPDZManualData <- cmpfun(readPDZManualData)
 
-readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE) {
-    
+readPDZDataUniversal <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE, chosen_beam=NULL) {
+    # Universal PDZ reader using rPDZ::getPDZDataFrames
+    # Handles single, dual, and multi-spectrum files automatically
+    # Returns combined data.frame with Energy, CPS, Spectrum columns
+    # chosen_beam: NULL for all spectra, or "1", "2", etc. for specific beam
+
     if(is.null(filename)){
         filename <- basename(filepath)
     }
-    
-    
-    nbrOfRecords <- 10000
-    floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
-    
-    if(floats[[9]]=="5"){
-        readPDZ25Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
-    } else if(floats[[9]]==""){
-        readPDZ24Data(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
-    } else if(floats[[9]]=="\xd6"){
-        readPDZManualData(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration)
+    filename <- make.names(gsub(".pdz", "", filename, ignore.case=TRUE))
+
+    # Get all spectra from the file (returns list of data.frames with Energy, CPS)
+    spectra_list <- getPDZDataFrames(filepath)
+    num_spectra <- length(spectra_list)
+
+    # Determine which spectra to process
+    if(!is.null(chosen_beam) && chosen_beam != "") {
+        beam_idx <- as.integer(chosen_beam)
+        if(is.na(beam_idx) || beam_idx < 1 || beam_idx > num_spectra) {
+            beam_idx <- 1  # Default to first spectrum if invalid
+        }
+        indices_to_process <- beam_idx
+    } else {
+        indices_to_process <- seq_along(spectra_list)
     }
 
-    
+    # Process selected spectrum/spectra
+    result_list <- lapply(indices_to_process, function(i) {
+        spec_df <- spectra_list[[i]]
+
+        # Handle use_native_calibration option
+        energy <- if(use_native_calibration == TRUE) {
+            spec_df$Energy
+        } else {
+            seq(1, nrow(spec_df), 1)  # Just channel numbers
+        }
+
+        # CPS is already calculated by getPDZDataFrames (counts/livetime)
+        # If pdzprep is FALSE, we'd need raw counts, but getPDZDataFrames always divides
+        # For backward compatibility, we keep pdzprep but it's now always TRUE behavior
+        cps <- spec_df$CPS
+
+        # Create spectrum name (add suffix for multi-spectrum files when showing all)
+        spec_name <- if(num_spectra > 1 && is.null(chosen_beam)) {
+            paste0(filename, "_", i)
+        } else {
+            filename
+        }
+
+        data.frame(
+            Energy = energy,
+            CPS = cps,
+            Spectrum = rep(spec_name, length(energy)),
+            stringsAsFactors = FALSE
+        )
+    })
+
+    # Combine all spectra into one data.frame
+    result <- do.call(rbind, result_list)
+
+    # Filter low energy noise (same as original functions)
+    result$CPS[result$Energy < 0.6] <- 0
+
+    return(result)
+}
+readPDZDataUniversal <- cmpfun(readPDZDataUniversal)
+
+readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE, chosen_beam=NULL) {
+    # Use the universal reader for all PDZ files
+    # This auto-detects format and handles single/dual spectra
+    readPDZDataUniversal(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration, chosen_beam=chosen_beam)
 }
 readPDZData <- cmpfun(readPDZData)
 
@@ -1390,43 +1449,62 @@ multipleFileLoaderCommand <- function(filepath, filetype=NULL, pdzprep=TRUE, all
 }
 
 readPDZMetadata <- function(filepath, filename=NULL) {
-    
+    # Universal PDZ metadata reader using rPDZ::getPDZMetadata
+    # Returns data.frame with one row per spectrum in the file
+
     if(is.null(filename)){
         filename <- gsub(".pdz", "", basename(filepath))
     }
-    
-    
-    nbrOfRecords <- 10000
-    floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
-    
-    metadata <- if(floats[[9]]=="5"){
-        data.frame(Spectrum=filename, eVCh=readPDZ25eVCH(filepath), LiveTime=readPDZ25LiveTime(filepath))
-    }else {
-        data.frame(Spectrum=filename, eVCh=readPDZ24FloatFetch(filepath, 354), LiveTime=readPDZ24DoubleFetch(filepath, 50))
-    }
-    
-    metadata
-  
+    filename <- make.names(filename, unique=FALSE)
+
+    # Get comprehensive metadata from rPDZ
+    meta <- getPDZMetadata(filepath)
+
+    num_spectra <- meta$spectrumCount
+
+    # Build data.frame with one row per spectrum
+    result_list <- lapply(seq_len(num_spectra), function(i) {
+        # Create spectrum name (add suffix for multi-spectrum files)
+        spec_name <- if(num_spectra > 1) {
+            paste0(filename, "_", i)
+        } else {
+            filename
+        }
+
+        data.frame(
+            Spectrum = spec_name,
+            FormatVersion = meta$version,
+            SpectrumIndex = i,
+            TotalSpectra = num_spectra,
+            eVCh = meta$eVCh[i],
+            LiveTime = meta$liveTime[i],
+            TubeVoltage = meta$tubeVoltage[i],
+            stringsAsFactors = FALSE
+        )
+    })
+
+    metadata <- do.call(rbind, result_list)
+    return(metadata)
 }
 readPDZMetadata <- cmpfun(readPDZMetadata)
 
-readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binaryshift=100, pdzprep=TRUE, use_native_calibration=TRUE){
-    
+readPDZProcess <- function(inFile=NULL, gainshiftvalue=0, advanced=FALSE, binaryshift=100, pdzprep=TRUE, use_native_calibration=TRUE, chosen_beam=NULL){
+
         if (is.null(inFile)) return(NULL)
-        
+
         n <- length(inFile$datapath)
         names <- inFile$name
-        
+
         n.seq <- seq(1, nrow(inFile), 1)
-        
+
         if(advanced==FALSE){
-            data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], pdzprep=pdzprep, use_native_calibration=use_native_calibration))
+            data.list <- pblapply(n.seq, function(x) readPDZData(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], pdzprep=pdzprep, use_native_calibration=use_native_calibration, chosen_beam=chosen_beam))
             data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
         } else if(advanced==TRUE){
             data.list <- pblapply(n.seq, function(x) readPDZ25DataManual(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], binaryshift=binaryshift, pdzprep=pdzprep, use_native_calibration=use_native_calibration))
             data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
         }
-    
+
    if(gainshiftvalue>0){
        data$Energy <- data$Energy + gainshiftvalue
    }
