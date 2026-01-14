@@ -107,7 +107,7 @@ if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
     tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()!="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.tar.gz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
     }
 
 
