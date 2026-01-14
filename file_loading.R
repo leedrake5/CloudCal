@@ -660,6 +660,25 @@ pdzBeams <- function(filepath){
     as.character(seq_len(num_spectra))
 }
 
+detect_csv_type <- function(filepath) {
+    # Auto-detect CSV format to determine if beam selection is needed
+    # Returns list with: type, instrument, needs_beam_selection
+    header_lines <- readLines(filepath, n = 20)
+
+    # Niton format (multi-beam) - has "Main Range" in header
+    if (any(grepl("Main Range", header_lines))) {
+        return(list(type = "aggregate", instrument = "Niton", needs_beam_selection = TRUE))
+    }
+
+    # Olympus/Vanta format (multi-beam) - has "Exposure Number" or "exposition"
+    if (any(grepl("Exposure Number|exposition", header_lines, ignore.case = TRUE))) {
+        return(list(type = "aggregate", instrument = "Olympus", needs_beam_selection = TRUE))
+    }
+
+    # Simple/single-spectrum CSV (SciApps, Bruker, generic)
+    return(list(type = "simple", instrument = "Generic", needs_beam_selection = FALSE))
+}
+
 importNiton <- function(filepath, chosen_beam="Main Range"){
     csv_import <- read.csv(filepath)
     
@@ -3846,7 +3865,11 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
             }
         }
     }
-    
+
+    # Backward compatibility: default Beam to "1" for old calibrations without beam info
+    if(!"Beam" %in% names(Calibration)){
+        Calibration$Beam <- "1"
+    }
 
     if(rebuild==TRUE){
         Calibration$Values <- Calibration$Values[order(Calibration$Values$Spectrum),]
