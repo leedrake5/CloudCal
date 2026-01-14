@@ -613,19 +613,24 @@ get_instrument_and_beams <- function(filepath) {
     beam_names <- unique(gsub("\\.", " ", sub("\\.$", "", sub("^[^.]+\\.", "", colnames(df)))))
     beam_names <- beam_names[!beam_names %in% "keV"]
     
-  } else if (any(grepl("Exposure Number", header_lines))) {
+  } else if (any(grepl("Exposure Number|exposition", header_lines, ignore.case = TRUE))) {
     instrument <- "Olympus"
-    
+
     # For Company 2 the metadata is stored in a header block.
-    # We need to find the row that begins with "Exposure Number"
+    # We need to find the row that begins with "Exposure Number" (English) or
+    # "Numéro d'exposition" (French - note typographic apostrophe)
     # (Assuming the file is tab- or comma-delimited)
     df <- read.csv(filepath, sep = ",", header=FALSE, nrows = 20)
-    
-    # Find the row where the first column equals "Exposure Number"
+
+    # Find the row where the first column contains exposure number info
     exp_row_index <- which(df[, 1] == "Exposure Number")
-    
     if (length(exp_row_index) == 0) {
-      stop("Could not find a row with 'Exposure Number' in the first column!")
+      # Try French - use grep for typographic apostrophe compatibility
+      exp_row_index <- grep("exposition", df[, 1], ignore.case = TRUE)[1]
+    }
+
+    if (length(exp_row_index) == 0 || is.na(exp_row_index)) {
+      stop("Could not find a row with 'Exposure Number' or 'exposition' in the first column!")
     }
     
     # Extract that row (as a data frame row)
@@ -672,13 +677,67 @@ importNiton <- function(filepath, chosen_beam="Main Range"){
 importCSVFrameDetailed <- function(csv_import, chosen_beam="1"){
     csv_import <- csv_import %>% select_if(not_all_na)
     csv_import <- csv_import[-1,]
-    beams <- as.vector((unlist(csv_import[csv_import$V1=="Exposure Number",-1])))
+
+    # Find exposure numbers row (English or French)
+    # Note: French uses typographic apostrophe (') so we use grep as fallback
+    exp_row_idx <- which(csv_import$V1 %in% c("Exposure Number", "Numéro d'exposition"))
+    if(length(exp_row_idx) == 0) {
+        # Fallback - look for any row containing "Exposure" or "exposition"
+        exp_row_idx <- grep("Exposure Number|exposition", csv_import$V1, ignore.case = TRUE)[1]
+    }
+    beams <- as.vector((unlist(csv_import[exp_row_idx, -1])))
     unique_beams <- unique(beams)
-    csv_frame <- csv_import[complete.cases(as.numeric(csv_import$V1)),c(TRUE, beams==chosen_beam)]
-    csv_index <- csv_import[,c(TRUE, beams==chosen_beam)]
+
+    # Find data rows - check if first column values can be converted to numeric
+    # Data rows either have energy values OR are empty/start with counts
+    v1_numeric <- suppressWarnings(as.numeric(as.character(csv_import$V1)))
+    data_row_mask <- !is.na(v1_numeric) | (csv_import$V1 == "" | is.na(csv_import$V1))
+
+    # Filter to only rows that look like data (not metadata headers)
+    # Data rows are after the header section - find first potential data row
+    metadata_keywords <- c("Date", "Time", "Reading", "Exposure", "Energy", "Real Time",
+                           "Live Time", "Probe", "Tube", "Filter", "Reset", "Counts",
+                           "Rate", "Pressure", "Temperature", "Multiplier", "Step",
+                           "Material", "Diameter", "Thickness", "Clip", "Pileup", "Width",
+                           "Data", "sep=", "Numéro", "Pente", "Décalage", "Temps", "Sonde",
+                           "Tension", "Filtre", "Réinitialiser", "Coups", "Taux", "Pression",
+                           "Température", "Superpositions", "Rejets")
+    is_metadata <- sapply(csv_import$V1, function(x) any(sapply(metadata_keywords, function(k) grepl(k, x, ignore.case = TRUE))))
+    data_row_mask <- data_row_mask & !is_metadata
+
+    csv_frame <- csv_import[data_row_mask, c(TRUE, beams == chosen_beam)]
+    csv_index <- csv_import[, c(TRUE, beams == chosen_beam)]
+
     spectra.data <- as.data.frame(apply(csv_frame, 2, function(x) as.numeric(as.character(x))), stringsAsFactors=FALSE)
     colnames(spectra.data) <- csv_index[3,]
     colnames(spectra.data)[1] <- "Energy"
+
+    # Check if Energy column has valid values or needs to be calculated
+    energy_values <- spectra.data$Energy
+    has_valid_energy <- !all(is.na(energy_values) | energy_values == 0)
+
+    if (!has_valid_energy) {
+        # Energy needs to be calculated from Energy Slope and Energy Offset
+        # Look for these in metadata (English and French variants)
+        slope_row_idx <- which(csv_import$V1 %in% c("Energy Slope", "Pente de tension", "Pente énergie"))
+        offset_row_idx <- which(csv_import$V1 %in% c("Energy Offset", "Décalage de tension", "Décalage énergie"))
+
+        if (length(slope_row_idx) > 0 && length(offset_row_idx) > 0) {
+            # Get first non-NA value from the chosen beam columns
+            slope_values <- as.numeric(as.character(unlist(csv_import[slope_row_idx[1], -1])))
+            offset_values <- as.numeric(as.character(unlist(csv_import[offset_row_idx[1], -1])))
+
+            # Use first valid slope and offset (they should be the same across columns)
+            slope <- slope_values[!is.na(slope_values)][1]
+            offset <- offset_values[!is.na(offset_values)][1]
+
+            if (!is.na(slope) && !is.na(offset)) {
+                # Calculate energy: Energy = Offset + Slope * channel_index (0-based)
+                n_channels <- nrow(spectra.data)
+                spectra.data$Energy <- offset + slope * (0:(n_channels - 1))
+            }
+        }
+    }
 
     melt.frame <- reshape2::melt(spectra.data, id="Energy")
     data.frame(Energy=as.numeric(as.vector(melt.frame$Energy)), CPS=as.numeric(as.vector(melt.frame$value)), Spectrum=as.vector(melt.frame$variable), stringsAsFactors=FALSE)
