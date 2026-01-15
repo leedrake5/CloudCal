@@ -766,32 +766,55 @@ shinyServer(function(input, output, session) {
         
     dataHoldDeconvolution <- reactive({
         req(input$deconvolutionwidth, input$deconvolutionalpha, input$deconvolutiondefaultsigma, input$deconvolutionsmoothiter, input$deconvolutionsnipiter)
-            print("Starting deconvolution")
-            my.cores.mod <- if(length(unique(dataHold()$Spectrum)) < as.numeric(my.cores)){
-                length(unique(dataHold()$Spectrum))
-            } else {
-                as.numeric(my.cores)
-            }
-            
+        print("Starting deconvolution")
+
+        # Cache dataHold() once - it was being called 8+ times in this function
+        data_cached <- dataHold()
+        n_spectra <- length(unique(data_cached$Spectrum))
+        my.cores.mod <- if(n_spectra < as.numeric(my.cores)) n_spectra else as.numeric(my.cores)
+
+        # Cache deconvolution parameters
+        width_param <- input$deconvolutionwidth
+        alpha_param <- input$deconvolutionalpha
+        sigma_param <- input$deconvolutiondefaultsigma
+        smooth_param <- input$deconvolutionsmoothiter
+        snip_param <- input$deconvolutionsnipiter
+
         deconvolution_data <- if(is.null(input$file1)){
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
-                if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
-                }
-                tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=1)), error=function(e) NULL)
+                tryCatch(
+                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1)),
+                    error=function(e) tryCatch(
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1),
+                        error=function(e) NULL
+                    )
+                )
             } else if("Deconvoluted" %in% names(calMemory$Calibration)){
                 if("Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
                     calMemory$Calibration$Deconvoluted
-                } else if(!"Spectra" %in% names(calMemory$Calibration$Deconvoluted)){
-                    tryCatch(tryCatch(spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=1)), error=function(e) NULL)
+                } else {
+                    tryCatch(
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1)),
+                        error=function(e) tryCatch(
+                            spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1),
+                            error=function(e) NULL
+                        )
+                    )
                 }
             }
-        } else if(!is.null(input$file1)){
-           tryCatch(spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(dataHold(), width=input$deconvolutionwidth, alpha=input$deconvolutionalpha, default_sigma=input$deconvolutiondefaultsigma, smooth_iter=input$deconvolutionsmoothiter, snip_iter=input$deconvolutionsnipiter, cores=1))
+        } else {
+           tryCatch(
+               spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1)),
+               error=function(e) tryCatch(
+                   spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1),
+                   error=function(e) NULL
+               )
+           )
         }
-        
+
         print("Finished deconvolution")
         deconvolution_data
-            
+
         })
         
         dataHoldDeconvolutionSpectra <- reactive({
@@ -1811,8 +1834,10 @@ shinyServer(function(input, output, session) {
         
         lineSubset <- reactive({
             req(linevalues[["DF"]], dataHold())
-            xrf_parse(range.table = linevalues[["DF"]], data=dataHold(), calculation="gaussian")
-            
+            # Cache dataHold() after req() to avoid double evaluation
+            data_cached <- dataHold()
+            xrf_parse(range.table = linevalues[["DF"]], data=data_cached, calculation="gaussian")
+
         })
         
         #lineSubsetSplit <- reactive({
@@ -1963,116 +1988,136 @@ shinyServer(function(input, output, session) {
         
         spectraData <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
-            
+            # Cache reactives after req() to avoid double evaluation
+            data_cached <- dataHold()
+            elements_cached <- elementallinestousepre()
+
             print(paste("gausbuffer:", input$gausbuffer))
             print(paste("splitbuffer:", input$splitbuffer))
-            
+
             buffer <- bufferGaus()
-            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="gaussian", gaus_buffer=buffer)
-            
+            line.data <- elementFrame(data=data_cached, elements=elements_cached, calculation="gaussian", gaus_buffer=buffer)
+
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
-            
+
             the_data <- if(length(table[,1])==0){
                 line.data
             } else if(length(table[,1])!=0){
                 merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
             }
-            
+
             merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
-            
+
         })
-        
+
         wideSpectraData <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
-            
-            line.data <- wideElementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="gaussian")
-            
+            # Cache reactives after req() to avoid double evaluation
+            data_cached <- dataHold()
+            elements_cached <- elementallinestousepre()
+
+            line.data <- wideElementFrame(data=data_cached, elements=elements_cached, calculation="gaussian")
+
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
-            
+
             the_data <- if(length(table[,1])==0){
                 line.data
             } else if(length(table[,1])!=0){
                 merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
             }
-            
+
             merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
-            
+
         })
-        
+
         spectraDataSplit <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
+            # Cache reactives after req() to avoid double evaluation
+            data_cached <- dataHold()
+            elements_cached <- elementallinestousepre()
 
             buffer <- bufferSplit()
-            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="split", split_buffer=buffer)
-            
+            line.data <- elementFrame(data=data_cached, elements=elements_cached, calculation="split", split_buffer=buffer)
+
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
-            
+
             the_data <- if(length(table[,1])==0){
                 line.data
             } else if(length(table[,1])!=0){
                 merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
             }
-            
+
             merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
-            
+
         })
-        
+
         wideSpectraDataSplit <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
+            # Cache reactives after req() to avoid double evaluation
+            data_cached <- dataHold()
+            elements_cached <- elementallinestousepre()
+
             buffer <- bufferSplit()
-            line.data <- wideElementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="split", buffer=buffer)
-            
+            line.data <- wideElementFrame(data=data_cached, elements=elements_cached, calculation="split", buffer=buffer)
+
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
-            
+
             the_data <- if(length(table[,1])==0){
                 line.data
             } else if(length(table[,1])!=0){
                 merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
             }
-            
+
             merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
-            
+
         })
-        
+
         spectraDataFirst <- reactive({
-            
-            buffer <- bufferGaus()
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
-            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="first", gaus_buffer=bufferGaus())
-            
+            # Cache reactives after req() to avoid double evaluation
+            data_cached <- dataHold()
+            elements_cached <- elementallinestousepre()
+            buffer <- bufferGaus()
+
+            line.data <- elementFrame(data=data_cached, elements=elements_cached, calculation="first", gaus_buffer=buffer)
+
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
-            
+
             the_data <- if(length(table[,1])==0){
                 line.data
             } else if(length(table[,1])!=0){
                 merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
             }
-            
+
             merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
-            
+
         })
-        
+
         spectraDataSecond <- reactive({
             req(dataHold(), elementallinestousepre(), linevalues[["DF"]])
+            # Cache reactives after req() to avoid double evaluation
+            data_cached <- dataHold()
+            elements_cached <- elementallinestousepre()
             buffer <- bufferGaus()
-            line.data <- elementFrame(data=dataHold(), elements=elementallinestousepre(), calculation="second", gaus_buffer=buffer)
-            
+
+            line.data <- elementFrame(data=data_cached, elements=elements_cached, calculation="second", gaus_buffer=buffer)
+
             table <- linevalues[["DF"]]
             table <- table[complete.cases(table),]
-            
+
             the_data <- if(length(table[,1])==0){
                 line.data
             } else if(length(table[,1])!=0){
                 merge(line.data, lineSubset(), by="Spectrum", all=T, sort=T)
             }
-            
+
             merge(the_data, otherSpectraStuff(), by="Spectrum", all=T, sort=T)
-            
+
         })
         
         spectraDataDeconvolution <- reactive({
@@ -2324,15 +2369,17 @@ shinyServer(function(input, output, session) {
         totalSpectraCounts <- reactive({
             
             spectra <- dataHold()
-            
+
             spectra$CPS[spectra$CPS<0] <- 0.0000000000001
-            
+
             energy.min <-  0.7
-            
-            energy.max <- if(my.max(dataHold()$Energy) < 42){
+
+            # Use already-cached spectra instead of calling dataHold() again
+            max_energy <- my.max(spectra$Energy)
+            energy.max <- if(max_energy < 42){
                 37
             } else {
-                round(my.max(dataHold()$Energy), 0)
+                round(max_energy, 0)
             }
             
             compress <- "100 eV"
@@ -3531,24 +3578,30 @@ shinyServer(function(input, output, session) {
             
             
             
-            spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
-            
+            # Cache spectraLineTable() once to avoid double-call
+            slt_cached <- spectraLineTable()
+            hold_spectra <- holdFrame()$Spectrum
+            spectra.line.table <- slt_cached[slt_cached$Spectrum %in% hold_spectra, ]
+
             #spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum, ]
-            
+
             spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, element]),]
-            
+
             data <- data[data$Spectrum %in% concentration.table$Spectrum, ]
-            
-            
-            time.bic <- if(dataType()=="Spectra"){
-                extractAIC(lm(concentration.table[, input$calcurveelement]~general_prep_xrf(spectra.line.table, input$calcurveelement)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
-            } else if(dataType()=="Net"){
-                extractAIC(lm(concentration.table[, input$calcurveelement]~general_prep_xrf_net(spectra.line.table, input$calcurveelement)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
+
+            # Cache dataType() and element for repeated use
+            data_type <- dataType()
+            calc_element <- input$calcurveelement
+
+            time.bic <- if(data_type=="Spectra"){
+                extractAIC(lm(concentration.table[, calc_element]~general_prep_xrf(spectra.line.table, calc_element)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
+            } else if(data_type=="Net"){
+                extractAIC(lm(concentration.table[, calc_element]~general_prep_xrf_net(spectra.line.table, calc_element)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
             }
-            
-            tc.bic <- if(dataType()=="Spectra"){
-                extractAIC(lm(concentration.table[, input$calcurveelement]~simple_tc_prep_xrf(data, spectra.line.table, input$calcurveelement)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
-            } else if(dataType()=="Net"){
+
+            tc.bic <- if(data_type=="Spectra"){
+                extractAIC(lm(concentration.table[, calc_element]~simple_tc_prep_xrf(data, spectra.line.table, calc_element)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
+            } else if(data_type=="Net"){
                 extractAIC(lm(concentration.table[, input$calcurveelement]~simple_tc_prep_xrf_net(data, spectra.line.table, input$calcurveelement)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
             }
             
@@ -3696,17 +3749,22 @@ shinyServer(function(input, output, session) {
         
         
         bestInterceptVars <- reactive({
-            
+
             element <- input$calcurveelement
-            
+
             choices <- elementallinestouse()
-            
-            spectra.line.table <- if(all(cephlopodVector() %in% colnames(spectraLineTable()))==TRUE){
-                spectraLineTable()
-            } else if(all(cephlopodVector() %in% colnames(spectraLineTable()))==FALSE){
-                merge(spectraLineTable(), elementFrame(data=dataHold(), elements=cephlopodVector()[cephlopodVector() %in% colnames(spectraLineTable())]))
+
+            # Cache reactives to avoid repeated calls (was calling spectraLineTable() 3x, cephlopodVector() 4x)
+            slt_cached <- spectraLineTable()
+            ceph_cached <- cephlopodVector()
+            slt_cols <- colnames(slt_cached)
+
+            spectra.line.table <- if(all(ceph_cached %in% slt_cols)){
+                slt_cached
+            } else {
+                merge(slt_cached, elementFrame(data=dataHold(), elements=ceph_cached[ceph_cached %in% slt_cols]))
             }
-            
+
             data <- dataNorm()
             concentration.table <- concentrationTable()
             
@@ -4223,14 +4281,15 @@ shinyServer(function(input, output, session) {
             spectra.line.table <- spectraLineTable()
             data <- dataNorm()
             concentration.table <- concentrationTable()
-            
+
             #concentration.table[complete.cases(concentration.table[,input$calcurveelement]),]
-            
+
             #index <- complete.cases(concentration.table[,input$calcurveelement])
-            
-            
-            spectra.line.table <- spectraLineTable()[spectraLineTable()$Spectrum %in% holdFrame()$Spectrum, ]
-            
+
+            # Use already-cached spectra.line.table instead of calling spectraLineTable() again
+            hold_spectra <- holdFrame()$Spectrum
+            spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% hold_spectra, ]
+
             spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% concentration.table$Spectrum, ]
             
             #spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, element]),]
