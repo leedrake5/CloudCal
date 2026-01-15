@@ -945,44 +945,168 @@ readElioProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibratio
     return(data)
 }
 
-readSPEData <- function(filepath, filename=NULL, dfl_path){
-    if(is.null(filename)){
-        filename <- basename(filepath)
+# Parse DFL (Itrax settings) file for energy calibration parameters
+# Returns list with slope (keV/channel) and offset (keV)
+parseDFLFile <- function(dfl_path) {
+    if (is.null(dfl_path) || !file.exists(dfl_path)) {
+        return(list(slope = NULL, offset = NULL))
     }
-    filename <- make.names(gsub(".spe", "", filename))
-    filename.vector <- rep(filename, 2048)
-    
-    full <- read.table(filepath, sep="\t", fill=T)
-    livetime_row <- full[full$V1 == "livetime", ]
 
-    livetime <- as.numeric(livetime_row$V2)
-    
-    
-    init <- as.data.frame(itraxR::itrax_spectra(filename = filepath, parameters = dfl_path))
-    
-    results <- data.frame(Energy = init$energy, CPS=init$count/livetime, Spectrum=filename.vector)
-    
-    return(results)
+    lines <- readLines(dfl_path, warn = FALSE)
 
+    # Look for "keV/channel 2" and "energy offset 2" in [detector parameters] section
+    slope <- NULL
+    offset <- NULL
+
+    for (line in lines) {
+        line <- trimws(line)
+        if (grepl("^keV/channel\\s*2\\s*=", line, ignore.case = TRUE)) {
+            slope <- as.numeric(gsub(".*=\\s*", "", line))
+        } else if (grepl("^energy\\s*offset\\s*2\\s*=", line, ignore.case = TRUE)) {
+            offset <- as.numeric(gsub(".*=\\s*", "", line))
+        }
+    }
+
+    list(slope = slope, offset = offset)
 }
 
+# Parse SPE file header to extract metadata
+# Returns list with E0 (keV offset), E1 (keV/channel), livetime, and other metadata
+parseSPEHeader <- function(filepath) {
+    # Read first line which contains tab-separated header
+    header_line <- readLines(filepath, n = 1, warn = FALSE)
+    header_parts <- strsplit(header_line, "\t")[[1]]
 
-readSPEProcess <- function(inFile=NULL, inEn=NULL){
-    
+    # Parse key-value pairs from header
+    result <- list(E0 = 0, E1 = 1, livetime = 1, n_channels = 2048)
+
+    i <- 1
+    while (i < length(header_parts)) {
+        key <- trimws(header_parts[i])
+        if (i + 1 <= length(header_parts)) {
+            value <- trimws(header_parts[i + 1])
+
+            if (key == "E0") {
+                result$E0 <- as.numeric(value)
+            } else if (key == "E1") {
+                result$E1 <- as.numeric(value)
+            } else if (key == "livetime") {
+                result$livetime <- as.numeric(value)
+            } else if (key == "number_mca_channels") {
+                result$n_channels <- as.integer(as.numeric(value))
+            }
+        }
+        i <- i + 1
+    }
+
+    result
+}
+
+# Native SPE file reader - reads Itrax SPE files without itraxR dependency
+readSPEData <- function(filepath, filename = NULL, dfl_path = NULL) {
+    if (is.null(filename)) {
+        filename <- basename(filepath)
+    }
+    filename <- make.names(gsub("\\.spe$", "", filename, ignore.case = TRUE))
+
+    # Parse header for metadata
+    header <- parseSPEHeader(filepath)
+    livetime <- header$livetime
+    if (is.na(livetime) || livetime <= 0) livetime <- 1
+
+    # Get energy calibration - prefer DFL file if provided, otherwise use SPE header values
+    dfl_params <- parseDFLFile(dfl_path)
+    if (!is.null(dfl_params$slope) && !is.na(dfl_params$slope)) {
+        slope <- dfl_params$slope
+        offset <- if (!is.null(dfl_params$offset) && !is.na(dfl_params$offset)) dfl_params$offset else 0
+    } else {
+        # Use SPE header values (E0 = offset, E1 = slope in keV/channel)
+        slope <- header$E1
+        offset <- header$E0
+    }
+
+    # Read the full file to get spectral data
+    # Data starts on line 2 (after header) with format: channel\tcounts
+    all_lines <- readLines(filepath, warn = FALSE)
+
+    # Skip header line, parse data lines
+    data_lines <- all_lines[-1]
+
+    # Parse channel and counts
+    parsed <- lapply(data_lines, function(line) {
+        parts <- strsplit(trimws(line), "\t")[[1]]
+        if (length(parts) >= 2) {
+            channel <- as.numeric(parts[1])
+            counts <- as.numeric(parts[2])
+            return(c(channel, counts))
+        }
+        return(c(NA, NA))
+    })
+
+    parsed_matrix <- do.call(rbind, parsed)
+    channels <- parsed_matrix[, 1]
+    counts <- parsed_matrix[, 2]
+
+    # Remove any NA values
+    valid <- !is.na(channels) & !is.na(counts)
+    channels <- channels[valid]
+    counts <- counts[valid]
+
+    # Calculate energy from channel using calibration: Energy = offset + slope * channel
+    # Note: Some formats use 0-indexed channels, some 1-indexed
+    energy <- offset + slope * (channels - 1)
+
+    # Calculate CPS (counts per second)
+    cps <- counts / livetime
+
+    # Create result data frame
+    n_channels <- length(energy)
+    filename_vector <- rep(filename, n_channels)
+
+    results <- data.frame(
+        Energy = energy,
+        CPS = cps,
+        Spectrum = filename_vector,
+        stringsAsFactors = FALSE
+    )
+
+    return(results)
+}
+
+# Process multiple SPE files
+readSPEProcess <- function(inFile = NULL, inEn = NULL) {
     if (is.null(inFile)) return(NULL)
-    
-    n <- length(inFile$datapath)
-    names <- inFile$name
-    
-    n.seq <- seq(1, nrow(inFile), 1)
-    
-    if (is.null(inEn)) return(NULL)
-    
-    data.list = pblapply(n.seq, function(x) readSPEData(filepath=inFile[x,"datapath"], dfl_path=inEn$datapath))
-    data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
-    
+
+    n.seq <- seq_len(nrow(inFile))
+
+    # DFL path (can be NULL - will use SPE header calibration)
+    dfl_path <- if (!is.null(inEn) && !is.null(inEn$datapath)) inEn$datapath else NULL
+
+    data.list <- pblapply(n.seq, function(x) {
+        tryCatch(
+            readSPEData(
+                filepath = inFile[x, "datapath"],
+                filename = inFile[x, "name"],
+                dfl_path = dfl_path
+            ),
+            error = function(e) {
+                warning(sprintf("Failed to read SPE file %s: %s", inFile[x, "name"], e$message))
+                NULL
+            }
+        )
+    })
+
+    # Remove NULL entries (failed reads)
+    data.list <- Filter(Negate(is.null), data.list)
+
+    if (length(data.list) == 0) {
+        warning("No SPE files were successfully read")
+        return(NULL)
+    }
+
+    data <- as.data.frame(data.table::rbindlist(data.list, use.names = TRUE, fill = TRUE), stringsAsFactors = FALSE)
+
     return(data)
-    
 }
 
 readMCAData4096 <- function(filepath, filename=NULL, full=NULL, use_native_calibration=TRUE){

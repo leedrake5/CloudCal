@@ -109,11 +109,14 @@ shinyServer(function(input, output, session) {
     })
     
     output$dfl_load <- renderUI({
-        
+
         if(input$filetype!="SPE"){
             NULL
         } else if(input$filetype=="SPE"){
-            fileInput('dfl_eds', "Load DFL", multiple=FALSE, accept=".dfl")
+            tagList(
+                fileInput('dfl_eds', "Load DFL (Energy Calibration)", multiple=FALSE, accept=".dfl"),
+                helpText("DFL file provides accurate energy calibration. Without it, SPE header values will be used.")
+            )
         }
     })
     
@@ -18805,11 +18808,14 @@ content = function(file){
     })
     
     output$dfl_val_load <- renderUI({
-        
+
         if(input$valfiletype!="SPE"){
             NULL
         } else if(input$valfiletype=="SPE"){
-            fileInput('dfl_val_eds', "Load DFL", multiple=FALSE, accept=".dfl")
+            tagList(
+                fileInput('dfl_val_eds', "Load DFL (Energy Calibration)", multiple=FALSE, accept=".dfl"),
+                helpText("DFL file provides accurate energy calibration. Without it, SPE header values will be used.")
+            )
         }
     })
     
@@ -19022,9 +19028,9 @@ content = function(file){
         })
         
         readValSPE <- reactive({
-            
-            readSPEProcess(inFile=input$loadvaldata, inEn=input$dfl_val_path)
-            
+            # Fixed: was using input$dfl_val_path but UI defines input$dfl_val_eds
+            readSPEProcess(inFile=input$loadvaldata, inEn=input$dfl_val_eds)
+
         })
             
             
