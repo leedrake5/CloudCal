@@ -18199,6 +18199,18 @@ content = function(file){
         
         fullValSpectra <- reactive({
             
+            
+            withProgress(message = 'Processing Data', value = 0, {
+                
+                inFile <- input$loadvaldata
+                if (is.null(inFile)) return(NULL)
+                data <- pbmapply(function(datapath, name) { csvFrame(datapath,name) }, inFile$datapath, inFile$name)
+                data <- do.call("rbind", data)
+            })
+            
+            tryCatch(data$Energy <- data$Energy + gainshiftHold(), error=function(e) NULL)
+            
+            data
             fullSpectraProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
                     
         })
