@@ -117,7 +117,7 @@ if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows
 tryCatch(library(rPDZ), error=function(e) NULL)
 library(reactlog)
 options(shiny.reactlog = TRUE)
-reactlog_enable()
+#reactlog_enable()
 shiny::devmode(TRUE)
 options(shiny.fullstacktrace=TRUE)
 ###update packages
