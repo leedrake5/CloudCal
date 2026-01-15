@@ -1,13 +1,5 @@
-library(shiny)
-library(DT)
-library(dplyr)
-library(shinythemes)
-library(dtplyr)
-library(rhandsontable)
-
-
-
 ui=list(
+#useShinythemes(theme = "hover_text"),
 tagList(
 header=tags$head(tags$style(".table .alignRight {color: black; text-align:right;}"))),
 
@@ -23,22 +15,24 @@ sidebarPanel(width=3,
 
 textInput("calname", label = "Calibration Name", value="myCalibration"),
 
-checkboxInput('advanced', "Advanced", value=FALSE),
-uiOutput('gainshiftui'),
-uiOutput('binaryui'),
+checkboxInput('energycal', label = "Automatic Energy Calibration", value=TRUE),
+#checkboxInput('advanced', "Advanced", value=FALSE),
+#uiOutput('gainshiftui'),
+#uiOutput('binaryui'),
              
              tags$hr(),
 
 #actionButton("actionprocess", label = "Process Data"),
-actionButton("actionplot", label = "Plot Spectrum"),
+#actionButton("actionplot", label = "Plot Spectrum"),
 
 
 
-tags$hr(),
+#tags$hr(),
 
 uiOutput('filegrab'),
 
 uiOutput("filetypeui"),
+uiOutput("pdzprepui"),
 uiOutput("beamnoui"),
 
 tags$hr(),
@@ -128,6 +122,8 @@ c("(Ne) Neon" = "Ne.table",
 "(Pa) Proactinum" = "Pa.table",
 "(U)  Uranium" = "U.table"),
 selected="Fe.table"),
+uiOutput("anomscatterokui"),
+uiOutput("anomscatterui"),
 
 tags$hr(),
 
@@ -143,26 +139,54 @@ fileInput('calfileinput', 'Load Cal File', accept=".quant", multiple=FALSE)
 mainPanel(
 tabsetPanel(
 tabPanel("Spectrum",
-plotOutput("distPlot", height = 685,
+plotOutput("distPlot", height = 500,
 dblclick = "plot1_dblclick",
 brush = brushOpts(
 id = "plot1_brush",
 resetOnNew = TRUE
 )),
 tags$hr(),
+
+splitLayout(cellWidths = c("50%", "50%"),
+    column(width=12,
+        div(
+        style = "position:relative",
+        uiOutput("first_channel"),
+        uiOutput("second_channel")
+        )),
+    column(width=12,
+        div(
+        style = "position:relative",
+        uiOutput("first_energy"),
+        uiOutput("second_energy")
+    )),
+column(width=12,
+    div(
+    style = "position:relative",
+    uiOutput("zero_energy"),
+    uiOutput("max_energy")
+))
+),
+uiOutput("en_cal_model_type_ui"),
 actionButton("cropspectra", "Zoom"),
 downloadButton('downloadPlot', "Plot"),
 checkboxInput('showlegend', "Show Legend", value=FALSE),
 uiOutput('variancespectrumui'),
 tags$hr(),
+selectInput('deconvolutespectra', "Deconvolution", choices=c("None", "Least Squares"), selected="None"),
 selectInput("normspectra", label = "Normalization",
 choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3)),
 numericInput('comptonminspectra', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%'),
-numericInput('comptonmaxspectra', label=h6("Max"), step=0.001, value=10.2, min=0, max=50, width='30%')
+numericInput('comptonmaxspectra', label=h6("Max"), step=0.001, value=10.2, min=0, max=50, width='30%'),
+
+tags$hr(),
+numericInput('plotwidth', "Download Width", step=1, value=5, min=1, max=20),
+numericInput('plotheight', "Download Height", step=1, value=5, min=1, max=20)
 ),
 
 tabPanel("Notes",
-uiOutput('notesui'))
+uiOutput('notesui')),
+#tabPanel("Debug", dataTableOutput('anomtest'))
 )
 
 
@@ -188,7 +212,6 @@ setInterval(checkifrunning, 50)'
 ),
 tags$style(
 " body { text-align:left; }
-
 #loading {
 display: inline-block;
 border: 3px solid #f3f3f3;
@@ -198,7 +221,6 @@ width: 50px;
 height: 50px;
 animation: spin 1s ease-in-out infinite;
 }
-
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -209,7 +231,8 @@ sidebarLayout(
 sidebarPanel(width=3,
 
 actionButton('linecommit', "Confirm Elements"),
-downloadButton('downloadData', "Table"),
+#downloadButton('downloadData', "Table"),
+#downloadButton('downloadDataDeconvoluted', "Deconvoluted Table"),
 
 
 tags$hr(),
@@ -232,12 +255,25 @@ mainPanel(
 tabsetPanel(
 id = 'dataset',
 tabPanel('Custom Lines', rHandsontableOutput('hotline')),
-tabPanel('Narrow Lines', dataTableOutput('mytable1')),
-tabPanel('Wide Lines', dataTableOutput('mytable2')),
+tabPanel('Narrow Lines',
+    dataTableOutput('mytable1'),
+    tags$hr(),
+    downloadButton('downloadData', "Table")),
+tabPanel('Wide Lines', 
+    dataTableOutput('mytable2'),
+    tags$hr(),
+    downloadButton('downloadWideData', "Table")),
+tabPanel('Deconvoluted', 
+    dataTableOutput('mytable3'),
+    tags$hr(),
+    downloadButton('downloadDataDeconvoluted', "Table")),
+#tabPanel('Wide Deconvoluted', dataTableOutput('mytable4')),
 tabPanel('Covariance',
 tabsetPanel(
     tabPanel('Narrow', plotOutput('covarianceplot', height=800)),
-    tabPanel('Wide', plotOutput('widecovarianceplot', height=800))
+    tabPanel('Wide', plotOutput('widecovarianceplot', height=800)),
+    tabPanel('Deconvoluted', plotOutput('covarianceplotdeconvoluted', height=800))
+    #tabPanel('Wide Deconvoluted', plotOutput('widecovarianceplotdeconvoluted', height=800))
 ),
 
 tags$hr(),
@@ -274,7 +310,7 @@ textInput("calunits", label = "Units", value="Weight %")
 
 mainPanel(
 tabsetPanel(
-id = 'dataset',
+id = 'concentrations',
 tabPanel('Enter Concentrations', rHandsontableOutput('hot')),
 tabPanel('Covariance', plotOutput('covarianceplotvalues', height=800),
 tags$hr(),
@@ -303,9 +339,11 @@ actionButton('createcalelement', "Update"),
 
 tags$hr(),
 
-downloadButton('downloadModel', "Model"),
-checkboxInput('modelcompress', label="Reduce Fie Size", value=TRUE),
-#downloadButton('downloadReport', "Report"),
+downloadButton('downloadModel', "Quant File"),
+checkboxInput('modelcompress', label="Reduce File Size", value=TRUE),
+tags$hr(),
+downloadButton('downloadReport', "PDF"),
+downloadButton('downloadTableReport', "Worksheet"),
 #uiOutput('usecalsep'),
 #uiOutput('usecalui'),
 
@@ -314,6 +352,7 @@ tags$hr(),
 #actionButton('trainslopes', "Train"),
 
 tags$hr(),
+sliderInput("randomize", "Set Seed", min=1, max=10000, value=1, step=1),
 
 #uiOutput('testing'),
 
@@ -324,6 +363,8 @@ uiOutput('linepreferenceelementui'),
 uiOutput('calTypeInput'),
 
 uiOutput('xgbtypeui'),
+
+uiOutput('bayesparameterui'),
 
 uiOutput('forestmetricui'),
 
@@ -345,7 +386,13 @@ uiOutput('neuralweightdecayui'),
 
 uiOutput('neuralmaxiterationsui'),
 
+uiOutput('treemethodui'),
+
 uiOutput('treedepthui'),
+
+uiOutput('droptreeui'),
+
+uiOutput('skipdropui'),
 
 uiOutput('xgbalphaui'),
 
@@ -360,6 +407,8 @@ uiOutput('xgbsubsampleui'),
 uiOutput('xgbcolsampleui'),
 
 uiOutput('xgbminchildui'),
+
+uiOutput('xgbmaxdeltastepui'),
 
 uiOutput('bartkui'),
 
@@ -385,6 +434,7 @@ uiOutput('comptonMaxInput'),
 
 uiOutput('dependenttransformationui'),
 
+uiOutput('deconvolutionui'),
 uiOutput('transformationui'),
 uiOutput('compressui'),
 uiOutput('energyrangeui'),
@@ -392,7 +442,8 @@ uiOutput('inVar3'),
 uiOutput('inVar4'),
 uiOutput('addallslopesui'),
 uiOutput('removeallslopesui'),
-uiOutput('multicore_behavior_ui')
+uiOutput('multicore_behavior_ui'),
+uiOutput('open_mp_threads_ui')
 
 #sliderInput("nvariables", label = "# Elements", min=1, max=7, value=2)
 
@@ -402,6 +453,7 @@ mainPanel(
 tabsetPanel(
 #tabPanel("Testing", dataTableOutput('testingagain')),
 #tabPanel("Testing2", dataTableOutput('weird')),
+#tabPanel("Test", dataTableOutput("holdtest")),
 tabPanel("Cal Curves",
     splitLayout(cellWidths = c("50%", "50%"),
         column(width=12,
@@ -433,7 +485,7 @@ tabPanel("Cal Curves",
         actionButton("exclude_toggle", "Toggle points"),
         actionButton("exclude_reset", "Reset"),
         downloadButton('downloadcloudplot', "Plot"),
-        selectInput('imagesize', "Image Size", choices=c("Small", "Large"), selected="Large"),
+        selectInput('imagesize', "Image Size", choices=c("Small", "Large"), selected="Small"),
         selectInput('plotunit', "Unit Display", choices=c("%", "ppm", "ppmv"), selected="%"),
         selectInput('loglinear', "Scale", choices=c("Linear", "Log"), selected="Linear")
 
@@ -467,8 +519,7 @@ tabPanel("Cross Validation",
 
 )),
         tags$hr(),
-        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=.33),
-        tags$hr(),
+        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=0.2), checkboxInput('userandom', "Use Cross-Validated Model", value=FALSE),        tags$hr(),
         downloadButton('downloadcloudplotrandom', "Plot"),
         selectInput('imagesizerandom', "Image Size", choices=c("Small", "Large"), selected="Large")
 
@@ -531,7 +582,7 @@ tabPanel("Variables",
     downloadButton("variablePlot", "Plot"),
     uiOutput('varelementui')),
 
-#tabPanel("test", dataTableOutput('testingagain')),
+#tabPanel("test", dataTableOutput('holdframetest')),
 
 #tabPanel("Testing", dataTableOutput('testtable')),
 #tabPanel("Testing2", dataTableOutput('testtable2')),
@@ -540,7 +591,7 @@ tabPanel("Variables",
 
 tabPanel("Standards",
 tabsetPanel(
-tabPanel("Validation", dataTableOutput("standardsperformance")),
+tabPanel("Validation", dataTableOutput("standardsperformance"), tags$hr(), downloadButton("downloadStandards")),
 tabPanel("Used", rHandsontableOutput("whichrowstokeep")))),
 
 tabPanel("Calibration Progress",
@@ -554,154 +605,6 @@ dataTableOutput('caliibrationprogresstable'))
 )),
 
 
-tabPanel("Multiple Instruments",
-div(class="outer",
-
-fluidRow(
-sidebarLayout(
-sidebarPanel(width=3,
-
-actionButton('actionprocess_multi', "Load Cals"),
-actionButton('actionprocess2_multi', "Process Cals"),
-
-tags$hr(),
-
-actionButton('createcalelement_multi', "Update"),
-actionButton('createcal_multi', "Save"),
-
-tags$hr(),
-
-downloadButton('downloadModel_multi', "Model"),
-downloadButton('downloadReport_multi', "Report"),
-
-
-tags$hr(),
-
-fileInput('calfileinput_multi', 'Load Cal File', accept=".quant", multiple=TRUE),
-
-tags$hr(),
-
-
-uiOutput('defaultcalui'),
-
-uiOutput('inVar2_multi'),
-
-uiOutput('calTypeInput_multi'),
-
-uiOutput('forestmetricui_multi'),
-
-uiOutput('foresttrainui_multi'),
-
-uiOutput('forestnumberui_multi'),
-
-uiOutput('foresttreesui_multi'),
-
-uiOutput('normTypeInput_multi'),
-
-uiOutput('comptonMinInput_multi'),
-
-uiOutput('comptonMaxInput_multi'),
-
-uiOutput('inVar3_multi'),
-uiOutput('inVar4_multi'),
-uiOutput('parallelmethodui')
-
-),
-
-mainPanel(
-tabsetPanel(
-#tabPanel("Testing", dataTableOutput('tabletest')),
-tabPanel("Cal Curves",
-    splitLayout(cellWidths = c("50%", "50%"),
-        column(width=12,
-        div(
-        style = "position:relative",
-        plotOutput("calcurveplots_multi", height = 455, click = "plot_cal_click_multi",
-            dblclick = "plot_cal_dblclick_multi",
-            brush = brushOpts(id = "plot_cal_brush_multi", resetOnNew = TRUE),
-            hover = hoverOpts("plot_hovercal_multi", delay = 100, delayType = "debounce")),
-        uiOutput("hover_infocal_multi")),
-        actionButton("cropcalmulti", "Zoom"),
-        actionButton("zerocalmulti", "Zero")
-
-    ),
-        column(width=12,
-        div(
-        style = "position:relative",
-        plotOutput("valcurveplots_multi", height = 455, click = "plot_val_click_multi",
-            dblclick = "plot_val_dblclick_multi",
-            brush = brushOpts(id = "plot_val_brush_multi", resetOnNew = TRUE),
-            hover = hoverOpts("plot_hoverval_multi", delay = 100, delayType = "debounce")),
-        uiOutput("hover_infoval_multi")),
-        actionButton("cropvalmulti", "Zoom"),
-        actionButton("zerovalmulti", "Zero")
-
-    )),
-    tags$hr(),
-        actionButton("exclude_toggle_multi", "Toggle points"),
-        actionButton("exclude_reset_multi", "Reset"),
-        downloadButton("downloadcloudplot_multi", "Plot"),
-        selectInput('imagesize_multi', "Image Size", choices=c("Small", "Large"), selected="Large")
-
-    ),
-tabPanel("Cross Validation",
-    splitLayout(cellWidths = c("50%", "50%"),
-        column(width=12,
-        div(
-        style = "position:relative",
-        plotOutput("calcurveplotsrandom_multi", height = 455,  click = "plot_cal_click_random_multi",
-            dblclick = "plot_cal_dblclick_random_multi",
-            brush = brushOpts(id = "plot_cal_brush_random_multi", resetOnNew = TRUE),
-            hover = hoverOpts("plot_hovercal_random_multi", delay = 100, delayType = "debounce")),
-        uiOutput("hover_infocal_random_multi")),
-        actionButton("cropcalmultirandom", "Zoom"),
-        actionButton("zerocalmultirandom", "Zero")),
-        column(width=12,
-        div(
-        style = "position:relative",
-        plotOutput("valcurveplotsrandom_multi", height = 455, click = "plot_val_click_random_multi",
-            dblclick = "plot_val_dblclick_random_multi",
-            brush = brushOpts(id = "plot_val_brush_random_multi", resetOnNew = TRUE),
-            hover = hoverOpts("plot_hoverval_random_multi", delay = 100, delayType = "debounce")),
-        uiOutput("hover_infoval_random_multi")),
-        actionButton("cropvalmultirandom", "Zoom"),
-        actionButton("zerovalmultirandom", "Zero"))
-    ),
-    tags$hr(),
-        sliderInput('percentrandom_multi', "Randomize", min=.01, max=.99, value=.33),
-        checkboxInput('switchmulti', "Use Cross-Validation for Report", value=FALSE),
-        checkboxInput('switchrand', "Randomize by Spectrum", value=FALSE),
-        downloadButton("downloadcloudplot_multi_val", "Plot"),
-        selectInput('plotunitmulti', "Unit Display", choices=c("%", "ppm", "ppmv"), selected="%")
-
-
-
-),
-
-tabPanel("Variables",
-div(
-style = "position:relative",
-plotOutput('importanceplot_multi',
-hover = hoverOpts('plot_hover_variable_multi', delay = 100, delayType = "debounce"),
-brush = brushOpts(id = 'plot_var_brush_multi', resetOnNew = TRUE), height=500),
-uiOutput('hover_info_variable_multi')),
-tags$hr(),
-actionButton("cropvar_multi", "Zoom"),
-downloadButton("variablePlot_multi", "Plot"),
-uiOutput('varelementui_multi')),
-
-#stabPanel("testing", dataTableOutput("moretesting")),
-
-
-tabPanel("Standards", dataTableOutput("standardsperformance_multi"))
-
-))
-
-
-))
-
-)),
-
 tabPanel("Apply Calibration",
 div(class="outer",
 
@@ -711,11 +614,15 @@ sidebarPanel(width=3,
 
 actionButton('processvalspectra', "Quantify"),
 numericInput("multiplier", "Multiply Values By", min=1, max=10000, value=1),
-
+#checkboxInput("error", "Include Error", value=TRUE),
+selectInput("error", "Uncertainty", choices=c("None", "eqm", "y hat"), selected="None"),
+checkboxInput("se_error", "Use 95% bounds", value=FALSE),
+uiOutput('fanowindowui'),
 
 tags$hr(),
 
 uiOutput('filevalgrab'),
+uiOutput("pdzprepvalui"),
 
 uiOutput('valfiletypeui'),
 
@@ -734,6 +641,7 @@ uiOutput('roundingui')
 mainPanel(
 tabsetPanel(
 id = 'dataset2',
+#tabPanel("Testing", dataTableOutput('testingvalstuff'), downloadButton('downloadTestStuff', "Test")),
 tabPanel('Quantification Results', dataTableOutput('myvaltable2'),
 tags$hr(),
 
@@ -743,9 +651,12 @@ downloadButton('downloadValData', "Results")
 ),
 tabPanel('Counts',
 tabsetPanel(
-tabPanel('Narrow', dataTableOutput('myvaltable1')),
-tabPanel('Wide', dataTableOutput('myvaltablewide'))
-))
+tabPanel('Narrow', dataTableOutput('myvaltable1'), downloadButton('downloadValDataNarrow', "Download")),
+tabPanel('Wide', dataTableOutput('myvaltablewide'), downloadButton('downloadValDataWide', "Download")),
+tabPanel('Deconvoluted', dataTableOutput('myvaltabledeconvoluted'), downloadButton('downloadValDataDeconvoluted', "Download"))
+#tabPanel('Wide Deconvoluted', dataTableOutput('myvaltablewidedeconvoluted'))
+),uiOutput('rounding2ui')
+)
 
 ))
 ))
@@ -754,11 +665,3 @@ tabPanel('Wide', dataTableOutput('myvaltablewide'))
 ))
 
 )
-
-
-
-
-
-
-
-

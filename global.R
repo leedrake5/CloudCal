@@ -1,3 +1,5 @@
+cloudcal <- "Loaded"
+
 get_os <- function(){
     sysinf <- Sys.info()
     if (!is.null(sysinf)){
@@ -25,28 +27,109 @@ new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.p
 if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
 
 
-list.of.packages <- c("mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "dplyr", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "taRifx", "strip", "bartMachine", "arm", "brnn", "kernlab")
+
+list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "remotes", "tidyverse", "tools", "shinycssloaders", "openxlsx")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE))
+if(get_os()!="linux"){
+    if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
+} else if(get_os()=="linux"){
+    if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="source"))
+}
+
+#if(!"caret" %in% installed.packages()[,"Package"]){
+#    if(get_os()=="windows"){
+#        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+#        } else if(get_os()!="windows"){
+#            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1.tar.gz", type="source", repos=NULL), error=function(e) NULL)
+#        }
+#} else {
+#    if(packageVersion("caret")!="6.0.93.1"){
+#        if(get_os()!="windows"){
+#        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
+#        } else if(get_os()!="windows"){
+#            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1.tar.gz", type="source", repos=NULL), error=function(e) NULL)
+#        }
+#    }
+#    }
+
+
+#if(!"xrftools" %in% installed.packages()[,"Package"]){
+#    tryCatch(devtools::install_github("paleolimbot/xrftools"), error=function(e) NULL)
+#}
+
 
 
 #if(packageVersion("ggplot2")!="2.2.1") devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
 
 
+if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+    } else if ("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
+        if(Sys.info()[["machine"]]=="arm64"){
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+        } else {
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            }
+    } else if ("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+    }
+
+if(packageVersion("caret")!="6.0.93.1" && get_os()=="windows"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+    } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="osx"){
+        if(Sys.info()[["machine"]]=="arm64"){
+            #tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0-93.1_arm64_macos.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+        } else {
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret.6.0-93.1_x86_64_macos.tgz", type="binary", repos=NULL), error=function(e)  tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+            }
+    } else if (packageVersion("caret")!="6.0.93.1" && get_os()=="linux"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
+    }
+
 
 if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    tryCatch(install.packages("http://www.xrf.guru/packages/rPDZ_1.0.zip", repos=NULL, type="win.binary"), error=function(e) NULL)
-} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
-    tryCatch(install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tgz", repos=NULL), error=function(e) NULL)
-} else if ("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
-    tryCatch(install.packages("http://www.xrf.guru/packages/rPDZ_1.0.tar.gz", repos=NULL), error=function(e) NULL)
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_2.0.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+    } else {
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_2.0.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+    }
+
+if(packageVersion("rPDZ")!="2.0" && get_os()=="windows"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_2.0.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+} else {
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/rPDZ_2.0.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
 }
+
+
+if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0.2.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
+} else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0.2.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
+} else if ("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/Peaks_0.2.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("cran/Peaks"), error=function(e) NULL))
+}
+
+if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
+} else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="osx"){
+    if(Sys.info()[["machine"]]=="arm64"){
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000_arm64.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
+    } else {
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000.tgz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
+    }
+} else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="linux"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/xrftools_0.0.1.9000.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("paleolimbot/xrftools"), error=function(e) NULL))
+}
+
+
+
+
 #sourceCpp("pdz.cpp")
 
 tryCatch(library(rPDZ), error=function(e) NULL)
 library(reactlog)
 options(shiny.reactlog = TRUE)
-
+shiny::devmode(FALSE)
+options(shiny.fullstacktrace=TRUE)
 ###update packages
 #update.packages(repos='http://cran.rstudio.com/', ask=FALSE)
 
@@ -55,7 +138,7 @@ options(shiny.reactlog = TRUE)
 
 
 #sudo su - -c "R -e \"install.packages(c('shiny', 'pbapply', 'reshape2', 'TTR', 'dplyr', 'ggtern', 'ggplot2', 'shiny', 'rhandsontable', 'random', 'data.table', 'DT', 'shinythemes', 'Cairo', 'broom', 'shinyjs', 'gridExtra', 'dtplyr', 'formattable', 'XML', 'corrplot', 'scales', 'rmarkdown', 'markdown', 'randomForest', 'doMC', 'caret'), repos='http://cran.rstudio.com/')\""
-
+library(tools)
 library(grid)
 library(shiny)
 library(ggplot2)
@@ -82,16 +165,43 @@ library(xgboost)
 library(gridExtra)
 library(magrittr)
 library(Metrics)
-library(taRifx)
+tryCatch(library(taRifx), error=function(e) NULL)
 library(strip)
 tryCatch(library(mgsub), error=function(e) NULL)
-tryCatch(library(bartMachine), error=function(e) NULL)
+#tryCatch(library(bartMachine), error=function(e) NULL)
 tryCatch(library(arm), error=function(e) NULL)
 tryCatch(library(brnn), error=function(e) NULL)
 library(kernlab)
+tryCatch(library(rBayesianOptimization), error=function(e) NULL)
+tryCatch(library(xrftools), error=function(e) NULL)
+#tryCatch(library(tidyverse))
+library(magrittr)
+library(Peaks)
 enableJIT(3)
+library(shinythemes)
+library(rhandsontable)
+library(broom)
+library(shinyjs)
+library(formattable)
+library(markdown)
+library(rmarkdown)
+library(corrplot)
+library(scales)
+library(caret)
+library(DescTools)
+library(pls)
+library(shinycssloaders)
+
+#source("xgbTree.R")
+#source("xgbDART.R")
+
 
 options(digits=12)
+
+unregister_dopar <- function() {
+  env <- foreach:::.foreachGlobals
+  rm(list=ls(name=env), pos=env)
+}
 
 my.cores <- if(parallel::detectCores()>=3){
     paste0(parallel::detectCores()-2)
@@ -99,20 +209,17 @@ my.cores <- if(parallel::detectCores()>=3){
     "1"
 }
 
+source('file_loading.R')
+#tryCatch(source('file_loading.R'), error=function(e) source("https://raw.githubusercontent.com/leedrake5/CloudCal/master/file_loading.R"))
 
-spectralLines <- c("Ne.K.alpha", "Ne.K.beta", "Na.K.alpha", "Na.K.beta", "Mg.K.alpha", "Mg.K.beta", "Al.K.alpha", "Al.K.beta", "Si.K.alpha", "Si.K.beta", "P.K.alpha", "P.K.beta", "S.K.alpha", "S.K.beta", "Cl.K.alpha", "Cl.K.beta", "Ar.K.alpha", "Ar.K.beta", "K.K.alpha", "K.K.beta", "Ca.K.alpha", "Ca.K.beta", "Sc.K.alpha", "Sc.K.beta", "Ti.K.alpha", "Ti.K.beta", "V.K.alpha", "V.K.beta", "Cr.K.alpha", "Cr.K.beta", "Mn.K.alpha", "Mn.K.beta", "Fe.K.alpha", "Fe.K.beta", "Co.K.alpha", "Co.K.beta", "Ni.K.alpha", "Ni.K.beta", "Cu.K.alpha", "Cu.K.beta", "Zn.K.alpha", "Zn.K.beta", "Ga.K.alpha", "Ga.K.beta", "Ge.K.alpha", "Ge.K.beta", "As.K.alpha", "As.K.beta", "Se.K.alpha", "Se.K.beta", "Br.K.alpha", "Br.K.beta", "Kr.K.alpha", "Kr.K.beta", "Rb.K.alpha", "Rb.K.beta", "Sr.K.alpha", "Sr.K.beta", "Y.K.alpha", "Y.K.beta", "Zr.K.alpha", "Zr.K.beta", "Nb.K.alpha", "Nb.K.beta", "Mo.K.alpha", "Mo.K.beta", "Mo.L.alpha", "Mo.L.beta", "Ru.K.alpha", "Ru.K.beta", "Ru.L.alpha", "Ru.L.beta", "Rh.K.alpha", "Rh.K.beta", "Rh.L.alpha", "Rh.L.beta", "Pd.K.alpha", "Pd.K.beta", "Pd.L.alpha", "Pd.L.beta", "Ag.K.alpha", "Ag.K.beta", "Ag.L.alpha", "Ag.L.beta", "Cd.K.alpha", "Cd.K.beta", "Cd.L.alpha", "Cd.L.beta", "In.K.alpha", "In.K.beta", "In.L.alpha", "Sn.K.alpha", "Sn.K.beta", "Sn.L.alpha", "Sn.L.beta", "Sb.K.alpha", "Sb.K.beta", "Sb.L.alpha", "Sb.L.beta", "Te.K.alpha", "Te.K.beta", "Te.L.alpha", "Te.L.beta", "I.K.alpha", "I.K.beta", "I.L.alpha", "I.L.beta", "Xe.K.alpha", "Xe.K.beta", "Xe.L.alpha", "Xe.L.beta", "Cs.K.alpha", "Cs.K.beta", "Cs.L.alpha", "Cs.L.beta", "Ba.K.alpha", "Ba.K.beta", "Ba.L.alpha", "Ba.L.beta", "La.K.alpha", "La.K.beta", "La.L.alpha", "La.L.beta", "Ce.K.alpha", "Ce.K.beta", "Ce.L.alpha", "Ce.L.beta", "Pr.K.alpha", "Pr.K.beta", "Pr.L.alpha", "Pr.L.beta", "Nd.K.alpha", "Nd.K.beta", "Nd.L.alpha", "Nd.L.beta", "Pm.L.alpha", "Pm.L.beta", "Sm.L.alpha", "Sm.L.beta", "Eu.L.alpha", "Eu.L.beta", "Gd.L.alpha", "Gd.L.beta", "Tb.L.alpha", "Tb.L.beta", "Dy.L.alpha", "Dy.L.beta", "Ho.L.alpha", "Ho.L.beta", "Er.L.alpha", "Er.L.beta", "Tm.L.alpha", "Tm.L.beta", "Yb.L.alpha", "Yb.L.beta", "Lu.L.alpha", "Lu.L.beta", "Hf.L.alpha", "Hf.L.beta", "Ta.L.alpha", "Ta.L.beta", "W.L.alpha", "W.L.beta", "Re.L.alpha", "Re.L.beta", "Os.L.alpha", "Os.L.beta", "Ir.L.alpha", "Ir.L.beta", "Pt.L.alpha", "Pt.L.beta", "Au.L.alpha", "Au.L.beta", "Hg.L.alpha", "Hg.L.beta", "Tl.L.alpha", "Tl.L.beta", "Pb.L.alpha", "Pb.L.beta", "Bi.L.alpha", "Bi.L.beta", "Po.L.alpha", "Po.L.beta", "At.L.alpha", "At.L.beta", "Rn.L.alpha", "Rn.L.beta", "Fr.L.alpha", "Fr.L.beta", "Ra.L.alpha", "Ra.L.beta", "Ac.L.alpha", "Ac.L.beta", "Th.L.alpha", "Th.L.beta", "Pa.L.alpha", "Pa.L.beta", "U.L.alpha", "U.L.beta", "Pu.L.alpha", "Pu.L.beta", "Au.M.line", "Hg.M.line", "Pb.M.line", "U.M.line")
-
-standard <- c("Spectrum", "Ca.K.alpha", "Ti.K.alpha", "Fe.K.alpha")
-
-kalphaLines <- c("Na"="Na.K.alpha",  "Mg"="Mg.K.alpha", "Al"="Al.K.alpha", "Si"="Si.K.alpha", "P"="P.K.alpha", "S"="S.K.alpha", "Cl"="Cl.K.alpha", "Ar"="Ar.K.alpha", "K"="K.K.alpha", "Ca"="Ca.K.alpha", "Sc"="Sc.K.alpha", "Ti"="Ti.K.alpha", "V"="V.K.alpha", "Cr"="Cr.K.alpha", "Mn"="Mn.K.alpha", "Fe"="Fe.K.alpha", "Co"="Co.K.alpha", "Ni"="Ni.K.alpha", "Cu"="Cu.K.alpha", "Zn"="Zn.K.alpha", "Ga"="Ga.K.alpha", "Ge"="Ge.K.alpha", "As"="As.K.alpha", "Se"="Se.K.alpha", "Br"="Br.K.alpha", "Kr"="Kr.K.alpha", "Rb"="Rb.K.alpha", "Sr"="Sr.K.alpha", "Y"="Y.K.alpha", "Zr"="Zr.K.alpha", "Nb"="Nb.K.alpha", "Mo"="Mo.K.alpha", "Ru"="Ru.K.alpha", "Rh"="Rh.K.alpha", "Pd"="Pd.K.alpha", "Ag"="Ag.K.alpha", "Cd"="Cd.K.alpha", "In"="In.K.alpha", "Sn"="Sn.K.alpha", "Sb"="Sb.K.alpha", "Te"="Te.K.alpha", "I"="I.K.alpha", "Xe"="Xe.K.alpha", "Cs"="Cs.K.alpha", "Ba"="Ba.K.alpha", "La"="La.K.alpha", "Ce"="Ce.K.alpha", "Pr"="Pr.K.alpha", "Nd"="Nd.K.alpha")
-
-kbetaLines <- c("Na"="Na.K.beta",  "Mg"="Mg.K.beta", "Al"="Al.K.beta", "Si"="Si.K.beta", "P"="P.K.beta", "S"="S.K.beta", "Cl"="Cl.K.beta", "Ar"="Ar.K.beta", "K"="K.K.beta", "Ca"="Ca.K.beta", "Sc"="Sc.K.beta", "Ti"="Ti.K.beta", "V"="V.K.beta", "Cr"="Cr.K.beta", "Mn"="Mn.K.beta", "Fe"="Fe.K.beta", "Co"="Co.K.beta", "Ni"="Ni.K.beta", "Cu"="Cu.K.beta", "Zn"="Zn.K.beta", "Ga"="Ga.K.beta", "Ge"="Ge.K.beta", "As"="As.K.beta", "Se"="Se.K.beta", "Br"="Br.K.beta", "Kr"="Kr.K.beta", "Rb"="Rb.K.beta", "Sr"="Sr.K.beta", "Y"="Y.K.beta", "Zr"="Zr.K.beta", "Nb"="Nb.K.beta", "Mo"="Mo.K.beta", "Ru"="Ru.K.beta", "Rh"="Rh.K.beta", "Pd"="Pd.K.beta", "Ag"="Ag.K.beta", "Cd"="Cd.K.beta", "In"="In.K.beta", "Sn"="Sn.K.beta", "Sb"="Sb.K.beta", "Te"="Te.K.beta", "I"="I.K.beta", "Xe"="Xe.K.beta", "Cs"="Cs.K.beta", "Ba"="Ba.K.beta", "La"="La.K.beta", "Ce"="Ce.K.beta", "Pr"="Pr.K.beta", "Nd"="Nd.K.beta")
-
-lalphaLines <- c("Mo"="Mo.L.alpha", "Ru"="Ru.L.alpha", "Rh"="Rh.L.alpha", "Pd"="Pd.L.alpha", "Ag"="Ag.L.alpha", "Cd"="Cd.L.alpha", "In"="In.L.alpha", "Sn"="Sn.L.alpha", "Sb"="Sb.L.alpha", "Te"="Te.L.alpha", "I"="I.L.alpha", "Xe"="Xe.L.alpha", "Cs"="Cs.L.alpha", "Ba"="Ba.L.alpha", "La"="La.L.alpha", "Ce"="Ce.L.alpha", "Pr"="Pr.L.alpha", "Nd"="Nd.L.alpha", "Pm"="Pm.L.alpha", "Sm"="Sm.L.alpha", "Eu"="Eu.L.alpha", "Gd"="Gd.L.alpha", "Tb"="Tb.L.alpha", "Dy"="Dy.L.alpha", "Ho"="Ho.L.alpha", "Er"="Er.L.alpha", "Tm"="Tm.L.alpha", "Yb"="Yb.L.alpha", "Lu"="Lu.L.alpha", "Hf"="Hf.L.alpha", "Ta"="Ta.L.alpha", "W"="W.L.alpha", "Re"="Re.L.alpha", "Os"="Os.L.alpha", "Ir"="Ir.L.alpha", "Pt"="Pt.L.alpha", "Au"="Au.L.alpha", "Hg"="Hg.L.alpha", "Tl"="Tl.L.alpha", "Pb"="Pb.L.alpha", "Bi"="Bi.L.alpha", "Po"="Po.L.alpha", "At"="At.L.alpha", "Rn"="Rn.L.alpha", "Fr"="Fr.L.alpha", "Ra"="Ra.L.alpha", "Ac"="Ac.L.alpha", "Th"="Th.L.alpha", "Pa"="Pa.L.alpha", "U"="U.L.alpha")
-
-lbetaLines <- c("Mo"="Mo.L.beta", "Ru"="Ru.L.beta", "Rh"="Rh.L.beta", "Pd"="Pd.L.beta", "Ag"="Ag.L.beta", "Cd"="Cd.L.beta", "In"="In.L.beta", "Sn"="Sn.L.beta", "Sb"="Sb.L.beta", "Te"="Te.L.beta", "I"="I.L.beta", "Xe"="Xe.L.beta", "Cs"="Cs.L.beta", "Ba"="Ba.L.beta", "La"="La.L.beta", "Ce"="Ce.L.beta", "Pr"="Pr.L.beta", "Nd"="Nd.L.beta", "Pm"="Pm.L.beta", "Sm"="Sm.L.beta", "Eu"="Eu.L.beta", "Gd"="Gd.L.beta", "Tb"="Tb.L.beta", "Dy"="Dy.L.beta", "Ho"="Ho.L.beta", "Er"="Er.L.beta", "Tm"="Tm.L.beta", "Yb"="Yb.L.beta", "Lu"="Lu.L.beta", "Hf"="Hf.L.beta", "Ta"="Ta.L.beta", "W"="W.L.beta", "Re"="Re.L.beta", "Os"="Os.L.beta", "Ir"="Ir.L.beta", "Pt"="Pt.L.beta", "Au"="Au.L.beta", "Hg"="Hg.L.beta", "Tl"="Tl.L.beta", "Pb"="Pb.L.beta", "Bi"="Bi.L.beta", "Po"="Po.L.beta", "At"="At.L.beta", "Rn"="Rn.L.beta", "Fr"="Fr.L.beta", "Ra"="Ra.L.beta", "Ac"="Ac.L.beta", "Th"="Th.L.beta", "Pa"="Pa.L.beta", "U"="U.L.beta")
-
-mLines <- c("Au"="Au.M.line","Hg"="Hg.M.line", "Pb"="Pb.M.line", "U"="U.M.line")
+remove.factors = function(df) {
+    for(varnum in 1:length(df)) {
+        if("factor" %in% class(df[,varnum])) {
+            df[varnum]=as.character(df[,varnum])
+        }
+    }
+    return(df)
+}
 
 my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA)
 my.min <- function(x) ifelse( !all(is.na(x)), min(x, na.rm=T), NA)
@@ -132,15 +239,334 @@ layOut = function(...) {
     }
 }
 
+
+generate_grid_multi <- function(bounds, init_points, init_grid_dt = NULL){
+    DT_bounds <- data.table(Parameter = names(bounds), Lower = sapply(bounds,
+    magrittr::extract2, 1), Upper = sapply(bounds, magrittr::extract2, 2), Type = sapply(bounds,
+        class))
+    setDT(init_grid_dt)
+    if (nrow(init_grid_dt) != 0) {
+        if (identical(names(init_grid_dt), DT_bounds[, Parameter]) ==
+            TRUE) {
+            init_grid_dt[, `:=`(Value, -Inf)]
+        }
+        else if (identical(names(init_grid_dt), c(DT_bounds[,
+            Parameter], "Value")) == TRUE) {
+            paste(nrow(init_grid_dt), "points in hyperparameter space were pre-sampled\n",
+                sep = " ") %>% cat(.)
+        }
+        else {
+            stop("bounds and init_grid_dt should be compatible")
+        }
+    }
+    init_points_dt <- Matrix_runif(n = init_points, lower = DT_bounds[,
+        Lower], upper = DT_bounds[, Upper]) %>% data.table(.) %T>%
+        setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>%
+        {
+            if (any(DT_bounds[, Type] == "integer")) {
+                set(., j = DT_bounds[Type == "integer", Parameter],
+                  value = round(extract(., j = DT_bounds[Type ==
+                    "integer", Parameter], with = FALSE)))
+            }
+            else {
+                .
+            }
+        } %T>% extract(., j = `:=`(Value, -Inf))
+        
+        result <- as.data.frame(init_points_dt)
+        result <- result[,!colnames(result) %in% "Value"]
+        return(result)
+}
+
+generate_grid_single <- function(bounds){
+    as.data.frame(bounds)[1,]
+}
+
+generate_grid <- function(bounds, init_points, init_grid_dt = NULL){
+    
+    tryCatch(generate_grid_multi(bounds=bounds, init_points=init_points, init_grid_dt=init_grid_dt), error=function(e) generate_grid_single(bounds))
+    
+}
+
+
+BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points = 0,
+    n_iter, acq = "ei", kappa = 2.576, eps = 0, kernel = list(type = "exponential",
+        power = 2), verbose = TRUE)
+{
+    DT_bounds <- data.table(Parameter = names(bounds), Lower = sapply(bounds,
+    magrittr::extract2, 1), Upper = sapply(bounds, magrittr::extract2, 2), Type = sapply(bounds,
+        class))
+    setDT(init_grid_dt)
+    if (nrow(init_grid_dt) != 0) {
+        if (identical(names(init_grid_dt), DT_bounds[, Parameter]) ==
+            TRUE) {
+            init_grid_dt[, `:=`(Value, -Inf)]
+        }
+        else if (identical(names(init_grid_dt), c(DT_bounds[,
+            Parameter], "Value")) == TRUE) {
+            paste(nrow(init_grid_dt), "points in hyperparameter space were pre-sampled\n",
+                sep = " ") %>% cat(.)
+        }
+        else {
+            stop("bounds and init_grid_dt should be compatible")
+        }
+    }
+    init_points_dt <- Matrix_runif(n = init_points, lower = DT_bounds[,
+        Lower], upper = DT_bounds[, Upper]) %>% data.table(.) %T>%
+        setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>%
+        {
+            if (any(DT_bounds[, Type] == "integer")) {
+                set(., j = DT_bounds[Type == "integer", Parameter],
+                  value = round(extract(., j = DT_bounds[Type ==
+                    "integer", Parameter], with = FALSE)))
+            }
+            else {
+                .
+            }
+        } %T>% extract(., j = `:=`(Value, -Inf))
+    iter_points_dt_backup <- Matrix_runif(n = init_points+n_iter, lower = DT_bounds[,
+            Lower], upper = DT_bounds[, Upper]) %>% data.table(.) %T>%
+            setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>%
+            {
+                if (any(DT_bounds[, Type] == "integer")) {
+                    set(., j = DT_bounds[Type == "integer", Parameter],
+                      value = round(extract(., j = DT_bounds[Type ==
+                        "integer", Parameter], with = FALSE)))
+                }
+                else {
+                    .
+                }
+            }
+    iter_points_dt <- data.table(matrix(-Inf, nrow = n_iter,
+        ncol = nrow(DT_bounds) + 1)) %>% setnames(., old = names(.),
+        new = c(DT_bounds[, Parameter], "Value"))
+    DT_history <- rbind(init_grid_dt, init_points_dt, iter_points_dt) %>%
+        cbind(data.table(Round = 1:nrow(.)), .)
+    Pred_list <- vector(mode = "list", length = nrow(DT_history))
+    for (i in 1:(nrow(init_grid_dt) + nrow(init_points_dt))) {
+        if (is.infinite(DT_history[i, Value]) == TRUE) {
+            This_Par <- DT_history[i, DT_bounds[, Parameter],
+                with = FALSE]
+        }
+        else {
+            next
+        }
+        This_Log <- utils::capture.output({
+            This_Time <- system.time({
+                This_Score_Pred <- tryCatch(do.call(what = FUN, args = as.list(This_Par)), error=function(e) list(Score=sample(-150:-100, 1)))
+            })
+        })
+        data.table::set(DT_history, i = as.integer(i), j = "Value",
+            value = as.list(c(This_Score_Pred$Score)))
+        Pred_list[[i]] <- This_Score_Pred$Pred
+        if (verbose == TRUE) {
+            paste(c("elapsed", names(DT_history)), c(format(This_Time["elapsed"],
+                trim = FALSE, digits = 3, nsmall = 2), format(DT_history[i,
+                "Round", with = FALSE], trim = FALSE, digits = NULL,
+                nsmall = 0), format(DT_history[i, -"Round", with = FALSE],
+                trim = FALSE, digits = 3, nsmall = 3)), sep = " = ",
+                collapse = "\t") %>% cat(., "\n")
+        }
+    }
+   for (j in (nrow(init_grid_dt) + nrow(init_points_dt) + 1):nrow(DT_history)) {
+       if (nrow(iter_points_dt) == 0) {
+            next
+        }
+        Par_Mat <- Min_Max_Scale_Mat(as.matrix(DT_history[1:(j -
+            1), DT_bounds[, Parameter], with = FALSE]), lower = DT_bounds[,
+            Lower], upper = DT_bounds[, Upper])
+        Rounds_Unique <- setdiff(1:(j - 1), which(duplicated(Par_Mat) ==
+            TRUE))
+        Value_Vec <- DT_history[1:(j - 1), Value]
+        GP_Log <- utils::capture.output({
+            GP <- GPfit::GP_fit(X = Par_Mat[Rounds_Unique, ],
+                Y = Value_Vec[Rounds_Unique], corr = kernel)
+        })
+        Next_Par <- tryCatch(Utility_Max(DT_bounds, GP, acq = acq, y_max = max(DT_history[,
+            Value]), kappa = kappa, eps = eps) %>% Min_Max_Inverse_Scale_Vec(.,
+            lower = DT_bounds[, Lower], upper = DT_bounds[, Upper]) %>%
+            magrittr::set_names(., DT_bounds[, Parameter]) %>%
+            inset(., DT_bounds[Type == "integer", Parameter],
+                round(extract(., DT_bounds[Type == "integer",
+                  Parameter]))), error=function(e) unlist(iter_points_dt_backup[j,]))
+        Next_Log <- tryCatch(utils::capture.output({
+            Next_Time <- system.time({
+                Next_Score_Pred <- tryCatch(do.call(what = FUN, args = as.list(Next_Par)), error=function(e) list(Score=sample(-200:-150, 1)))
+            })
+        }), error=function(e) NULL)
+        tryCatch(data.table::set(DT_history, i = as.integer(j), j = c(DT_bounds[,
+            Parameter], "Value"), value = as.list(c(Next_Par,
+            Value = Next_Score_Pred$Score))), error=function(e) NULL)
+        tryCatch(Pred_list[[j]] <- Next_Score_Pred$Pred, error=function(e) NULL)
+        if (verbose == TRUE) {
+            tryCatch(paste(c("elapsed", names(DT_history)), c(format(Next_Time["elapsed"],
+                trim = FALSE, digits = NULL, nsmall = 2), format(DT_history[j,
+                "Round", with = FALSE], trim = FALSE, digits = NULL,
+                nsmall = 0), format(DT_history[j, -"Round", with = FALSE],
+                trim = FALSE, digits = NULL, nsmall = 4)), sep = " = ",
+                collapse = "\t") %>% cat(., "\n"), error=function(e) NULL)
+        }#, error=function(e) NULL})
+    }
+    Best_Par <- as.numeric(DT_history[which.max(Value), DT_bounds[,
+        Parameter], with = FALSE]) %>% magrittr::set_names(.,
+        DT_bounds[, Parameter])
+    Best_Value <- max(DT_history[, Value], na.rm = TRUE)
+    Pred_DT <- data.table::as.data.table(Pred_list)
+    Result <- list(Best_Par = Best_Par, Best_Value = Best_Value,
+        History = DT_history, Pred = Pred_DT)
+    cat("\n Best Parameters Found: \n")
+    paste(names(DT_history), c(format(DT_history[which.max(Value),
+        "Round", with = FALSE], trim = FALSE, digits = NULL,
+        nsmall = 0), format(DT_history[which.max(Value), -"Round",
+        with = FALSE], trim = FALSE, digits = NULL, nsmall = 4)),
+        sep = " = ", collapse = "\t") %>% cat(., "\n")
+    return(Result)
+}
+
+BayesianOptimizationDebug <- function(FUN, bounds, init_grid_dt = NULL, init_points = 0,
+    n_iter, acq = "ei", kappa = 2.576, eps = 0, kernel = list(type = "exponential",
+        power = 2), verbose = TRUE)
+{
+    DT_bounds <- data.table(Parameter = names(bounds), Lower = sapply(bounds,
+    magrittr::extract2, 1), Upper = sapply(bounds, magrittr::extract2, 2), Type = sapply(bounds,
+        class))
+    setDT(init_grid_dt)
+    if (nrow(init_grid_dt) != 0) {
+        if (identical(names(init_grid_dt), DT_bounds[, Parameter]) ==
+            TRUE) {
+            init_grid_dt[, `:=`(Value, -Inf)]
+        }
+        else if (identical(names(init_grid_dt), c(DT_bounds[,
+            Parameter], "Value")) == TRUE) {
+            paste(nrow(init_grid_dt), "points in hyperparameter space were pre-sampled\n",
+                sep = " ") %>% cat(.)
+        }
+        else {
+            stop("bounds and init_grid_dt should be compatible")
+        }
+    }
+    init_points_dt <- Matrix_runif(n = init_points, lower = DT_bounds[,
+        Lower], upper = DT_bounds[, Upper]) %>% data.table(.) %T>%
+        setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>%
+        {
+            if (any(DT_bounds[, Type] == "integer")) {
+                set(., j = DT_bounds[Type == "integer", Parameter],
+                  value = round(extract(., j = DT_bounds[Type ==
+                    "integer", Parameter], with = FALSE)))
+            }
+            else {
+                .
+            }
+        } %T>% extract(., j = `:=`(Value, -Inf))
+    iter_points_dt_backup <- Matrix_runif(n = init_points+n_iter, lower = DT_bounds[,
+            Lower], upper = DT_bounds[, Upper]) %>% data.table(.) %T>%
+            setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>%
+            {
+                if (any(DT_bounds[, Type] == "integer")) {
+                    set(., j = DT_bounds[Type == "integer", Parameter],
+                      value = round(extract(., j = DT_bounds[Type ==
+                        "integer", Parameter], with = FALSE)))
+                }
+                else {
+                    .
+                }
+            }
+    iter_points_dt <- data.table(matrix(-Inf, nrow = n_iter,
+        ncol = nrow(DT_bounds) + 1)) %>% setnames(., old = names(.),
+        new = c(DT_bounds[, Parameter], "Value"))
+    DT_history <- rbind(init_grid_dt, init_points_dt, iter_points_dt) %>%
+        cbind(data.table(Round = 1:nrow(.)), .)
+    Pred_list <- vector(mode = "list", length = nrow(DT_history))
+    for (i in 1:(nrow(init_grid_dt) + nrow(init_points_dt))) {
+        if (is.infinite(DT_history[i, Value]) == TRUE) {
+            This_Par <- DT_history[i, DT_bounds[, Parameter],
+                with = FALSE]
+        }
+        else {
+            next
+        }
+        This_Log <- utils::capture.output({
+            This_Time <- system.time({
+                This_Score_Pred <- do.call(what = FUN, args = as.list(This_Par))
+            })
+        })
+        data.table::set(DT_history, i = as.integer(i), j = "Value",
+            value = as.list(c(This_Score_Pred$Score)))
+        Pred_list[[i]] <- This_Score_Pred$Pred
+        if (verbose == TRUE) {
+            paste(c("elapsed", names(DT_history)), c(format(This_Time["elapsed"],
+                trim = FALSE, digits = 3, nsmall = 2), format(DT_history[i,
+                "Round", with = FALSE], trim = FALSE, digits = NULL,
+                nsmall = 0), format(DT_history[i, -"Round", with = FALSE],
+                trim = FALSE, digits = 3, nsmall = 3)), sep = " = ",
+                collapse = "\t") %>% cat(., "\n")
+        }
+    }
+   for (j in (nrow(init_grid_dt) + nrow(init_points_dt) + 1):nrow(DT_history)) {
+       if (nrow(iter_points_dt) == 0) {
+            next
+        }
+        Par_Mat <- Min_Max_Scale_Mat(as.matrix(DT_history[1:(j -
+            1), DT_bounds[, Parameter], with = FALSE]), lower = DT_bounds[,
+            Lower], upper = DT_bounds[, Upper])
+        Rounds_Unique <- setdiff(1:(j - 1), which(duplicated(Par_Mat) ==
+            TRUE))
+        Value_Vec <- DT_history[1:(j - 1), Value]
+        GP_Log <- utils::capture.output({
+            GP <- GPfit::GP_fit(X = Par_Mat[Rounds_Unique, ],
+                Y = Value_Vec[Rounds_Unique], corr = kernel)
+        })
+        Next_Par <- tryCatch(Utility_Max(DT_bounds, GP, acq = acq, y_max = max(DT_history[,
+            Value]), kappa = kappa, eps = eps) %>% Min_Max_Inverse_Scale_Vec(.,
+            lower = DT_bounds[, Lower], upper = DT_bounds[, Upper]) %>%
+            magrittr::set_names(., DT_bounds[, Parameter]) %>%
+            inset(., DT_bounds[Type == "integer", Parameter],
+                round(extract(., DT_bounds[Type == "integer",
+                  Parameter]))), error=function(e) unlist(iter_points_dt_backup[j,]))
+        Next_Log <- tryCatch(utils::capture.output({
+            Next_Time <- system.time({
+                Next_Score_Pred <- do.call(what = FUN, args = as.list(Next_Par))
+            })
+        }), error=function(e) NULL)
+        tryCatch(data.table::set(DT_history, i = as.integer(j), j = c(DT_bounds[,
+            Parameter], "Value"), value = as.list(c(Next_Par,
+            Value = Next_Score_Pred$Score))), error=function(e) NULL)
+        tryCatch(Pred_list[[j]] <- Next_Score_Pred$Pred, error=function(e) NULL)
+        if (verbose == TRUE) {
+            tryCatch(paste(c("elapsed", names(DT_history)), c(format(Next_Time["elapsed"],
+                trim = FALSE, digits = NULL, nsmall = 2), format(DT_history[j,
+                "Round", with = FALSE], trim = FALSE, digits = NULL,
+                nsmall = 0), format(DT_history[j, -"Round", with = FALSE],
+                trim = FALSE, digits = NULL, nsmall = 4)), sep = " = ",
+                collapse = "\t") %>% cat(., "\n"), error=function(e) NULL)
+        }#, error=function(e) NULL})
+    }
+    Best_Par <- as.numeric(DT_history[which.max(Value), DT_bounds[,
+        Parameter], with = FALSE]) %>% magrittr::set_names(.,
+        DT_bounds[, Parameter])
+    Best_Value <- max(DT_history[, Value], na.rm = TRUE)
+    Pred_DT <- data.table::as.data.table(Pred_list)
+    Result <- list(Best_Par = Best_Par, Best_Value = Best_Value,
+        History = DT_history, Pred = Pred_DT)
+    cat("\n Best Parameters Found: \n")
+    paste(names(DT_history), c(format(DT_history[which.max(Value),
+        "Round", with = FALSE], trim = FALSE, digits = NULL,
+        nsmall = 0), format(DT_history[which.max(Value), -"Round",
+        with = FALSE], trim = FALSE, digits = NULL, nsmall = 4)),
+        sep = " = ", collapse = "\t") %>% cat(., "\n")
+    return(Result)
+}
+
+
 fluorescence.lines.directory <- if(file.exists("data/FluorescenceLines.csv")){
     "data/FluorescenceLines.csv"
 } else if(!file.exists("data/FluorescenceLines.csv")){
     "https://raw.githubusercontent.com/leedrake5/CloudCal/master/data/FluorescenceLines.csv"
 }
 
-
 ######Load lines
 lineLibrary <- readRDS("data/LineDefinitions.rdata")
+#temp <- tempfile()
 fluorescence.lines <- lineLibrary$FluorescenceeLines
 Wide <- lineLibrary$Wide
 attach(lineLibrary$Tables)
@@ -180,9 +606,23 @@ order_elements <- function(elements){
     element.frame <- element.frame.2[order(element.frame.2$AtomicNumber),]
     
     
-    elements <- element.frame$Line
+    elements <- as.vector(element.frame$Line)
     
     return(c(elements[complete.cases(elements)], not.elements))
+}
+
+order_elements_simple <- function(elements){
+
+    elements.simp <- mgsub::mgsub(pattern=c(".K.alpha", ".K.beta", ".L.alpha", ".L.beta", ".M.line"), replacement=c("", "", "", "", ""), string=elements)
+    
+    element.frame.1 <- data.frame(Line=elements, Symbol=elements.simp)
+    element.frame.2 <- merge(element.frame.1, fluorescence.lines[fluorescence.lines$Symbol %in% elements.simp, c("Symbol", "AtomicNumber")], by="Symbol")
+    element.frame <- element.frame.2[order(element.frame.2$AtomicNumber),]
+    
+    
+    elements <- as.vector(element.frame$Line)
+    
+    return(c(elements[complete.cases(elements)]))
 }
 
 element_line_pull <- function(element.line){
@@ -308,71 +748,19 @@ calEvaluationSummary <- cmpfun(calEvaluationSummary)
 
 val.lmsummary <-function(lm.object){
     res<-c(paste(as.character(summary(lm.object)$call),collapse=" "),
-    lm.object$coefficients[1],
-    lm.object$coefficients[2],
-    length(lm.object$model),
-    summary(lm.object)$coefficients[2,2],
-    summary(lm.object)$r.squared,
-    summary(lm.object)$adj.r.squared,
-    summary(lm.object)$fstatistic,
-    pf(summary(lm.object)$fstatistic[1],summary(lm.object)$fstatistic[2],summary(lm.object)$fstatistic[3],lower.tail=FALSE))
+    as.numeric(lm.object$coefficients[1]),
+    as.numeric(lm.object$coefficients[2]),
+    as.numeric(length(lm.object$model)),
+    as.numeric(summary(lm.object)$coefficients[2,2]),
+    as.numeric(summary(lm.object)$r.squared),
+    as.numeric(summary(lm.object)$adj.r.squared),
+    as.numeric(summary(lm.object)$fstatistic),
+    as.numeric(pf(summary(lm.object)$fstatistic[1],summary(lm.object)$fstatistic[2],summary(lm.object)$fstatistic[3],lower.tail=FALSE)))
     names(res)<-c("Call","Intercept","Slope","n","Slope SE","R2","Adj. R2",
     "F-statistic","numdf","dendf","p-value")
     return(res)}
 val.lmsummary <- cmpfun(val.lmsummary)
 
-
-read_csv_filename_x <- function(filename){
-    ret <- read.csv(file=filename, sep=",", header=FALSE)
-    return.res <- as.numeric(as.vector(ret$V2[18]))/1000
-    return.chan.counts <-as.numeric(as.vector(ret$V1[22:2069]))
-    return.energy <- return.chan.counts*return.res
-    return(return.energy)
-}
-read_csv_filename_x <- cmpfun(read_csv_filename_x)
-
-read_csv_filename_y <- function(filename){
-    ret <- read.csv(file=filename, sep=",", header=FALSE)
-    return.live.time <- as.numeric(as.vector(ret$V2[10]))
-    return.counts <- as.numeric(as.vector(ret$V2[22:2069]))
-    return.cps <- return.counts/return.live.time
-    return(return.cps)
-}
-read_csv_filename_y <- cmpfun(read_csv_filename_y)
-
-csvFrame <- function(filepath, filename=NULL){
-    if(is.null(filename)){
-        filename <- as.character(basename(filepath))
-    }
-    filename <- gsub(".csv", "", filename, ignore.case=TRUE)
-    data.frame(Energy=read_csv_filename_x(filepath), CPS=read_csv_filename_y(filepath), Spectrum=rep(filename, length(read_csv_filename_x(filepath))), stringsAsFactors=FALSE)
-}
-csvFrame <- cmpfun(csvFrame)
-
-not_all_na <- function(x) any(!is.na(x))
-not_any_na <- function(x) all(!is.na(x))
-
-importCSVFrame <- function(filepath, choosen_beam="1"){
-    csv_import <- read.csv("/Users/lee/Google Drive/Reply to Frahm 2019/Export Results from Vanta/beamspectra-804734-2019-09-28-15-29-14.csv", header=F, stringsAsFactors=FALSE)
-    
-    if(csv_import[1, "V1"]=="Std#"){
-        importCSVFrameBasic(filepath)
-    } else if(csv_import[1, "V1"]=="sep="){
-        importCSVFrameDetailed(csv_import)
-    }
-
-}
-importCSVFrame <- cmpfun(importCSVFrame)
-
-importCSVFrameBasic <- function(filepath){
-    csv.frame <- read.csv(filepath)
-    metadata <- csv.frame[1,]
-    spectra.data <- csv.frame[-1,]
-    
-    melt.frame <- reshape2::melt(spectra.data, id="Std.")
-    data.frame(Energy=as.numeric(as.vector(melt.frame$Std.)), CPS=as.numeric(as.vector(melt.frame$value)), Spectrum=as.vector(melt.frame$variable), stringsAsFactors=FALSE)
-}
-importCSVFrameBasic <- cmpfun(importCSVFrameBasic)
 
 uniqueBeamsDetailed <- function(csv_import){
 
@@ -385,7 +773,7 @@ uniqueBeamsDetailed <- function(csv_import){
 uniqueBeamsDetailed <- cmpfun(uniqueBeamsDetailed)
 
 uniqueBeams <- function(filepath){
-    csv_import <- read.csv("/Users/lee/Google Drive/Reply to Frahm 2019/Export Results from Vanta/beamspectra-804734-2019-09-28-15-29-14.csv", header=F, stringsAsFactors=FALSE)
+    csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
     
     if(csv_import[1, "V1"]=="Std#"){
         "1"
@@ -393,289 +781,6 @@ uniqueBeams <- function(filepath){
         uniqueBeamsDetailed(csv_import)
     }
 }
-
-
-importCSVFrameDetailed <- function(csv_import, choosen_beam="1"){
-    csv_import <- csv_import %>% select_if(not_all_na)
-    csv_import <- csv_import[-1,]
-    beams <- as.vector((unlist(csv_import[csv_import$V1=="Exposure Number",-1])))
-    unique_beams <- unique(beams)
-    csv_frame <- csv_import[complete.cases(as.numeric(csv_import$V1)),c(TRUE, beams==choosen_beam)]
-    spectra.data <- as.data.frame(apply(csv_frame, 2, function(x) as.numeric(as.character(x))), stringsAsFactors=FALSE)
-    
-    melt.frame <- reshape2::melt(spectra.data, id="V1")
-    data.frame(Energy=as.numeric(as.vector(melt.frame$V1)), CPS=as.numeric(as.vector(melt.frame$value)), Spectrum=as.vector(melt.frame$variable), stringsAsFactors=FALSE)
-}
-importCSVFrameDetailed <- cmpfun(importCSVFrameDetailed)
-
-
-readTXTData <- function(filepath, filename){
-    filename <- gsub(".txt", "", filename, ignore.case=TRUE)
-    text <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
-    channels <- seq(1, length(text$V1)-4, 1)
-    counts <- as.numeric(as.character(text$V1[5:length(text$V1)]))
-    filename.vector <- rep(filename, length(text$V1)-4)
-
-    energy <- channels*as.numeric(substr(gsub("Elin=", "", as.character(text$V1[2])), 1, 4))
-    
-    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
-    
-}
-readTXTData <- cmpfun(readTXTData)
-
-
-
-read_csv_net <- function(filepath) {
-    
-    ret <- read.csv(file=filepath, sep=",", header=TRUE)
-    element <- ret$Element
-    line <- ret$Line
-    net <- ret$Net
-    background <- ret$Backgr.
-    eline <- paste(element, line, sep="-")
-    
-    simple.table <- data.frame(net, stringsAsFactors=FALSE)
-    colnames(simple.table) <- NULL
-    simple.transpose <- as.data.frame(t(simple.table), stringsAsFactors=FALSE)
-    colnames(simple.transpose) <- eline
-    
-    simple.transpose
-    
-}
-read_csv_net <- cmpfun(read_csv_net)
-
-
-readSPTData <- function(filepath, filename){
-    filename <- gsub(".spt", "", filename)
-    filename.vector <- rep(filename, 4096)
-    
-    meta <- paste0(readLines(filepath, n=16),collapse=" ")
-    meta.split <- strsplit(meta, " ")
-    chan.1 <- as.numeric(meta.split[[1]][32])
-    energy.1 <- as.numeric(sub(",", ".", meta.split[[1]][33], fixed = TRUE))
-    chan.2 <- as.numeric(meta.split[[1]][34])
-    energy.2 <- as.numeric(sub(",", ".", meta.split[[1]][35], fixed = TRUE))
-    
-    channels <- c(chan.1, chan.2)
-    energies <- c(energy.1, energy.2)
-    
-    energy.cal <- lm(energies~ channels)
-    
-    time <- as.numeric(meta.split[[1]][17])/1000
-    
-    raw <- read.table(filepath, skip=16)
-    cps <- raw[,1]/time
-    newdata <- as.data.frame(seq(1, 4096, 1), stringsAsFactors=FALSE)
-    colnames(newdata) <- "channels"
-    energy <- as.vector(predict.lm(energy.cal, newdata=newdata))
-    energy2 <- newdata[,1]*summary(energy.cal)$coef[2]
-    spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
-    colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
-    return(spectra.frame)
-}
-readSPTData <- cmpfun(readSPTData)
-
-
-
-readMCAData <- function(filepath, filename){
-    filename <- gsub(".mca", "", filename)
-    filename.vector <- rep(filename, 4096)
-    
-    full <- read.csv(filepath, row.names=NULL)
-    
-    chan.1.a.pre <- as.numeric(unlist(strsplit(gsub("# Calibration1: ", "", full[13,1]), " ")))
-    chan.1.b.pre <- as.numeric(full[13,2])
-    chan.2.a.pre <- as.numeric(unlist(strsplit(gsub("# Calibration2: ", "", full[14,1]), " ")))
-    chan.2.b.pre <- as.numeric(full[14,2])
-
-    
-    chan.1 <- chan.1.a.pre[1]
-    energy.1 <- chan.1.a.pre[2] + chan.1.b.pre/(10^nchar(chan.1.b.pre))
-    chan.2 <- chan.2.a.pre[1]
-    energy.2 <- chan.2.a.pre[2] + chan.2.b.pre/(10^nchar(chan.2.b.pre))
-    
-    channels <- c(chan.1, chan.2)
-    energies <- c(energy.1, energy.2)
-    
-    energy.cal <- lm(energies~channels)
-    
-    time.1 <- as.numeric(gsub("# Live time: ", "", full[10,1], " "))
-    time.2 <- as.numeric(full[10,2])
-    time <- time.1 + time.2/(10^nchar(time.2))
-    
-    cps <- as.numeric(full[17:4112, 1])/time
-    newdata <- as.data.frame(seq(1, 4096, 1), stringsAsFactors=FALSE)
-    colnames(newdata) <- "channels"
-    energy <- as.vector(predict.lm(energy.cal, newdata=newdata))
-    energy2 <- newdata[,1]*summary(energy.cal)$coef[2]
-    spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
-    colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
-    return(spectra.frame)
-}
-readMCAData <- cmpfun(readMCAData)
-
-
-
-readSPXData <- function(filepath, filename){
-    
-    filename <- gsub(".spx", "", filename)
-    filename.vector <- rep(filename, 4096)
-    
-    xmlfile <- xmlTreeParse(filepath)
-    xmllist <- xmlToList(xmlfile)
-    channels.pre <- xmllist[["ClassInstance"]][["Channels"]][[1]]
-    counts <- as.numeric(strsplit(channels.pre, ",", )[[1]])
-    newdata <- as.data.frame(seq(1, 4096, 1), stringsAsFactors=FALSE)
-    intercept <- as.numeric(xmllist[["ClassInstance"]][["ClassInstance"]][["CalibAbs"]])
-    slope <- as.numeric(xmllist[["ClassInstance"]][["ClassInstance"]][["CalibLin"]])
-    time <- as.numeric(xmllist[[2]][["TRTHeaderedClass"]][[3]][["LifeTime"]])/1000
-    
-    cps <- counts/time
-    energy <- newdata[,1]*slope+intercept
-    
-    spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
-    colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")
-    return(spectra.frame)
-    
-}
-readSPXData <- cmpfun(readSPXData)
-
-
-readPDZ25DataExpiremental <- function(filepath, filename){
-    
-    filename <- gsub(".pdz", "", filename)
-    filename.vector <- rep(filename, 2048)
-    
-    nbrOfRecords <- 3000
-    integers <- int_to_unit(readBin(con=filepath, what= "int", n=3000, endian="little"))
-    floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
-    integer.sub <- integers[124:2171]
-
-    sequence <- seq(1, length(integer.sub), 1)
-
-    time.est <- integers[144]/10
-
-        channels <- sequence
-        energy <- sequence*.02
-        counts <- integer.sub/(integers[144]/10)
-        
-        unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE))
-
-}
-readPDZ25DataExpiremental <- cmpfun(readPDZ25DataExpiremental)
-
-
-readPDZ24DataExpiremental <- function(filepath, filename){
-    
-    filename <- gsub(".pdz", "", filename)
-    filename.vector <- rep(filename, 2048)
-    
-    nbrOfRecords <- 3000
-    integers <- int_to_unit(readBin(con=filepath, what= "int", n=3000, endian="little"))
-    floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
-    integer.sub <- integers[90:2137]
-    sequence <- seq(1, length(integer.sub), 1)
-    
-    time.est <- integer.sub[21]
-    
-    channels <- sequence
-    energy <- sequence*.02
-    counts <- integer.sub/(integer.sub[21]/10)
-    
-    unfold(data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE))
-    
-}
-readPDZ24DataExpiremental <- cmpfun(readPDZ24DataExpiremental)
-
-
-#Rcpp::sourceCpp("pdz.cpp")
-
-readPDZ25Data <- function(filepath, filename){
-    
-    filename <- gsub(".pdz", "", filename)
-    filename.vector <- rep(filename, 2020)
-    
-    nbrOfRecords <- 2020
-    integers <- readPDZ25(filepath, start=481, size=nbrOfRecords)
-    
-    sequence <- seq(1, length(integers), 1)
-    
-    time.est <- integers[21]
-
-    channels <- sequence
-    energy <- sequence*.02
-    counts <- integers/(integers[144]/10)
-    
-    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
-    
-}
-readPDZ25Data <- cmpfun(readPDZ25Data)
-
-
-readPDZ25DataManual <- function(filepath, filename, binaryshift){
-    
-    filename <- gsub(".pdz", "", filename)
-    filename.vector <- rep(filename, 2020)
-    
-    nbrOfRecords <- 2020
-    integers <- readPDZ25(filepath, start=binaryshift, size=nbrOfRecords)
-    
-    sequence <- seq(1, length(integers), 1)
-    
-    time.est <- integers[21]
-    
-    channels <- sequence
-    energy <- sequence*.02
-    counts <- integers/(integers[144]/10)
-    
-    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
-    
-}
-readPDZ25DataManual <- cmpfun(readPDZ25DataManual)
-
-
-readPDZ24Data<- function(filepath, filename){
-    
-    filename <- gsub(".pdz", "", filename)
-    filename.vector <- rep(filename, 2020)
-    
-    nbrOfRecords <- 2020
-    integers <- readPDZ24(filepath, start=361, size=nbrOfRecords)
-    sequence <- seq(1, length(integers), 1)
-    
-    time.est <- integers[21]
-    
-    channels <- sequence
-    energy <- sequence*.02
-    counts <- integers/(integers[21]/10)
-    
-    data.frame(Energy=energy, CPS=counts, Spectrum=filename.vector, stringsAsFactors=FALSE)
-    
-}
-readPDZ24Data <- cmpfun(readPDZ24Data)
-
-
-
-readPDZData <- function(filepath, filename=NULL) {
-    
-    if(is.null(filename)){
-        filename <- basename(filepath)
-    }
-    
-    
-    nbrOfRecords <- 10000
-    floats <- readBin(con=filepath, what="float", size=4, n=nbrOfRecords, endian="little")
-    
-    if(floats[[9]]=="5"){
-        readPDZ25Data(filepath, filename)
-    }else {
-        readPDZ24Data(filepath, filename)
-    }
-
-    
-}
-readPDZ24Data <- cmpfun(readPDZ24Data)
-
 
 
 
@@ -862,8 +967,8 @@ resid_leverage <- function(model){
 
 cooksdist_leverage <- function(model){
     p6<-ggplot(model, aes(as.vector(.hat), as.vector(.cooksd)))+geom_point(na.rm=TRUE)+stat_smooth(method="loess", na.rm=TRUE)
-    p6<-p6+xlab("Leverage hii")+ylab("Cook's Distance")
-    p6<-p6+ggtitle("Cook's dist vs Leverage hii/(1-hii)")
+    p6<-p6+xlab("Leverage")+ylab("Cook's Distance")
+    p6<-p6+ggtitle("Cook's dist vs Leverage")
     p6<-p6+geom_abline(slope=seq(0,3,0.5), color="gray", linetype="dashed")
     p6<-p6+theme_light()
     return(p6)
@@ -924,6 +1029,15 @@ strip_glm <- function(cm) {
     cm
 }
 strip_glm <- cmpfun(strip_glm)
+
+
+strip_env <- function(cm) {
+    attr(cm$terms,".Environment") = c()
+    attr(cm$formula,".Environment") = c()
+    
+    cm
+}
+strip_env <- cmpfun(strip_env)
 
 
 merge_Sum <- function(.df1, .df2, .id_Columns, .match_Columns){
@@ -1087,7 +1201,10 @@ elementGrabKalpha <- function(element, data) {
     hold.frame <- data[!(data$Energy < elementLine[6][1,]-0.02 | data$Energy > elementLine[5][1,]+0.02), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
@@ -1114,7 +1231,10 @@ elementGrabKbeta <- function(element, data) {
     colnames(hold.frame) <- c("CPS", "Spectrum")
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
@@ -1128,7 +1248,10 @@ elementGrabLalpha <- function(element, data) {
     hold.frame <- data[!(data$Energy < elementLine[11][1,]-0.02 | data$Energy > elementLine[10][1,]+0.02), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
@@ -1142,7 +1265,10 @@ elementGrabLbeta <- function(element, data) {
     hold.frame <- data[!(data$Energy < elementLine[12][1,]-0.02 | data$Energy > elementLine[14][1,]+0.02), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
@@ -1155,7 +1281,10 @@ elementGrabMalpha <- function(element, data) {
     hold.frame <- data[!(data$Energy < elementLine[20][1,]-0.02 | data$Energy > elementLine[22][1,]+0.02), c("CPS", "Spectrum")]
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
@@ -1230,7 +1359,7 @@ xrf_parse_single <- cmpfun(xrf_parse_single)
 
 
 
-elementGrab <- function(element.line, data, range.table=NULL){
+elementGrabPre <- function(element.line, data, range.table=NULL){
     
     is.element <- element.line %in% spectralLines
     
@@ -1242,30 +1371,45 @@ elementGrab <- function(element.line, data, range.table=NULL){
 
     
 }
-elementGrab <- cmpfun(elementGrab)
+elementGrabPre <- cmpfun(elementGrabPre)
+
+elementGrab <- function(element.line, data, range.table=NULL, ...){
+    
+    error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
+    colnames(error_frame) <- c("Spectrum", element.line)
+    
+    tryCatch(elementGrabPre(element.line=element.line, data=data, range.table=range.table), error=function(e) error_frame)
+    
+    
+}
 
 
-elementFrame <- function(data, elements){
+elementFrame <- function(data, range.table=NULL, elements){
     
     spectra.line.list <- if(get_os()=="windows"){
-        lapply(elements, function(x) elementGrab(element.line=x, data=data))
+        lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table))
     } else if(get_os()!="windows"){
         core.mod <- if(length(elements)>=as.numeric(my.cores)){
             as.numeric(my.cores)
         } else if(length(elements)<as.numeric(my.cores)){
             length(elements)
         }
-        pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data))
+        tryCatch(pblapply(cl=core.mod, X=elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table)), error=function(e) lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table)))
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
     
-    spectra.line.vector <- as.numeric(unlist(element.count.list))
+    #spectra.line.vector <- as.numeric(unlist(element.count.list))
     
-    dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
+    #dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
     
-    spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector, stringsAsFactors=FALSE)
+    #spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector, stringsAsFactors=FALSE)
     
+    #spectra.line.frame <- spectra.line.list %>% purrr::reduce(full_join, by='Spectrum')
+    
+    spectra.line.frame <- Reduce(function(x, y) merge(x, y, all=TRUE), spectra.line.list)
+    spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
+
     colnames(spectra.line.frame) <- c("Spectrum", elements)
     
     spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
@@ -1313,13 +1457,16 @@ wideElementGrabLine <- function(element.line, data) {
     
     hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN="sum")
     colnames(hold.ag) <- c("Spectrum", paste(element, line, sep=" "))
-    
+    if(any(is.na(as.numeric(hold.ag[[2]])))){
+      # Replace NA values with 0
+      as.numeric(hold.ag[[2]])[is.na(as.numeric(hold.ag[[2]]))] <- 0
+    }
     hold.ag
     
 }
 wideElementGrabLine <- cmpfun(wideElementGrabLine)
 
-wideElementGrab <- function(element.line, data, range.table=NULL){
+wideElementGrabPre <- function(element.line, data, range.table=NULL){
     
     is.element <- element.line %in% spectralLines
     
@@ -1331,12 +1478,22 @@ wideElementGrab <- function(element.line, data, range.table=NULL){
 
     
 }
-wideElementGrab <- cmpfun(wideElementGrab)
+wideElementGrabPre <- cmpfun(wideElementGrabPre)
 
-wideElementFrame <- function(data, elements){
+wideElementGrab <- function(element.line, data, range.table=NULL, ...){
+    
+    error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=NA)
+    colnames(error_frame) <- c("Spectrum", element.line)
+    
+    tryCatch(wideElementGrabPre(element.line=element.line, data=data, range.table=range.table), error=function(e) error_frame)
+    
+    
+}
+
+wideElementFrame <- function(data, elements, range.table=NULL){
     
     spectra.line.list <- if(get_os()=="windows"){
-        lapply(elements, function(x) wideElementGrab(element.line=x, data=data))
+        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table))
     }else if(get_os()!="windows"){
         core.mod <- if(length(elements)>=as.numeric(my.cores)){
             as.numeric(my.cores)
@@ -1344,7 +1501,7 @@ wideElementFrame <- function(data, elements){
             length(elements)
         }
         #pblapply(cl=core.mod, X=elements, function(x) wideElementGrab(element.line=x, data=data))
-        lapply(elements, function(x) wideElementGrab(element.line=x, data=data))
+        lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table))
     }
     
     element.count.list <- lapply(spectra.line.list, '[', 2)
@@ -1781,6 +1938,8 @@ spectra_table_xrf <- cmpfun(spectra_table_xrf)
 
 spectra_simp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, compress="100 eV", transformation="None"){
     
+    spectra$CPS[spectra$CPS<0] <- 0.0000000000001
+
     energy.min <- if(is.null(energy.min)){
         0.7
     } else if(!is.null(energy.min)){
@@ -1839,6 +1998,8 @@ spectra_simp_prep_xrf <- cmpfun(spectra_simp_prep_xrf)
 
 
 spectra_tc_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, compress="100 eV", transformation="None"){
+    
+    spectra$CPS[spectra$CPS<0] <- 0.0000000000001
     
     energy.min <- if(is.null(energy.min)){
         0.7
@@ -1903,6 +2064,9 @@ spectra_tc_prep_xrf <- cmpfun(spectra_tc_prep_xrf)
 
 
 spectra_comp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, norm.min, norm.max, compress="100 eV", transformation="None"){
+    
+    spectra$CPS[spectra$CPS<0] <- 0.0000000000001
+
     
     energy.min <- if(is.null(energy.min)){
         0.7
@@ -1971,6 +2135,9 @@ spectra_comp_prep_xrf <- cmpfun(spectra_comp_prep_xrf)
 
 spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compress="100 eV", transformation="None"){
     
+    spectra$CPS[spectra$CPS<0] <- 0.0000000000001
+
+    
     spectra <- if(transformation=="None"){
         spectra
     } else if(transformation!="None"){
@@ -2012,6 +2179,9 @@ spectra_simp_trans_xrf <- cmpfun(spectra_simp_trans_xrf)
 
 
 spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compress="100 eV", transformation="None"){
+    
+    spectra$CPS[spectra$CPS<0] <- 0.0000000000001
+
     
     spectra <- if(transformation=="None"){
         spectra
@@ -2058,6 +2228,9 @@ spectra_tc_trans_xrf <- cmpfun(spectra_tc_trans_xrf)
 
 
 spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.min, norm.max, compress="100 eV", transformation="None"){
+    
+    spectra$CPS[spectra$CPS<0] <- 0.0000000000001
+
     
     spectra <- if(transformation=="None"){
         spectra
@@ -3184,6 +3357,46 @@ plot.nnet <- cmpfun(plot.nnet)
 
 ###UI Choices
 
+deconvolutionUI <- function(radiocal=3, selection=NULL){
+    
+    selection <- if(is.null(selection)){
+        "None"
+    } else if(!is.null(selection)){
+        selection
+    }
+    
+    if(radiocal==0){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    } else if(radiocal==8){
+        NULL
+    } else if(radiocal==9){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        selectInput('deconvolution', "Deconvolution",  choices=c("None", "Least Squares"), selected=selection)
+    }
+    
+}
+
 compressUI <- function(radiocal=3, selection=NULL){
     
     selection <- if(is.null(selection)){
@@ -3192,7 +3405,9 @@ compressUI <- function(radiocal=3, selection=NULL){
         selection
     }
     
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput('compress', label="Compress", choices=c("100 eV", "50 eV", "25 eV"), selected=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3218,7 +3433,6 @@ compressUI <- function(radiocal=3, selection=NULL){
         NULL
     } else if(radiocal==13){
         selectInput('compress', label="Compress", choices=c("100 eV", "50 eV", "25 eV"), selected=selection)
-
     }
 }
 
@@ -3230,7 +3444,9 @@ transformationUI <- function(radiocal=3, selection=NULL){
         selection
     }
     
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput('transformation', label="Spectra Transformation", choices=c("None", "Log", "e", "Velocity"), selected=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3267,32 +3483,34 @@ dependentTransformationUI <- function(radiocal=3, selection=NULL){
         selection
     }
     
-    if(radiocal==1){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+    if(radiocal==0){
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
+    } else if(radiocal==1){
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==2){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==3){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==4){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     }  else if(radiocal==5){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==6){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==7){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==8){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==9){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==10){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==11){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==12){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     } else if(radiocal==13){
-        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e"), selected=selection)
+        selectInput('deptransformation', label="Concentration Transformation", choices=c("None", "Log", "e", "Scale"), selected=selection)
     }
 }
 
@@ -3312,7 +3530,9 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
         0.025
     }
     
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step,  value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3341,10 +3561,47 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
     }
 }
 
+lineTypeUI <- function(radiocal=3, selection="Narrow"){
+    
+    
+    if(radiocal==0){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
+    } else if(radiocal==1){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
+    } else if(radiocal==2){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
+    } else if(radiocal==3){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
+    } else if(radiocal==4){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
+    } else if(radiocal==9){
+        NULL
+    } else if(radiocal==10){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        selectInput("linetype", "Line Type", choices=c("Narrow", "Wide", "Area"), selected=selection)
+    } else if(radiocal==13){
+        NULL
+
+    }
+}
+
 interceptUI <- function(radiocal=3, selection=NULL, elements){
     
 
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput(inputId = "intercept_vars", label = "Intercept", choices=elements, selected=selection, multiple=TRUE)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3377,7 +3634,9 @@ slopeUI <- function(radiocal=3, selection=NULL, elements){
     
     elements.mod <- elements
 
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput(inputId = "slope_vars", label = "Slope", choices=elements.mod, selected=selection, multiple=TRUE)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3407,17 +3666,17 @@ slopeUI <- function(radiocal=3, selection=NULL, elements){
 }
 
 addAllSlopeUI <- function(radiocal=3){
-    if(radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
+    if(radiocal==0 | radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
         actionButton(inputId = "addallslopes", label = "Add All Slopes")
-    } else if(radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
+    } else if(radiocal!=0 | radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
         NULL
     }
 }
 
 removeAllSlopeUI <- function(radiocal=3){
-    if(radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
+    if(radiocal==0 | radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
         actionButton(inputId = "removeallslopes", label = "Remove All Slopes")
-        } else if(radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
+        } else if(radiocal!=0 | radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
         NULL
     }
 }
@@ -3444,7 +3703,9 @@ forestTryUI <- function(radiocal=3, neuralhiddenlayers=NULL, selection=NULL, max
         maxsample
     }
     
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("foresttry", label="Sampling", min=2, max=maxsample-2, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3502,7 +3763,9 @@ model = NULL) {
 }
 
 forestMetricUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3532,7 +3795,9 @@ forestMetricUI <- function(radiocal, selection){
 }
 
 forestTrainUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3562,38 +3827,42 @@ forestTrainUI <- function(radiocal, selection){
 }
 
 forestNumberUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
     } else if(radiocal==3){
         NULL
     } else if(radiocal==4){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     }  else if(radiocal==5){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==6){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==7){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==8){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==9){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==10){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==11){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==12){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     } else if(radiocal==13){
-        sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
+        sliderInput("forestnumber", label="Iterations", min=1, max=2000, value=selection)
     }
        
 }
 
 cvRepeatsUI <- function(radiocal, foresttrain, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3643,7 +3912,9 @@ cvRepeatsUI <- function(radiocal, foresttrain, selection){
 }
 
 forestTreesUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("foresttrees", label="Trees", min=50, max=2000, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3659,9 +3930,13 @@ forestTreesUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
         sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
+    } else if(radiocal==8 && xgbtype=="Dart"){
+        sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
     } else if(radiocal==9 && xgbtype=="Tree"){
+        sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
+    } else if(radiocal==9 && xgbtype=="Dart"){
         sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         sliderInput("foresttrees", label="Number of Rounds", min=50, max=2000, value=selection)
@@ -3681,7 +3956,9 @@ forestTreesUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 neuralHiddenLayersUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("neuralhiddenlayers", label="Hidden Layers", min=1, max=3, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3711,7 +3988,9 @@ neuralHiddenLayersUI <- function(radiocal, selection){
 }
 
 neuralHiddenUnitsUi <- function(radiocal, selection, xgbtype="Neural Net"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("neuralhiddenunits", label="Hidden Units", min=1, max=10, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3745,7 +4024,9 @@ neuralHiddenUnitsUi <- function(radiocal, selection, xgbtype="Neural Net"){
 }
 
 neuralWeightDecayUI <- function(radiocal, selection, neuralhiddenlayers){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("neuralweightdecay", label="Weight Decay", min=0.1, max=0.7, step=0.1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3779,7 +4060,9 @@ neuralWeightDecayUI <- function(radiocal, selection, neuralhiddenlayers){
 }
 
 neuralMaxIterationsUI <- function(radiocal, selection, neuralhiddenlayers){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("neuralmaxiterations", label="Max Iterations", min=50, max=2000, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3813,7 +4096,9 @@ neuralMaxIterationsUI <- function(radiocal, selection, neuralhiddenlayers){
 }
 
 treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3829,9 +4114,13 @@ treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
+    } else if(radiocal==8 && xgbtype=="Dart"){
+        sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==9 && xgbtype=="Tree"){
+        sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Dart"){
         sliderInput("treedepth", label="Tree Depth", min=2, max=50, step=1, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
@@ -3846,39 +4135,10 @@ treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
     }
 }
 
-xgbTypeUI <- function(radiocal, selection){
-    if(radiocal==1){
-        NULL
-    } else if(radiocal==2){
-        NULL
-    } else if(radiocal==3){
-        NULL
-    } else if(radiocal==4){
-        NULL
-    }  else if(radiocal==5){
-        NULL
-    } else if(radiocal==6){
-        NULL
-    } else if(radiocal==7){
-        NULL
-    } else if(radiocal==8){
-        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Linear")
-    } else if(radiocal==9){
-        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Linear"), selected="Linear")
-    } else if(radiocal==10){
-        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
-    } else if(radiocal==11){
-        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
-    } else if(radiocal==12){
-        #selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Exponential", "Radial", "Radial Cost", "Radial Sigma", "Boundrange String", "Spectrum String"), selected="Linear")
-        selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
-    } else if(radiocal==13){
-        selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
-    }
-}
-
-xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+treeMethodUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==0){
+        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3893,12 +4153,153 @@ xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
-        NULL
+        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+    } else if(radiocal==8 && xgbtype=="Dart"){
+        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
-        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
-    } else if(radiocal==9 && xgbtype=="Tree"){
         NULL
+    } else if(radiocal==9 && xgbtype=="Tree"){
+        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+    } else if(radiocal==9 && xgbtype=="Dart"){
+        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    }  else if(radiocal==13){
+        NULL
+    }
+}
+
+xgbTypeUI <- function(radiocal, selection){
+    if(radiocal==0){
+        NULL
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Dart", "Linear"), selected="Linear")
+    } else if(radiocal==9){
+        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Dart", "Linear"), selected="Linear")
+    } else if(radiocal==10){
+        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
+    } else if(radiocal==11){
+        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
+    } else if(radiocal==12){
+        #selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Exponential", "Radial", "Radial Cost", "Radial Sigma", "Boundrange String", "Spectrum String"), selected="Linear")
+        selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
+    } else if(radiocal==13){
+        selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
+    }
+}
+
+dropTreeUI <- function(radiocal, selection, xgbtype="Dart"){
+    if(radiocal==0){
+        sliderInput("droptree", label="Drop Trees", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype=="Dart"){
+        sliderInput("droptree", label="Drop Trees", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==8 && xgbtype!="Dart"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Dart"){
+        sliderInput("droptree", label="Drop Trees", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==9 && xgbtype!="Dart"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    }  else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
+skipDropUI <- function(radiocal, selection, xgbtype="Dart"){
+    if(radiocal==0){
+        sliderInput("skipdrop", label="Drop Trees", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype=="Dart"){
+        sliderInput("skipdrop", label="Skip Drop", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==8 && xgbtype!="Dart"){
+        NULL
+    } else if(radiocal==9 && xgbtype=="Dart"){
+        sliderInput("skipdrop", label="Skip Drop", min=0.1, max=0.9, step=0.05, value=selection)
+    } else if(radiocal==9 && xgbtype!="Dart"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    }  else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
+xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==0){
+        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8){
+        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==9){
         sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
     } else if(radiocal==10 && xgbtype=="Tree"){
         sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
@@ -3916,7 +4317,9 @@ xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbgamma", label="Gamma", min=0, max=300, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3930,12 +4333,12 @@ xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==8 && xgbtype!="Linear"){
+        sliderInput("xgbgamma", label="Gamma", min=0, max=300, step=1, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
-    } else if(radiocal==9 && xgbtype=="Tree"){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==9 && xgbtype!="Linear"){
+        sliderInput("xgbgamma", label="Gamma", min=0, max=300, step=1, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==10){
@@ -3950,7 +4353,9 @@ xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbEtaUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbeta", label="Eta", min=0.01, max=0.99, step=0.01, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3965,9 +4370,9 @@ xgbEtaUI <- function(radiocal, selection){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8){
-        sliderInput("xgbeta", label="Eta", min=0.05, max=0.95, step=0.05, value=selection)
+        sliderInput("xgbeta", label="Eta", min=0.01, max=0.99, step=0.01, value=selection)
     } else if(radiocal==9){
-        sliderInput("xgbeta", label="Eta", min=0.05, max=0.95, step=0.05, value=selection)
+        sliderInput("xgbeta", label="Eta", min=0.01, max=0.99, step=0.01, value=selection)
     } else if(radiocal==10){
         NULL
     } else if(radiocal==11){
@@ -3980,7 +4385,9 @@ xgbEtaUI <- function(radiocal, selection){
 }
 
 xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgblambda", label="Lambda", min=0, max=300, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -3994,14 +4401,10 @@ xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
-        NULL
-    } else if(radiocal==8 && xgbtype=="Linear"){
-        sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
-    } else if(radiocal==9 && xgbtype=="Tree"){
-        NULL
-    } else if(radiocal==9 && xgbtype=="Linear"){
-        sliderInput("xgblambda", label="Lambda", min=0, max=10, step=0.05, value=selection)
+    } else if(radiocal==8){
+        sliderInput("xgblambda", label="Lambda", min=0, max=300, step=1, value=selection)
+    } else if(radiocal==9){
+        sliderInput("xgblambda", label="Lambda", min=0, max=300, step=1, value=selection)
     } else if(radiocal==10){
         NULL
     } else if(radiocal==11){
@@ -4022,7 +4425,9 @@ xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbSubSampleUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbsubsample", label="Sub Sample", min=0.05, max=0.95, step=0.05, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4036,11 +4441,11 @@ xgbSubSampleUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
+    } else if(radiocal==8 && xgbtype!="Linear"){
         sliderInput("xgbsubsample", label="Sub Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
-    } else if(radiocal==9 && xgbtype=="Tree"){
+    } else if(radiocal==9 && xgbtype!="Linear"){
         sliderInput("xgbsubsample", label="Sub Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
@@ -4056,7 +4461,9 @@ xgbSubSampleUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbColSampleUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbcolsample", label="Col Sample", min=0.05, max=0.95, step=0.05, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4070,11 +4477,11 @@ xgbColSampleUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
+    } else if(radiocal==8 && xgbtype!="Linear"){
         sliderInput("xgbcolsample", label="Col Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
-    } else if(radiocal==9 && xgbtype=="Tree"){
+    } else if(radiocal==9 && xgbtype!="Linear"){
         sliderInput("xgbcolsample", label="Col Sample", min=0.05, max=0.95, step=0.05, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
@@ -4090,7 +4497,9 @@ xgbColSampleUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("xgbminchild", label="Min Child", min=0, max=300, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4104,12 +4513,12 @@ xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
         NULL
     } else if(radiocal==7){
         NULL
-    } else if(radiocal==8 && xgbtype=="Tree"){
-        sliderInput("xgbminchild", label="Min Child", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==8 && xgbtype!="Linear"){
+        sliderInput("xgbminchild", label="Min Child", min=0, max=300, step=1, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
-    } else if(radiocal==9 && xgbtype=="Tree"){
-        sliderInput("xgbminchild", label="Min Child", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==9 && xgbtype!="Linear"){
+        sliderInput("xgbminchild", label="Min Child", min=0, max=300, step=1, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==10){
@@ -4123,11 +4532,86 @@ xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
     }
 }
 
+xgbMaxDeltaStepUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==0){
+        sliderInput("xgbmaxdeltastep", label="Min Child", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype!="Linear"){
+        sliderInput("xgbmaxdeltastep", label="Max Delta Step", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==9 && xgbtype!="Linear"){
+        sliderInput("xgbmaxdeltastep", label="Max Delta Step", min=0, max=15, step=1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
+xgbScalePosWeightUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(radiocal==0){
+        sliderInput("xgbscaleposweight", label="Scale Pos Weight", min=0, max=5, step=1, value=selection)
+    } else if(radiocal==1){
+        NULL
+    } else if(radiocal==2){
+        NULL
+    } else if(radiocal==3){
+        NULL
+    } else if(radiocal==4){
+        NULL
+    }  else if(radiocal==5){
+        NULL
+    } else if(radiocal==6){
+        NULL
+    } else if(radiocal==7){
+        NULL
+    } else if(radiocal==8 && xgbtype!="Linear"){
+        sliderInput("xgbscaleposweight", label="Scale Pos Weight", min=0, max=5, step=1, value=selection)
+    } else if(radiocal==8 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==9 && xgbtype!="Linear"){
+        sliderInput("xgbscaleposweight", label="Scale Pos Weight", min=0, max=5, step=1, value=selection)
+    } else if(radiocal==9 && xgbtype=="Linear"){
+        NULL
+    } else if(radiocal==10){
+        NULL
+    } else if(radiocal==11){
+        NULL
+    } else if(radiocal==12){
+        NULL
+    } else if(radiocal==13){
+        NULL
+    }
+}
+
+
 dnorminv<-function(y) sqrt(-2*log(sqrt(2*pi)*y))
 
 
 bartKUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("bartk", label="Prior Probability", min=61, max=99, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4161,7 +4645,9 @@ bartKUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 bartBetaUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("bartbeta", label="Beta", min=1, max=2, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4195,7 +4681,9 @@ bartBetaUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 bartNuUI <- function(radiocal, selection, xgbtype="Tree"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("bartnu", label="Degrees of Freedom", min=1, max=2, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4229,7 +4717,9 @@ bartNuUI <- function(radiocal, selection, xgbtype="Tree"){
 }
 
 svmCUI <- function(radiocal, selection){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("svmc", label="Cost", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4259,7 +4749,9 @@ svmCUI <- function(radiocal, selection){
 }
 
 svmDegreeUI <- function(radiocal, selection, xgbtype="Linear"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("svmdegree", label="Degree", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4297,7 +4789,9 @@ svmDegreeUI <- function(radiocal, selection, xgbtype="Linear"){
 }
 
 svmScaleUI <- function(radiocal, selection, xgbtype="Linear"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("svmscale", label="Scale", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4335,7 +4829,9 @@ svmScaleUI <- function(radiocal, selection, xgbtype="Linear"){
 }
 
 svmSigmaUI <- function(radiocal, selection, xgbtype="Linear"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("svmsigma", label="Sigma", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4373,7 +4869,9 @@ svmSigmaUI <- function(radiocal, selection, xgbtype="Linear"){
 }
 
 svmLengthUI <- function(radiocal, selection, xgbtype="Linear"){
-    if(radiocal==1){
+    if(radiocal==0){
+        sliderInput("svmlength", label="Length", min=1, max=5, step=1, value=selection)
+    } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
         NULL
@@ -4407,6 +4905,18 @@ svmLengthUI <- function(radiocal, selection, xgbtype="Linear"){
         } else {
             NULL
         }
+    }
+}
+
+nThreads <- function(open_mp=FALSE, nthreads=-1){
+    
+    if(Sys.info()[["machine"]]=="arm64"){
+        nthreads <- 1
+    }
+    if(open_mp==TRUE){
+        sliderInput("open_mp_threads", label="nthreads", min=-1, max=(as.numeric(my.cores)+2), step=1, value=nthreads)
+    } else if(open_mp==FALSE){
+        NULL
     }
 }
 
@@ -4499,8 +5009,24 @@ predictIntensitySimpPreGen <- function(spectra, hold.frame, element, norm.type, 
     return(predict.intensity)
 }
 
+scaleTransform <- function(values, y_min, y_max){
+    
+    y_min <- my.min(values)
+    y_max <- my.max(values)
+    y_train_scale <- ((values-y_min)/(y_max-y_min))
 
-predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="None", element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+    return(y_train_scale)
+}
+
+scaleDecode <- function(values, y_min, y_max){
+    
+    y_train_decoded <- (values*(y_max-y_min)) + y_min
+
+    return(y_train_decoded)
+}
+
+
+predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="None", element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1, seed=NULL){
     
     data <- spectra
     spectra.line.table <- hold.frame
@@ -4515,9 +5041,17 @@ predictFrameSimpGen <- function(spectra, hold.frame, dependent.transformation="N
         predict.frame.simp$Concentration
     } else if(dependent.transformation=="Log"){
         log(predict.frame.simp$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=predict.frame.simp$Concentration, y_min=y_min, y_max=y_max)
     }
     
-    predictFrameCheck(predict.frame.simp)
+    result <- predictFrameCheck(predict.frame.simp)
+    set.seed(seed)
+    result$RandXXX <- rnorm(nrow(result), 1, 0.2)
+    result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
+
+    
+    return(result)
     
 }
 
@@ -4559,8 +5093,7 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, element, intercept
     return(predict.intensity)
 }
 
-
-predictFrameForestGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictFrameXGBoostGen <- function(spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
     
     spectra.line.table <- hold.frame
     
@@ -4576,10 +5109,47 @@ predictFrameForestGen <- function(spectra, hold.frame, slopes=NULL, dependent.tr
         predict.frame.forest$Concentration
     } else if(dependent.transformation=="Log"){
         log(predict.frame.forest$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=predict.frame.forest$Concentration, y_min=y_min, y_max=y_max)
     }
     
-    return(predictFrameCheck(predict.frame.forest))
+    return(as.matrix(predictFrameCheck(predict.frame.forest)))
     
+}
+
+predictIntensityXGBoost <- function(predict.frame){
+    as.matrix(predict.frame[,!(colnames(predict.frame) %in% "Concentration")])
+}
+
+
+predictFrameForestGen <- function(seed=1, spectra, hold.frame, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
+    
+    spectra.line.table <- hold.frame
+    
+    predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, element=element, slopes=slopes, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+
+    
+    
+    
+    predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=spectra.line.table[,"Concentration"])
+    predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
+    
+    predict.frame.forest$Concentration <- if(dependent.transformation=="None"){
+        predict.frame.forest$Concentration
+    } else if(dependent.transformation=="Log"){
+        log(predict.frame.forest$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=predict.frame.forest$Concentration, y_min=y_min, y_max=y_max)
+    }
+    
+    result <- predictFrameCheck(predict.frame.forest)
+    set.seed(seed)
+    result$RandXXX <- rnorm(nrow(result), 1, 0.2)
+    result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
+
+    
+    return(result)
+        
 }
 
 predictIntensityForest <- function(predict.frame){
@@ -4594,12 +5164,11 @@ predictIntensityLucPreGen <- function(spectra, hold.frame, element, intercepts=N
     
 }
 
-predictFrameLucGen <- function(spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+predictFrameLucGen <- function(seed=1, spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
     
     data <- spectra
     spectra.line.table <- hold.frame
-    
-    
+
     predict.intensity.luc <- predictIntensityLucPreGen(spectra=spectra, hold.frame=hold.frame, element=element, intercepts=intercepts, slopes=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
     
     predict.frame.luc <- data.frame(predict.intensity.luc, spectra.line.table[,"Concentration"])
@@ -4611,9 +5180,17 @@ predictFrameLucGen <- function(spectra, hold.frame, element, intercepts=NULL, sl
         predict.frame.luc$Concentration
     } else if(dependent.transformation=="Log"){
         log(predict.frame.luc$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=predict.frame.luc$Concentration, y_min=y_min, y_max=y_max)
     }
     
-    return(predictFrameCheck(predict.frame.luc))
+    result <- predictFrameCheck(predict.frame.luc)
+    #set.seed(seed)
+    #result$RandXXX <- rnorm(nrow(result), 1, 0.2)
+    #result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
+
+    
+    return(result)
 }
 
 predictIntensityLuc <- function(predict.frame){
@@ -4646,7 +5223,7 @@ rainforestDataPreGen <- function(spectra, compress="100 eV", transformation="Non
 }
 
 
-rainforestDataGen <- function(spectra, compress="100 eV", transformation="None", dependent.transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra"){
+xgboostDataGen <- function(spectra, compress="100 eV", transformation="None", dependent.transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=0){
     
     spectra.line.table <- hold.frame
     
@@ -4659,10 +5236,43 @@ rainforestDataGen <- function(spectra, compress="100 eV", transformation="None",
         spectra.data$Concentration
     } else if(dependent.transformation=="Log"){
         log(spectra.data$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=spectra.data$Concentration, y_min=y_min, y_max=y_max)
     }
     
-    return(predictFrameCheck(spectra.data))
+    return(as.matrix(predictFrameCheck(spectra.data)))
 }
+
+xgboostIntensity <- function(rainforest.data){
+    as.matrix(rainforest.data[,!(colnames(rainforest.data) %in% "Concentration")])
+}
+
+
+rainforestDataGen <- function(seed=1, spectra, compress="100 eV", transformation="None", dependent.transformation="None", energy.range=c(0.7, 37), hold.frame, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1){
+    
+    spectra.line.table <- hold.frame
+    
+    spectra.data <- rainforestDataPreGen(spectra=spectra, compress=compress, transformation=transformation, energy.range=energy.range, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type)
+    
+    spectra.data <- merge(spectra.data, hold.frame[,c("Spectrum", "Concentration")], by="Spectrum")
+    spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
+    
+    spectra.data$Concentration <- if(dependent.transformation=="None"){
+        spectra.data$Concentration
+    } else if(dependent.transformation=="Log"){
+        log(spectra.data$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=spectra.data$Concentration, y_min=y_min, y_max=y_max)
+    }
+    
+    result <- predictFrameCheck(spectra.data)
+    set.seed(seed)
+    result$RandXXX <- rnorm(nrow(result), 1, 0.2)
+    result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
+
+    
+    return(result)
+    }
 
 rainforestIntensity <- function(rainforest.data){
     rainforest.data[,!(colnames(rainforest.data) %in% "Concentration")]
@@ -5006,1306 +5616,6 @@ calProgressSummary <- function(calList){
     rbindlist(cal.results.list)
 }
 
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treedepth=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
-    
-    cal.type <- if(is.null(cal.type)){
-        1
-    } else if(!is.null(cal.type)){
-        cal.type
-    }
-    
-    line.type <- if(is.null(line.type) | is.na(line.type)){
-        "Narrow"
-    } else if(!is.null(line.type) && !is.na(line.type)){
-        line.type
-    }
-    
-    compress <- if(is.null(compress)){
-        "100 eV"
-    } else if(!is.null(compress)){
-        compress
-    }
-    
-    transformation <- if(is.null(transformation)){
-        "None"
-    } else if(!is.null(transformation)){
-        transformation
-    }
-    
-    dependent.transformation <- if(is.null(dependent.transformation)){
-        "None"
-    } else if(!is.null(dependent.transformation)){
-        dependent.transformation
-    }
-    
-    energy.range <- if(is.null(energy.range)){
-        "0.7-37"
-    } else if(!is.null(energy.range)){
-        energy.range
-    }
-    
-    norm.type <- if(is.null(norm.type)){
-        2
-    } else if(!is.null(norm.type)){
-        norm.type
-    }
-    
-    norm.min <- if(is.null(norm.min)){
-        11
-    } else if(!is.null(norm.min)){
-        norm.min
-    }
-    
-    norm.max <- if(is.null(norm.max)){
-        11.1
-    } else if(!is.null(norm.max)){
-        norm.max
-    }
-    
-    foresttry <- if(is.null(foresttry)){
-        5
-    } else if(!is.null(foresttry)){
-        foresttry
-    }
-    
-    forestmetric <- if(is.null(forestmetric)){
-        "RMSE"
-    } else if(!is.null(forestmetric)){
-        forestmetric
-    }
-    
-    foresttrain <- if(is.null(foresttrain)){
-        "repeatedcv"
-    } else if(!is.null(foresttrain)){
-        foresttrain
-    }
-    
-    forestnumber <- if(is.null(forestnumber)){
-        6
-    } else if(!is.null(forestnumber)){
-        forestnumber
-    }
-    
-    cvrepeats <- if(is.null(cvrepeats)){
-        1
-    } else if(!is.null(cvrepeats)){
-        cvrepeats
-    }
-    
-    foresttrees <- if(is.null(foresttrees)){
-        50
-    } else if(!is.null(foresttrees)){
-        foresttrees
-    }
-    
-    neuralhiddenlayers <- if(is.null(neuralhiddenlayers)){
-        1
-    } else if(!is.null(neuralhiddenlayers)){
-        neuralhiddenlayers
-    }
-    
-    neuralhiddenunits <- if(is.null(neuralhiddenunits)){
-        "1-2"
-    } else if(!is.null(neuralhiddenunits)){
-        neuralhiddenunits
-    }
-    
-    neuralweightdecay <- if(is.null(neuralweightdecay)){
-        "0.3-0.5"
-    } else if(!is.null(neuralweightdecay)){
-        neuralweightdecay
-    }
-    
-    neuralmaxiterations <- if(is.null(neuralmaxiterations)){
-        1000
-    } else if(!is.null(neuralmaxiterations)){
-        neuralmaxiterations
-    }
-    
-    treedepth <- if(is.null(treedepth)){
-        "5-5"
-    } else if(!is.null(treedepth)){
-        treedepth
-    }
-    
-    xgbtype <- if(is.null(xgbtype)){
-        "Tree"
-    } else if(!is.null(xgbtype)){
-        xgbtype
-    }
-    
-    xgbalpha <- if(is.null(xgbalpha)){
-        "0.1-0.1"
-    } else if(!is.null(xgbalpha)){
-        xgbalpha
-    }
-    
-    xgbgamma <- if(is.null(xgbgamma)){
-        "0-0"
-    } else if(!is.null(xgbgamma)){
-        xgbgamma
-    }
-    
-    xgbeta <- if(is.null(xgbeta)){
-        "0.1-0.1"
-    } else if(!is.null(xgbeta)){
-        xgbeta
-    }
-    
-    xgblambda <- if(is.null(xgblambda)){
-        "0.1-0.1"
-    } else if(!is.null(xgblambda)){
-        xgblambda
-    }
-    
-    xgbsubsample <- if(is.null(xgbsubsample)){
-        "0.6-0.6"
-    } else if(!is.null(xgbsubsample)){
-        xgbsubsample
-    }
-    
-    xgbcolsample <- if(is.null(xgbcolsample)){
-        "0.6-0.6"
-    } else if(!is.null(xgbcolsample)){
-        xgbcolsample
-    }
-    
-    xgbminchild <- if(is.null(xgbminchild)){
-        1
-    } else if(!is.null(xgbminchild)){
-        xgbminchild
-    }
-    
-    bartk <- if(is.null(bartk)){
-        "95-95"
-    } else if(!is.null(bartk)){
-        bartk
-    }
-    
-    bartbeta <- if(is.null(bartbeta)){
-        "2-2"
-    } else if(!is.null(bartbeta)){
-        bartbeta
-    }
-    
-    bartnu <- if(is.null(bartnu)){
-        "2-2"
-    } else if(!is.null(bartnu)){
-        bartnu
-    }
-    
-    svmc <- if(is.null(svmc)){
-        "2-2"
-    } else if(!is.null(svmc)){
-        svmc
-    }
-    
-    svmdegree <- if(is.null(svmdegree)){
-        "2-2"
-    } else if(!is.null(svmdegree)){
-        svmdegree
-    }
-    
-    svmscale <- if(is.null(svmscale)){
-        "2-2"
-    } else if(!is.null(svmscale)){
-        svmscale
-    }
-    
-    svmsigma <- if(is.null(svmsigma)){
-        "2-2"
-    } else if(!is.null(svmsigma)){
-        svmsigma
-    }
-    
-    svmlength <- if(is.null(svmlength)){
-        "2-2"
-    } else if(!is.null(svmlength)){
-        svmlength
-    }
-    
-    
-    
-    cal.table <- data.frame(
-                CalType=cal.type,
-                LineType=line.type,
-                Compress=compress,
-                Transformation=transformation,
-                EnergyRange=energy.range,
-                NormType=norm.type,
-                Min=norm.min,
-                Max=norm.max,
-                DepTrans=dependent.transformation,
-                ForestTry=foresttry,
-                ForestMetric=forestmetric,
-                ForestTC=foresttrain,
-                ForestNumber=forestnumber,
-                CVRepeats=cvrepeats,
-                ForestTrees=foresttrees,
-                NeuralHL=neuralhiddenlayers,
-                NeuralHU=neuralhiddenunits,
-                NeuralWD=neuralweightdecay,
-                NeuralMI=neuralmaxiterations,
-                TreeDepth=treedepth,
-                xgbType=xgbtype,
-                xgbAlpha=xgbalpha,
-                xgbGamma=xgbgamma,
-                xgbEta=xgbeta,
-                xgbLambda=xgblambda,
-                xgbSubSample=xgbsubsample,
-                xgbColSample=xgbcolsample,
-                xgbMinChild=xgbminchild,
-                bartK=bartk,
-                bartBeta=bartbeta,
-                bartNu=bartnu,
-                svmC=svmc,
-                svmDegree=svmdegree,
-                svmScale=svmscale,
-                svmSigma=svmsigma,
-                svmLength=svmlength,
-                stringsAsFactors=FALSE)
-                    
-        return(cal.table)
-}
-
-
-calConditionsList <- function(cal.type=NULL, line.type=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.minNULL, norm.max=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treedepth=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL){
-    
-    cal.table <- data.frame(
-                CalType=cal.type,
-                LineType=line.type,
-                Compress=compress,
-                Transformation=transformation,
-                EnergyRange=energy.range,
-                NormType=norm.type,
-                Min=norm.min,
-                Max=norm.max,
-                DepTrans=dependent.transformation,
-                ForestTry=foresttry,
-                ForestMetric=forestmetric,
-                ForestTC=foresttrain,
-                ForestNumber=forestnumber,
-                CVRepeats=cvrepeats,
-                ForestTrees=foresttrees,
-                NeuralHL=neuralhiddenlayers,
-                NeuralHU=neuralhiddenunits,
-                NeuralWD=neuralweightdecay,
-                NeuralMI=neuralmaxiterations,
-                TreeDepth=treedepth,
-                xgbType=xgbtype,
-                xgbAlpha=xgbalpha,
-                xgbGamma=xgbgamma,
-                xgbEta=xgbeta,
-                xgbLambda=xgblambda,
-                xgbSubSample=xgbsubsample,
-                xgbColSample=xgbcolsample,
-                xgbMinChild=xgbminchild,
-                bartK=bartk,
-                bartBeta=bartbeta,
-                bartNu=bartnu,
-                svmC=svmc,
-                svmDegree=svmdegree,
-                svmScale=svmscale,
-                svmSigma=svmsigma,
-                svmLength=svmlength,
-                stringsAsFactors=FALSE)
-                
-                cal.mode.list <- list(
-                    CalTable=cal.table,
-                    Slope=slopes,
-                    Intercept=intercept,
-                    StandardsUsed=use.standards)
-                    
-        return(cal.mode.list)
-}
-
-calConditionCompare <- function(cal.conditions.first, cal.conditions.second){
-    
-    cal.table.match <- identical(cal.conditions.first$CalTable, cal.conditions.second$CalTable)
-    use.standards.match <- identical(cal.conditions.first$StandardsUsed, cal.conditions.second$StandardsUsed)
-    all(cal.table.match, use.standards.match)
-}
-
-deleteCalConditions <- function(element, number.of.standards){
-    cal.condition <- as.numeric(3)
-    line.type=as.character("Narrow")
-    compress <- as.character("100 eV")
-    transformation <- as.character("None")
-    energy.range <- as.character("0.7-37")
-    norm.condition <- as.numeric(1)
-    norm.min <- as.numeric(11)
-    norm.max <- as.numeric(11.2)
-    dependent.transformation <- as.character("None")
-    
-    foresttry <- as.numeric(7)
-    forestmetric <- as.character("RMSE")
-    foresttrain <- as.character("repeatedcv")
-    forestnumber <- as.numeric(10)
-    cvrepeats <- as.numeric(1)
-    foresttrees <- as.numeric(100)
-    neuralhiddenlayers <- as.numeric(1)
-    neuralhiddenunits <- paste0(1, "-", 4)
-    neuralweightdecay <- paste0(0.1, "-", 0.5)
-    neuralmaxiterations <- as.numeric(1000)
-    xgbtype <- as.character("Tree")
-    treedepth <- as.character("5-5")
-    xgbalpha <- as.character("0.1-0.1")
-    xgbgamma <- as.character("0-0")
-    xgbeta <- as.character("0.1-0.1")
-    xgblambda <- as.character("0.1-0.1")
-    xgbsubsample <- as.character("0.6-0.6")
-    xgbcolsample <- as.character("0.6-0.6")
-    xgbminchild <- as.numeric(1)
-    bartk <- as.character("95-95")
-    bartbeta <- as.character("2-2")
-    bartnu <- as.character("2-2")
-    svmc <- as.character("2-2")
-    svmdegree <- as.character("2-2")
-    svmscale <- as.character("2-2")
-    svmsigma <- as.character("2-2")
-    svmlength <- as.character("2-2")
-
-    cal.table <- data.frame(
-    CalType=cal.condition,
-    LineType=line.type,
-    Compress=compress,
-    Transformation=transformation,
-    EnergyRange=energy.range,
-    NormType=norm.condition,
-    Min=norm.min,
-    Max=norm.max,
-    DepTrans=dependent.transformation,
-    ForestTry=foresttry,
-    ForestMetric=forestmetric,
-    ForestTC=foresttrain,
-    ForestNumber=forestnumber,
-    CVRepeats=cvrepeats,
-    ForestTrees=foresttrees,
-    NeuralHL=neuralhiddenlayers,
-    NeuralHU=neuralhiddenunits,
-    NeuralWD=neuralweightdecay,
-    NeuralMI=neuralmaxiterations,
-    TreeDepth=treedepth,
-    xgbType=xgbtype,
-    xgbAlpha=xgbalpha,
-    xgbGamma=xgbgamma,
-    xgbEta=xgbeta,
-    xgbLambda=xgblambda,
-    xgbSubSample=xgbsubsample,
-    xgbColSample=xgbcolsample,
-    xgbMinChild=xgbminchild,
-    bartK=bartk,
-    bartBeta=bartbeta,
-    bartNu=bartnu,
-    svmC=svmc,
-    svmDegree=svmdegree,
-    svmScale=svmscale,
-    svmSigma=svmsigma,
-    svmLength=svmlength,
-    Delete=TRUE,
-    stringsAsFactors=FALSE)
-    
-    slope.corrections <- element
-    
-    intercept.corrections <- NULL
-    
-    standards.used <- rep(TRUE, number.of.standards)
-    
-    #standards.used <- vals$keeprows
-    
-    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
-    return(cal.mode.list)
-}
-
-defaultCalConditions <- function(element, number.of.standards){
-    cal.condition <- as.numeric(3)
-    line.type=as.character("Narrow")
-    compress <- as.character("100 eV")
-    transformation <- as.character("None")
-    energy.range <- as.character("0.7-37")
-    norm.condition <- as.numeric(1)
-    norm.min <- as.numeric(11)
-    norm.max <- as.numeric(11.2)
-    dependent.transformation <- as.character("None")
-
-    foresttry <- as.numeric(7)
-    forestmetric <- as.character("RMSE")
-    foresttrain <- as.character("repeatedcv")
-    forestnumber <- as.numeric(10)
-    cvrepeats <- as.numeric(1)
-    foresttrees <- as.numeric(100)
-    neuralhiddenlayers <- as.numeric(1)
-    neuralhiddenunits <- paste0(1, "-", 4)
-    neuralweightdecay <- paste0(0.1, "-", 0.5)
-    neuralmaxiterations <- as.numeric(1000)
-    xgbtype <- as.character("Tree")
-    treedepth <- as.character("5-5")
-    xgbalpha <- as.character("0.1-0.1")
-    xgbgamma <- as.character("0-0")
-    xgbeta <- as.character("0.1-0.1")
-    xgblambda <- as.character("0.1-0.1")
-    xgbsubsample <- as.character("0.6-0.6")
-    xgbcolsample <- as.character("0.6-0.6")
-    xgbminchild <- as.numeric(1)
-    bartk <- as.character("95-95")
-    bartbeta <- as.character("2-2")
-    bartnu <- as.character("2-2")
-    svmc <- as.character("2-2")
-    svmdegree <- as.character("2-2")
-    svmscale <- as.character("2-2")
-    svmsigma <- as.character("2-2")
-    svmlength <- as.character("2-2")
-    
-    cal.table <- data.frame(
-        CalType=cal.condition,
-        LineType=line.type,
-        Compress=compress,
-        Transformation=transformation,
-        EnergyRange=energy.range,
-        NormType=norm.condition,
-        Min=norm.min,
-        Max=norm.max,
-        DepTrans=dependent.transformation,
-        ForestTry=foresttry,
-        ForestMetric=forestmetric,
-        ForestTC=foresttrain,
-        ForestNumber=forestnumber,
-        CVRepeats=cvrepeats,
-        ForestTrees=foresttrees,
-        NeuralHL=neuralhiddenlayers,
-        NeuralHU=neuralhiddenunits,
-        NeuralWD=neuralweightdecay,
-        NeuralMI=neuralmaxiterations,
-        TreeDepth=treedepth,
-        xgbType=xgbtype,
-        xgbAlpha=xgbalpha,
-        xgbGamma=xgbgamma,
-        xgbEta=xgbeta,
-        xgbLambda=xgblambda,
-        xgbSubSample=xgbsubsample,
-        xgbColSample=xgbcolsample,
-        xgbMinChild=xgbminchild,
-        bartK=bartk,
-        bartBeta=bartbeta,
-        bartNu=bartnu,
-        svmC=svmc,
-        svmDegree=svmdegree,
-        svmScale=svmscale,
-        svmSigma=svmsigma,
-        svmLength=svmlength,
-        stringsAsFactors=FALSE)
-    
-    slope.corrections <- element
-    
-    intercept.corrections <- NULL
-    
-    standards.used <- rep(TRUE, number.of.standards)
-    
-    #standards.used <- vals$keeprows
-    
-    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
-    return(cal.mode.list)
-}
-
-importCalConditionsDetail <- function(element, calList, number.of.standards=NULL){
-    
-    number.of.standards <- if(is.null(number.of.standards)){
-        length(calList[[element]][[1]]$StandardsUsed)
-    } else if(!is.null(number.of.standards)){
-        number.of.standards
-    }
-    
-    default.cal.conditions <- defaultCalConditions(element=element, number.of.standards=number.of.standards)
-    
-    imported.cal.conditions <- calList[[element]][[1]]
-    
-    cal.condition <- if("CalType" %in% colnames(imported.cal.conditions$CalTable)){
-         as.numeric(as.character(imported.cal.conditions$CalTable$CalType[1]))
-    } else if(!"CalType" %in% colnames(imported.cal.conditions$CalTable)){
-       default.cal.conditions$CalTable$CalType
-    }
-    
-    line.condition <- if("LineType" %in% colnames(imported.cal.conditions$CalTable)){
-         as.character(imported.cal.conditions$CalTable$LineType[1])
-    } else if(!"LineType" %in% colnames(imported.cal.conditions$CalTable)){
-       default.cal.conditions$CalTable$LineType
-    }
-    
-    compress.condition <- if("Compress" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$Compress[1])
-    } else if(!"Compress" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Compress
-    }
-    
-    transformation.condition <- if("Transformation" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$Transformation[1])
-    } else if(!"Transformation" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Transformation
-    }
-    
-    energyrange.condition <- if("EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$EnergyRange[1])
-    } else if(!"EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$EnergyRange
-    }
-    
-    
-    norm.condition <- if("NormType" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$NormType[1]))
-    } else if(!"NormType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NormType
-    }
-    
-    norm.min <- if("Min" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$Min[1]))
-    } else if(!"Min" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Min
-    }
-    
-    norm.max <- if("Max" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$Max[1]))
-    } else if(!"Max" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Max
-    }
-    
-    dependent.transformation <- if("DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$DepTrans[1])
-    } else if(!"DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$DepTrans
-    }
-    
-    foresttry <- if("ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$ForestTry[1]))
-    } else if(!"ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ForestTry
-    }
-    
-    forestmetric <- if("ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$ForestMetric[1])
-    } else if(!"ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ForestMetric
-    }
-    
-    foresttrain <- if("ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$ForestTC[1])
-    } else if(!"ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ForestTC
-    }
-    
-    forestnumber <- if("ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$ForestNumber[1]))
-    } else if(!"ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ForestNumber
-    }
-    
-    cvrepeats <- if("CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$CVRepeats[1]))
-    } else if(!"CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$CVRepeats
-    }
-    
-    foresttrees <- if("ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$ForestTrees[1]))
-    } else if(!"ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ForestTrees
-    }
-    
-    neuralhiddenlayers <- if("NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$NeuralHL[1]))
-    } else if(!"NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NeuralHL
-    }
-    
-    neuralhiddenunits <- if("NeuralHU" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==6 | cal.condition==7){
-             paste0(calList[[element]][[2]]$bestTune$size, "-", calList[[element]][[2]]$bestTune$size)
-        } else if(!cal.condition==6 | !cal.condition==7){
-            as.character(imported.cal.conditions$CalTable$NeuralHU[1])
-        }
-    } else if(!"NeuralHU" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NeuralHU
-    }
-    
-    neuralweightdecay <- if("NeuralWD" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==6 | cal.condition==7){
-            if(neuralhiddenlayers==1){
-                paste0(calList[[element]][[2]]$bestTune$decay, "-", calList[[element]][[2]]$bestTune$decay)
-            } else if(neuralhiddenlayers > 1){
-                as.character(imported.cal.conditions$CalTable$NeuralWD[1])
-            }
-        } else if(!cal.condition==6 | !cal.condition==7){
-            imported.cal.conditions$CalTable$NeuralWD
-        }
-    } else if(!"NeuralWD" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NeuralWD
-    }
-    
-    neuralmaxiterations <- if("NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$NeuralMI[1]))
-    } else if(!"NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NeuralMI
-    }
-    
-    xgbtype <- if("xgbType" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$xgbType[1])
-    } else if(!"xgbType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbType
-    }
-    
-    treedepth <- if("TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
-            paste0(calList[[element]][[2]]$bestTune$max_depth, "-", calList[[element]][[2]]$bestTune$max_depth)
-        } else if(!cal.condition==8 | !cal.condition==9 | xgbtype=="Linear"){
-            default.cal.conditions$CalTable$TreeDepth
-        }
-    } else if(!"TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$TreeDepth
-    }
-    
-    xgbalpha <- if("xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Linear"){
-            paste0(calList[[element]][[2]]$bestTune$alpha, "-", calList[[element]][[2]]$bestTune$alpha)
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbAlpha[1])
-        }
-    } else if(!"xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbAlpha
-    }
-    
-    xgbgamma <- if("xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
-            paste0(calList[[element]][[2]]$bestTune$gamma, "-", calList[[element]][[2]]$bestTune$gamma)
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbGamma[1])
-        }
-    } else if(!"xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbGamma
-    }
-    
-    xgbeta <- if("xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9){
-            paste0(calList[[element]][[2]]$bestTune$eta, "-", calList[[element]][[2]]$bestTune$eta)
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbEta[1])
-        }
-    } else if(!"xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbEta
-    }
-    
-    xgblambda <- if("xgbLambda" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Linear"){
-            paste0(calList[[element]][[2]]$bestTune$lambda, "-", calList[[element]][[2]]$bestTune$lambda)
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbLambda[1])
-        }
-    } else if(!"xgbLambda" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbLambda
-    }
-    
-    xgbsubsample <- if("xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
-            paste0(calList[[element]][[2]]$bestTune$subsample, "-", calList[[element]][[2]]$bestTune$subsample)
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
-        }
-    } else if(!"xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbSubSample
-    }
-    
-    xgbcolsample <- if("xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
-            paste0(calList[[element]][[2]]$bestTune$colsample_bytree, "-", calList[[element]][[2]]$bestTune$colsample_bytree)
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
-        }
-    } else if(!"xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbColSample
-    }
-    
-    xgbminchild <- if("xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
-           calList[[element]][[2]]$bestTune$min_child_weight
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.numeric(as.character(imported.cal.conditions$CalTable$xgbMinChild[1]))
-        }
-    } else if(!"xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbMinChild
-    }
-    
-    bartk <- if("bartK" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
-            paste0(pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)), "-", pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)))
-        } else if(!cal.condition==10 | !cal.condition==11){
-            as.character(imported.cal.conditions$CalTable$bartK[1])
-        }
-    } else if(!"bartK" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$bartK
-    }
-    
-    bartbeta <- if("bartBeta" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
-            paste0(calList[[element]][[2]]$bestTune$beta, "-", calList[[element]][[2]]$bestTune$beta)
-        } else if(!cal.condition==10 | !cal.condition==11){
-            as.character(imported.cal.conditions$CalTable$bartBeta[1])
-        }
-    } else if(!"bartBeta" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$bartBeta
-    }
-    
-    bartnu <- if("bartNu" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
-            paste0(calList[[element]][[2]]$bestTune$nu, "-", calList[[element]][[2]]$bestTune$nu)
-        } else if(!cal.condition==10 | !cal.condition==11){
-            as.character(imported.cal.conditions$CalTable$bartNu[1])
-        }
-    } else if(!"bartNu" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$bartNu
-    }
-    
-    svmc <- if("svmC" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==12 | cal.condition==13){
-            if("C" %in% names(calList[[element]][[2]]$bestTune)){
-                paste0(calList[[element]][[2]]$bestTune$C, "-", calList[[element]][[2]]$bestTune$C)
-            } else {
-                as.character(imported.cal.conditions$CalTable$svmC[1])
-            }
-        } else if(cal.condition==12 | cal.condition==13){
-            as.character(imported.cal.conditions$CalTable$svmC[1])
-        }
-    } else if(!"svmC" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$svmC
-    }
-    
-    svmdegree <- if("svmDegree" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==12 | cal.condition==13 && xgbtype=="Polynomial"){
-            if("degree" %in% names(calList[[element]][[2]]$bestTune)){
-                paste0(calList[[element]][[2]]$bestTune$degree, "-", calList[[element]][[2]]$bestTune$degree)
-            } else {
-                as.character(imported.cal.conditions$CalTable$svmDegree[1])
-            }
-        } else if(!cal.condition==12 | !cal.condition==13){
-            as.character(imported.cal.conditions$CalTable$svmDegree[1])
-        }
-    } else if(!"svmDegree" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$svmDegree
-    }
-    
-    svmscale <- if("svmScale" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==12 | cal.condition==13 && xgbtype=="Polynomial"){
-            if("scale" %in% names(calList[[element]][[2]]$bestTune)){
-                paste0(calList[[element]][[2]]$bestTune$scale, "-", calList[[element]][[2]]$bestTune$scale)
-            } else {
-                as.character(imported.cal.conditions$CalTable$svmScale[1])
-            }
-        } else if(!cal.condition==12 | !cal.condition==13){
-            as.character(imported.cal.conditions$CalTable$svmScale[1])
-        }
-    } else if(!"svmScale" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$svmScale
-    }
-    
-    svmsigma <- if("svmSigma" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==12 | cal.condition==13){
-            if(xgbtype=="Radial" | xgbtype=="Radial Cost" | xgbtype=="Radial Sigma"){
-                if("sigma" %in% names(calList[[element]][[2]]$bestTune)){
-                    paste0(calList[[element]][[2]]$bestTune$sigma, "-", calList[[element]][[2]]$bestTune$sigma)
-                } else {
-                    as.character(imported.cal.conditions$CalTable$svmSigma[1])
-                }
-            } else {
-                as.character(imported.cal.conditions$CalTable$svmSigma[1])
-            }
-        } else if(!cal.condition==12 | !cal.condition==13){
-            as.character(imported.cal.conditions$CalTable$svmSigma[1])
-        }
-    } else if(!"svmSigma" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$svmSigma
-    }
-    
-    svmlength <- if("svmLength" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==12 | cal.condition==13){
-            if(xgbtype=="Boundrange String"){
-                if("length" %in% names(calList[[element]][[2]]$bestTune)){
-                    paste0(calList[[element]][[2]]$bestTune$length, "-", calList[[element]][[2]]$bestTune$length)
-                } else {
-                    as.character(imported.cal.conditions$CalTable$svmLength[1])
-                }
-            } else {
-                as.character(imported.cal.conditions$CalTable$svmLength[1])
-            }
-        } else if(!cal.condition==12 | !cal.condition==13){
-            as.character(imported.cal.conditions$CalTable$svmLength[1])
-        }
-    } else if(!"svmLength" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$svmLength
-    }
-    
-    slope.corrections <- if("Slope" %in% names(imported.cal.conditions)){
-        if(is.null(imported.cal.conditions$Slope)){
-            default.cal.conditions$Slope
-        } else if(!is.null(imported.cal.conditions$Slope)){
-            as.character(imported.cal.conditions$Slope)
-        }
-    } else if(!"Slope" %in% names(imported.cal.conditions)){
-        default.cal.conditions$Slope
-    }
-    
-    intercept.corrections <- if("Intercept" %in% names(imported.cal.conditions)){
-        as.character(imported.cal.conditions$Intercept)
-    } else if(!"Intercept" %in% names(imported.cal.conditions)){
-        default.cal.conditions$Intercept
-    }
-    
-    standards.used <- if("StandardsUsed" %in% names(imported.cal.conditions)){
-        imported.cal.conditions$StandardsUsed
-    } else if(!"StandardsUsed" %in% names(imported.cal.conditions)){
-        default.cal.conditions$StandardsUsed
-    }
-    
-    cal.table <- data.frame(
-        CalType=cal.condition,
-        LineType=line.condition,
-        Compress=compress.condition,
-        Transformation=transformation.condition,
-        EnergyRange=energyrange.condition,
-        NormType=norm.condition,
-        Min=norm.min,
-        Max=norm.max,
-        DepTrans=dependent.transformation,
-        ForestTry=foresttry,
-        ForestMetric=forestmetric,
-        ForestTC=foresttrain,
-        ForestNumber=forestnumber,
-        CVRepeats=cvrepeats,
-        ForestTrees=foresttrees,
-        NeuralHL=neuralhiddenlayers,
-        NeuralHU=neuralhiddenunits,
-        NeuralWD=neuralweightdecay,
-        NeuralMI=neuralmaxiterations,
-        TreeDepth=treedepth,
-        xgbType=xgbtype,
-        xgbAlpha=xgbalpha,
-        xgbGamma=xgbgamma,
-        xgbEta=xgbeta,
-        xgbLambda=xgblambda,
-        xgbSubSample=xgbsubsample,
-        xgbColSample=xgbcolsample,
-        xgbMinChild=xgbminchild,
-        bartK=bartk,
-        bartBeta=bartbeta,
-        bartNu=bartnu,
-        svmC=svmc,
-        svmDegree=svmdegree,
-        svmScale=svmscale,
-        svmSigma=svmsigma,
-        svmLength=svmlength,
-        stringsAsFactors=FALSE)
-        
-        cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
-        return(cal.mode.list)
-}
-
-importCalConditions <- function(element, calList, number.of.standards=NULL, temp=FALSE){
-    
-    number.of.standards <- if(is.null(number.of.standards)){
-        length(calList[[element]][[1]]$StandardsUsed)
-    } else if(!is.null(number.of.standards)){
-        number.of.standards
-    }
-    
-    default.cal.conditions <- defaultCalConditions(element=element, number.of.standards=number.of.standards)
-    
-    imported.cal.conditions <- calList[[element]][[1]]
-    
-    cal.condition <- if("CalType" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$CalType[1]))
-    } else if(!"CalType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$CalType
-    }
-    
-    line.condition <- if("LineType" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$LineType[1])
-    } else if(!"LineType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$LineType
-    }
-    
-    compress.condition <- if("Compress" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$Compress[1])
-    } else if(!"Compress" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Compress
-    }
-    
-    transformation.condition <- if("Transformation" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$Transformation[1])
-    } else if(!"Transformation" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Transformation
-    }
-    
-    energyrange.condition <- if("EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$EnergyRange[1])
-    } else if(!"EnergyRange" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$EnergyRange
-    }
-    
-    
-    norm.condition <- if("NormType" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$NormType[1]))
-    } else if(!"NormType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NormType
-    }
-    
-    norm.min <- if("Min" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$Min[1]))
-    } else if(!"Min" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Min
-    }
-    
-    norm.max <- if("Max" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$Max[1]))
-    } else if(!"Max" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Max
-    }
-    
-    dependent.transformation <- if("DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$DepTrans[1])
-    } else if(!"DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$DepTrans
-    }
-    
-    foresttry <- if("ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$ForestTry[1]))
-    } else if(!"ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ForestTry
-    }
-    
-    forestmetric <- if("ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$ForestMetric[1])
-    } else if(!"ForestMetric" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ForestMetric
-    }
-    
-    foresttrain <- if("ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$ForestTC[1])
-    } else if(!"ForestTC" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ForestTC
-    }
-    
-    forestnumber <- if("ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$ForestNumber[1]))
-    } else if(!"ForestNumber" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ForestNumber
-    }
-    
-    cvrepeats <- if("CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$CVRepeats[1]))
-    } else if(!"CVRepeats" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$CVRepeats
-    }
-    
-    foresttrees <- if("ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$ForestTrees[1]))
-    } else if(!"ForestTrees" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ForestTrees
-    }
-    
-    neuralhiddenlayers <- if("NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$NeuralHL[1]))
-    } else if(!"NeuralHL" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NeuralHL
-    }
-    
-    neuralhiddenunits <- if("NeuralHU" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==6 | cal.condition==7){
-            as.character(imported.cal.conditions$CalTable$NeuralHU[1])
-        } else if(!cal.condition==6 | !cal.condition==7){
-            as.character(imported.cal.conditions$CalTable$NeuralHU[1])
-        }
-    } else if(!"NeuralHU" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NeuralHU
-    }
-    
-    neuralweightdecay <- if("NeuralWD" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==6 | cal.condition==7){
-            if(neuralhiddenlayers==1){
-                as.character(imported.cal.conditions$CalTable$NeuralWD[1])
-            } else if(neuralhiddenlayers > 1){
-                as.character(imported.cal.conditions$CalTable$NeuralWD[1])
-            }
-        } else if(!cal.condition==6 | !cal.condition==7){
-            imported.cal.conditions$CalTable$NeuralWD
-        }
-    } else if(!"NeuralWD" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NeuralWD
-    }
-    
-    neuralmaxiterations <- if("NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
-        as.numeric(as.character(imported.cal.conditions$CalTable$NeuralMI[1]))
-    } else if(!"NeuralMI" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NeuralMI
-    }
-    
-    xgbtype <- if("xgbType" %in% colnames(imported.cal.conditions$CalTable)){
-        as.character(imported.cal.conditions$CalTable$xgbType[1])
-    } else if(!"xgbType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbType
-    }
-    
-    treedepth <- if("TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
-            as.character(imported.cal.conditions$CalTable$TreeDepth[1])
-        } else if(!cal.condition==8 | !cal.condition==9 | xgbtype=="Linear"){
-            default.cal.conditions$CalTable$TreeDepth
-        }
-    } else if(!"TreeDepth" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$TreeDepth
-    }
-    
-    xgbalpha <- if("xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Linear"){
-            as.character(imported.cal.conditions$CalTable$xgbAlpha[1])
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbAlpha[1])
-        }
-    } else if(!"xgbAlpha" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbAlpha
-    }
-    
-    xgbgamma <- if("xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
-            as.character(imported.cal.conditions$CalTable$xgbGamma[1])
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbGamma[1])
-        }
-    } else if(!"xgbGamma" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbGamma
-    }
-    
-    xgbeta <- if("xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbEta[1])
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbEta[1])
-        }
-    } else if(!"xgbEta" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbEta
-    }
-    
-    xgblambda <- if("xgbLambda" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Linear"){
-            as.character(imported.cal.conditions$CalTable$xgbLambda[1])
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbLambda[1])
-        }
-    } else if(!"xgbLambda" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbLambda
-    }
-    
-    xgbsubsample <- if("xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
-            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
-        }
-    } else if(!"xgbSubSample" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbSubSample
-    }
-    
-    xgbcolsample <- if("xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
-            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.character(imported.cal.conditions$CalTable$xgbSubSample[1])
-        }
-    } else if(!"xgbColSample" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbColSample
-    }
-    
-    xgbminchild <- if("xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==8 | cal.condition==9 && xgbtype=="Tree"){
-            as.numeric(as.character(imported.cal.conditions$CalTable$xgbMinChild[1]))
-        } else if(!cal.condition==8 | !cal.condition==9){
-            as.numeric(as.character(imported.cal.conditions$CalTable$xgbMinChild[1]))
-        }
-    } else if(!"xgbMinChild" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$xgbMinChild
-    }
-    
-    bartk <- if("bartK" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
-            paste0(pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)), "-", pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)))
-        } else if(!cal.condition==10 | !cal.condition==11){
-            as.character(imported.cal.conditions$CalTable$bartK[1])
-        }
-    } else if(!"bartK" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$bartK
-    }
-    
-    bartbeta <- if("bartBeta" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
-            paste0(calList[[element]][[2]]$bestTune$beta, "-", calList[[element]][[2]]$bestTune$beta)
-        } else if(!cal.condition==10 | !cal.condition==11){
-            as.character(imported.cal.conditions$CalTable$bartBeta[1])
-        }
-    } else if(!"bartBeta" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$bartBeta
-    }
-    
-    bartnu <- if("bartNu" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
-            paste0(calList[[element]][[2]]$bestTune$nu, "-", calList[[element]][[2]]$bestTune$nu)
-        } else if(!cal.condition==10 | !cal.condition==11){
-            as.character(imported.cal.conditions$CalTable$bartNu[1])
-        }
-    } else if(!"bartNu" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$bartNu
-    }
-    
-    svmc <- if("svmC" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==12 | cal.condition==13){
-            if("C" %in% names(calList[[element]][[2]]$bestTune)){
-                paste0(calList[[element]][[2]]$bestTune$C, "-", calList[[element]][[2]]$bestTune$C)
-            } else {
-                as.character(imported.cal.conditions$CalTable$svmC[1])
-            }
-        } else if(!cal.condition==12 | !cal.condition==13){
-            as.character(imported.cal.conditions$CalTable$svmC[1])
-        }
-    } else if(!"svmC" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$svmC
-    }
-    
-    svmdegree <- if("svmDegree" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==12 | cal.condition==13 && xgbtype=="Polynomial"){
-            if("degree" %in% names(calList[[element]][[2]]$bestTune)){
-                paste0(calList[[element]][[2]]$bestTune$degree, "-", calList[[element]][[2]]$bestTune$degree)
-            } else {
-                as.character(imported.cal.conditions$CalTable$svmDegree[1])
-            }
-        } else if(!cal.condition==12 | !cal.condition==13){
-            as.character(imported.cal.conditions$CalTable$svmDegree[1])
-        }
-    } else if(!"svmDegree" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$svmDegree
-    }
-    
-    svmscale <- if("svmScale" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==12 | cal.condition==13 && xgbtype=="Polynomial"){
-            if("scale" %in% names(calList[[element]][[2]]$bestTune)){
-                paste0(calList[[element]][[2]]$bestTune$scale, "-", calList[[element]][[2]]$bestTune$scale)
-            } else {
-                as.character(imported.cal.conditions$CalTable$svmScale[1])
-            }
-        } else if(!cal.condition==12 | !cal.condition==13){
-            as.character(imported.cal.conditions$CalTable$svmScale[1])
-        }
-    } else if(!"svmScale" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$svmScale
-    }
-    
-    svmsigma <- if("svmSigma" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==12 | cal.condition==13){
-            if(xgbtype=="Radial" | xgbtype=="Radial Cost" | xgbtype=="Radial Sigma"){
-                if("sigma" %in% names(calList[[element]][[2]]$bestTune)){
-                    paste0(calList[[element]][[2]]$bestTune$sigma, "-", calList[[element]][[2]]$bestTune$sigma)
-                } else {
-                    as.character(imported.cal.conditions$CalTable$svmSigma[1])
-                }
-            } else {
-                as.character(imported.cal.conditions$CalTable$svmSigma[1])
-            }
-        } else if(!cal.condition==12 | !cal.condition==13){
-            as.character(imported.cal.conditions$CalTable$svmSigma[1])
-        }
-    } else if(!"svmSigma" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$svmSigma
-    }
-    
-    svmlength <- if("svmLength" %in% colnames(imported.cal.conditions$CalTable)){
-        if(cal.condition==12 | cal.condition==13){
-            if(xgbtype=="Boundrange String"){
-                if("length" %in% names(calList[[element]][[2]]$bestTune)){
-                    paste0(calList[[element]][[2]]$bestTune$length, "-", calList[[element]][[2]]$bestTune$length)
-                } else {
-                    as.character(imported.cal.conditions$CalTable$svmLength[1])
-                }
-            } else {
-                as.character(imported.cal.conditions$CalTable$svmLength[1])
-            }
-        } else if(!cal.condition==12 | !cal.condition==13){
-            as.character(imported.cal.conditions$CalTable$svmLength[1])
-        }
-    } else if(!"svmLength" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$svmLength
-    }
-    
-    slope.corrections <- if("Slope" %in% names(imported.cal.conditions)){
-        if(is.null(imported.cal.conditions$Slope)){
-            default.cal.conditions$Slope
-        } else if(!is.null(imported.cal.conditions$Slope)){
-            as.character(imported.cal.conditions$Slope)
-        }
-    } else if(!"Slope" %in% names(imported.cal.conditions)){
-        default.cal.conditions$Slope
-    }
-    
-    intercept.corrections <- if("Intercept" %in% names(imported.cal.conditions)){
-        as.character(imported.cal.conditions$Intercept)
-    } else if(!"Intercept" %in% names(imported.cal.conditions)){
-        default.cal.conditions$Intercept
-    }
-    
-    standards.used <- if("StandardsUsed" %in% names(imported.cal.conditions)){
-        imported.cal.conditions$StandardsUsed
-    } else if(!"StandardsUsed" %in% names(imported.cal.conditions)){
-        default.cal.conditions$StandardsUsed
-    }
-    
-    cal.table <- data.frame(
-    CalType=cal.condition,
-    LineType=line.condition,
-    Compress=compress.condition,
-    Transformation=transformation.condition,
-    EnergyRange=energyrange.condition,
-    NormType=norm.condition,
-    Min=norm.min,
-    Max=norm.max,
-    DepTrans=dependent.transformation,
-    ForestTry=foresttry,
-    ForestMetric=forestmetric,
-    ForestTC=foresttrain,
-    ForestNumber=forestnumber,
-    CVRepeats=cvrepeats,
-    ForestTrees=foresttrees,
-    NeuralHL=neuralhiddenlayers,
-    NeuralHU=neuralhiddenunits,
-    NeuralWD=neuralweightdecay,
-    NeuralMI=neuralmaxiterations,
-    TreeDepth=treedepth,
-    xgbType=xgbtype,
-    xgbAlpha=xgbalpha,
-    xgbGamma=xgbgamma,
-    xgbEta=xgbeta,
-    xgbLambda=xgblambda,
-    xgbSubSample=xgbsubsample,
-    xgbColSample=xgbcolsample,
-    xgbMinChild=xgbminchild,
-    bartK=bartk,
-    bartBeta=bartbeta,
-    bartNu=bartnu,
-    svmC=svmc,
-    svmDegree=svmdegree,
-    svmScale=svmscale,
-    svmSigma=svmsigma,
-    svmLength=svmlength,
-    stringsAsFactors=FALSE)
-    
-    if(temp==TRUE){
-        cal.table$Delete <- TRUE
-    }
-    
-    cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
-    return(cal.mode.list)
-}
 
 
 ###Spectra Manipulations
@@ -6374,15 +5684,47 @@ chooseTransformation <- function(spectra=NULL, cal){
 }
 chooseTransformation <- cmpfun(chooseTransformation)
 
-calBundle <- function(filetype, units, spectra, intensities, definitions, values, notes, calList, compress=FALSE){
+calBundle <- function(filetype, units, spectra, intensities, wide.intensities, definitions, values, notes, calList, compress=FALSE){
     
-    list(FileType=filetype, Units=units, Spectra=spectra, Intensities=intensities, Definitions=definitions, Values=values, Notes=notes, calList=calListCompress(calList))
+    list(FileType=filetype, Units=units, Spectra=spectra, Intensities=intensities, WideIntensities=wide.intensities, Definitions=definitions, Values=values, Notes=notes, calList=calListCompress(calList))
     
 }
 
 
-cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, count.list, rounding=4, multiplier=1){
+cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, rounding=4, multiplier=1, confidence=FALSE, cores=NULL){
+    
+    if(is.null(cores)){
+        cores = parallel::detectCores()-2
+    }
+    
+    if(is.null(deconvoluted_valdata)){
+        deconvoluted_data <-spectra_gls_deconvolute(valdata, cores=cores)
+        deconvoluted_valdata <- deconvoluted_data
+    }
 
+    
+    if(any(unlist(sapply(Calibration$calList, function(x) x[[1]][["CalTable"]][["Deconvolution"]]!="None")))){
+        if(is.null(deconvoluted_valdata)){
+
+            
+        }
+        }
+    
+    other_spectra_stuff <- totalCountsGen(valdata)
+    other_spectra_stuff <- merge(other_spectra_stuff, deconvoluted_valdata$Areas[,c("Spectrum", "Baseline")], all=T, sort=T)
+        
+    
+    if(is.null(count.list)){
+        count.list <- list(
+            Narrow=merge(narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
+            Wide=merge(wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T)
+            )
+        count.list$Area <- merge(deconvolutionIntensityFrame(deconvoluted_valdata$Areas, count.list$Narrow), other_spectra_stuff, by="Spectrum", all=T, sort=T)
+    }
+    
+
+    
+    
     #count.table <- data.frame(fullInputValCounts())
     the.cal <- Calibration[["calList"]]
     #elements.cal <- calValElements()
@@ -6454,76 +5796,91 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         
         for(x in elements){
             values <-
-            if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=general_prep_xrf(
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                             element.line=x),
-                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            confidence=confidence
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=simple_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
                 mclPred(
                     object=the.cal[[x]][[2]],
                         newdata=simple_comp_prep_xrf(
                             data=valdata,
                             spectra.line.table=as.data.frame(
-                                count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                                count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                                 ),
                             element.line=x,
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                             ),
-                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            confidence=confidence
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                  mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
                  )
-            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
@@ -6531,42 +5888,53 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None"  && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6574,9 +5942,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=spectra_simp_prep_xrf(
@@ -6586,9 +5958,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                         transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                         )[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
@@ -6597,9 +5973,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                         transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                         )[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
@@ -6609,42 +5987,54 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6652,9 +6042,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=spectra_simp_prep_xrf(spectra=valdata,
@@ -6663,9 +6057,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                     transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                     )[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
@@ -6674,9 +6072,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
@@ -6686,42 +6088,75 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf(
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
-                mclPred(
-                object=the.cal[[x]][[2]],
-                newdata=lucas_tc_prep_xrf(
-                    data=valdata,
-                    spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
-                ),
-                element.line=x,
-                slope.element.lines=variables,
-                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
-                )
-            } else if(val.data.type=="Spectra" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                if(confidence==FALSE){
+                    mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                    ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=FALSE
+                    )
+                } else if(confidence==TRUE){
+                    mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=xgb.DMatrix(as.matrix(lucas_tc_prep_xrf(
+                        data=valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)])]
+                    ),
+                    element.line=x,
+                    slope.element.lines=colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)]),
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ))),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                    )
+                }
+                
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_comp_prep_xrf(
                     data=valdata,
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6729,9 +6164,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                 norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                 ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_simp_prep_xrf(spectra=valdata,
@@ -6740,9 +6179,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
@@ -6751,9 +6194,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
@@ -6763,42 +6210,54 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=lucas_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                     newdata=lucas_comp_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
@@ -6806,9 +6265,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][[2]],
                     newdata=spectra_simp_prep_xrf(spectra=valdata,
@@ -6817,9 +6280,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                     transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                     )[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
@@ -6828,9 +6295,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
@@ -6840,42 +6311,52 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_simp_prep_xrf(
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_tc_prep_xrf(
                     data=valdata,
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=lucas_comp_prep_xrf(
                     data=valdata,
                     spectra.line.table=as.data.frame(
-                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,-1]
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
                 ),
                 element.line=x,
                 slope.element.lines=variables,
@@ -6883,9 +6364,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                 norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                 ),
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_simp_prep_xrf(spectra=valdata,
@@ -6894,9 +6379,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_tc_prep_xrf(spectra=valdata,
@@ -6905,9 +6394,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 compress=the.cal[[x]][[1]]$CalTable$Compress[1],
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
                 )[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
                 )
-            } else if(val.data.type=="Spectra" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="None" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
                 object=the.cal[[x]][[2]],
                 newdata=spectra_comp_prep_xrf(spectra=valdata,
@@ -6917,7 +6410,630 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
-                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=general_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            ),
+                            element.line=x),
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            confidence=confidence
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=simple_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            ),
+                        element.line=x
+                        ),
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                        newdata=simple_comp_prep_xrf(
+                            data=deconvoluted_valdata,
+                            spectra.line.table=as.data.frame(
+                            count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                                ),
+                            element.line=x,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                            ),
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            confidence=confidence
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                 mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
+                 )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                        ),
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                            ),
+                        element.line=x,
+                        slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                        intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                        norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                        norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                        ),
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares"  && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=spectra_simp_prep_xrf(
+                        spectra=deconvoluted_valdata,
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                        )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=deconvoluted_valdata,
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                        )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==5 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=deconvoluted_valdata,
+                        energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                        energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                        compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                        transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=spectra_simp_prep_xrf(spectra=deconvoluted_valdata,
+                    energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                    energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                    compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                    transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                    )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==7 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf(
+                    spectra.line.table=as.data.frame(
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                if(confidence==FALSE){
+                    mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                    ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=FALSE
+                    )
+                } else if(confidence==TRUE){
+                    mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=xgb.DMatrix(as.matrix(lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)])]
+                    ),
+                    element.line=x,
+                    slope.element.lines=colnames(the.cal[[x]][[2]][["trainingData"]][,c(-1, -2)]),
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ))),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                    )
+                }
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf(
+                    data=deconvoluted_valdata,
+                    spectra.line.table=as.data.frame(
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_simp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==9 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_simp_prep_xrf(
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=lucas_tc_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                    newdata=lucas_comp_prep_xrf(
+                        data=deconvoluted_valdata,
+                        spectra.line.table=as.data.frame(
+                        count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                        ),
+                    element.line=x,
+                    slope.element.lines=variables,
+                    intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                    ),
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                    object=the.cal[[x]][[2]],
+                    newdata=spectra_simp_prep_xrf(spectra=deconvoluted_valdata,
+                    energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                    energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                    compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                    transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                    )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==11 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_simp_prep_xrf(
+                    spectra.line.table=as.data.frame(
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_tc_prep_xrf(
+                    data=deconvoluted_valdata,
+                    spectra.line.table=as.data.frame(
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=lucas_comp_prep_xrf(
+                    data=deconvoluted_valdata,
+                    spectra.line.table=as.data.frame(
+                    count.list[[the.cal[[x]][[1]]$CalTable$LineType[1]]][,variables]
+                ),
+                element.line=x,
+                slope.element.lines=variables,
+                intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
+                norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
+                ),
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_simp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_tc_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1]
+                )[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
+                )
+            } else if(val.data.type=="Spectra" && the.cal[[x]][[1]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==13 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
+                mclPred(
+                object=the.cal[[x]][[2]],
+                newdata=spectra_comp_prep_xrf(spectra=deconvoluted_valdata,
+                energy.min=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[1],
+                energy.max=as.numeric(unlist(strsplit(as.character(the.cal[[x]][[1]]$CalTable$EnergyRange[1]), "-")))[2],
+                compress=the.cal[[x]][[1]]$CalTable$Compress[1],
+                transformation=the.cal[[x]][[1]]$CalTable$Transformation[1],
+                    norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                    norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
+                dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                confidence=confidence,
+                finalModel=TRUE
                 )
             } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6927,7 +7043,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             count.table
                             ),
                             element.line=x),
-                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==2) {
                 mclPred(
@@ -6939,7 +7056,10 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             ),
                             element.line=x
                             ),
-                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                            dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][[1]]$CalTable$NormType[1]==3) {
                 mclPred(
@@ -6953,7 +7073,10 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
                 mclPred(
@@ -6966,7 +7089,10 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
                 mclPred(
@@ -6980,7 +7106,10 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
                 mclPred(
@@ -6996,7 +7125,10 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence
                 )
         } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             mclPred(
@@ -7009,7 +7141,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             mclPred(
@@ -7023,7 +7159,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        confidence=confidence,
+                        finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             mclPred(
@@ -7039,7 +7177,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         }  else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             mclPred(
@@ -7052,7 +7194,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             mclPred(
@@ -7066,7 +7212,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence,
+                        finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==6 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             mclPred(
@@ -7082,7 +7232,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         }  else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             mclPred(
@@ -7095,7 +7249,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             mclPred(
@@ -7109,7 +7267,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence,
+                        finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==8 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             mclPred(
@@ -7125,7 +7287,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         }  else if(val.data.type=="Net" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             mclPred(
@@ -7138,7 +7304,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             mclPred(
@@ -7152,7 +7322,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence,
+                        finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==10 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             mclPred(
@@ -7168,7 +7342,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         }  else if(val.data.type=="Net" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==1){
             mclPred(
@@ -7181,7 +7359,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==2){
             mclPred(
@@ -7195,7 +7377,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         slope.element.lines=variables,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
-                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                        dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        confidence=confidence,
+                        finalModel=TRUE
             )
         } else if(val.data.type=="Net" && cal_type(x)==12 && the.cal[[x]][[1]]$CalTable$NormType[1]==3){
             mclPred(
@@ -7211,7 +7397,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
-                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans
+                    dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
+                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    confidence=confidence,
+                    finalModel=TRUE
             )
         }        #, error=function(e) NULL)
         if(!is.null(values)){
@@ -7244,13 +7434,16 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         
 }
 
-mclValGen <- function(model, data, predict.frame, dependent.transformation){
+
+mclValGen <- function(model, data, predict.frame, dependent.transformation, y_min=0, y_max=1){
     cal.est.conc.pred.luc <- if(dependent.transformation=="None"){
         predict(object=model, newdata=data)
     } else if(dependent.transformation=="Log"){
         exp(predict(object=model, newdata=data))
     } else if(dependent.transformation=="e"){
         log(predict(object=model, newdata=data))
+    } else if(dependent.transformation=="Scale"){
+        scaleDecode(values=predict(object=model, newdata=data), y_min=y_min, y_max=y_max)
     }
     
     concentration <- if(dependent.transformation=="None"){
@@ -7259,6 +7452,8 @@ mclValGen <- function(model, data, predict.frame, dependent.transformation){
         exp(predict.frame$Concentration)
     } else if(dependent.transformation=="e"){
         log(predict.frame$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleDecode(values=predict.frame$Concentration, y_min=y_min, y_max=y_max)
     }
     
     val.frame <- data.frame(Concentration=concentration, Intensity=as.vector(cal.est.conc.pred.luc), Prediction=as.vector(cal.est.conc.pred.luc))
@@ -7266,17 +7461,79 @@ mclValGen <- function(model, data, predict.frame, dependent.transformation){
     return(val.frame)
 }
 
-mclPred <- function(object, newdata, dependent.transformation){
-    if(dependent.transformation=="None"){
-        predict(object=object, newdata=newdata,
-        na.action=na.pass)
+xgbValGen <- function(model, data, predict.frame, dependent.transformation, y_min=0, y_max=1){
+    cal.est.conc.pred.luc <- if(dependent.transformation=="None"){
+        predict(object=model, newdata=xgb.DMatrix(as.matrix(data)))
     } else if(dependent.transformation=="Log"){
-        exp(predict(object=object, newdata=newdata,
-        na.action=na.pass))
+        exp(predict(object=model, newdata=xgb.DMatrix(as.matrix(data))))
     } else if(dependent.transformation=="e"){
-        log(predict(object=object, newdata=newdata,
-        na.action=na.pass))
+        log(predict(object=model, newdata=xgb.DMatrix(as.matrix(data))))
+    } else if(dependent.transformation=="Scale"){
+        scaleDecode(values=predict(object=model, newdata=xgb.DMatrix(as.matrix(data))), y_min=y_min, y_max=y_max)
     }
+    
+    concentration <- if(dependent.transformation=="None"){
+        predict.frame$Concentration
+    } else if(dependent.transformation=="Log"){
+        exp(predict.frame$Concentration)
+    } else if(dependent.transformation=="e"){
+        log(predict.frame$Concentration)
+    } else if(dependent.transformation=="Scale"){
+        scaleDecode(values=predict.frame$Concentration, y_min=y_min, y_max=y_max)
+    }
+    
+    val.frame <- data.frame(Concentration=concentration, Intensity=as.vector(cal.est.conc.pred.luc), Prediction=as.vector(cal.est.conc.pred.luc))
+    
+    return(val.frame)
+}
+
+mclPred <- function(object, newdata, dependent.transformation, ymin=0, ymax=1, confidence=TRUE, finalModel=TRUE, y_min=0, y_max=1){
+    if(confidence==FALSE){
+        if(dependent.transformation=="None"){
+            tryCatch(predict(object=object, newdata=newdata,
+            na.action=na.pass), error=function(e) NA)
+        } else if(dependent.transformation=="Log"){
+            tryCatch(exp(predict(object=object, newdata=newdata,
+            na.action=na.pass)), error=function(e) NA)
+        } else if(dependent.transformation=="e"){
+            tryCatch(log(predict(object=object, newdata=newdata,
+            na.action=na.pass)), error=function(e) NA)
+        } else if(dependent.transformation=="Scale"){
+            tryCatch(scaleDecode(predict(object=object, newdata=newdata,
+            na.action=na.pass), y_min=y_min, y_max=y_max), error=function(e) NA)
+        }
+    } else if(confidence==TRUE){
+        if(finalModel==TRUE){
+            if(dependent.transformation=="None"){
+                tryCatch(predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence"), error=function(e) NA)
+            } else if(dependent.transformation=="Log"){
+                tryCatch(exp(predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence")), error=function(e) NA)
+            } else if(dependent.transformation=="e"){
+                tryCatch(log(predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence")), error=function(e) NA)
+            } else if(dependent.transformation=="Scale"){
+                tryCatch(scaleDecode(predict(object=object$finalModel, newdata=newdata,
+                na.action=na.pass, interval="confidence"), y_min=y_min, y_max=y_max), error=function(e) NA)
+            }
+        } else if(finalModel==FALSE){
+            if(dependent.transformation=="None"){
+                tryCatch(predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence"), error=function(e) NA)
+            } else if(dependent.transformation=="Log"){
+                tryCatch(exp(predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence")), error=function(e) NA)
+            } else if(dependent.transformation=="e"){
+                tryCatch(log(predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence")), error=function(e) NA)
+            } else if(dependent.transformation=="Scale"){
+                tryCatch(scaleDecode(predict(object=object, newdata=newdata,
+                na.action=na.pass, interval="confidence"), y_min=y_min, y_max=y_max), error=function(e) NA)
+            }
+        }
+    }
+    
 }
 
 valFrameCheck <- function(val.frame){
@@ -7332,102 +7589,6 @@ predictFrameCheck <- function(predict.frame){
     return(new.frame)
 }
 
-
-calPre <- function(element.model.list, element, temp){
-    
-    temp.list <- list(element.model.list)
-    names(temp.list) <- element
-    
-    new.element.model.list <-
-    #tryCatch(
-        list(Parameters=importCalConditions(element=element,
-        calList=temp.list, temp=temp),
-        Model=element.model.list[[2]])
-        #, error=function(e) NULL)
-        
-        if(is.na(new.element.model.list$Parameters$CalTable$LineType[1])){
-            new.element.model.list$Parameters$CalTable$LineType[1] <- "Narrow"
-        }
-        
-        if("ValidationSet" %in% names(element.model.list)){
-            new.element.model.list$ValidationSet <- element.model.list$ValidationSet
-        }
-        
-        if("Backup" %in% names(element.model.list)){
-            new.element.model.list$Backup <- element.model.list$Backup
-        }
-        
-        if("Score" %in% names(element.model.list)){
-            new.element.model.list$Score <- element.model.list$Score
-        }
-        
-        if("SystemicAdjust" %in% names(element.model.list)){
-            new.element.model.list$SystemicAdjust <- element.model.list$SystemicAdjust
-        }
-        
-        if(nrow(new.element.model.list$Parameters$CalTable)>1){
-            new.element.model.list$Parameters$CalTable <- new.element.model.list$Parameters$CalTable[!duplicated(new.element.model.list$Parameters$CalTable), ]
-        }
-            
-    return(new.element.model.list)
-        
-}
-
-calRDS <- function(calibration.directory, null.strip=TRUE, temp=FALSE, extensions=FALSE){
-    Calibration <- readRDS(calibration.directory)
-    
-    tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
-    
-    Calibration$Notes <- if(!is.null(Calibration[["Notes"]])){
-        paste0(Calibration[["Notes"]], " Updated on ", Sys.time())
-    } else if(is.null(Calibration[["Notes"]])){
-        paste0("Updated on ", Sys.time())
-    }
-    
-    
-    if(extensions==TRUE){
-        extensions <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
-        Calibration[["Spectra"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Spectra"]]$Spectrum))
-        Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Values"]]$Spectrum))
-    }
-    
-
-    
-    Calibration$Values <- valFrameCheck(Calibration$Values)
-    Calibration$Intensities <- intensityFrameCheck(Calibration$Intensities)
-    Calibration$Spectra <- spectraCheck(Calibration$Spectra)
-    #Calibration$LinePreference <- if(is.null(Calibration$LinePreference)){
-    #    "Narrow"
-    #} else if(!is.null(Calibration$LinePreference)){
-    #    Calibration$LinePreference
-    #}
-    
-    if(null.strip==TRUE){
-        null.list <- sapply(Calibration$calList, function(x) is.null(x[[2]]))
-        tryCatch(for(i in names(Calibration$calList)){
-            if(null.list[i]==TRUE){
-                Calibration$calList[[i]] <- NULL
-            }
-        }, error=function(e) NULL)
-
-    }
-    
-    calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp), error=function(e) NULL))
-    names(calpre) <- order_elements(names(Calibration[["calList"]]))
-    
-    Calibration$calList <- calpre
-    
-    if(is.null(Calibration$Definitions)){
-        Calibration$Definitions <- data.frame(
-        Name=as.vector(as.character(rep("", 75))),
-        EnergyMin=as.numeric(rep("", 75)),
-        EnergyMax=as.numeric(rep("", 75)),
-        stringsAsFactors = FALSE
-        )
-    }
-    
-    return(Calibration)
-}
 
 calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALSE){
     Calibration <- calibration
@@ -7496,7 +7657,20 @@ calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALS
         return(Calibration)
 }
 
-modelPackPre <- function(parameters, model, compress=TRUE){
+modelPackPre <- function(parameters, model, table, compress=TRUE){
+    
+    if(parameters$CalTable$CalType==8 | parameters$CalTable$CalType==9){
+        model.raw <-
+        tryCatch(
+            xgb.save.raw(
+                tryCatch(
+                    xgb.Booster.complete(model$finalModel)
+                    , error=function(e) model$finalModel))
+                , error=function(e) NULL)
+    } else {
+        model.raw <- NULL
+    }
+    
     model <- if(compress==TRUE){
         if(parameters$CalTable$CalType==1){
             strip(model, keep=c("predict", "summary"))
@@ -7529,18 +7703,29 @@ modelPackPre <- function(parameters, model, compress=TRUE){
         model
     }
     
-    return(list(Parameters=parameters, Model=model))
+    result.list <- if(parameters$CalTable$CalType!=8 | parameters$CalTable$CalType!=9){
+        list(Parameters=parameters, Model=model, rawModel=model.raw, Table=table)
+    } else if(parameters$CalTable$CalType==8 | parameters$CalTable$CalType==9){
+        list(Parameters=parameters, Model=model, rawModel=model.raw, Table=table)
+    }
+    
+    if(is.null(result.list$rawModel)){
+        result.list$rawModel <- NULL
+    }
+    
+    return(result.list)
+    
 }
 
-modelPack <- function(parameters, model, compress=TRUE){
-    modelPackPre(parameters=parameters, model=model, compress=compress)
+modelPack <- function(parameters, model, table, compress=TRUE){
+    modelPackPre(parameters=parameters, model=model, table=table, compress=compress)
 }
 
 calListCompress <- function(calList){
     calListNames <- names(calList)[as.vector(sapply(calList, function(x) !"Delete" %in% colnames(x[[1]]$CalTable)))]
     newcalList <- list()
     for(i in calListNames){
-        newcalList[[i]] <- modelPack(parameters=calList[[i]][[1]], model=calList[[i]][[2]], compress=TRUE)
+        newcalList[[i]] <- modelPack(parameters=calList[[i]][[1]], model=calList[[i]][[2]], table=calList[[i]][["Table"]], compress=TRUE)
     }
         return(newcalList)
 }
@@ -7634,3 +7819,696 @@ valCurve <- function(element, unit="%", loglinear="Linear", val.frame, rangesval
     
     return(valcurve.plot)
 }
+
+is_lm <- function(element_model){
+    if(element_model$Parameters$CalTable$CalType <= 3){
+        TRUE
+    } else {
+        FALSE
+    }
+}
+
+r2_gather <- function(calibration, lm.list, element){
+    if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[element]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[element]]==3){
+        tryCatch(summary(lm.list[[element]])$r.squared, error=function(e) NULL)
+    } else {
+        tryCatch(calibration[["calList"]][[element]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "Rsquared"]), ]$Rsquared, error=function(e) tryCatch(summary(lm.list[[element]])$r.squared, error=function(e) NULL), error=function(e) NULL)
+    }
+}
+
+mse_calc <- function(res){
+    RSS <- c(crossprod(res$residuals))
+    MSE <- RSS / length(res$residuals)
+    return(MSE)
+}
+
+rmse_calc <- function(res){
+    MSE <- mse_calc(res)
+    RMSE <- sqrt(MSE)
+    return(RMSE)
+}
+
+rmse_gather <- function(calibration, lm.list, element){
+    if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
+        tryCatch(rmse_calc(lm.list[[element]]), error=function(e) NULL)
+    } else {
+        if("result" %in% names(calibration[["calList"]][[element]][["Model"]])){
+            tryCatch(calibration[["calList"]][[element]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "RMSE"]), ]$RMSE, error=function(e) tryCatch(rmse_calc(lm.list[[element]]), error=function(e) NULL), error=function(e) NULL)
+        } else if(!"result" %in% names(calibration[["calList"]][[element]][["Model"]])){
+            tryCatch(rmse_calc(lm.list[[element]]), error=function(e) NULL)
+        }
+    }
+}
+
+rmspe_gather <- function(calibration, element){
+    tryCatch(MLmetrics::RMSPE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL)
+}
+
+mae_gather <- function(calibration, lm.list, element){
+        if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
+            tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL)
+    } else {
+        tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "MAE"]), ]$MAE, error=function(e) tryCatch(MLmetrics::MAE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL), error=function(e) NULL)
+    }
+}
+
+mape_gather <- function(calibration, lm.list, element){
+       if(calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==1 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==2 | calibration[["calList"]][[element]][["Parameters"]][["CalTable"]][["CalType"]][[1]]==3){
+            tryCatch(MLmetrics::MAPE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL)
+    } else {
+        tryCatch(calibration[["calList"]][[i]][["Model"]]$results[which.min(calibration[["calList"]][[element]][["Model"]]$results[, "MAE"]), ]$MAPE, error=function(e) tryCatch(MLmetrics::MAPE(y_pred = predictions[complete.cases(calibration[["Values"]][element]),element], y_true = calibration[["Values"]][complete.cases(calibration[["Values"]][,element]),element]), error=function(e) NULL), error=function(e) NULL)
+    }
+}
+
+lmSEapprox <- function(calibration, use_predictions=TRUE, predictions=NULL, parallel=FALSE, cores=2){
+    elements <- names(calibration$calList)
+    
+    if(use_predictions==TRUE){
+        
+        lm_check <- sapply(calibration$calList, is_lm)
+        lm_model_names <- names(lm_check[lm_check==TRUE])
+        
+        #if(parallel==FALSE){
+        if(is.null(predictions)){
+            predictions <-  cloudCalPredict(Calibration=calibration, elements.cal=names(calibration$calList), variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE)
+        }
+        #} else if(parallel==TRUE){
+            #prediction_list <- pblapply(lm_model_names, function(x) cloudCalPredict(Calibration=calibration, elements.cal=x, variables=names(calibration$Intensities)[!names(calibration$Intensities) %in% "Spectrum"], valdata=calibration$Spectra, rounding=10, multiplier=1, confidence=FALSE), cl=as.numeric(my.cores))
+            #predictions <- Reduce(function(...) merge(..., by="Spectrum", all=F), prediction_list)
+        #}
+            
+        if(parallel==FALSE){
+            lm.list <- list()
+            for(i in names(calibration$calList)){
+                lm.list[[i]] <- lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i])
+            }
+        } else if(parallel==TRUE){
+            lm.list <- pblapply(names(calibration$calList), function(i) lm(calibration[["Values"]][complete.cases(calibration[["Values"]][i]),i]~predictions[complete.cases(calibration[["Values"]][i]),i]), cl=as.numeric(cores))
+            names(lm.list) <- names(calibration$calList)
+        }
+    }
+    
+       if(parallel==FALSE){
+           rmse.list <- list()
+           for(i in elements){
+               rmse.list[[i]] <- rmse_gather(calibration=calibration, lm.list=lm.list, element=i)
+           }
+       } else if(parallel==TRUE){
+           rmse.list <- pblapply(elements, function(i) rmse_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(cores))
+           names(rmse.list) <- elements
+       }
+       
+       if(parallel==FALSE){
+           rmspe.list <- list()
+           for(i in elements){
+               rmspe.list[[i]] <- rmspe_gather(calibration=calibration, element=i)
+           }
+       } else if(parallel==TRUE){
+           rmspe.list <- pblapply(elements, function(i) rmspe_gather(calibration=calibration, element=i), cl=as.numeric(cores))
+           names(rmspe.list) <- elements
+       }
+       
+       if(parallel==FALSE){
+           mae.list <- list()
+           for(i in elements){
+               mae.list[[i]] <- mae_gather(calibration=calibration, lm.list=lm.list, element=i)
+           }
+       } else if(parallel==TRUE){
+           mae.list <- pblapply(elements, function(i) mae_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(cores))
+           names(mae.list) <- elements
+       }
+       
+       if(parallel==FALSE){
+           mape.list <- list()
+           for(i in elements){
+               mape.list[[i]] <- mape_gather(calibration=calibration, lm.list=lm.list, element=i)
+           }
+       } else if(parallel==TRUE){
+           mape.list <- pblapply(elements, function(i) mape_gather(calibration=calibration, lm.list=lm.list, element=i), cl=as.numeric(cores))
+           names(mape.list) <- elements
+       }
+          
+       if(use_predictions==TRUE){
+           return(list(Models=lm.list, Predictions=predictions, RMSE=rmse.list, RMSPE=rmspe.list, MAE=mae.list, MAPE=mape.list))
+        } else if(use_predictions==FALSE){
+            return(list(RMSE=rmse.list, RMSPE=rmspe.list, MAE=mae.list, MAPE=mape.list))
+        }
+}
+
+fanoFactor <- function(data, energy.min=0.7, energy.max=0.9){
+    data_window <- data[data$Energy > energy.min & data$Energy < energy.max,]
+    data_window <- data.table::data.table(data_window)
+    data_sd <- data_window[, list(CPS=sd(CPS, na.rm = TRUE)), by = list(Spectrum)]
+    colnames(data_sd) <- c("Spectrum", "SD")
+    data_mean <- data_window[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Spectrum)]
+    colnames(data_mean) <- c("Spectrum", "Mean")
+    
+    data_aggregate <- merge(data_mean, data_sd, by="Spectrum")
+    data_aggregate$Fano <- (data_aggregate$SD^2)/data_aggregate$Mean
+    
+    return(data_aggregate)
+}
+
+cloudCalPredictErrorEQM <- function(Calibration, predictions=NULL, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
+    
+    if(se==FALSE){
+        se_val <- 1
+    } else if(se==TRUE){
+        se_val <- 1.96
+    }
+    
+    energy.min <- if(is.null(energy.min)){
+        0.7
+    } else if(!is.null(energy.min)){
+        energy.min
+    }
+    
+    energy.max <- if(is.null(energy.max)){
+        0.9
+    } else if(!is.null(energy.max)){
+        energy.max
+    }
+    
+    error_list <- lmSEapprox(calibration=Calibration, use_predictions=TRUE, parallel=FALSE)
+    
+    if(is.null(predictions)){
+        predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, deconvoluted_valdata=deconvoluted_valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
+    }
+    data_fano <- fanoFactor(data=valdata, energy.min=energy.min, energy.max=energy.max)
+    
+    ####possibly 1.96*rmse
+    prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=error_list$RMSE[[x]]))
+    names(prediction_list) <- names(Calibration$calList)
+    prediction_list_short <- list()
+    for(i in names(prediction_list)){
+        colnames(prediction_list[[i]]) <- c("Spectrum", i, paste0(i, " Error"))
+        prediction_list[[i]][,paste0(i, " Error")] <- round((prediction_list[[i]][,paste0(i, " Error")]*data_fano$Fano) + (prediction_list[[i]][,paste0(i, " Error")]), rounding)*se_val
+        prediction_list_short[[i]] <- prediction_list[[i]][,-1]
+    }
+    
+    results <- Reduce(function(...) merge(..., by="Spectrum", all=F), prediction_list)
+    #results <- prediction_list %>% reduce(left_join, by="Spectrum")
+    #results <- join_all(prediction_list, by="Spectrum")
+    #results <- prediction_list %>% reduce(inner_join, by="Spectrum")
+    #results <- prediction_list %>% bind_cols
+    #results <- data.frame(Spectrum=prediction_list[[1]]$Spectrum, as.data.frame(prediction_list_short))
+    return(results)
+}
+
+y_hat_value <- function(prediction){
+    sqrt(abs(prediction)*(1-abs(prediction)))
+}
+
+y_hat <- function(prediction.string){
+    as.numeric(sapply(prediction.string, y_hat_value))
+}
+
+cloudCalPredictErrorYHat <- function(Calibration, predictions=NULL, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, rounding=4, multiplier=1, energy.min=NULL, energy.max=NULL, se=FALSE){
+    
+    if(se==FALSE){
+        se_val <- 1
+    } else if(se==TRUE){
+        se_val <- 1.96
+    }
+    
+    energy.min <- if(is.null(energy.min)){
+        0.7
+    } else if(!is.null(energy.min)){
+        energy.min
+    }
+    
+    energy.max <- if(is.null(energy.max)){
+        0.9
+    } else if(!is.null(energy.max)){
+        energy.max
+    }
+    
+    error_list <- lmSEapprox(calibration=Calibration, use_predictions=TRUE, parallel=FALSE)
+    
+    if(is.null(predictions)){
+        predictions <- cloudCalPredict(Calibration=Calibration, elements.cal=elements.cal, elements=elements, variables=variables, valdata=valdata, deconvoluted_valdata=deconvoluted_valdata, count.list=count.list, rounding=rounding, multiplier=multiplier)
+    }
+    yhat_est <- list()
+    for(i in names(Calibration$calList)){
+        yhat_est[[i]] <- y_hat(predictions[,i])
+    }
+    
+    data_fano <- fanoFactor(data=valdata, energy.min=energy.min, energy.max=energy.max)
+    
+    ####possibly 1.96*rmse
+    prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=yhat_est[[x]]))
+    names(prediction_list) <- names(Calibration$calList)
+    prediction_list_short <- list()
+    for(i in names(prediction_list)){
+        colnames(prediction_list[[i]]) <- c("Spectrum", i, paste0(i, " Error"))
+        prediction_list[[i]][,paste0(i, " Error")] <- round(sqrt((prediction_list[[i]][,paste0(i, " Error")])^2*data_fano$Fano + (prediction_list[[i]][,paste0(i, " Error")])^2), rounding)*se_val
+        prediction_list_short[[i]] <- prediction_list[[i]][,-1]
+    }
+    
+    results <- Reduce(function(...) merge(..., by="Spectrum", all=F), prediction_list)
+    #results <- prediction_list %>% reduce(left_join, by="Spectrum")
+    #results <- join_all(prediction_list, by="Spectrum")
+    #results <- prediction_list %>% reduce(inner_join, by="Spectrum")
+    #results <- prediction_list %>% bind_cols
+    #results <- data.frame(Spectrum=prediction_list[[1]]$Spectrum, as.data.frame(prediction_list_short))
+    return(results)
+}
+
+#error_estimation <- function(element_model_list){
+    #model <- element_model_list$Model
+    #cal.type <- element_model_list$CalTable$CalType[1]
+    
+    #if(cal.type==1){
+        
+    #}
+    
+#}
+
+
+###From https://stackoverflow.com/questions/58015605/getting-confidence-intervals-on-prediction-from-carettrain
+
+caretTrainNewdata <- function(object, newdata, na.action = na.omit){
+    if (!is.null(object$modelInfo$library))
+        for (i in object$modelInfo$library) do.call("requireNamespaceQuietStop",
+                                                    list(package = i))
+    if (!is.null(newdata)) {
+        if (inherits(object, "train.formula")) {
+            newdata <- as.data.frame(newdata)
+            rn <- row.names(newdata)
+            Terms <- delete.response(object$terms)
+            m <- model.frame(Terms, newdata, na.action = na.action,
+                             xlev = object$xlevels)
+            if (!is.null(cl <- attr(Terms, "dataClasses")))
+                .checkMFClasses(cl, m)
+            keep <- match(row.names(m), rn)
+            newdata <- model.matrix(Terms, m, contrasts = object$contrasts)
+            xint <- match("(Intercept)", colnames(newdata),
+                          nomatch = 0)
+            if (xint > 0)
+                newdata <- newdata[, -xint, drop = FALSE]
+        }
+    }
+    else if (object$control$method != "oob") {
+        if (!is.null(object$trainingData)) {
+            if (object$method == "pam") {
+                newdata <- object$finalModel$xData
+            }
+            else {
+                newdata <- object$trainingData
+                newdata$.outcome <- NULL
+                if ("train.formula" %in% class(object) &&
+                    any(unlist(lapply(newdata, is.factor)))) {
+                    newdata <- model.matrix(~., data = newdata)[,
+                                                                -1]
+                    newdata <- as.data.frame(newdata)
+                }
+            }
+        }
+        else stop("please specify data via newdata")
+    } else
+        stop("please specify data data via newdata")
+    if ("xNames" %in% names(object$finalModel) & is.null(object$preProcess$method$pca) &
+        is.null(object$preProcess$method$ica))
+        newdata <- newdata[, colnames(newdata) %in% object$finalModel$xNames,
+                           drop = FALSE]
+    if(!is.null(object$preProcess))
+       newdata <- predict(preProc, newdata)
+    if(!is.data.frame(newdata) &&
+      !is.null(object$modelInfo$predict) &&
+      any(grepl("as.data.frame", as.character(body(object$modelInfo$predict)))))
+           newdata <- as.data.frame(newdata)
+    newdata
+}
+
+background_error <- function(data, element.line, values=NULL, background, slope=NULL, intercept=NULL, norm.type=1, norm.min=9, norm.max=9.2, compress="100 eV", conversion=1){
+    
+    data <- just_spectra_summary_apply(spectra.frame=data, normalization=norm.type, min=norm.min, max=norm.max, compress=compress)
+
+    
+    element_symbol <- strsplit(x=element.line, split="\\.")[[1]][1]
+    destination <- strsplit(x=element.line, split="\\.")[[1]][2]
+    distance <- strsplit(x=element.line, split="\\.")[[1]][3]
+    
+    elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element_symbol)
+    
+    
+    if(destination=="K" && distance=="alpha"){
+        element_line_boundary <- c(elementLine[6][1,]-0.02, elementLine[5][1,]+0.02)
+    } else if(destination=="K" && distance=="beta"){
+        element_line_boundary <- c(elementLine[7][1,]-0.02, elementLine[8][1,]+0.02)
+    } else if(destination=="L" && distance=="alpha"){
+        element_line_boundary <- c(elementLine[11][1,]-0.02, elementLine[10][1,]+0.02)
+    } else if (destination=="L" && distance=="beta"){
+        element_line_boundary <- c(elementLine[12][1,]-0.02, elementLine[14][1,]+0.02)
+    } else if (destination=="M" && distance=="line"){
+        element_line_boundary <- c(elementLine[20][1,]-0.02, elementLine[22][1,]+0.02)
+    }
+    
+    increment <- if(compress=="100 eV"){
+        0.1
+    } else if(compress=="50 eV"){
+        0.05
+    } else if(compress=="25 eV"){
+        0.025
+    }
+    
+    background_width <- length(seq(background[1], background[2], increment))
+    element_width <- length(seq(element_line_boundary[1], element_line_boundary[2], increment))
+    
+    
+    range.table <- data.frame(Name="Background", EnergyMin=background[1], EnergyMax=background[2])
+    
+    element_results <- elementGrab(element.line=element.line, data=data, range.table=range.table)
+    colnames(element_results) <- make.names(colnames(element_results))
+    element_results[,element.line] <- element_results[,element.line]
+    
+    background_results <- elementGrab(element.line="Background", data=data, range.table=range.table)
+    background_results$Background <- background_results$Background*(element_width/background_width)
+    
+    #window_adjust <- (element_line_boundary[2]-element_line_boundary[1])/(background[2]-background[1])
+    #background_results$Background <- background_results$Background*window_adjust
+    
+    merged_table <- merge(values[,c("Spectrum", element.line)], element_results, by="Spectrum")
+    colnames(merged_table) <- c("Spectrum", "Concentration", "Intensity")
+    
+    slope_used <- if(!is.null(slope)){
+        slope
+    } else if(is.null(slope)){
+        lm(Concentration~Intensity, data=merged_table)$coef[2]
+    }
+    
+    intercept_used <- if(!is.null(intercept)){
+        intercept
+    } else if(is.null(intercept)){
+        lm(Concentration~Intensity, data=merged_table)$coef[1]
+    }
+    
+    
+    lld <- (((2*sqrt(2)))/slope_used) * sqrt(mean(background_results$Background))
+    
+    ild <- (4.65/slope_used) * sqrt(mean(background_results$Background))
+    
+    mvr <- slope_used*(mean(background_results$Background)+sd(background_results$Background)*3) + intercept_used
+    
+    results_table <- data.frame(LLD=lld*conversion, ILD=ild*conversion, MVR=mvr*conversion)
+    return(results_table)
+}
+
+ldm_calc <- function(prediction.vector, as_percent=FALSE){
+    
+    prediction.vector <- na.omit(prediction.vector)
+    
+    c_bar <- mean(prediction.vector)
+    
+    if(as_percent==FALSE){
+        2 * sqrt((sum((prediction.vector-c_bar)^2))/(length(prediction.vector)-1))
+    } else if(as_percent==TRUE){
+        (2 * sqrt((sum((prediction.vector-c_bar)^2))/(length(prediction.vector)-1)))/c_bar
+    }
+    
+}
+
+ldm_sequence <- function(predictions, conversion=1, as_percent=FALSE){
+    
+    predictions$Sample <- sapply(predictions$Spectrum, function(x) strsplit(x, "_")[[1]][1])
+    predictions$Sample <- sapply(predictions$Sample, function(x) strsplit(x, "-")[[1]][1])
+    
+    predictions_list <- list()
+    for(i in unique(predictions$Sample)){
+        predictions_list[[i]] <- predictions[predictions$Sample %in% i,]
+        if(nrow(predictions_list[[i]]) <=1){
+            predictions_list[[i]] <- NULL
+        }
+    }
+    
+    elements <- colnames(predictions)[!colnames(predictions) %in% c("Sample", "Spectrum", "X")]
+    
+    ldm_list <- list()
+    for(i in names(predictions_list)){
+        ldm_temp_list <- list()
+        predictions_frame_temp <- predictions_list[[i]]
+        for(x in elements){
+            ldm_temp_list[[x]] <- if(as_percent==FALSE){
+                ldm_calc(predictions_frame_temp[,x])*conversion
+            } else if(as_percent==TRUE){
+                ldm_calc(predictions_frame_temp[,x], as_percent=TRUE)
+            }
+        }
+        ldm_list[[i]] <- data.frame(Sample=i, ldm_temp_list)
+    }
+    
+    results <- as.data.frame(rbindlist(ldm_list), use_names=TRUE, fill=TRUE)
+    
+    return(results)
+}
+
+sd_sequence <- function(predictions, conversion=1){
+    
+    predictions$Sample <- sapply(predictions$Spectrum, function(x) strsplit(x, "_")[[1]][1])
+    predictions$Sample <- sapply(predictions$Sample, function(x) strsplit(x, "-")[[1]][1])
+    
+    predictions_list <- list()
+    for(i in unique(predictions$Sample)){
+        predictions_list[[i]] <- predictions[predictions$Sample %in% i,]
+        if(nrow(predictions_list[[i]]) <=1){
+            predictions_list[[i]] <- NULL
+        }
+    }
+    
+    elements <- colnames(predictions)[!colnames(predictions) %in% c("Sample", "Spectrum", "X")]
+    
+    ldm_list <- list()
+    for(i in names(predictions_list)){
+        ldm_temp_list <- list()
+        predictions_frame_temp <- predictions_list[[i]]
+        for(x in elements){
+            ldm_temp_list[[x]] <- sd(predictions_frame_temp[,x])*conversion
+        }
+        ldm_list[[i]] <- data.frame(Sample=i, ldm_temp_list)
+    }
+    
+    results <- as.data.frame(rbindlist(ldm_list), use_names=TRUE, fill=TRUE)
+    
+    return(results)
+}
+
+tibble_convert <- function(spectra_frame){
+
+    new_frame <- data.frame(energy_kev=spectra_frame$Energy, counts=spectra_frame$CPS, background=0, fit=0, cps=spectra_frame$CPS, baseline=0, smooth=0)
+    new_tibble <- tibble::as_tibble(new_frame)
+    new_tibble_list <- list(.path=unique(spectra_frame$Spectrum), .position <- 1, .spectra=list(new_tibble))
+    return(new_tibble_list)
+}
+
+spectra_frame_deconvolution_convert <- function(a_tibble){
+    
+    spectra_frame <- data.frame(Spectrum=a_tibble$.path, Energy=a_tibble$.deconvolution_response[[1]]$energy_kev, CPS=a_tibble$.deconvolution_response[[1]]$response_fit)
+    return(spectra_frame)
+}
+
+spectra_frame_baseline_convert <- function(a_tibble){
+    
+    spectra_frame <- data.frame(Spectrum=a_tibble$.path, Energy=a_tibble$.spectra[[1]]$energy_kev, CPS=a_tibble$.spectra[[1]]$baseline)
+    return(spectra_frame)
+}
+
+intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
+    
+    deconvolution_frame <- as.data.frame(deconvolution_tibble)
+    deconvolution_frame$order <- atomic_order_vector(deconvolution_frame$element)
+    deconvolution_frame <- deconvolution_frame[order(deconvolution_frame$order),]
+    #elements <- deconvolution_frame$element
+    #elements[1:51] <- paste0(elements[1:51], ".K.alpha")
+    #elements[52:length(elements)] <- paste0(elements[52:length(elements)], ".L.alpha")
+    deconvolution_t_frame <- t(deconvolution_frame[,"peak_area"])
+    result_frame <- data.frame(Spectrum=name, deconvolution_t_frame)
+    colnames(result_frame) <- c("Spectrum", deconvolution_frame$element)
+    return(result_frame)
+}
+
+deconvolute_complete <- function(spectra_frame, energy_max=NULL){
+    if(is.null(energy_max)){
+        energy_max <- max(spectra_frame$Energy)
+    }
+    if(is.data.frame(spectra_frame)){
+        spectrum_name <- unique(spectra_frame$Spectrum)
+        spectra_tibble <- tibble_convert(spectra_frame)
+        deconvoluted_spectra_tibble <-spectra_tibble %>%
+            xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = 5), .iter = 20) %>%
+            xrf_add_baseline_snip(.values = .spectra$smooth, iterations = 20) %>%
+            xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = energy_max, peaks = xrf_energies("everything", beam_energy_kev=energy_max))
+        baseline_spectra <- spectra_frame_baseline_convert(deconvoluted_spectra_tibble)
+        deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
+        deconvoluted_peaks <- intensity_frame_deconvolution_convert(deconvoluted_spectra_tibble$.deconvolution_peaks[[1]], name=spectrum_name)
+        return(list(Spectra=deconvoluted_spectra, Areas=deconvoluted_peaks, Baseline=baseline_spectra))
+    } else if(!is.data.frame(spectra_frame)){
+        NULL
+    }
+    
+}
+
+spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, cores=1){
+    spectra_frame$Spectrum <- as.character(spectra_frame$Spectrum)
+    spectra_frame$Energy <- as.numeric(spectra_frame$Energy)
+    spectra_frame$CPS <- as.numeric(spectra_frame$CPS)
+    spectra_frame <- spectra_frame[complete.cases(spectra_frame),]
+
+    spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
+    if(cores==1){
+        new_spectra_list <- pblapply(spectra_list, deconvolute_complete)
+    } else if(cores > 1){
+        num_cores <- if(length(spectra_list) > cores){
+            cores
+        } else if(length(spectra_list) <= cores){
+            length(spectra_list)
+        }
+        if(get_os()=="windows"){
+            my.cluster <- parallel::makeCluster(
+            num_cores,
+              type = "PSOCK"
+              )
+            doParallel::registerDoParallel(cl = my.cluster)
+            
+            ## Pull libraries
+            clusterEvalQ(cl= my.cluster, {library(tidyverse)
+              library(xrftools)
+            })
+            
+            ## Export all necessary functions to the instances
+            clusterExport(my.cluster, 
+                          list("as_tibble"
+                               , "tibble_convert"
+                               , "spectra_frame_deconvolution_convert"
+                               , "deconvolute_complete"
+                               , "xrf_add_deconvolution_gls"
+                               , "spectra_frame_baseline_convert"
+                               , "intensity_frame_deconvolution_convert"
+                               , "atomic_order_vector"
+                               , "atomic_order"
+                               , 'fluorescence.lines'
+                               , "line_strip"
+                          )
+            )
+        } else if(get_os()!="windows"){
+            my.cluster <- as.numeric(num_cores)
+        }
+        #new_spectra_frame <- foreach(i=1:length(spectra_list), .combine="rbind") %dopar% {
+            #deconvolute_complete(spectra_list[[i]])
+        #}
+        new_spectra_list <- pblapply(spectra_list,  deconvolute_complete, cl=my.cluster)
+        if(get_os()=="windows"){parallel::stopCluster(cl = my.cluster)}
+    }
+    only_spectra_list <- list()
+    only_areas_list <- list()
+    only_background_list <- list()
+    for(i in 1:length(new_spectra_list)){
+        only_spectra_list[[i]] <- new_spectra_list[[i]]$Spectra
+        only_areas_list[[i]] <- new_spectra_list[[i]]$Areas
+        if(baseline==TRUE){only_background_list[[i]] <- new_spectra_list[[i]]$Baseline}
+    }
+    new_spectra_frame <- as.data.frame(rbindlist(only_spectra_list))
+    new_area_frame <- as.data.frame(rbindlist(only_areas_list))
+    if(baseline==TRUE){
+        new_baseline_frame <- as.data.frame(rbindlist(only_background_list))
+        new_area_frame$Baseline <- aggregate(CPS ~ Spectrum, data = new_baseline_frame[,c("Spectrum", "CPS")], FUN = sum)$CPS
+    }
+    if(baseline==FALSE){
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame))
+    } else if(baseline==TRUE){
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Baseline=new_baseline_frame))
+    }
+    
+}
+
+deconvolutionIntensityFrame <- function(deconvolution_areas, intensity_frame){
+    
+    k_alpha <- deconvolution_areas
+    colnames(k_alpha) <- paste0(colnames(k_alpha), ".K.alpha")
+    colnames(k_alpha)[1] <- gsub(".K.alpha", "", colnames(k_alpha)[1])
+    k_beta <- deconvolution_areas
+    colnames(k_beta) <- paste0(colnames(k_beta), ".K.beta")
+    colnames(k_beta)[1] <- gsub(".K.beta", "", colnames(k_beta)[1])
+    l_alpha <- deconvolution_areas
+    colnames(l_alpha) <- paste0(colnames(l_alpha), ".L.alpha")
+    colnames(l_alpha)[1] <- gsub(".L.alpha", "", colnames(l_alpha)[1])
+    l_beta <- deconvolution_areas
+    colnames(l_beta) <- paste0(colnames(l_beta), ".L.beta")
+    colnames(l_beta)[1] <- gsub(".L.beta", "", colnames(l_beta)[1])
+    m_lines <- deconvolution_areas
+    colnames(m_lines) <- paste0(colnames(m_lines), ".M.line")
+    colnames(m_lines)[1] <- gsub(".M.line", "", colnames(m_lines)[1])
+    
+    all_intensities <- Reduce(function(...) merge(..., all=T, by="Spectrum"), list(k_alpha, k_beta, l_alpha, l_beta, m_lines))
+    elements <- colnames(intensity_frame)[!colnames(intensity_frame) %in% "Spectrum"]
+    not.elements <- elements[!elements %in% spectralLines]
+    elements <- elements[elements %in% spectralLines]
+    
+    reduced_intensities <- all_intensities[,c("Spectrum", elements)]
+    
+    intensity_frame_reduced <- intensity_frame[, !colnames(intensity_frame) %in% elements]
+    if(is.data.frame(intensity_frame_reduced)==FALSE){
+        intensity_frame_reduced = data.frame(Spectrum = intensity_frame_reduced)
+    }
+    
+    deconvoluted_intensities <- merge(reduced_intensities, intensity_frame_reduced, by="Spectrum")
+    
+    return(deconvoluted_intensities)
+}
+
+totalCountsGen <- function(spectra_frame){
+    spectra_summary <- aggregate(CPS ~ Spectrum, data = spectra_frame[,c("Spectrum", "CPS")], FUN = sum)
+    colnames(spectra_summary) <- c("Spectrum", "Total")
+    return(spectra_summary)
+}
+
+roundNumericColumns <- function(df, digits=1, multiplier=1) {
+  # Apply the round function to each column of the dataframe
+  df[] <- lapply(df, function(x) {
+    if (is.numeric(x)) {
+      return(round(x*multiplier, digits = digits))
+    } else {
+      return(x)
+    }
+  })
+  
+  # Return the modified dataframe
+  return(df)
+}
+
+simpleValPlot <- function(cal_table, unit="%", element, scale="Linear"){
+    
+    if(unit!="%"){
+        cal_table$Prediction <- cal_table$Prediction*10000
+        cal_table$Concentration <- cal_table$Concentration*10000
+    }
+    
+   plot <-  if(scale=="Linear"){
+       ggplot(cal_table, aes(Prediction, Concentration)) +
+        geom_point() +
+        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction,  cal_table)), x=-Inf, y=Inf, hjust=0, vjust=1, parse=TRUE) +
+        scale_x_continuous(paste0("XRF Estimate (", unit, ")"),  labels=scales::comma) +
+        scale_y_continuous(paste0("Given Value (", unit, ")"),  labels=scales::comma) +
+        geom_abline(aes(intercept=0, slope=1), lty=2) +
+        stat_smooth(method="lm") +
+        #geom_label_repel(aes(label = Standard), size = 3) +
+        #facet_wrap(.~Set) +
+        ggtitle(element) +
+        theme_light()
+   } else if(scale=="Log"){
+       ggplot(cal_table, aes(Prediction, Concentration)) +
+        geom_point() +
+        annotate("text", label=lm_eqn_val(lm(Concentration~Prediction,  cal_table)), x=-Inf, y=Inf, hjust=0, vjust=1, parse=TRUE) +
+        scale_x_log10(paste0("XRF Estimate (", unit, ")"),  labels=scales::comma) +
+        scale_y_log10(paste0("Given Value (", unit, ")"),  labels=scales::comma) +
+        geom_abline(aes(intercept=0, slope=1), lty=2) +
+        stat_smooth(method="lm") +
+        #geom_label_repel(aes(label = Standard), size = 3) +
+        #facet_wrap(.~Set) +
+        ggtitle(element) +
+        theme_light()
+   }
+    
+    return(plot)
+}
+
+
