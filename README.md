@@ -62,12 +62,12 @@ CloudCal is an open-source Shiny application for building and applying quantitat
 
 | Manufacturer | Instruments/Software | Notes |
 |--------------|---------------------|-------|
-| **Bruker** | Tracer series (IISD, IVSD, IIV+, 5i), Artax | PDZ v24 and v25 supported |
-| **Evident/Olympus** | Vanta series | Multi-beam support via aggregate CSV and JSON|
-| **Thermo Fisher** | Niton series | Aggregate CSV format |
-| **SciAps** | X-series | CSV export |
-| **XGLab** | Elio | Three formats: .spt, .spx, .mca |
-| **Cox Analytical** | Itrax Core Scanner | SPE format with DFL calibration |
+| **Bruker** | [Tracer series](https://www.bruker.com/en/products-and-solutions/elemental-analyzers/handheld-xrf-spectrometers/TRACER-5.html?source=bing&medium=cpc&campaign=GSN_%7C_North-America&content=02_-_GSN_%7C_Product_%7C_HMP_%7C_TRACER_5&s_kwcid=AL!14677!10!83425856060383!83426631305716&msclkid=86f5cc269aaf127e0936a54ea0627ea2&utm_source=bing&utm_medium=cpc&utm_campaign=GSN%20%7C%20North%20America%20%7C%20Products&utm_term=bruker%20tracer&utm_content=HMP%20%7C%20Product%20%7C%20TRACER%205) (IISD, IVSD, IIV+, 5i, 5g), Artax, Titan | PDZ v24 and v25 supported |
+| **Evident/Olympus** | [Vanta series](https://ims.evidentscientific.com/en/xrf-analyzers/handheld) | Multi-beam support via aggregate CSV and JSON|
+| **Thermo Fisher** | [Niton series](https://www.thermofisher.com/order/catalog/product/NITONXL5plus) | Aggregate CSV format |
+| **SciAps** | [X-series](https://www.sciaps.com/products/xrf/x-series) | CSV export |
+| **XGLab** | [Elio](https://www.bruker.com/en/products-and-solutions/elemental-analyzers/micro-xrf-spectrometers/elio.html?source=bing&medium=cpc&campaign=GSN_%7C_North-America&content=02_-_GSN_%7C_Product_%7C_Micro_XRF_%7C_Elio&s_kwcid=AL!14677!10!83632014544498!83632790257626&msclkid=345c7798e6c61dcb9f221ef0dde4d599&utm_source=bing&utm_medium=cpc&utm_campaign=GSN%20%7C%20North%20America%20%7C%20Products&utm_term=bruker%20elio&utm_content=XMA%20%7C%20Product%20%7C%20Micro%20XRF%20%7C%20Elio) | Three formats: .spt, .spx, .mca |
+| **Cox Analytical** | [Itrax Core Scanner](https://www.coxsys.se/itrax-core-scanner) | SPE format with DFL calibration |
 | **Generic** | Any XRF with CSV/JSON export | Standard column format |
 
 ---
