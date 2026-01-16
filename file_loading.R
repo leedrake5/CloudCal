@@ -4155,14 +4155,38 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     }
     
     if(length(Calibration$calList) > 0){
-        calpre <- list()
-        for(x in order_elements(names(Calibration[["calList"]]))){
-            calpre[[x]] <- calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, env.strip=env.strip, xgb_raw=xgb_raw, xgb_unserialize=xgb_unserialize)
+        element_names <- order_elements(names(Calibration[["calList"]]))
+        n_elements <- length(element_names)
+        n_cores <- as.numeric(my.cores)
+
+        # Check if outer-level parallelism is beneficial:
+        # - Need non-Windows (mclapply uses forking)
+        # - Need multiple elements to process
+        # - User must have requested parallel processing
+        use_parallel <- allowParallel && get_os() != "windows" && n_elements >= 2 && n_cores >= 2
+
+        if (use_parallel) {
+            outer_cores <- min(n_elements, n_cores)
+            cal_list <- Calibration[["calList"]]
+
+            calpre_list <- parallel::mclapply(element_names, function(x) {
+                calPre(element = x, element.model.list = cal_list[[x]],
+                       temp = temp, env.strip = env.strip,
+                       xgb_raw = xgb_raw, xgb_unserialize = xgb_unserialize)
+            }, mc.cores = outer_cores)
+
+            names(calpre_list) <- element_names
+            calpre <- calpre_list
+        } else {
+            # Sequential processing (Windows or few elements)
+            calpre <- list()
+            for(x in element_names){
+                calpre[[x]] <- calPre(element = x, element.model.list = Calibration[["calList"]][[x]],
+                                      temp = temp, env.strip = env.strip,
+                                      xgb_raw = xgb_raw, xgb_unserialize = xgb_unserialize)
+            }
         }
-        
-        #calpre <- pblapply(order_elements(names(Calibration[["calList"]])), function(x) tryCatch(calPre(element=x, element.model.list=Calibration[["calList"]][[x]], temp=temp, xgb_raw=xgb_raw), error=function(e) NULL))
-        #names(calpre) <- order_elements(names(Calibration[["calList"]]))
-        
+
         Calibration$calList <- calpre
     }
     

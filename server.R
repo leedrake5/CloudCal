@@ -1,5 +1,5 @@
 
-options(shiny.maxRequestSize=30*1024^2)
+options(shiny.maxRequestSize=500*1024^2)  # 500 MB limit for large calibrations
 
 shinyServer(function(input, output, session) {
     
@@ -3357,6 +3357,20 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$radiocal, {
             calConditions$hold[["CalTable"]]$CalType <<- as.numeric(input$radiocal)
+
+            # For ML intensity models (Forest, Neural Intensities, XGBoost Intensities, SVM Intensities, Bayes Intensities),
+            # default to all slopes (opt-out) unless an existing model with saved slopes exists
+            if(isTRUE(input$radiocal %in% c(4, 6, 8, 10, 12)) && !is.null(input$calcurveelement)){
+                existing_slopes <- tryCatch(calSettings$calList[[input$calcurveelement]][[1]]$Slope, error = function(e) NULL)
+                # Only default to all slopes if no existing model or existing model has <= 1 slope
+                if(is.null(existing_slopes) || length(existing_slopes) <= 1){
+                    new_slopes <- tryCatch(outVaralt(), error = function(e) NULL)
+                    if(!is.null(new_slopes) && length(new_slopes) > 0){
+                        lucashold$slope <- new_slopes
+                        updateSelectInput(session, "slope_vars", selected = new_slopes)
+                    }
+                }
+            }
         })
         
         observeEvent(input$deconvolution, {
@@ -4540,11 +4554,13 @@ shinyServer(function(input, output, session) {
             list(data=predictFrameCheck(lucasToothModelData()), parameters=lucasToothParameters())
         })
         lucasToothModel <- reactive(label="lucasToothModel", {
-            
+
             set.seed(input$randomize)
-            
+
             predict.frame <- lucasToothModelSet()$data[lucasToothModelSet()$parameters$StandardsUsed,]
-            
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
+
             lc.model <- lm(Concentration~., data=predict.frame, na.action=na.omit)
             
             lc.model
@@ -4581,8 +4597,10 @@ shinyServer(function(input, output, session) {
         forestModel <- reactive(label="forestModel", {
             req(input$radiocal, input$calcurveelement)
             predict.frame <- forestModelSet()$data[forestModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- forestModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
             
             rf.grid <- expand.grid(.mtry=parameters$ForestTry)
@@ -4666,6 +4684,8 @@ shinyServer(function(input, output, session) {
         rainforestModel <- reactive(label="rainforestModel", {
             req(input$radiocal, input$calcurveelement)
             data <- rainforestModelSet()$data[rainforestModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- rainforestModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -4710,7 +4730,7 @@ shinyServer(function(input, output, session) {
             
             
             if(input$multicore_behavior=="Single Core"){
-                rf_model <- caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
+                rf_model <- caret::train(Concentration~.,data=data, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -4719,8 +4739,8 @@ shinyServer(function(input, output, session) {
                 }
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                
-                rf_model <- caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
+
+                rf_model <- caret::train(Concentration~.,data=data, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
 
                 stopCluster(cl)
             }
@@ -4746,10 +4766,12 @@ shinyServer(function(input, output, session) {
         })
         neuralNetworkIntensityShallow <- reactive(label="neuralNetworkIntensityShallow", {
             req(input$radiocal, input$calcurveelement)
-            
+
             set.seed(input$randomize)
-            
+
             predict.frame <- neuralNetworkIntensityShallowModelSet()$data[neuralNetworkIntensityShallowModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkIntensityShallowModelSet()$parameters$CalTable
             
             
@@ -4832,10 +4854,12 @@ shinyServer(function(input, output, session) {
         })
         neuralNetworkIntensityDeep <- reactive(label="neuralNetworkIntensityDeep", {
             req(input$radiocal, input$calcurveelement)
-            
+
             set.seed(input$randomize)
-            
+
             predict.frame <- neuralNetworkIntensityDeepModelSet()$data[neuralNetworkIntensityDeepModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkIntensityDeepModelSet()$parameters$CalTable
             
             
@@ -4950,10 +4974,12 @@ shinyServer(function(input, output, session) {
         })
         neuralNetworkSpectraShallow <- reactive(label="neuralNetworkSpectraShallow", {
             req(input$radiocal, input$calcurveelement)
-            
+
             set.seed(input$randomize)
-            
+
             data <- neuralNetworkSpectraShallowModelSet()$data[neuralNetworkSpectraShallowModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkSpectraShallowModelSet()$parameters$CalTable
             
             weightdecay.vec <- as.numeric(unlist(strsplit(as.character(parameters$NeuralWD), "-")))
@@ -5001,7 +5027,7 @@ shinyServer(function(input, output, session) {
             
             
             if(input$multicore_behavior=="Single Core"){
-                nn_model <- caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+                nn_model <- caret::train(Concentration~.,data=data, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -5011,7 +5037,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                nn_model <- caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+                nn_model <- caret::train(Concentration~.,data=data, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
                 stopCluster(cl)
             }
             nn_model
@@ -5036,8 +5062,10 @@ shinyServer(function(input, output, session) {
         })
         neuralNetworkSpectraDeep <- reactive(label="neuralNetworkSpectraDeep", {
             req(input$radiocal, input$calcurveelement)
-            
+
             data <- neuralNetworkSpectraDeepModelSet()$data[neuralNetworkSpectraDeepModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkSpectraDeepModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -5099,7 +5127,7 @@ shinyServer(function(input, output, session) {
             f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
             
             if(input$multicore_behavior=="Single Core"){
-                nn_model <- caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
+                nn_model <- caret::train(f,data=data, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -5108,8 +5136,8 @@ shinyServer(function(input, output, session) {
                 }
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                
-                nn_model <- caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE, allowParallel=TRUE)
+
+                nn_model <- caret::train(f,data=data, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE, allowParallel=TRUE)
                 stopCluster(cl)
             }
             nn_model
@@ -5160,8 +5188,10 @@ shinyServer(function(input, output, session) {
         })
         xgbtreeIntensityModel <- reactive(label="xgtreeIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            
+
             predict.frame <- xgbtreeIntensityModelSet()$data[xgbtreeIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgbtreeIntensityModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -5465,6 +5495,8 @@ shinyServer(function(input, output, session) {
             req(input$radiocal, input$calcurveelement)
             
             predict.frame <- xgbdartIntensityModelSet()$data[xgbdartIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgbdartIntensityModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -5780,6 +5812,8 @@ shinyServer(function(input, output, session) {
             req(input$radiocal, input$calcurveelement)
             
             predict.frame <- xgblinearIntensityModelSet()$data[xgblinearIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgblinearIntensityModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -5992,8 +6026,10 @@ shinyServer(function(input, output, session) {
         })
         xgbtreeSpectraModel <- reactive(label="xgbtreeSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            
+
             data <- xgbtreeSpectraModelSet()$data[xgbtreeSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgbtreeSpectraModelSet()$parameters$CalTable
 
             treemethod <- parameters$TreeMethod
@@ -6077,7 +6113,7 @@ shinyServer(function(input, output, session) {
                 
             if(input$bayesparameter=="GridSearch"){
                 if(input$multicore_behavior=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                     cl <- if(input$multicore_behavior=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6086,14 +6122,14 @@ shinyServer(function(input, output, session) {
                     }
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
-                    
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                 } else if(input$multicore_behavior=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             } else if(input$bayesparameter=="Bayesian"){
-                predict.frame <- data[,-1]
+                predict.frame <- data
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
                 } else if(parameters$ForestMetric=="MAE"){
@@ -6246,7 +6282,7 @@ shinyServer(function(input, output, session) {
 			}
                 
                 if(input$multicore_behavior=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                     cl <- if(input$multicore_behavior=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6255,16 +6291,16 @@ shinyServer(function(input, output, session) {
                     }
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
-                    
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                 } else if(input$multicore_behavior=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
-            
+
             xgb_model
-            
+
         })
 
         xgbdartSpectraParameters <- reactive(label="xgbdartSpectraParameters", {
@@ -6298,10 +6334,12 @@ shinyServer(function(input, output, session) {
         })
         xgbdartSpectraModel <- reactive(label="xgbdartSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            
+
             data <- xgbdartSpectraModelSet()$data[xgbdartSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgbdartSpectraModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
             
             treemethod=parameters$TreeMethod
@@ -6389,7 +6427,7 @@ shinyServer(function(input, output, session) {
                 
             if(input$bayesparameter=="GridSearch"){
                 if(input$multicore_behavior=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                     cl <- if(input$multicore_behavior=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6398,14 +6436,14 @@ shinyServer(function(input, output, session) {
                     }
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
-                    
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                 } else if(input$multicore_behavior=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             } else if(input$bayesparameter=="Bayesian"){
-                predict.frame <- data[,-1]
+                predict.frame <- data
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
                 } else if(parameters$ForestMetric=="MAE"){
@@ -6574,7 +6612,7 @@ shinyServer(function(input, output, session) {
 			} 
                 
                 if(input$multicore_behavior=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                     cl <- if(input$multicore_behavior=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6583,18 +6621,18 @@ shinyServer(function(input, output, session) {
                     }
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
-                    
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                 } else if(input$multicore_behavior=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
-            
+
             xgb_model
-            
+
         })
-        
+
 
         xgblinearSpectraParameters <- reactive(label="xgblinearSpectraParameters", {
             cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
@@ -6616,10 +6654,12 @@ shinyServer(function(input, output, session) {
         })
         xgblinearSpectraModel <- reactive(label="xgblinearSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            
+
             data <- xgblinearSpectraModelSet()$data[xgblinearSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgblinearSpectraModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
             
             xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
@@ -6675,7 +6715,7 @@ shinyServer(function(input, output, session) {
                 
             if(input$bayesparameter=="GridSearch"){
                 if(input$multicore_behavior=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                     cl <- if(input$multicore_behavior=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6684,14 +6724,14 @@ shinyServer(function(input, output, session) {
                     }
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
-                    
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                 } else if(input$multicore_behavior=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
                 }
             } else if(input$bayesparameter=="Bayesian"){
-                predict.frame <- data[,-1]
+                predict.frame <- data
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
                 } else if(parameters$ForestMetric=="MAE"){
@@ -6760,7 +6800,7 @@ shinyServer(function(input, output, session) {
                 )
                 
                 if(input$multicore_behavior=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
                 } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                     cl <- if(input$multicore_behavior=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6769,18 +6809,18 @@ shinyServer(function(input, output, session) {
                     }
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
-                    
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                 } else if(input$multicore_behavior=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
-            
+
             xgb_model
-            
+
         })
-        
+
         xgboostSpectraModelSet <- reactive(label="xgboostSpectraModelSet", {
             if(xgboosthold$xgbtype=="Tree"){
                 xgbtreeSpectraModelSet()
@@ -6825,6 +6865,8 @@ shinyServer(function(input, output, session) {
         bartMachineIntensityModel <- reactive(label="bartMachineIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             predict.frame <- bartMachineIntensityModelSet()$data[bartMachineIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineIntensityModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -6893,6 +6935,8 @@ shinyServer(function(input, output, session) {
         bayesLinearIntensityModel <- reactive(label="bayesLinearIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             predict.frame <- bayesLinearIntensityModelSet()$data[bayesLinearIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bayesLinearIntensityModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -6973,6 +7017,8 @@ shinyServer(function(input, output, session) {
         bayesNeuralNetIntensityModel <- reactive(label="bayesNeuralNetIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             predict.frame <- bartMachineIntensityModelSet()$data[bartMachineIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineIntensityModelSet()$parameters$CalTable
             
             
@@ -7091,8 +7137,10 @@ shinyServer(function(input, output, session) {
         bartMachineSpectraModel <- reactive(label="bartMachineSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             data <- bartMachineSpectraModelSet()$data[bartMachineSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineSpectraModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
             
             xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
@@ -7134,7 +7182,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            bart_model <- caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
+            bart_model <- caret::train(Concentration~.,data=data, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
             
             
             bart_model
@@ -7164,9 +7212,11 @@ shinyServer(function(input, output, session) {
         bayesLinearSpectraModel <- reactive(label="bayesLinearSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             data <- bayesLinearSpectraModelSet()$data[bayesLinearSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bayesLinearSpectraModelSet()$parameters$CalTable
-            
-            
+
+
             set.seed(input$randomize)
             
             bart.grid <- NULL
@@ -7211,7 +7261,7 @@ shinyServer(function(input, output, session) {
             
             
             if(input$multicore_behavior=="Single Core"){
-                bart_model <- caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
+                bart_model <- caret::train(Concentration~.,data=data, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -7220,14 +7270,14 @@ shinyServer(function(input, output, session) {
                 }
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                
-                bart_model <- caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid)
+
+                bart_model <- caret::train(Concentration~.,data=data, method="bayesglm", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid)
                 stopCluster(cl)
             }
             bart_model
-            
+
         })
-        
+
         bayesNeuralNetSpectraParameters <- reactive(label="bayesNeuralNetSpectraParameters", {
             hiddenunits <- neuralHiddenUnitsSelection()
             cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
@@ -7247,8 +7297,10 @@ shinyServer(function(input, output, session) {
         bayesNeuralNetSpectraModel <- reactive(label="bayesNeuralNetSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             data <- bayesNeuralNetSpectraModelSet()$data[bayesNeuralNetSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bayesNeuralNetSpectraModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
             
             hiddenunits.vec <- as.numeric(unlist(strsplit(as.character(parameters$NeuralHU), "-")))
@@ -7297,7 +7349,7 @@ shinyServer(function(input, output, session) {
             
             
             if(input$multicore_behavior=="Single Core"){
-                bart_model <- caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+                bart_model <- caret::train(Concentration~.,data=data, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -7306,14 +7358,14 @@ shinyServer(function(input, output, session) {
                 }
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                
-                bart_model <- caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+
+                bart_model <- caret::train(Concentration~.,data=data, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
                 stopCluster(cl)
             }
             bart_model
-            
+
         })
-        
+
         bayesSpectraModelSet <- reactive(label="bayesSpectraModelSet", {
             if(xgboosthold$xgbtype=="Tree"){
                 bartMachineSpectraModelSet()
@@ -7356,6 +7408,8 @@ shinyServer(function(input, output, session) {
         svmLinearIntensityModel <- reactive(label="svmLinearIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmLinearIntensityModelSet()$data[svmLinearIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmLinearIntensityModelSet()$parameters$CalTable
             
             
@@ -7445,6 +7499,8 @@ shinyServer(function(input, output, session) {
         svmPolyIntensityModel <- reactive(label="svmPolyIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmPolyIntensityModelSet()$data[svmPolyIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmPolyIntensityModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -7538,6 +7594,8 @@ shinyServer(function(input, output, session) {
         svmRadialIntensityModel <- reactive(label="svmRadialIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmRadialIntensityModelSet()$data[svmRadialIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmRadialIntensityModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -7641,6 +7699,8 @@ shinyServer(function(input, output, session) {
         svmBoundrangeIntensityModel <- reactive(label="svmBoundrangeIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmBoundrangeIntensityModelSet()$data[svmBoundrangeIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmBoundrangeIntensityModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -7729,6 +7789,8 @@ shinyServer(function(input, output, session) {
         svmExponentialIntensityModel <- reactive(label="svmExponentialIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmExponentialIntensityModelSet()$data[svmExponentialIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmExponentialIntensityModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -7817,6 +7879,8 @@ shinyServer(function(input, output, session) {
         svmSpectrumIntensityModel <- reactive(label="svmSpectrumIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmSpectrumIntensityModelSet()$data[svmSpectrumIntensityModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmSpectrumIntensityModelSet()$parameters$CalTable
             
             set.seed(input$randomize)
@@ -7939,8 +8003,10 @@ shinyServer(function(input, output, session) {
         svmLinearSpectraModel <- reactive(label="svmLinearSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             data <- svmLinearSpectraModelSet()$data[svmLinearSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmLinearSpectraModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
             
             svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
@@ -7990,7 +8056,7 @@ shinyServer(function(input, output, session) {
             
             
             if(input$multicore_behavior=="Single Core"){
-                svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~.,data=data, method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -7999,14 +8065,14 @@ shinyServer(function(input, output, session) {
                 }
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                
-                svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+
+                svm_model <- caret::train(Concentration~.,data=data, method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
             }
             svm_model
-            
+
         })
-        
+
         svmPolySpectraParameters <- reactive(label="svmPolySpectraParameters", {
             energyrange <- basicEnergyRange()
             C <- svmCSelection()
@@ -8028,8 +8094,10 @@ shinyServer(function(input, output, session) {
         svmPolySpectraModel <- reactive(label="svmPolyIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             data <- svmPolySpectraModelSet()$data[svmPolySpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmPolySpectraModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
             
             svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
@@ -8083,7 +8151,7 @@ shinyServer(function(input, output, session) {
             
             
             if(input$multicore_behavior=="Single Core"){
-                svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., data=data, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8092,14 +8160,14 @@ shinyServer(function(input, output, session) {
                 }
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                
-                svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+
+                svm_model <- caret::train(Concentration~., data=data, method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
             }
             svm_model
-            
+
         })
-        
+
         svmRadialSpectraParameters <- reactive(label="svmRadialSpectraParameters", {
             energyrange <- basicEnergyRange()
             C <- svmCSelection()
@@ -8120,8 +8188,10 @@ shinyServer(function(input, output, session) {
         svmRadialSpectraModel <- reactive(label="svmRadialSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             data <- svmRadialSpectraModelSet()$data[svmRadialSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmRadialSpectraModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
             
             svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
@@ -8185,7 +8255,7 @@ shinyServer(function(input, output, session) {
             
             
             if(input$multicore_behavior=="Single Core"){
-                svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~.,data=data, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
                 cl <- if(input$multicore_behavior=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8194,14 +8264,14 @@ shinyServer(function(input, output, session) {
                 }
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
-                
-                svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+
+                svm_model <- caret::train(Concentration~.,data=data, method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
             }
             svm_model
-            
+
         })
-        
+
         svmBoundrangeSpectraParameters <- reactive(label="svmBoundrangeSpectraParameters", {
             energyrange <- basicEnergyRange()
             C <- svmCSelection()
@@ -8222,18 +8292,20 @@ shinyServer(function(input, output, session) {
         svmBoundrangeSpectraModel <- reactive(label="svmBoundrangeSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             data <- svmBoundrangeSpectraModelSet()$data[svmBoundrangeSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmBoundrangeSpectraModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
-            
+
             svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
             svmlength.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmLength), "-")))
-            
+
             svm.grid <- expand.grid(
             C = seq(svmc.vec[1], svmc.vec[2], 1),
             length=seq(svmlength.vec[1], svmlength.vec[2], 1))
-            
-            
+
+
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
             } else if(parameters$ForestMetric=="MAE"){
@@ -8243,7 +8315,7 @@ shinyServer(function(input, output, session) {
             } else if(parameters$ForestMetric=="SMAPE"){
                 smapeSummary
             }
-            
+
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
@@ -8256,8 +8328,8 @@ shinyServer(function(input, output, session) {
                 repeats=parameters$CVRepeats,
                 verboseIter = TRUE)
             }
-            
-            x_train <- matrix(data[,-1], ncol=1)
+
+            x_train <- matrix(data[, !colnames(data) %in% "Concentration"], ncol=1)
             colnames(x_train) <- "data"
             y_train <- data$Concentration
             
@@ -8315,18 +8387,20 @@ shinyServer(function(input, output, session) {
         svmExponentialSpectraModel <- reactive(label="svmExponentialSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             data <- svmExponentialSpectraModelSet()$data[svmExponentialSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmExponentialSpectraModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
-            
+
             svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
             xgblambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbLambda), "-")))
-            
+
             svm.grid <- expand.grid(
             C = seq(svmc.vec[1], svmc.vec[2], 1),
             lambda=seq(xgblambda.vec[1], xgblambda.vec[2], 1))
-            
-            
+
+
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
             } else if(parameters$ForestMetric=="MAE"){
@@ -8336,7 +8410,7 @@ shinyServer(function(input, output, session) {
             } else if(parameters$ForestMetric=="SMAPE"){
                 smapeSummary
             }
-            
+
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
@@ -8349,8 +8423,8 @@ shinyServer(function(input, output, session) {
                 repeats=parameters$CVRepeats,
                 verboseIter = TRUE)
             }
-            
-            x_train <- matrix(data[,-1], ncol=1)
+
+            x_train <- matrix(data[, !colnames(data) %in% "Concentration"], ncol=1)
             colnames(x_train) <- "data"
             y_train <- data$Concentration
             
@@ -8409,18 +8483,20 @@ shinyServer(function(input, output, session) {
         svmSpectrumSpectraModel <- reactive(label="svmSpectrumSpectraModel", {
             req(input$radiocal, input$calcurveelement)
             data <- svmSpectrumSpectraModelSet()$data[svmSpectrumSpectraModelSet()$parameters$StandardsUsed,]
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmSpectrumSpectraModelSet()$parameters$CalTable
-            
+
             set.seed(input$randomize)
-            
+
             svmc.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmC), "-")))
             svmlength.vec <- as.numeric(unlist(strsplit(as.character(parameters$svmLength), "-")))
-            
+
             svm.grid <- expand.grid(
             C = seq(svmc.vec[1], svmc.vec[2], 1),
             length=seq(svmlength.vec[1], svmlength.vec[2], 1))
-            
-            
+
+
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
             } else if(parameters$ForestMetric=="MAE"){
@@ -8430,7 +8506,7 @@ shinyServer(function(input, output, session) {
             } else if(parameters$ForestMetric=="SMAPE"){
                 smapeSummary
             }
-            
+
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
@@ -8443,8 +8519,8 @@ shinyServer(function(input, output, session) {
                 repeats=parameters$CVRepeats,
                 verboseIter = TRUE)
             }
-            
-            x_train <- matrix(data[,-1], ncol=1)
+
+            x_train <- matrix(data[, !colnames(data) %in% "Concentration"], ncol=1)
             colnames(x_train) <- "data"
             y_train <- data$Concentration
             
@@ -9613,6 +9689,22 @@ shinyServer(function(input, output, session) {
           updateSelectInput(session, "linestructureelement", selected = lineStructureSelection())
           updateNumericInput(session, "comptonmin", value = normMinPre())
           updateNumericInput(session, "comptonmax", value = normMaxPre())
+
+          # For ML intensity models, default to all slopes for new elements unless existing model has saved slopes
+          if(isTRUE(input$radiocal %in% c(4, 6, 8, 10, 12))){
+              existing_slopes <- tryCatch(calSettings$calList[[input$calcurveelement]][[1]]$Slope, error = function(e) NULL)
+              if(is.null(existing_slopes) || length(existing_slopes) <= 1){
+                  new_slopes <- tryCatch(outVaralt(), error = function(e) NULL)
+                  if(!is.null(new_slopes) && length(new_slopes) > 0){
+                      lucashold$slope <- new_slopes
+                      updateSelectInput(session, "slope_vars", selected = new_slopes)
+                  }
+              } else {
+                  lucashold$slope <- existing_slopes
+                  updateSelectInput(session, "slope_vars", selected = existing_slopes)
+              }
+          }
+
           programmatic(FALSE)
         })
         
@@ -9670,12 +9762,18 @@ shinyServer(function(input, output, session) {
             lucashold$slope <- input$slope_vars
         })
         
-        observeEvent(input$addallslopes==TRUE, {
-            lucashold$slope <- outVaralt()
+        observeEvent(input$addallslopes, {
+            new_slopes <- outVaralt()
+            lucashold$slope <- new_slopes
+            # Update the UI since isolate() in renderUI prevents auto-update
+            updateSelectInput(session, "slope_vars", selected = new_slopes)
         })
-        
-        observeEvent(input$removeallslopes==TRUE, {
-            lucashold$slope <- input$calcurveelement
+
+        observeEvent(input$removeallslopes, {
+            new_slopes <- input$calcurveelement
+            lucashold$slope <- new_slopes
+            # Update the UI since isolate() in renderUI prevents auto-update
+            updateSelectInput(session, "slope_vars", selected = new_slopes)
         })
         
         observeEvent(input$intercept_vars, {
@@ -10265,8 +10363,10 @@ shinyServer(function(input, output, session) {
             val.frame <- tryCatch(mclValGen(model=elementModel(), data=predictIntensity(), predict.frame=predictFrame(), dependent.transformation=basichold$deptransformation, y_min=yMin(), y_max=yMax()), error=function(e) NULL)
             
             if(is.null(val.frame)){
-                data.frame(Concentration=predictFrame()$Concentration, Intensity=rep(0, length(predictFrame()$Concentration), Prediction=rep(0, length(predictFrame()$Concentration))), stringsAsFactors=FALSE)
-            } else if(!is.null(val.frame)){
+                # Include Spectrum for proper data linkage
+                pf <- predictFrame()
+                data.frame(Spectrum=pf$Spectrum, Concentration=pf$Concentration, Intensity=rep(0, nrow(pf)), Prediction=rep(0, nrow(pf)), stringsAsFactors=FALSE)
+            } else {
                 val.frame
             }
             
@@ -10930,29 +11030,21 @@ shinyServer(function(input, output, session) {
         
         calValTable <- reactive(label="calValTable",{
             req(valFrame(), holdFrame())
-            standard.table <- valFrame()
             hold.frame <- holdFrame()
-            
-            empty.table.summary <- data.frame(Standard=hold.frame$Spectrum, Concentration=0, Prediction=0, Difference=0, Relative=0)
-            
-            
+
+            empty.table.summary <- data.frame(Spectrum=hold.frame$Spectrum, Concentration=0, Prediction=0, Difference=0, Relative=0)
+
+            # point.table now includes Spectrum from valFrame() -> mclValGen()
             point.table <- calValFrame()
-            
 
-            concentration.table <- holdFrame()
-            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            hold.table$Concentration[hold.table$Concentration==""] <- NA
-            hold.table <- hold.table[complete.cases(hold.table), ]
-            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
-            hold.table <- na.omit(hold.table)
+            # Since point.table already has Spectrum, no merge needed - just compute differences
+            standard.table <- point.table[complete.cases(point.table$Concentration), ]
+            tryCatch(standard.table$Difference <- as.numeric(standard.table$Concentration - standard.table$Prediction), error=function(e) NULL)
+            tryCatch(standard.table$Relative <- (standard.table$Concentration - standard.table$Prediction) / standard.table$Concentration, error=function(e) NULL)
 
-            standard.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
-             tryCatch(standard.table$Difference <- as.numeric(as.character(standard.table$Concentration-standard.table$Prediction)), error=function(e) NULL)
-             tryCatch(standard.table$Relative <- ((standard.table$Concentration-standard.table$Prediction)/standard.table$Concentration), error=function(e) NULL)
-          
             this.table <- tryCatch(standard.table[c("Spectrum", "Concentration", "Prediction", "Difference", "Relative")], error=function(e) tryCatch(standard.table[c("Spectrum", "Concentration", "Prediction")], error=function(e) empty.table.summary))
             this.table
-            
+
         })
         
         
@@ -14485,18 +14577,9 @@ shinyServer(function(input, output, session) {
             } else if(calType()==5) {
                 calValFrame()
             }
-            
-            concentration.table <- holdFrame()
-            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            hold.table$Concentration[hold.table$Concentration==""] <- NA
-            hold.table <- hold.table[complete.cases(hold.table), ]
-            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
-            hold.table <- na.omit(hold.table)
 
-            
-            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
-            
-            
+            # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
+
             hover <- input$plot_hovercal
             point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
@@ -14542,26 +14625,14 @@ shinyServer(function(input, output, session) {
             } else if(calType()==5) {
                 calValFrame()
             }
-            
+
             randomized <- randomizeData()
-            
-            
+
             point.table <- point.table[ vals$keeprows, , drop = FALSE]
             point.table <- point.table[randomized,]
-            
-            
-            concentration.table <- holdFrame()
-            
-            concentration.table <- concentration.table[ vals$keeprows, , drop = FALSE]
-            concentration.table <- concentration.table[randomized,]
-            
-            hold.table <- concentration.table[,c("Spectrum", "Concentration", input$calcurveelement)]
-            #colnames(hold.table) <- c("Spectrum", "Selection")
-            
-            
-            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
-            
-            
+
+            # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
+
             hover <- input$plot_hovercal_random
             point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
@@ -14669,20 +14740,9 @@ shinyServer(function(input, output, session) {
         output$hover_infoval <- renderUI({
             req(input$radiocal)
             point.table <- calValFrame()
-            
 
-            concentration.table <- holdFrame()
-            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            hold.table$Concentration[hold.table$Concentration==""] <- NA
-            hold.table <- hold.table[complete.cases(hold.table), ]
-            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
-            hold.table <- na.omit(hold.table)
+            # point.table now includes Spectrum from valFrame - no merge needed
 
-            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
-            
-            
-            
-            
             hover <- input$plot_hoverval
             point <- nearPoints(point.table,  coordinfo=hover,  xvar="Prediction", yvar="Concentration", threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
@@ -14721,30 +14781,14 @@ shinyServer(function(input, output, session) {
         output$hover_infoval_random <- renderUI({
             req(input$radiocal)
             point.table <- calValFrame()
-            
+
             randomized <- randomizeData()
-            
-            
+
             point.table <- point.table[ vals$keeprows, , drop = FALSE]
             point.table <- point.table[!(randomized),]
-            
-            concentration.table <- holdFrame()
-            
-            concentration.table <- concentration.table[ vals$keeprows, , drop = FALSE]
-            concentration.table <- concentration.table[!(randomized),]
-            concentration.table.rev <- concentration.table[(randomized),]
-            
-            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            #colnames(hold.table) <- c("Spectrum", "Concentration")
-            
-            
-            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
-            
-            
-            #point.table <- point.table[point.table$Concentration > min(concentration.table.rev[,"Concentration"], na.rm = TRUE) & point.table$Concentration < max(concentration.table.rev[,"Concentration"], na.rm = TRUE), ]
-            
-            
-            
+
+            # point.table now includes Spectrum from valFrame - no merge needed
+
             hover <- input$plot_hoverval_random
             point <- nearPoints(point.table,  coordinfo=hover,  xvar="Prediction", yvar="Concentration", threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
@@ -18239,7 +18283,7 @@ observeEvent(input$actionprocess2_multi, {
         
         # Float over info
         output$hover_infocal_multi <- renderUI({
-            
+
             point.table <- if(calTypeMulti()==1){
                 calCurveFrameMulti()
             } else if(calTypeMulti()==2){
@@ -18249,24 +18293,9 @@ observeEvent(input$actionprocess2_multi, {
             } else if(calTypeMulti()==5) {
                 calValFrameMulti()
             }
-            
-            
-            concentration.table <- as.data.frame(data.table::rbindlist(holdFrameMulti(), use.names=TRUE, fill=TRUE))
-            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            hold.table$Concentration[hold.table$Concentration==""] <- NA
-            hold.table <- hold.table[complete.cases(hold.table), ]
-            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
-            hold.table <- na.omit(hold.table)
-            #hold.table <- as.vector(concentration.table[,"Spectrum"])
-            
-            
-            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
 
-            
-            
-            
-            #point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
-            
+            # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
+
             hover <- input$plot_hovercal_multi
             point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
@@ -18303,9 +18332,7 @@ observeEvent(input$actionprocess2_multi, {
         
         # Float over info
         output$hover_infocal_random_multi <- renderUI({
-            
 
-            
             point.table <- if(calTypeMulti()==1){
                 calCurveFrameRandomizedMulti()
             } else if(calTypeMulti()==2){
@@ -18315,33 +18342,9 @@ observeEvent(input$actionprocess2_multi, {
             } else if(calTypeMulti()==5) {
                 valFrameRandomizedRevMulti()
             }
-            
-            
-            
-            
-            predict.frame <- lapply(quantNames(),function(x) data.frame(holdFrameMulti()[[x]][ vals_multi$keeprows[[x]], ]))
-            names(predict.frame) <- quantNames()
-            
-            
-            predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][(randomizeDataMulti()), ]))
-            names(predict.frame) <- quantNames()
-            
-           
-            
-            concentration.table <- as.data.frame(data.table::rbindlist(na.omit(predict.frame), use.names=TRUE, fill=TRUE))
-            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            hold.table$Concentration[hold.table$Concentration==""] <- NA
-            hold.table <- hold.table[complete.cases(hold.table), ]
-            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
-            hold.table <- na.omit(hold.table)
 
-            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
+            # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
 
-            
-            
-            
-            #point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
-            
             hover <- input$plot_hovercal_random_multi
             point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
@@ -18453,25 +18456,11 @@ observeEvent(input$actionprocess2_multi, {
         
         # Float over info
         output$hover_infoval_multi <- renderUI({
-            
-            
+
             point.table <- valFrameMulti()
-            concentration.table.rev <- predictFrameRandomMulti()
 
-            concentration.table <- as.data.frame(data.table::rbindlist(holdFrameMulti(), use.names=TRUE, fill=TRUE))
+            # point.table now includes Spectrum from valFrame - no merge needed
 
-            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            hold.table$Concentration[hold.table$Concentration==""] <- NA
-            hold.table <- hold.table[complete.cases(hold.table), ]
-            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
-            hold.table <- na.omit(hold.table)
-            #hold.table <- as.vector(concentration.table[,"Spectrum"])
-            
-            
-            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
-
-            
-            
             hover <- input$plot_hoverval_multi
             point <- nearPoints(point.table,  coordinfo=hover, xvar="Prediction", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)
@@ -18508,31 +18497,11 @@ observeEvent(input$actionprocess2_multi, {
         
         
         output$hover_infoval_random_multi <- renderUI({
-            
-            point.table <- valFrameRandomizedMulti()
-            
-            
-            
-            
-            predict.frame <- lapply(quantNames(),function(x) data.frame(holdFrameMulti()[[x]][ vals_multi$keeprows[[x]], ]))
-            names(predict.frame) <- quantNames()
-            
-            
-            predict.frame <- lapply(quantNames(),function(x) data.frame( predict.frame[[x]][(randomizeDataMulti()), ]))
-            names(predict.frame) <- quantNames()
 
-            concentration.table <- as.data.frame(data.table::rbindlist(na.omit(holdFrameRandomMulti()), use.names=TRUE, fill=TRUE))
-            hold.table <- concentration.table[,c("Spectrum", "Concentration")]
-            hold.table$Concentration[hold.table$Concentration==""] <- NA
-            hold.table <- hold.table[complete.cases(hold.table), ]
-            hold.table <- hold.table[!is.na(hold.table$Concentration), ]
-            hold.table <- na.omit(hold.table)
-            #hold.table <- as.vector(concentration.table[,"Spectrum"])
-            
-            
-            point.table <- merge(point.table, hold.table[,c("Concentration", "Spectrum")], by="Concentration")
-            
-            
+            point.table <- valFrameRandomizedMulti()
+
+            # point.table now includes Spectrum from valFrame - no merge needed
+
             hover <- input$plot_hoverval_random_multi
             point <- nearPoints(point.table,  coordinfo=hover, xvar="Prediction", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
             if (nrow(point) == 0) return(NULL)

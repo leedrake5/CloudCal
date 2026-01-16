@@ -5611,16 +5611,21 @@ scaleDecode <- function(values, y_min, y_max){
 
 
 predictFrameSimpGen <- function(spectra, hold.frame, deconvolution=NULL, dependent.transformation="None", element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw", y_min=0, y_max=1, seed=NULL){
-    
+
     data <- spectra
     spectra.line.table <- hold.frame
-    
+
     predict.intensity.simp <- predictIntensitySimpPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
-    
-    predict.frame.simp <- data.frame(predict.intensity.simp, spectra.line.table[,"Concentration"])
-    colnames(predict.frame.simp) <- c(names(predict.intensity.simp), "Concentration")
+
+    # Include Spectrum for proper data linkage (preserves standard identity)
+    predict.frame.simp <- data.frame(
+        Spectrum = spectra.line.table[, "Spectrum"],
+        predict.intensity.simp,
+        Concentration = spectra.line.table[, "Concentration"],
+        stringsAsFactors = FALSE
+    )
     predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp$Concentration),]
-    
+
     predict.frame.simp$Concentration <- if(dependent.transformation=="None"){
         predict.frame.simp$Concentration
     } else if(dependent.transformation=="Log"){
@@ -5628,15 +5633,15 @@ predictFrameSimpGen <- function(spectra, hold.frame, deconvolution=NULL, depende
     } else if(dependent.transformation=="Scale"){
         scaleTransform(values=predict.frame.simp$Concentration, y_min=y_min, y_max=y_max)
     }
-    
+
     result <- predictFrameCheck(predict.frame.simp)
     set.seed(seed)
     result$RandXXX <- rnorm(nrow(result), 1, 0.2)
     result <- result[order(result$RandXXX),!colnames(result) %in% "RandXXX"]
 
-    
+
     return(result)
-    
+
 }
 
 predictIntensitySimp <- function(predict.frame){
@@ -5685,17 +5690,20 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, deconvolution=NULL
 }
 
 predictFrameXGBoostGen <- function(spectra, hold.frame, deconvolution=NULL, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1, compton.type="Raw"){
-    
+
     spectra.line.table <- hold.frame
-    
+
     predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, slopes=slopes, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type="Raw")
 
-    
-    
-    
-    predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=spectra.line.table[,"Concentration"])
+    # Include Spectrum for proper data linkage (preserves standard identity)
+    predict.frame.forest <- data.frame(
+        Spectrum = spectra.line.table[, "Spectrum"],
+        predict.intensity.forest,
+        Concentration = spectra.line.table[, "Concentration"],
+        stringsAsFactors = FALSE
+    )
     predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
-    
+
     predict.frame.forest$Concentration <- if(dependent.transformation=="None"){
         predict.frame.forest$Concentration
     } else if(dependent.transformation=="Log"){
@@ -5703,9 +5711,10 @@ predictFrameXGBoostGen <- function(spectra, hold.frame, deconvolution=NULL, slop
     } else if(dependent.transformation=="Scale"){
         scaleTransform(values=predict.frame.forest$Concentration, y_min=y_min, y_max=y_max)
     }
-    
-    return(as.matrix(predictFrameCheck(predict.frame.forest)))
-    
+
+    # Return data frame (matrix conversion done elsewhere for XGBoost when needed)
+    return(predictFrameCheck(predict.frame.forest))
+
 }
 
 predictIntensityXGBoost <- function(predict.frame){
@@ -5714,15 +5723,18 @@ predictIntensityXGBoost <- function(predict.frame){
 
 
 predictFrameForestGen <- function(seed=1, spectra, hold.frame, deconvolution=NULL, slopes=NULL, dependent.transformation="None", element, intercepts=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", y_min=0, y_max=1, compton.type="Raw"){
-    
+
     spectra.line.table <- hold.frame
-    
+
     predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, slopes=slopes, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
 
-    
-    
-    
-    predict.frame.forest <- data.frame(predict.intensity.forest, Concentration=spectra.line.table[,"Concentration"])
+    # Include Spectrum for proper data linkage (preserves standard identity)
+    predict.frame.forest <- data.frame(
+        Spectrum = spectra.line.table[, "Spectrum"],
+        predict.intensity.forest,
+        Concentration = spectra.line.table[, "Concentration"],
+        stringsAsFactors = FALSE
+    )
     predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
     
     predict.frame.forest$Concentration <- if(dependent.transformation=="None"){
@@ -5756,16 +5768,19 @@ predictIntensityLucPreGen <- function(spectra, hold.frame, deconvolution = NULL,
 }
 
 predictFrameLucGen <- function(seed=1, spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", deconvolution = NULL, norm.type, norm.min=NULL, norm.max=NULL, compton.type="Raw", data.type="Spectra", y_min=0, y_max=1){
-    
-    data <- spectra
+
     spectra.line.table <- hold.frame
 
     predict.intensity.luc <- predictIntensityLucPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, intercepts=intercepts, slopes=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
-    
-    predict.frame.luc <- data.frame(predict.intensity.luc, spectra.line.table[,"Concentration"])
+
+    # Include Spectrum for proper data linkage (preserves standard identity)
+    predict.frame.luc <- data.frame(
+        Spectrum = spectra.line.table[, "Spectrum"],
+        predict.intensity.luc,
+        Concentration = spectra.line.table[, "Concentration"],
+        stringsAsFactors = FALSE
+    )
     predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc),]
-    colnames(predict.frame.luc) <- c(names(predict.intensity.luc), "Concentration")
-    predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc$Concentration),]
     
     predict.frame.luc$Concentration <- if(dependent.transformation=="None"){
         predict.frame.luc$Concentration
@@ -8141,8 +8156,15 @@ mclValGen <- function(model, data, predict.frame, dependent.transformation, y_mi
         scaleDecode(values=predict.frame$Concentration, y_min=y_min, y_max=y_max)
     }
         
-    val.frame <- data.frame(Concentration=concentration, Intensity=as.vector(cal.est.conc.pred.luc), Prediction=as.vector(cal.est.conc.pred.luc))
-    
+    # Include Spectrum for proper data linkage (preserves standard identity)
+    val.frame <- data.frame(
+        Spectrum = predict.frame$Spectrum,
+        Concentration = concentration,
+        Intensity = as.vector(cal.est.conc.pred.luc),
+        Prediction = as.vector(cal.est.conc.pred.luc),
+        stringsAsFactors = FALSE
+    )
+
     return(val.frame)
 }
 
@@ -8167,8 +8189,15 @@ xgbValGen <- function(model, data, predict.frame, dependent.transformation, y_mi
         scaleDecode(values=predict.frame$Concentration, y_min=y_min, y_max=y_max)
     }
     
-    val.frame <- data.frame(Concentration=concentration, Intensity=as.vector(cal.est.conc.pred.luc), Prediction=as.vector(cal.est.conc.pred.luc))
-    
+    # Include Spectrum for proper data linkage (preserves standard identity)
+    val.frame <- data.frame(
+        Spectrum = predict.frame$Spectrum,
+        Concentration = concentration,
+        Intensity = as.vector(cal.est.conc.pred.luc),
+        Prediction = as.vector(cal.est.conc.pred.luc),
+        stringsAsFactors = FALSE
+    )
+
     return(val.frame)
 }
 
