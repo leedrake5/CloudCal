@@ -3909,20 +3909,122 @@ intensity_fix <- function(calibration, keep_labels=TRUE){
     return(calibration)
 }
 
+# File extensions to remove from spectrum names
+.file_extensions <- c(".pdz", ".PDZ", ".csv", ".CSV", ".spt", ".mca", ".spx", ".spe")
+
 spectrumNameSingle <- function(spectrum_name){
-    spectrum_name <- gsub(".pdz", "", spectrum_name)
-    spectrum_name <- gsub(".csv", "", spectrum_name)
-    spectrum_name <- gsub(".CSV", "", spectrum_name)
-    spectrum_name <- gsub(".spt", "", spectrum_name)
-    spectrum_name <- gsub(".mca", "", spectrum_name)
-    spectrum_name <- gsub(".spx", "", spectrum_name)
-    spectrum_name <- gsub(".spe", "", spectrum_name)
-    return(spectrum_name)
+    mgsub::mgsub(spectrum_name, .file_extensions, rep("", length(.file_extensions)))
 }
 
 spectrumNameVector <- function(spectrum_vector){
-    new_spectrum_vector <- as.vector(unlist(sapply(spectrum_vector, spectrumNameSingle)))
-    return(new_spectrum_vector)
+    # Process entire vector at once instead of element-by-element
+    mgsub::mgsub(as.character(spectrum_vector), .file_extensions, rep("", length(.file_extensions)))
+}
+
+# Helper to normalize spectrum names in a data frame column
+normalizeSpectrumColumn <- function(df, col = "Spectrum") {
+    if (!is.null(df) && col %in% names(df)) {
+        df[[col]] <- make.names(spectrumNameVector(df[[col]]), unique = FALSE)
+    }
+    df
+}
+
+# Helper to ensure OtherSpectraStuff exists in calibration
+ensureOtherSpectraStuff <- function(Calibration, force_create = FALSE) {
+    if (force_create || !"OtherSpectraStuff" %in% names(Calibration)) {
+        Calibration$OtherSpectraStuff <- totalCountsGen(Calibration$Spectra)
+        if ("Deconvoluted" %in% names(Calibration) &&
+            "Baseline" %in% names(Calibration$Deconvoluted$Areas)) {
+            Calibration$OtherSpectraStuff <- merge(
+                Calibration$OtherSpectraStuff,
+                Calibration$Deconvoluted$Areas[, c("Spectrum", "Baseline")],
+                by = "Spectrum", all = TRUE, sort = TRUE
+            )
+        }
+    }
+    Calibration
+}
+
+# Helper to rebuild all intensity tables
+# Parallelizes the 6 independent table builds on non-Windows systems with sufficient cores
+rebuildIntensityTables <- function(Calibration, elements, allowParallel) {
+    other <- Calibration$OtherSpectraStuff
+    spectra <- Calibration$Spectra
+    defs <- Calibration$Definitions
+    gaus_buf <- Calibration$LineDefaults$GausBuffer
+    split_buf <- Calibration$LineDefaults$SplitBuffer
+
+    # Check if outer-level parallelism is beneficial:
+    # - Need non-Windows (mclapply uses forking)
+    # - Need enough cores to justify overhead
+    # - User must have requested parallel processing
+    n_cores <- as.numeric(my.cores)
+    use_outer_parallel <- allowParallel && get_os() != "windows" && n_cores >= 4
+
+    if (use_outer_parallel) {
+        # When parallelizing at outer level, disable inner parallelism to avoid oversubscription
+        # Use min(6, cores) since we have exactly 6 independent tasks
+        outer_cores <- min(6, n_cores)
+
+        # Define the 6 table-building tasks
+        tasks <- list(
+            Intensities = function() narrowLineTable(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = FALSE),
+            IntensitiesSplit = function() narrowLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = FALSE),
+            IntensitiesFirst = function() narrowLineTableFirst(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = FALSE),
+            IntensitiesSecond = function() narrowLineTableSecond(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = FALSE),
+            WideIntensities = function() wideLineTable(spectra, defs, elements, allowParallel = FALSE),
+            WideIntensitiesSplit = function() wideLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = FALSE)
+        )
+
+        # Run in parallel using mclapply (fork-based, Unix/macOS only)
+        tables <- parallel::mclapply(tasks, function(f) f(), mc.cores = outer_cores)
+
+        # Merge results with OtherSpectraStuff
+        for (name in names(tables)) {
+            Calibration[[name]] <- merge(tables[[name]], other, by = "Spectrum")
+        }
+    } else {
+        # Sequential execution (Windows or low core count or parallel disabled)
+        # Inner parallelism handles element-level parallelization
+        Calibration$Intensities <- merge(
+            narrowLineTable(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = allowParallel),
+            other, by = "Spectrum"
+        )
+        Calibration$IntensitiesSplit <- merge(
+            narrowLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = allowParallel),
+            other, by = "Spectrum"
+        )
+        Calibration$IntensitiesFirst <- merge(
+            narrowLineTableFirst(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = allowParallel),
+            other, by = "Spectrum"
+        )
+        Calibration$IntensitiesSecond <- merge(
+            narrowLineTableSecond(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = allowParallel),
+            other, by = "Spectrum"
+        )
+        Calibration$WideIntensities <- merge(
+            wideLineTable(spectra, defs, elements, allowParallel = allowParallel),
+            other, by = "Spectrum"
+        )
+        Calibration$WideIntensitiesSplit <- merge(
+            wideLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = allowParallel),
+            other, by = "Spectrum"
+        )
+    }
+
+    Calibration
+}
+
+# Helper to sort and align Values/Spectra
+sortAlignCalibration <- function(Calibration) {
+    Calibration$Values <- Calibration$Values[order(Calibration$Values$Spectrum), ]
+    Calibration$Spectra <- Calibration$Spectra[order(Calibration$Spectra$Spectrum, Calibration$Spectra$Energy), ]
+    # Keep only matching spectra
+    spec_names <- unique(Calibration$Spectra$Spectrum)
+    val_names <- unique(Calibration$Values$Spectrum)
+    Calibration$Values <- Calibration$Values[Calibration$Values$Spectrum %in% spec_names, ]
+    Calibration$Spectra <- Calibration$Spectra[Calibration$Spectra$Spectrum %in% val_names, ]
+    Calibration
 }
 
 calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE, deconvolution=TRUE, rebuild=FALSE, allowParallel=TRUE){
@@ -3931,46 +4033,27 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     }
     
     
-    Calibration$Spectra$Spectrum <- make.names(spectrumNameVector(Calibration$Spectra$Spectrum), unique=FALSE)
-    Calibration$Values$Spectrum <- make.names(spectrumNameVector(Calibration$Values$Spectrum), unique=FALSE)
-       if("Intensities" %in% names(Calibration)){
-           if("Spectrum" %in% names(Calibration$Intensities)){
-               Calibration$Intensities$Spectrum <- make.names(spectrumNameVector(Calibration$Intensities$Spectrum), unique=FALSE)
-           }
-       }
-       if("IntensitiesSplit" %in% names(Calibration)){
-           if("Spectrum" %in% names(Calibration$IntensitiesSplit)){
-               Calibration$IntensitiesSplit$Spectrum <- make.names(spectrumNameVector(Calibration$IntensitiesSplit$Spectrum), unique=FALSE)
-           }
-       }
-       if("IntensitiesFirst" %in% names(Calibration)){
-           if("Spectrum" %in% names(Calibration$IntensitiesFirst)){
-               Calibration$IntensitiesFirst$Spectrum <- make.names(spectrumNameVector(Calibration$IntensitiesFirst$Spectrum), unique=FALSE)
-           }
-       }
-       if("IntensitiesSecond" %in% names(Calibration)){
-           if("Spectrum" %in% names(Calibration$IntensitiesSecond)){
-               Calibration$IntensitiesSecond$Spectrum <- make.names(spectrumNameVector(Calibration$IntensitiesSecond$Spectrum), unique=FALSE)
-           }
-       }
-       if("WideIntensities" %in% names(Calibration)){
-           if("Spectrum" %in% names(Calibration$WideIntensities)){
-               Calibration$WideIntensities$Spectrum <- make.names(spectrumNameVector(Calibration$WideIntensities$Spectrum), unique=FALSE)
-           }
-       }
-       if("WideIntensitiesSplit" %in% names(Calibration)){
-           if("Spectrum" %in% names(Calibration$WideIntensitiesSplit)){
-               Calibration$WideIntensitiesSplit$Spectrum <- make.names(spectrumNameVector(Calibration$WideIntensitiesSplit$Spectrum), unique=FALSE)
-           }
-       }
-       if("Deconvoluted" %in% names(Calibration)){
-           Calibration$Deconvoluted$Areas$Spectrum <- make.names(spectrumNameVector(Calibration$Deconvoluted$Areas$Spectrum), unique=FALSE)
-           Calibration$Deconvoluted$Spectra$Spectrum <- make.names(spectrumNameVector(Calibration$Deconvoluted$Spectra$Spectrum), unique=FALSE)
-           if("Baseline" %in% names(Calibration$Deconvoluted)){
-               Calibration$Deconvoluted$Baseline$Spectrum <- make.names(spectrumNameVector(Calibration$Deconvoluted$Baseline$Spectrum), unique=FALSE)
+    # Normalize spectrum names across all tables
+    Calibration$Spectra <- normalizeSpectrumColumn(Calibration$Spectra)
+    Calibration$Values <- normalizeSpectrumColumn(Calibration$Values)
 
-           }
-       }
+    # Normalize intensity tables
+    intensity_tables <- c("Intensities", "IntensitiesSplit", "IntensitiesFirst",
+                          "IntensitiesSecond", "WideIntensities", "WideIntensitiesSplit")
+    for (tbl in intensity_tables) {
+        if (tbl %in% names(Calibration)) {
+            Calibration[[tbl]] <- normalizeSpectrumColumn(Calibration[[tbl]])
+        }
+    }
+
+    # Normalize deconvoluted tables
+    if ("Deconvoluted" %in% names(Calibration)) {
+        Calibration$Deconvoluted$Areas <- normalizeSpectrumColumn(Calibration$Deconvoluted$Areas)
+        Calibration$Deconvoluted$Spectra <- normalizeSpectrumColumn(Calibration$Deconvoluted$Spectra)
+        if ("Baseline" %in% names(Calibration$Deconvoluted)) {
+            Calibration$Deconvoluted$Baseline <- normalizeSpectrumColumn(Calibration$Deconvoluted$Baseline)
+        }
+    }
     
     elements <- names(Calibration$Values)[!names(Calibration$Values) %in% c("Include", "Spectrum")]
 
@@ -3996,86 +4079,35 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     }
 
     if(rebuild==TRUE){
-        Calibration$Values <- Calibration$Values[order(Calibration$Values$Spectrum),]
-        Calibration$Spectra <- Calibration$Spectra[order(Calibration$Spectra$Spectrum, Calibration$Spectra$Energy),]
-        Calibration$Values <- Calibration$Values[Calibration$Values$Spectrum %in% unique(Calibration$Spectra$Spectrum),]
-        Calibration$Spectra <- Calibration$Spectra[Calibration$Spectra$Spectrum %in% unique(Calibration$Values$Spectrum),]
-        if(allowParallel==TRUE){
-            Calibration$Deconvoluted <- tryCatch(spectra_gls_deconvolute(Calibration$Spectra, cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(Calibration$Spectra, cores=1))
-        } else if(allowParallel==FALSE){
-            Calibration$Deconvoluted <- spectra_gls_deconvolute(Calibration$Spectra, cores=1)
-        }
-        Calibration$OtherSpectraStuff <- totalCountsGen(Calibration$Spectra)
-        if("Deconvoluted" %in% names(Calibration)){
-            if("Baseline" %in% names(Calibration$Deconvoluted$Areas)){
-                Calibration$OtherSpectraStuff <- merge(Calibration$OtherSpectraStuff, Calibration$Deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=TRUE, sort=TRUE)
-            }
-        }
-        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
-        Calibration$Intensities <- merge(Calibration$Intensities, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$IntensitiesSplit <- narrowLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
-        Calibration$IntensitiesSplit <- merge(Calibration$IntensitiesSplit, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$IntensitiesFirst <- narrowLineTableFirst(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
-        Calibration$IntensitiesFirst <- merge(Calibration$IntensitiesFirst, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$IntensitiesSecond <- narrowLineTableSecond(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
-        Calibration$IntensitiesSecond <- merge(Calibration$IntensitiesSecond, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, allowParallel=allowParallel)
-        Calibration$WideIntensities <- merge(Calibration$WideIntensities, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
-        Calibration$WideIntensitiesSplit <- merge(Calibration$WideIntensitiesSplit, Calibration$OtherSpectraStuff, by="Spectrum")
+        Calibration <- sortAlignCalibration(Calibration)
+        # Run deconvolution
+        cores <- if (allowParallel) as.numeric(my.cores) else 1
+        Calibration$Deconvoluted <- tryCatch(
+            spectra_gls_deconvolute(Calibration$Spectra, cores = cores),
+            error = function(e) spectra_gls_deconvolute(Calibration$Spectra, cores = 1)
+        )
+        Calibration <- ensureOtherSpectraStuff(Calibration, force_create = TRUE)
+        Calibration <- rebuildIntensityTables(Calibration, elements, allowParallel)
     }
 
 
 
     if(sort==TRUE){
-        Calibration$Values <- Calibration$Values[order(Calibration$Values$Spectrum),]
-        Calibration$Spectra <- Calibration$Spectra[order(Calibration$Spectra$Spectrum, Calibration$Spectra$Energy),]
-        Calibration$Values <- Calibration$Values[Calibration$Values$Spectrum %in% unique(Calibration$Spectra$Spectrum),]
-        Calibration$Spectra <- Calibration$Spectra[Calibration$Spectra$Spectrum %in% unique(Calibration$Values$Spectrum),]
-
-        # Ensure OtherSpectraStuff exists before merging
-        if(!"OtherSpectraStuff" %in% names(Calibration)){
-            Calibration$OtherSpectraStuff <- totalCountsGen(Calibration$Spectra)
-            if("Deconvoluted" %in% names(Calibration)){
-                if("Baseline" %in% names(Calibration$Deconvoluted$Areas)){
-                    Calibration$OtherSpectraStuff <- merge(Calibration$OtherSpectraStuff, Calibration$Deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=TRUE, sort=TRUE)
-                }
-            }
-        }
-
-        Calibration$Intensities <- narrowLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
-        Calibration$Intensities <- merge(Calibration$Intensities, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$IntensitiesSplit <- narrowLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
-        Calibration$IntensitiesSplit <- merge(Calibration$IntensitiesSplit, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$IntensitiesFirst <- narrowLineTableFirst(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
-        Calibration$IntensitiesFirst <- merge(Calibration$IntensitiesFirst, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$IntensitiesSecond <- narrowLineTableSecond(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, gaus_buffer=Calibration$LineDefaults$GausBuffer, allowParallel=allowParallel)
-        Calibration$IntensitiesSecond <- merge(Calibration$IntensitiesSecond, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$WideIntensities <- wideLineTable(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, allowParallel=allowParallel)
-        Calibration$WideIntensities <- merge(Calibration$WideIntensities, Calibration$OtherSpectraStuff, by="Spectrum")
-        Calibration$WideIntensitiesSplit <- wideLineTableSplit(spectra=Calibration$Spectra, definition.table=Calibration$Definitions, elements=elements, split_buffer=Calibration$LineDefaults$SplitBuffer, allowParallel=allowParallel)
-        Calibration$WideIntensitiesSplit <- merge(Calibration$WideIntensitiesSplit, Calibration$OtherSpectraStuff, by="Spectrum")
+        Calibration <- sortAlignCalibration(Calibration)
+        Calibration <- ensureOtherSpectraStuff(Calibration)
+        Calibration <- rebuildIntensityTables(Calibration, elements, allowParallel)
     }
 
-    if(deconvolution==TRUE){
-        if(!"Deconvoluted" %in% names(Calibration)){
-            if(allowParallel==TRUE){
-                Calibration$Deconvoluted <- tryCatch(spectra_gls_deconvolute(Calibration$Spectra, cores=as.numeric(my.cores)), error=function(e) spectra_gls_deconvolute(Calibration$Spectra, cores=1))
-            } else if(allowParallel==FALSE){
-                Calibration$Deconvoluted <- spectra_gls_deconvolute(Calibration$Spectra, cores=1)
-            }
-            }
+    if(deconvolution==TRUE && !"Deconvoluted" %in% names(Calibration)){
+        cores <- if (allowParallel) as.numeric(my.cores) else 1
+        Calibration$Deconvoluted <- tryCatch(
+            spectra_gls_deconvolute(Calibration$Spectra, cores = cores),
+            error = function(e) spectra_gls_deconvolute(Calibration$Spectra, cores = 1)
+        )
     }
-    
-    
-    if(!"OtherSpectraStuff" %in% names(Calibration)){
-           Calibration$OtherSpectraStuff <- totalCountsGen(Calibration$Spectra)
-           if("Deconvoluted" %in% names(Calibration)){
-               if("Baseline" %in% names(Calibration$Deconvoluted$Areas)){
-                   Calibration$OtherSpectraStuff <- merge(Calibration$OtherSpectraStuff, Calibration$Deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=TRUE, sort=TRUE)
-               }
-           }
-       }
+
+    # Ensure OtherSpectraStuff exists
+    Calibration <- ensureOtherSpectraStuff(Calibration)
     
     tryCatch(if(Calibration$FileType=="Spectra"){Calibration$FileType <- "CSV"}, error=function(e) NULL)
     

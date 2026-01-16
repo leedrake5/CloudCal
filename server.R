@@ -99,17 +99,16 @@ shinyServer(function(input, output, session) {
     })
     
     output$pdzprepui <- renderUI({
-        
+        req(input$filetype)
         if(input$filetype=="PDZ"){
             checkboxInput("pdzprep", "LiveTime Normalization", value=TRUE)
         } else {
             NULL
         }
-        
     })
-    
-    output$dfl_load <- renderUI({
 
+    output$dfl_load <- renderUI({
+        req(input$filetype)
         if(input$filetype!="SPE"){
             NULL
         } else if(input$filetype=="SPE"){
@@ -735,11 +734,13 @@ shinyServer(function(input, output, session) {
             # including .quant files (myDataPre handles .quant spectra at line 616)
             data <- myData()
 
+            # Ensure we have valid data before proceeding
+            req(is.data.frame(data), "Energy" %in% names(data), "Spectrum" %in% names(data))
+
             data$Energy <- data$Energy + energynudge_d()
 
-            
             data <- data[order(as.character(data$Spectrum)),]
-            
+
             data$Spectrum <- gsub("\\.(pdz|csv|CSV|spt|mca|spx|spe)$", "", data$Spectrum)
 
             data
@@ -1508,14 +1509,16 @@ shinyServer(function(input, output, session) {
             
             
             plotInput <- reactive({
-                
+
                 #"Starting spectral plot"
-                
-                if(input$showlegend==TRUE){
+                # Check inputs exist (not NULL) - don't use req() on booleans as FALSE is falsy
+                req(!is.null(input$showlegend), !is.null(input$variancespectrum))
+
+                if(input$showlegend == TRUE){
                     spectraWithLabels()
-                } else if(input$showlegend==FALSE && input$variancespectrum==FALSE){
+                } else if(input$showlegend == FALSE && input$variancespectrum == FALSE){
                     spectraNoLabels()
-                } else if(input$showlegend==FALSE && input$variancespectrum==TRUE){
+                } else if(input$showlegend == FALSE && input$variancespectrum == TRUE){
                     if(input$anomscatterok==FALSE){
                         spectraSummaryPlot()
                     } else if(input$anomscatterok==TRUE){
@@ -1975,14 +1978,25 @@ shinyServer(function(input, output, session) {
         })
         
         otherSpectraStuff <- reactive({
-            
             spectra <- dataHold()
-            deconvoluted <- calMemory$Calibration$Deconvoluted
-            
+            req(spectra)
+
             spectra_stuff <- totalCountsGen(spectra)
-            other_spectra_stuff <- merge(spectra_stuff, deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=T, sort=T)
+
+            # Safely get deconvoluted data with defensive checks
+            deconvoluted <- calMemory$Calibration$Deconvoluted
+            if (!is.null(deconvoluted) && !is.null(deconvoluted$Areas) &&
+                "Spectrum" %in% names(deconvoluted$Areas) &&
+                "Baseline" %in% names(deconvoluted$Areas)) {
+                other_spectra_stuff <- merge(spectra_stuff,
+                    deconvoluted$Areas[, c("Spectrum", "Baseline")],
+                    by = "Spectrum", all = TRUE, sort = TRUE)
+            } else {
+                # No deconvolution data available, return just the spectra stuff
+                other_spectra_stuff <- spectra_stuff
+            }
+
             other_spectra_stuff
-            
         })
         
         bufferGaus <- reactive({input$gausbuffer})
@@ -2824,7 +2838,9 @@ shinyServer(function(input, output, session) {
         })
         
         output$inVar2 <- renderUI({
-            selectInput(inputId = "calcurveelement", label = h4("Element"), choices =  outVar())
+            choices <- outVar()
+            req(length(choices) > 0)
+            selectInput(inputId = "calcurveelement", label = h4("Element"), choices = choices)
         })
         
         
@@ -3805,10 +3821,12 @@ shinyServer(function(input, output, session) {
         
         output$inVar3 <- renderUI({
             req(input$radiocal)
-            
-            if(input$radiocal==3 | input$radiocal==4 | input$radiocal==6 | input$radiocal==8 | input$radiocal==10 | input$radiocal==12){
-                selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices =  outVaralt2(), selected=inVar3Selected(), multiple=TRUE)
-            } else if(input$radiocal!=3 | input$radiocal!=4 | input$radiocal!=6 | input$radiocal!=8 | input$radiocal!=10 | input$radiocal!=12){
+
+            if(input$radiocal %in% c(3, 4, 6, 8, 10, 12)){
+                choices <- outVaralt2()
+                req(length(choices) > 0)
+                selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices = choices, selected = isolate(inVar3Selected()), multiple=TRUE)
+            } else {
                 NULL
             }
         })
@@ -4364,10 +4382,12 @@ shinyServer(function(input, output, session) {
         
         output$inVar4 <- renderUI({
             req(input$radiocal)
-            
-            if(input$radiocal==3 | input$radiocal==4 | input$radiocal==6 | input$radiocal==8 | input$radiocal==10 | input$radiocal==12){
-                selectInput(inputId = "slope_vars", label = h4("Slope"), choices =  outVaralt(), selected=inVar4Selected(), multiple=TRUE)
-            } else if(input$radiocal!=3 | input$radiocal!=4 | input$radiocal!=6 | input$radiocal!=8 | input$radiocal!=10 | input$radiocal!=12){
+
+            if(input$radiocal %in% c(3, 4, 6, 8, 10, 12)){
+                choices <- outVaralt()
+                req(length(choices) > 0)  # Ensure choices are available before rendering
+                selectInput(inputId = "slope_vars", label = h4("Slope"), choices = choices, selected = isolate(inVar4Selected()), multiple=TRUE)
+            } else {
                 NULL
             }
         })
@@ -15802,21 +15822,20 @@ shinyServer(function(input, output, session) {
         })
         
         output$inVar2_multi <- renderUI({
-            selectInput(inputId = "calcurveelement_multi", label = h4("Element"), choices =  outVarMulti())
+            choices <- outVarMulti()
+            req(length(choices) > 0)
+            selectInput(inputId = "calcurveelement_multi", label = h4("Element"), choices = choices)
         })
-        
-        inVar3SelectedMulti <- reactive({
 
+        inVar3SelectedMulti <- reactive({
             calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$Intercept
-            
-            
-            
         })
-        
-        
+
+
         output$inVar3_multi <- renderUI({
-            
-            selectInput(inputId = "intercept_vars_multi", label = h4("Intercept"), choices =  outVaralt2Multi(), selected=inVar3SelectedMulti(), multiple=TRUE)
+            choices <- outVaralt2Multi()
+            req(length(choices) > 0)
+            selectInput(inputId = "intercept_vars_multi", label = h4("Intercept"), choices = choices, selected = isolate(inVar3SelectedMulti()), multiple=TRUE)
         })
         
         inVar4SelectedMulti <- reactive({
@@ -15827,7 +15846,9 @@ shinyServer(function(input, output, session) {
         })
         
         output$inVar4_multi <- renderUI({
-            selectInput(inputId = "slope_vars_multi", label = h4("Slope"), choices =  outVaraltMulti(), selected=inVar4SelectedMulti(), multiple=TRUE)
+            choices <- outVaraltMulti()
+            req(length(choices) > 0)  # Ensure choices are available before rendering
+            selectInput(inputId = "slope_vars_multi", label = h4("Slope"), choices = choices, selected = isolate(inVar4SelectedMulti()), multiple=TRUE)
         })
         
         

@@ -1,5 +1,8 @@
 cloudcal <- "Loaded"
 
+# Disable client-side error popups while keeping console stack traces
+options(shiny.devmode.verbose = FALSE)
+
 get_os <- function(){
     sysinf <- Sys.info()
     if (!is.null(sysinf)){
@@ -110,7 +113,11 @@ if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows
         tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.tar.gz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
     }
 
-
+if(packageVersion("xrftools")!="0.0.2" && get_os()=="windows"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
+} else if(packageVersion("xrftools")!="0.0.2" && get_os()!="windows"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
+}
 
 #sourceCpp("pdz.cpp")
 
@@ -1778,16 +1785,6 @@ elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian
         }
     }
     
-    element.count.list <- lapply(spectra.line.list, '[', 2)
-        
-    #spectra.line.vector <- as.numeric(unlist(element.count.list))
-    
-    #dim(spectra.line.vector) <- c(length(spectra.line.list[[1]]$Spectrum), length(elements))
-    
-    #spectra.line.frame <- data.frame(spectra.line.list[[1]]$Spectrum, spectra.line.vector, stringsAsFactors=FALSE)
-    
-    #spectra.line.frame <- spectra.line.list %>% purrr::reduce(full_join, by='Spectrum')
-    
     spectra.line.frame <- Reduce(function(x, y) merge(x, y, all=TRUE), spectra.line.list)
     spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
     
@@ -1804,17 +1801,13 @@ elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian
     spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
     
     spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]
-    
-    spectra.line.frame$Spectrum <- gsub(".pdz", "", spectra.line.frame$Spectrum)
-    spectra.line.frame$Spectrum <- gsub(".csv", "", spectra.line.frame$Spectrum)
-    spectra.line.frame$Spectrum <- gsub(".CSV", "", spectra.line.frame$Spectrum)
-    spectra.line.frame$Spectrum <- gsub(".spt", "", spectra.line.frame$Spectrum)
-    spectra.line.frame$Spectrum <- gsub(".mca", "", spectra.line.frame$Spectrum)
-    spectra.line.frame$Spectrum <- gsub(".spx", "", spectra.line.frame$Spectrum)
-    
-    
+
+    # Remove file extensions in a single pass
+    file_extensions <- c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe")
+    spectra.line.frame$Spectrum <- mgsub::mgsub(spectra.line.frame$Spectrum, file_extensions, rep("", length(file_extensions)))
+
     spectra.line.frame
-    
+
 }
 elementFrame <- cmpfun(elementFrame)
 
@@ -1992,16 +1985,13 @@ wideElementFrame <- function(data, elements, range.table=NULL, calculation="gaus
     spectra.line.frame <- as.data.frame(spectra.line.frame, stringsAsFactors=FALSE)
     
     spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]
-    
-    spectra.line.frame$Spectrum <- gsub(".pdz", "", spectra.line.frame$Spectrum)
-    spectra.line.frame$Spectrum <- gsub(".csv", "", spectra.line.frame$Spectrum)
-    spectra.line.frame$Spectrum <- gsub(".CSV", "", spectra.line.frame$Spectrum)
-    spectra.line.frame$Spectrum <- gsub(".spt", "", spectra.line.frame$Spectrum)
-    spectra.line.frame$Spectrum <- gsub(".mca", "", spectra.line.frame$Spectrum)
-    spectra.line.frame$Spectrum <- gsub(".spx", "", spectra.line.frame$Spectrum)
-    
+
+    # Remove file extensions in a single pass
+    file_extensions <- c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe")
+    spectra.line.frame$Spectrum <- mgsub::mgsub(spectra.line.frame$Spectrum, file_extensions, rep("", length(file_extensions)))
+
     spectra.line.frame
-    
+
 }
 wideElementFrame <- cmpfun(wideElementFrame)
 
@@ -9028,10 +9018,33 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
     if(is.data.frame(spectra_frame)){
         spectrum_name <- unique(spectra_frame$Spectrum)
         spectra_tibble <- tibble_convert(spectra_frame)
-        deconvoluted_spectra_tibble <-spectra_tibble %>%
+
+        # Apply smoothing and baseline
+        smoothed_tibble <- spectra_tibble %>%
             xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = width, alpha = alpha), .iter = smooth_iter) %>%
-            xrf_add_baseline_snip(.values = .spectra$smooth, iterations = snip_iter) %>%
-            xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline, energy_max_kev = energy_max, peaks = xrf_energies("everything", beam_energy_kev=energy_max), default_sigma=default_sigma, use_qr=use_qr)
+            xrf_add_baseline_snip(.values = .spectra$smooth, iterations = snip_iter)
+
+        # Try with use_qr parameter first (newer xrftools), fall back to without (older versions)
+        deconvoluted_spectra_tibble <- tryCatch({
+            smoothed_tibble %>%
+                xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline,
+                    energy_max_kev = energy_max,
+                    peaks = xrf_energies("everything", beam_energy_kev=energy_max),
+                    default_sigma = default_sigma,
+                    use_qr = use_qr)
+        }, error = function(e) {
+            if (grepl("unused argument.*use_qr", e$message)) {
+                # Older xrftools version without use_qr parameter
+                smoothed_tibble %>%
+                    xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline,
+                        energy_max_kev = energy_max,
+                        peaks = xrf_energies("everything", beam_energy_kev=energy_max),
+                        default_sigma = default_sigma)
+            } else {
+                stop(e)
+            }
+        })
+
         baseline_spectra <- spectra_frame_baseline_convert(deconvoluted_spectra_tibble)
         deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
         deconvoluted_peaks <- intensity_frame_deconvolution_convert(deconvoluted_spectra_tibble$.deconvolution_peaks[[1]], name=spectrum_name)
