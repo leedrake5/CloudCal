@@ -8253,14 +8253,24 @@ mclPred <- function(object, newdata, dependent.transformation, ymin=0, ymax=1, c
 valFrameCheck <- function(val.frame){
     if("Include" %in% colnames(val.frame)){
         test <- remove.factors(val.frame)
-        test2 <- as.data.frame(lapply(test[,3:length(test)], as.numeric), stringsAsFactors=FALSE)
-        new.frame <- data.frame(Include=test$Include, Spectrum=test$Spectrum, test2, stringsAsFactors=FALSE)
+        # Handle case where there are no element columns (only Include + Spectrum)
+        if(ncol(test) > 2){
+            test2 <- as.data.frame(lapply(test[, 3:ncol(test), drop=FALSE], as.numeric), stringsAsFactors=FALSE)
+            new.frame <- data.frame(Include=test$Include, Spectrum=test$Spectrum, test2, stringsAsFactors=FALSE)
+        } else {
+            new.frame <- data.frame(Include=test$Include, Spectrum=test$Spectrum, stringsAsFactors=FALSE)
+        }
     } else if(!"Include" %in% colnames(val.frame)){
         test <- remove.factors(val.frame)
-        test2 <- as.data.frame(lapply(test[,-1], as.numeric), stringsAsFactors=FALSE)
-        new.frame <- data.frame(Spectrum=test$Spectrum, test2, stringsAsFactors=FALSE)
+        # Handle case where there are no element columns (only Spectrum)
+        if(ncol(test) > 1){
+            test2 <- as.data.frame(lapply(test[, -1, drop=FALSE], as.numeric), stringsAsFactors=FALSE)
+            new.frame <- data.frame(Spectrum=test$Spectrum, test2, stringsAsFactors=FALSE)
+        } else {
+            new.frame <- data.frame(Spectrum=test$Spectrum, stringsAsFactors=FALSE)
+        }
     }
-    
+
     return(new.frame)
 }
 
@@ -9095,10 +9105,10 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     use_qr <- (cores == 1)
 
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
-    if(cores==1){
-        new_spectra_list <- pblapply(
-            spectra_list,
-            function(x) deconvolute_complete(
+
+    safe_deconvolute <- function(x){
+        tryCatch(
+            deconvolute_complete(
                 spectra_frame=x,
                 energy_max=energy_max,
                 width=width,
@@ -9106,28 +9116,36 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
                 default_sigma=default_sigma,
                 smooth_iter=smooth_iter,
                 snip_iter=snip_iter,
-                use_qr=use_qr))
-    } else if(cores >= 2){
-        new_spectra_list <- pbmclapply(
-          spectra_list,
-          function(x) deconvolute_complete(
-            spectra_frame = x,
-            energy_max      = energy_max,
-            width           = width,
-            alpha           = alpha,
-            default_sigma   = default_sigma,
-            smooth_iter     = smooth_iter,
-            snip_iter       = snip_iter,
-            use_qr          = use_qr
-          ),
-          mc.cores = cores
+                use_qr=use_qr),
+            error = function(e){
+                warning("Skipping spectrum '", unique(x$Spectrum), "': ", e$message)
+                NULL
+            }
         )
+    }
+
+    if(cores==1){
+        new_spectra_list <- pblapply(spectra_list, safe_deconvolute)
+    } else if(cores >= 2){
+        new_spectra_list <- pbmclapply(spectra_list, safe_deconvolute, mc.cores = cores)
+    }
+
+    # Remove failed (NULL) entries
+    failed <- sapply(new_spectra_list, is.null)
+    if(any(failed)){
+        warning(sum(failed), " of ", length(new_spectra_list), " spectra failed deconvolution and were skipped: ",
+                paste(names(new_spectra_list)[failed], collapse=", "))
+    }
+    new_spectra_list <- new_spectra_list[!failed]
+
+    if(length(new_spectra_list) == 0){
+        stop("No spectra could be deconvoluted. Check that Spectra data frame has valid numeric Energy and CPS columns.")
     }
 
     only_spectra_list <- list()
     only_areas_list <- list()
     only_background_list <- list()
-    for(i in 1:length(new_spectra_list)){
+    for(i in seq_along(new_spectra_list)){
         only_spectra_list[[i]] <- new_spectra_list[[i]]$Spectra
         only_areas_list[[i]] <- new_spectra_list[[i]]$Areas
         if(baseline==TRUE){only_background_list[[i]] <- new_spectra_list[[i]]$Baseline}

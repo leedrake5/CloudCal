@@ -3929,6 +3929,33 @@ normalizeSpectrumColumn <- function(df, col = "Spectrum") {
     df
 }
 
+# Helper to ensure Values table exists in calibration
+# Creates a minimal Values table with Spectrum, Include, and optionally element columns if missing
+# If elements is provided and Values exists but is missing those columns, adds them
+ensureValuesTable <- function(Calibration, elements = NULL) {
+    spec_names <- unique(Calibration$Spectra$Spectrum)
+
+    if (is.null(Calibration$Values) || !is.data.frame(Calibration$Values)) {
+        # Create new Values table
+        Calibration$Values <- data.frame(
+            Include = rep(TRUE, length(spec_names)),
+            Spectrum = spec_names,
+            stringsAsFactors = FALSE
+        )
+    }
+
+    # Add element columns if specified and not already present
+    if (!is.null(elements) && length(elements) > 0) {
+        for (el in elements) {
+            if (!el %in% names(Calibration$Values)) {
+                Calibration$Values[[el]] <- NA_real_
+            }
+        }
+    }
+
+    Calibration
+}
+
 # Helper to ensure OtherSpectraStuff exists in calibration
 ensureOtherSpectraStuff <- function(Calibration, force_create = FALSE) {
     if (force_create || !"OtherSpectraStuff" %in% names(Calibration)) {
@@ -4027,14 +4054,20 @@ sortAlignCalibration <- function(Calibration) {
     Calibration
 }
 
-calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE, deconvolution=TRUE, rebuild=FALSE, allowParallel=TRUE){
+calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE, deconvolution=TRUE, rebuild=FALSE, build=FALSE, elements=NULL, allowParallel=TRUE){
     if(is.null(Calibration)){
         Calibration <- readRDS(calibration.directory)
     }
-    
-    
+
     # Normalize spectrum names across all tables
     Calibration$Spectra <- normalizeSpectrumColumn(Calibration$Spectra)
+
+    # If build=TRUE, ensure Values table exists (creates minimal one from Spectra if missing)
+    # Also adds element columns if elements parameter is provided
+    if(build){
+        Calibration <- ensureValuesTable(Calibration, elements = elements)
+    }
+
     Calibration$Values <- normalizeSpectrumColumn(Calibration$Values)
 
     # Normalize intensity tables
@@ -4054,8 +4087,16 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
             Calibration$Deconvoluted$Baseline <- normalizeSpectrumColumn(Calibration$Deconvoluted$Baseline)
         }
     }
-    
-    elements <- names(Calibration$Values)[!names(Calibration$Values) %in% c("Include", "Spectrum")]
+
+    # Extract element names from Values (excluding metadata columns)
+    # Use passed elements if provided, otherwise extract from Values
+    elements <- if(!is.null(elements) && length(elements) > 0) {
+        elements
+    } else if(!is.null(Calibration$Values)) {
+        names(Calibration$Values)[!names(Calibration$Values) %in% c("Include", "Spectrum")]
+    } else {
+        character(0)
+    }
 
     if(!"LineDefaults" %in% names(Calibration)){
         Calibration$LineDefaults <- list(GausBuffer=0.02, SplitBuffer=0.1)
@@ -4087,15 +4128,40 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
             error = function(e) spectra_gls_deconvolute(Calibration$Spectra, cores = 1)
         )
         Calibration <- ensureOtherSpectraStuff(Calibration, force_create = TRUE)
-        Calibration <- rebuildIntensityTables(Calibration, elements, allowParallel)
+        if(length(elements) > 0){
+            Calibration <- rebuildIntensityTables(Calibration, elements, allowParallel)
+        }
     }
 
+    # build=TRUE: fill out missing structures without overwriting existing data
+    if(build==TRUE && rebuild==FALSE){
+        # Sort/align if needed (safe operation that doesn't destroy data)
+        Calibration <- sortAlignCalibration(Calibration)
 
+        # Run deconvolution only if missing
+        if(!"Deconvoluted" %in% names(Calibration)){
+            cores <- if (allowParallel) as.numeric(my.cores) else 1
+            Calibration$Deconvoluted <- tryCatch(
+                spectra_gls_deconvolute(Calibration$Spectra, cores = cores),
+                error = function(e) spectra_gls_deconvolute(Calibration$Spectra, cores = 1)
+            )
+        }
+
+        # Ensure OtherSpectraStuff exists (creates if missing)
+        Calibration <- ensureOtherSpectraStuff(Calibration)
+
+        # Build intensity tables only if missing and there are elements to process
+        if(!"Intensities" %in% names(Calibration) && length(elements) > 0){
+            Calibration <- rebuildIntensityTables(Calibration, elements, allowParallel)
+        }
+    }
 
     if(sort==TRUE){
         Calibration <- sortAlignCalibration(Calibration)
         Calibration <- ensureOtherSpectraStuff(Calibration)
-        Calibration <- rebuildIntensityTables(Calibration, elements, allowParallel)
+        if(length(elements) > 0){
+            Calibration <- rebuildIntensityTables(Calibration, elements, allowParallel)
+        }
     }
 
     if(deconvolution==TRUE && !"Deconvoluted" %in% names(Calibration)){
@@ -4122,14 +4188,20 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     if(extensions==TRUE){
         extensions <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
         Calibration[["Spectra"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Spectra"]]$Spectrum))
-        Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Values"]]$Spectrum))
+        if(!is.null(Calibration[["Values"]])){
+            Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Values"]]$Spectrum))
+        }
     }
 
     
 
     
-    Calibration$Values <- valFrameCheck(Calibration$Values)
-    Calibration$Intensities <- intensityFrameCheck(Calibration$Intensities)
+    if(!is.null(Calibration$Values)) {
+        Calibration$Values <- valFrameCheck(Calibration$Values)
+    }
+    if(!is.null(Calibration$Intensities)) {
+        Calibration$Intensities <- intensityFrameCheck(Calibration$Intensities)
+    }
     Calibration$Spectra <- spectraCheck(Calibration$Spectra)
     #Calibration$LinePreference <- if(is.null(Calibration$LinePreference)){
     #    "Narrow"
