@@ -648,8 +648,8 @@ shinyServer(function(input, output, session) {
                 print("Loading spectra")
                     data <- if(input$filetype=="CSV"){
                         csv_type <- csvTypeDetected()
-                        if (csv_type$needs_beam_selection) {
-                            importedCSV()  # Aggregate CSV (Niton/Olympus)
+                        if (csv_type$type == "aggregate") {
+                            importedCSV()  # Aggregate CSV (Niton/Olympus/wide)
                         } else {
                             fullSpectra()  # Simple CSV (SciApps/Bruker)
                         }
@@ -19044,8 +19044,8 @@ content = function(file){
             
             data <- if(input$valfiletype=="CSV"){
                 csv_type <- csvTypeDetectedVal()
-                if (csv_type$needs_beam_selection) {
-                    valImportedCSV()  # Aggregate CSV (Niton/Olympus)
+                if (csv_type$type == "aggregate") {
+                    valImportedCSV()  # Aggregate CSV (Niton/Olympus/wide)
                 } else {
                     fullValSpectra()  # Simple CSV (SciApps/Bruker)
                 }

@@ -151,7 +151,7 @@ csvFrameSimple <- function(ret=NULL, filepath, filename=NULL, use_native_calibra
 
 csvFrame <- function(filepath, filename=NULL, use_native_calibration=TRUE){
     ret <- read.csv(file=filepath, sep=",", header=FALSE)
-    if(ret[1,1]=="Energy (keV)"){
+    if(isTRUE(ret[1,1]=="Energy (keV)")){
         csvFrameSimple(ret=ret, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
     } else {
         csvFrameOG(ret=ret, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
@@ -534,8 +534,7 @@ importCSVFrame <- function(filepath, chosen_beam="1"){
         csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
         importCSVFrameDetailed(csv_import, chosen_beam=chosen_beam)
     } else {
-        csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
-        importCSVFrameNaive(csv_import=csv_import[,-1])
+        importCSVFrameNaive(filepath=filepath)
     }
 
 }
@@ -642,9 +641,10 @@ get_instrument_and_beams <- function(filepath) {
     
     
   } else {
-    stop("Unrecognized file format")
+    instrument <- "Generic"
+    beam_names <- character(0)
   }
-  
+
   return(list(instrument = instrument, beams = beam_names))
 }
 
@@ -673,6 +673,14 @@ detect_csv_type <- function(filepath) {
     # Olympus/Vanta format (multi-beam) - has "Exposure Number" or "exposition"
     if (any(grepl("Exposure Number|exposition", header_lines, ignore.case = TRUE))) {
         return(list(type = "aggregate", instrument = "Olympus", needs_beam_selection = TRUE))
+    }
+
+    # Wide/aggregate CSV without beam info (e.g. pre-processed Niton exports
+    # with columns: Energy, Sample1, Sample2, …)
+    first_line <- header_lines[1]
+    fields <- strsplit(first_line, ",")[[1]]
+    if (length(fields) > 3 && any(grepl("^\\s*\"?Energy\"?\\s*$", fields, ignore.case = TRUE))) {
+        return(list(type = "aggregate", instrument = "Generic", needs_beam_selection = FALSE))
     }
 
     # Simple/single-spectrum CSV (SciApps, Bruker, generic)
