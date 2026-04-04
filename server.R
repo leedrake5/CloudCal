@@ -261,7 +261,7 @@ shinyServer(function(input, output, session) {
     fullSpectraMetadata <- reactive(label="fullSpectraMetadata", {
         req(input$file1)
         
-        fullSpectraMetadataProcess(inFile=inFile())
+        #fullSpectraMetadataProcess(inFile=inFile())
 
     })
     
@@ -9778,7 +9778,7 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$intercept_vars, {
             lucashold$intercept <- input$intercept_vars
-        })
+        }, ignoreNULL = FALSE)
         
         observeEvent(input$foresttry, {
             foresthold$foresttry <- input$foresttry
