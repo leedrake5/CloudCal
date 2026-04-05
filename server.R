@@ -9760,7 +9760,7 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$slope_vars, {
             lucashold$slope <- input$slope_vars
-        })
+        }, ignoreNULL = FALSE)
         
         observeEvent(input$addallslopes, {
             new_slopes <- outVaralt()
