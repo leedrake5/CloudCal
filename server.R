@@ -1391,8 +1391,11 @@ shinyServer(function(input, output, session) {
                 data <- spectraPlotData()
 
                 element <- datasetInput()
-                intensity.norm <- (element$Intensity/max(element$Intensity))*max(data$CPS)
-                element$Intensity <- intensity.norm
+                element <- element[is.finite(element$Line) & element$Line > 0, ]
+                if (nrow(element) > 0) {
+                    intensity.norm <- (element$Intensity/max(element$Intensity))*max(data$CPS, na.rm=TRUE)
+                    element$Intensity <- intensity.norm
+                }
 
                 qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = yLabel(), geom="line", colour=data$Spectrum) +
                 theme_light(base_size = 15) +
@@ -1409,8 +1412,11 @@ shinyServer(function(input, output, session) {
                 data <- spectraPlotData()
 
                 element <- datasetInput()
-                intensity.norm <- (element$Intensity/max(element$Intensity))*max(data$CPS)
-                element$Intensity <- intensity.norm
+                element <- element[is.finite(element$Line) & element$Line > 0, ]
+                if (nrow(element) > 0) {
+                    intensity.norm <- (element$Intensity/max(element$Intensity))*max(data$CPS, na.rm=TRUE)
+                    element$Intensity <- intensity.norm
+                }
 
                 qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = yLabel(), geom="line", colour=data$Spectrum) +
                 theme_light(base_size = 15) +
@@ -1429,8 +1435,11 @@ shinyServer(function(input, output, session) {
                 data.summary <- spectraSummary()
 
                 element <- datasetInput()
-                intensity.norm <- (element$Intensity/max(element$Intensity))*max(data.summary$Mean)
-                element$Intensity <- intensity.norm
+                element <- element[is.finite(element$Line) & element$Line > 0, ]
+                if (nrow(element) > 0) {
+                    intensity.norm <- (element$Intensity/max(element$Intensity))*max(data.summary$Mean, na.rm=TRUE)
+                    element$Intensity <- intensity.norm
+                }
 
                 ggplot(data.summary) +
                 geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max), alpha=0.2, fill="#619CFF", colour="grey20") +
@@ -1462,8 +1471,11 @@ shinyServer(function(input, output, session) {
                 data.summary <- spectraSummary()
 
                 element <- datasetInput()
-                intensity.norm <- (element$Intensity/max(element$Intensity))*max(data.summary$Mean)
-                element$Intensity <- intensity.norm
+                element <- element[is.finite(element$Line) & element$Line > 0, ]
+                if (nrow(element) > 0) {
+                    intensity.norm <- (element$Intensity/max(element$Intensity))*max(data.summary$Mean, na.rm=TRUE)
+                    element$Intensity <- intensity.norm
+                }
 
                 # Cache energy bounds to avoid duplicate min/max scans
                 energy_min <- my.min(data.summary$Energy)
@@ -1471,14 +1483,14 @@ shinyServer(function(input, output, session) {
 
                 element_absorption <- absorptionInput()
                 element_absorption <- element_absorption[element_absorption$Energy > energy_min & element_absorption$Energy < energy_max,]
-                f..norm <- (element_absorption$f../max(element_absorption$f..))*max(data.summary$Mean)
+                f..norm <- (element_absorption$f../max(element_absorption$f.., na.rm=TRUE))*max(data.summary$Mean, na.rm=TRUE)
                 element_absorption$f.. <- f..norm
                 element_absorption$f.. <- element_absorption$f..*-1
                 element_absorption$Base <- 0
 
                 element_scatter <- scatterInput()
                 element_scatter <- element_scatter[element_scatter$Energy > energy_min & element_scatter$Energy < energy_max,]
-                f.norm <- (element_scatter$f./max(element_scatter$f.))*max(data.summary$Mean)
+                f.norm <- (element_scatter$f./max(element_scatter$f., na.rm=TRUE))*max(data.summary$Mean, na.rm=TRUE)
                 element_scatter$f. <- f.norm
                 element_scatter$Base <- 0
                 
