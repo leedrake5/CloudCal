@@ -1367,13 +1367,13 @@ shinyServer(function(input, output, session) {
 
             })
 
-    spectraPlotDataNormal <- reactive({
-         just_spectra_summary_apply(spectra.frame=dataHold(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=deconvolution())
-    })
+            spectraPlotDataNormal <- reactive({
+                 just_spectra_summary_apply(spectra.frame=dataHold(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=dataHoldDeconvolution())
+            })
 
-    spectraPlotDataDeconvolution <- reactive({
-        just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionSpectra(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=deconvolution())
-    })
+            spectraPlotDataDeconvolution <- reactive({
+                just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionSpectra(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=dataHoldDeconvolution())
+            })
             
             
             spectraPlotData <- reactive({
