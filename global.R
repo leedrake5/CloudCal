@@ -8866,7 +8866,7 @@ caretTrainNewdata <- function(object, newdata, na.action = na.omit){
 
 background_error <- function(data, element.line, values=NULL, background, slope=NULL, intercept=NULL, norm.type=1, norm.min=9, norm.max=9.2, compress="100 eV", conversion=1){
     
-    data <- just_spectra_summary_apply(spectra.frame=data, normalization=norm.type, min=norm.min, max=norm.max, compress=compress)
+    data <- just_spectra_summary_apply(spectra.frame=data, normalization=norm.type, min=norm.min, max=norm.max, compress=compress, deconvolution=NULL)
 
     
     element_symbol <- strsplit(x=element.line, split="\\.")[[1]][1]

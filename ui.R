@@ -184,6 +184,10 @@ splitLayout(cellWidths = c("50%", "50%"),
     column(width=12,
         selectInput("normspectra", label = "Normalization",
         choices = list("Time" = 1, "Total Counts" = 2, "Compton" = 3), selected=2),
+        conditionalPanel(
+            condition = "input.normspectra == '3'",
+            selectInput("compton_type", "Compton Type", choices = c("Raw" = "Raw", "Baseline" = "Baseline"), selected = "Raw")
+        ),
         numericInput('comptonminspectra', label=h6("Min"), step=0.001, value=10, min=0, max=50, width='30%'),
         numericInput('comptonmaxspectra', label=h6("Max"), step=0.001, value=10.2, min=0, max=50, width='30%')),
     column(width=12,
