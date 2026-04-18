@@ -88,16 +88,23 @@ if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 #        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
 #    }
 
-if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
-    } else if("rPDZ" %in% installed.packages()[,"Package"]==FALSE && get_os()!="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+# rPDZ package management
+required_version <- "2.0.1"
+if ("rPDZ" %in% installed.packages()[,"Package"]) {
+    if (as.character(packageVersion("rPDZ")) != required_version) {
+        remove.packages("rPDZ")
+        if (Sys.info()['sysname'] == 'Windows') {
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.zip", repos=NULL, type="binary"), error=function(e) remotes::install_github("leedrake5/rPDZ"))
+        } else {
+            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.tar.gz", type="source", repos=NULL), error=function(e) remotes::install_github("leedrake5/rPDZ"))
+        }
     }
-
-if(packageVersion("rPDZ")!="2.0.1" && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
-} else if(packageVersion("rPDZ")!="2.0.1" && get_os()!="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/rPDZ"), error=function(e) NULL))
+} else {
+    if (Sys.info()['sysname'] == 'Windows') {
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.zip", repos=NULL, type="binary"), error=function(e) remotes::install_github("leedrake5/rPDZ"))
+    } else {
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.tar.gz", type="source", repos=NULL), error=function(e) remotes::install_github("leedrake5/rPDZ"))
+    }
 }
 
 
@@ -121,7 +128,7 @@ if(packageVersion("xrftools")!="0.0.2" && get_os()=="windows"){
 
 #sourceCpp("pdz.cpp")
 
-tryCatch(library(rPDZ), error=function(e) NULL)
+library(rPDZ)
 library(reactlog)
 options(shiny.reactlog = TRUE)
 #reactlog_enable()
