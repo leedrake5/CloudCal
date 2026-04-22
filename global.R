@@ -79,22 +79,44 @@ if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 #    }
 
 # rPDZ package management
-required_version <- "2.0.1"
-if ("rPDZ" %in% installed.packages()[,"Package"]) {
-    if (as.character(packageVersion("rPDZ")) != required_version) {
-        remove.packages("rPDZ")
-        if (Sys.info()['sysname'] == 'Windows') {
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.zip", repos=NULL, type="binary"), error=function(e) remotes::install_github("leedrake5/rPDZ"))
-        } else {
-            tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.tar.gz", type="source", repos=NULL), error=function(e) remotes::install_github("leedrake5/rPDZ"))
-        }
-    }
-} else {
-    if (Sys.info()['sysname'] == 'Windows') {
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.zip", repos=NULL, type="binary"), error=function(e) remotes::install_github("leedrake5/rPDZ"))
+# install.packages(url, repos=NULL) signals warnings (not errors) on failure,
+# so tryCatch(..., error=...) misses the common case. Verify by checking the
+# installed version afterward, and fall back to remotes::install_github if the
+# hosted archive didn't land.
+required_version <- "2.0.2"
+
+installed_version <- function(pkg) {
+    if (pkg %in% rownames(installed.packages())) as.character(packageVersion(pkg)) else NA_character_
+}
+
+install_rPDZ <- function() {
+    is_win <- .Platform$OS.type == "windows"
+    url <- if (is_win) {
+        paste0("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_",
+               required_version, ".zip")
     } else {
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_2.0.1.tar.gz", type="source", repos=NULL), error=function(e) remotes::install_github("leedrake5/rPDZ"))
+        paste0("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/rPDZ_",
+               required_version, ".tar.gz")
     }
+    type <- if (is_win) "binary" else "source"
+    try(install.packages(url, repos = NULL, type = type), silent = TRUE)
+
+    if (!identical(installed_version("rPDZ"), required_version)) {
+        message("Hosted rPDZ install did not yield ", required_version,
+                "; falling back to remotes::install_github")
+        if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
+        remotes::install_github("leedrake5/rPDZ")
+    }
+}
+
+if (!identical(installed_version("rPDZ"), required_version)) {
+    if ("package:rPDZ" %in% search()) {
+        try(detach("package:rPDZ", unload = TRUE), silent = TRUE)
+    }
+    if ("rPDZ" %in% rownames(installed.packages())) {
+        try(remove.packages("rPDZ"), silent = TRUE)
+    }
+    install_rPDZ()
 }
 
 
