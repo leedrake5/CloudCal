@@ -20,16 +20,6 @@ get_os <- function(){
 }
 
 tryCatch(options(java.parameters = c("-XX:+UseConcMarkSweepGC", "-Xmx81920m")), error=function(e) NULL)
-#options(repos = BiocInstaller::biocinstallRepos())
-#getOption("repos")
-#options(download.file.method="libcurl", url.method="libcurl")
-if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-list.of.bioconductor <- c("graph", "RBGL", "Rgraphviz")
-new.bioconductor <- list.of.bioconductor[!(list.of.bioconductor %in% installed.packages()[,"Package"])]
-#if(length(new.bioconductor)) source("https://www.bioconductor.org/biocLite.R")
-if(length(new.bioconductor)) BiocManager::install(new.bioconductor)
-
-
 
 list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "remotes", "tidyverse", "tools", "shinycssloaders", "openxlsx", "itraxR", "pbmcapply")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
