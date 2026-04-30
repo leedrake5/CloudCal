@@ -5579,13 +5579,22 @@ spectrumSelect <- function(spectra, hold.frame){
 }
 
 predictIntensitySimpPreGen <- function(spectra, hold.frame, deconvolution = NULL, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw"){
-    
+
     data <- if(compton.type=="Raw"){
         spectra
     } else if(compton.type=="Baseline"){
         deconvolution$Baseline
     } else if(compton.type=="Net"){
         deconvolution$Spectra
+    }
+    # Keep `data` aligned with the active calibration set. dataNormCal() already
+    # does this for Raw upstream; deconvolution$Baseline / $Spectra come from
+    # calMemory and aren't refiltered when the user deselects standards, so do
+    # it here. Without this, prep helpers that aggregate per Spectrum (e.g.
+    # lucas_comp_prep_xrf) build a vector longer than `intensity` and the
+    # downstream data.frame() fails with "differing number of rows".
+    if(!is.null(data) && "Spectrum" %in% colnames(data)){
+        data <- data[data$Spectrum %in% hold.frame$Spectrum, ]
     }
     spectra.line.table <- hold.frame
     
@@ -5668,7 +5677,7 @@ predictIntensitySimp <- function(predict.frame){
 }
 
 predictIntensityForestPreGen <- function(spectra, hold.frame, deconvolution=NULL, element, intercepts=NULL, slopes=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw"){
-    
+
     data <- if(compton.type=="Raw"){
         spectra
     } else if(compton.type=="Baseline"){
@@ -5676,7 +5685,13 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, deconvolution=NULL
     } else if(compton.type=="Net"){
         deconvolution$Spectra
     }
-    
+    # See predictIntensitySimpPreGen: deconvolution slots aren't refiltered when
+    # the user deselects calibration standards, so align `data` with
+    # hold.frame$Spectrum here to match what dataNormCal() does for Raw.
+    if(!is.null(data) && "Spectrum" %in% colnames(data)){
+        data <- data[data$Spectrum %in% hold.frame$Spectrum, ]
+    }
+
     spectra.line.table <- hold.frame
     element.lines.to.use <- if(is.null(slopes)){
         names(hold.frame)[!names(hold.frame) %in% c("Spectrum", "Concentration")]
