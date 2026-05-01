@@ -89,6 +89,16 @@ installed_version <- function(pkg) {
     if (pkg %in% rownames(installed.packages())) as.character(packageVersion(pkg)) else NA_character_
 }
 
+# Draw a friendly notice in a renderPlot slot when there's nothing meaningful to
+# plot (e.g. a covariance matrix with a single observation). Replaces a hard
+# error with a clear message in the panel users were expecting.
+singleSpectrumNotice <- function(message = "Only one spectrum loaded — variance cannot be calculated.\nAdd additional spectra to compute correlations.") {
+    op <- par(mar = c(0, 0, 0, 0))
+    on.exit(par(op))
+    plot.new()
+    text(0.5, 0.5, message, cex = 1.2, col = "#444444")
+}
+
 install_rPDZ <- function() {
     is_win <- .Platform$OS.type == "windows"
     url <- if (is_win) {

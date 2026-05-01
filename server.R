@@ -2636,6 +2636,10 @@ shinyServer(function(input, output, session) {
         
         covarPlotLine <- reactive({
             data.table <- calMemory$Calibration$Intensities
+            if (is.null(data.table) || nrow(data.table) < 2) {
+                singleSpectrumNotice()
+                return(invisible(NULL))
+            }
             correlations <- cor(data.table[,-1])
             if(input$linecovarnumber==FALSE){
                 corrplot::corrplot(correlations, method="circle")
@@ -2643,9 +2647,13 @@ shinyServer(function(input, output, session) {
                 corrplot::corrplot(correlations, method="number", number.digits=1)
             }
         })
-        
+
         covarPlotLineWide <- reactive({
             data.table <- calMemory$Calibration$WideIntensities
+            if (is.null(data.table) || nrow(data.table) < 2) {
+                singleSpectrumNotice()
+                return(invisible(NULL))
+            }
             correlations <- cor(data.table[,-1])
             if(input$linecovarnumber==FALSE){
                 corrplot::corrplot(correlations, method="circle")
@@ -2653,9 +2661,13 @@ shinyServer(function(input, output, session) {
                 corrplot::corrplot(correlations, method="number", number.digits=1)
             }
         })
-        
+
         covarPlotLineDeconvoluted <- reactive({
             data.table <- calMemory$Calibration$Deconvoluted$Areas
+            if (is.null(data.table) || nrow(data.table) < 2) {
+                singleSpectrumNotice()
+                return(invisible(NULL))
+            }
             correlations <- cor(data.table[,-1])
             if(input$linecovarnumber==FALSE){
                 corrplot::corrplot(correlations, method="circle")
@@ -3023,9 +3035,18 @@ shinyServer(function(input, output, session) {
         #})
         
         covarPlotValues <- reactive({
-            data.stuff <- values[["DF"]][,sapply(values[["DF"]], is.numeric)]
+            df <- values[["DF"]]
+            if (is.null(df) || nrow(df) < 2) {
+                singleSpectrumNotice()
+                return(invisible(NULL))
+            }
+            data.stuff <- df[,sapply(df, is.numeric)]
             data.stuff <- data.stuff[, !sapply(data.stuff, function(k) all(is.na(k)))]
             data.stuff <- data.stuff[,colSums(data.stuff, na.rm=TRUE)>0]
+            if (is.null(ncol(data.stuff)) || ncol(data.stuff) < 2) {
+                singleSpectrumNotice("Need at least two numeric concentration columns with non-zero values to compute correlations.")
+                return(invisible(NULL))
+            }
             correlations <- cor(data.stuff, use="pairwise.complete.obs")
             if(input$conccovarnumber==FALSE){
                 corrplot::corrplot(correlations, method="circle")
