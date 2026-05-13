@@ -3097,10 +3097,10 @@ shinyServer(function(input, output, session) {
             rownames(hold.frame.reduced) <- hold.frame$Spectrum
             rownames(value.frame.reduced) <- value.frame$Spectrum
  
-            hotable.new = hold.frame.reduced %>% add_rownames %>%
-            full_join(value.frame.reduced %>% add_rownames) %>%
+            hotable.new = hold.frame.reduced %>% tibble::rownames_to_column() %>%
+            full_join(value.frame.reduced %>% tibble::rownames_to_column()) %>%
             group_by(rowname) %>%
-            summarise_all(funs(sum(., na.rm = FALSE)))
+            summarise(across(everything(), ~ sum(.x, na.rm = FALSE)))
             
             colnames(hotable.new)[1] <- "Spectrum"
             
