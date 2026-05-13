@@ -1,6 +1,158 @@
 
 options(shiny.maxRequestSize=500*1024^2)  # 500 MB limit for large calibrations
 
+# --------------------------------------------------------------------------
+# ggplot2 4.0 + Shiny 1.10 brush/click shim
+#
+# When the gg object uses ggplot2 4.0's new internals, Shiny can't introspect
+# its scales/coords. It still emits a brush/click event, but the coordinates
+# come back as 0..1 fractions of the panel and brush$domain reports the
+# normalized [-0.04, 1.04] expanded panel instead of the data range.
+# brush$mapping is an empty list, so brushedPoints()/nearPoints() also fail
+# to identify rows.
+#
+# The helpers below detect that case and rescale to data coordinates using
+# the actual data range the caller passes in. They are no-ops when the
+# environment behaves correctly, so they remain safe once Shiny adds 4.0
+# support and can be removed.
+# --------------------------------------------------------------------------
+
+# Computed once at load. Only the ggplot2 4.x rewrite triggers the brush bug;
+# on 3.x the rescale must never fire (it could shift legitimate small-range
+# brushes). tryCatch keeps load-time safe if ggplot2 isn't yet installed.
+.ggplot2_is_4plus <- tryCatch(
+    utils::packageVersion("ggplot2") >= "4.0.0",
+    error = function(e) FALSE
+)
+
+.brush_looks_normalized <- function(brush, vals) {
+    # Belt: only consider rescaling on ggplot2 >= 4.0 where the bug exists.
+    if (!.ggplot2_is_4plus) return(FALSE)
+
+    # Suspenders: primary signal is brush$mapping. In a working shiny+ggplot
+    # install it's populated with the x/y aesthetic mapping; when shiny can't
+    # introspect the gg object (ggplot2 4.0 + shiny < some-future-version) it
+    # falls back to an empty mapping.
+    mapping_empty <- is.null(brush$mapping) || length(brush$mapping) == 0
+    if (!mapping_empty) return(FALSE)
+
+    dom <- brush$domain
+    if (is.null(dom)) return(FALSE)
+    if (!all(is.finite(c(dom$left, dom$right, dom$bottom, dom$top)))) return(FALSE)
+    # The broken case reports dom = list(-0.04, 1.04, -0.04, 1.04) regardless of
+    # data range. Span 1.08 << 1.5 covers it with a small margin.
+    if ((dom$right - dom$left) >= 1.5) return(FALSE)
+    if (!all(is.finite(vals))) return(FALSE)
+    xs <- vals[seq_len(length(vals)/2)]
+    ys <- vals[(length(vals)/2 + 1):length(vals)]
+    all(xs >= dom$left - 1e-3) && all(xs <= dom$right + 1e-3) &&
+        all(ys >= dom$bottom - 1e-3) && all(ys <= dom$top + 1e-3)
+}
+
+rescale_brush_coords <- function(brush, x_data_range, y_data_range, expand = 0.05) {
+    if (is.null(brush)) return(NULL)
+    x <- c(brush$xmin, brush$xmax)
+    y <- c(brush$ymin, brush$ymax)
+    dom <- brush$domain
+    if (.brush_looks_normalized(brush, c(x, y)) &&
+        all(is.finite(c(x_data_range, y_data_range))) &&
+        diff(x_data_range) > 0 && diff(y_data_range) > 0) {
+        x_pad <- expand * diff(x_data_range)
+        y_pad <- expand * diff(y_data_range)
+        x_panel <- c(x_data_range[1] - x_pad, x_data_range[2] + x_pad)
+        y_panel <- c(y_data_range[1] - y_pad, y_data_range[2] + y_pad)
+        panel_span <- dom$right - dom$left
+        x <- x_panel[1] + ((x - dom$left) / panel_span) * diff(x_panel)
+        y <- y_panel[1] + ((y - dom$bottom) / panel_span) * diff(y_panel)
+    }
+    list(xmin = x[1], xmax = x[2], ymin = y[1], ymax = y[2])
+}
+
+rescale_click_coords <- function(click, x_data_range, y_data_range, expand = 0.05) {
+    if (is.null(click)) return(NULL)
+    cx <- click$x
+    cy <- click$y
+    dom <- click$domain
+    if (.brush_looks_normalized(click, c(cx, cx, cy, cy)) &&
+        all(is.finite(c(x_data_range, y_data_range))) &&
+        diff(x_data_range) > 0 && diff(y_data_range) > 0) {
+        x_pad <- expand * diff(x_data_range)
+        y_pad <- expand * diff(y_data_range)
+        x_panel <- c(x_data_range[1] - x_pad, x_data_range[2] + x_pad)
+        y_panel <- c(y_data_range[1] - y_pad, y_data_range[2] + y_pad)
+        panel_span <- dom$right - dom$left
+        cx <- x_panel[1] + ((cx - dom$left) / panel_span) * diff(x_panel)
+        cy <- y_panel[1] + ((cy - dom$bottom) / panel_span) * diff(y_panel)
+    }
+    list(x = cx, y = cy)
+}
+
+# brushedPoints replacement: works around empty brush$mapping by taking xvar/yvar
+# explicitly and rescaling the brush coords from the panel-fraction form.
+brushedPoints_safe <- function(df, brush, xvar, yvar, allRows = FALSE) {
+    if (is.null(brush) || is.null(df) || nrow(df) == 0 ||
+        !xvar %in% names(df) || !yvar %in% names(df)) {
+        if (allRows) {
+            df$selected_ <- rep(FALSE, NROW(df))
+            return(df)
+        }
+        return(df[0, , drop = FALSE])
+    }
+    xv <- suppressWarnings(as.numeric(df[[xvar]]))
+    yv <- suppressWarnings(as.numeric(df[[yvar]]))
+    x_range <- range(xv, na.rm = TRUE, finite = TRUE)
+    y_range <- range(yv, na.rm = TRUE, finite = TRUE)
+    coords <- rescale_brush_coords(brush, x_range, y_range)
+    keep <- xv >= coords$xmin & xv <= coords$xmax &
+            yv >= coords$ymin & yv <= coords$ymax
+    keep[is.na(keep)] <- FALSE
+    if (allRows) {
+        df$selected_ <- keep
+        df
+    } else {
+        df[keep, , drop = FALSE]
+    }
+}
+
+# nearPoints replacement: matches points within threshold_frac of the data
+# range in each axis. Default 2% mirrors Shiny's ~5 pixel default on a typical
+# ~600px panel. If maxpoints is set, returns up to that many points ranked by
+# distance (in normalized units).
+nearPoints_safe <- function(df, click, xvar, yvar,
+                            threshold_frac = 0.02, maxpoints = NULL,
+                            allRows = FALSE) {
+    if (is.null(click) || is.null(df) || nrow(df) == 0 ||
+        !xvar %in% names(df) || !yvar %in% names(df)) {
+        if (allRows) {
+            df$selected_ <- rep(FALSE, NROW(df))
+            return(df)
+        }
+        return(df[0, , drop = FALSE])
+    }
+    xv <- suppressWarnings(as.numeric(df[[xvar]]))
+    yv <- suppressWarnings(as.numeric(df[[yvar]]))
+    x_range <- range(xv, na.rm = TRUE, finite = TRUE)
+    y_range <- range(yv, na.rm = TRUE, finite = TRUE)
+    coords <- rescale_click_coords(click, x_range, y_range)
+    x_span <- diff(x_range); if (!is.finite(x_span) || x_span <= 0) x_span <- 1
+    y_span <- diff(y_range); if (!is.finite(y_span) || y_span <= 0) y_span <- 1
+    norm_dist <- sqrt(((xv - coords$x) / x_span)^2 + ((yv - coords$y) / y_span)^2)
+    keep <- !is.na(norm_dist) & norm_dist <= threshold_frac
+    if (!is.null(maxpoints) && sum(keep) > maxpoints) {
+        # Keep only the maxpoints closest
+        ord <- order(norm_dist)
+        winners <- ord[seq_len(maxpoints)]
+        keep <- rep(FALSE, length(norm_dist))
+        keep[winners] <- TRUE
+    }
+    if (allRows) {
+        df$selected_ <- keep
+        df
+    } else {
+        df[keep, , drop = FALSE]
+    }
+}
+
 shinyServer(function(input, output, session) {
     
     
@@ -1397,16 +1549,18 @@ shinyServer(function(input, output, session) {
                     element$Intensity <- intensity.norm
                 }
 
-                qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = yLabel(), geom="line", colour=data$Spectrum) +
+                ggplot(data, aes(x = Energy, y = CPS, colour = Spectrum)) +
+                geom_line() +
+                xlab("Energy (keV)") + ylab(yLabel()) +
                 theme_light(base_size = 15) +
                 theme(legend.position="bottom") +
-                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
+                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2, inherit.aes = FALSE)  +
                 scale_colour_discrete("Spectrum") +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y)
 
-                
+
             })
-            
+
             spectraNoLabels <- reactive({
 
                 data <- spectraPlotData()
@@ -1418,14 +1572,16 @@ shinyServer(function(input, output, session) {
                     element$Intensity <- intensity.norm
                 }
 
-                qplot(data$Energy, data$CPS, xlab = "Energy (keV)", ylab = yLabel(), geom="line", colour=data$Spectrum) +
+                ggplot(data, aes(x = Energy, y = CPS, colour = Spectrum)) +
+                geom_line() +
+                xlab("Energy (keV)") + ylab(yLabel()) +
                 theme_light(base_size = 15) +
                 theme(legend.position="bottom") +
-                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
+                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2, inherit.aes = FALSE)  +
                 scale_colour_discrete("Spectrum") +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y) +
                 guides(colour=FALSE)
-                
+
             })
             
             
@@ -1554,19 +1710,20 @@ shinyServer(function(input, output, session) {
             # When a double-click happens, check if there's a brush on the plot.
             # If so, zoom to the brush bounds; if not, reset the zoom.
             observeEvent(input$cropspectra, {
-                data <- dataHold()
                 brush <- input$plot1_brush
                 if (!is.null(brush)) {
-                    ranges$x <- c(brush$xmin, brush$xmax)
-                    ranges$y <- c(brush$ymin, brush$ymax)
-                    
+                    plot_data <- tryCatch(spectraPlotData(), error = function(e) NULL)
+                    x_range <- if (!is.null(plot_data) && "Energy" %in% names(plot_data))
+                        range(plot_data$Energy, na.rm = TRUE) else c(NA, NA)
+                    y_range <- if (!is.null(plot_data) && "CPS" %in% names(plot_data))
+                        range(plot_data$CPS, na.rm = TRUE) else c(NA, NA)
+                    coords <- rescale_brush_coords(brush, x_range, y_range)
+                    ranges$x <- c(coords$xmin, coords$xmax)
+                    ranges$y <- c(coords$ymin, coords$ymax)
                 } else {
                     ranges$x <- NULL
                     ranges$y <- NULL
                 }
-                
-                
-                
             })
             
             output$downloadPlot <- downloadHandler(
@@ -2960,7 +3117,11 @@ shinyServer(function(input, output, session) {
             } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Spectrum"){
                 data.frame(Include=rep(TRUE, length(hotable.new$Spectrum)), hotable.new, stringsAsFactors=FALSE)
             } else if(!is.null(calMemory$Calibration$Values) && colnames(calMemory$Calibration$Values)[1]=="Include"){
-                data.frame(Include=rep(TRUE, nrow(hotable.new)), hotable.new, stringsAsFactors=FALSE)
+                existing_specs <- gsub("\\.(pdz|csv|CSV|spt|mca|spx|spe)$", "",
+                                       spectrumNameVector(calMemory$Calibration$Values$Spectrum))
+                include_vec <- calMemory$Calibration$Values$Include[match(hotable.new$Spectrum, existing_specs)]
+                include_vec[is.na(include_vec)] <- TRUE
+                data.frame(Include=include_vec, hotable.new, stringsAsFactors=FALSE)
             }
             
             hotable.new
@@ -4033,19 +4194,20 @@ shinyServer(function(input, output, session) {
         # When a double-click happens, check if there's a brush on the plot.
         # If so, zoom to the brush bounds; if not, reset the zoom.
         observeEvent(input$cropvar, {
-            data <- dataHold()
             brush <- input$plot_var_brush
             if (!is.null(brush)) {
-                importanceranges$x <- c(brush$xmin, brush$xmax)
-                importanceranges$y <- c(brush$ymin, brush$ymax)
-                
+                imp <- tryCatch(importanceFrame(), error = function(e) NULL)
+                x_range <- if (!is.null(imp) && "Energy" %in% names(imp))
+                    range(imp$Energy, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (!is.null(imp) && "Importance" %in% names(imp))
+                    range(imp$Importance, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                importanceranges$x <- c(coords$xmin, coords$xmax)
+                importanceranges$y <- c(coords$ymin, coords$ymax)
             } else {
                 importanceranges$x <- NULL
                 importanceranges$y <- NULL
             }
-            
-            
-            
         })
         
         variablesPlot <- reactive({
@@ -4264,9 +4426,9 @@ shinyServer(function(input, output, session) {
             if(calType()==5){
                 
                 point.table <- importanceFrame()
-                
+
                 hover <- input$plot_hover_variable
-                point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+                point <- nearPoints_safe(point.table, hover, xvar = "Energy", yvar = "Importance", maxpoints = 1)
                 if (nrow(point) == 0) return(NULL)
                 
                 # calculate point position INSIDE the image as percent of total dimensions
@@ -10869,9 +11031,15 @@ shinyServer(function(input, output, session) {
         observeEvent(input$cropcal, {
             brush <- input$plot_cal_brush
             if (!is.null(brush)) {
-                rangescalcurve$x <- c(brush$xmin, brush$xmax)
-                rangescalcurve$y <- c(brush$ymin, brush$ymax)
-                
+                pf <- tryCatch(predictFrame(), error = function(e) NULL)
+                mult <- if (isTRUE(input$plotunit == "ppm")) 10000 else 1
+                x_range <- if (!is.null(pf) && "Intensity" %in% names(pf))
+                    range(pf$Intensity, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (!is.null(pf) && "Concentration" %in% names(pf))
+                    range(pf$Concentration * mult, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                rangescalcurve$x <- c(coords$xmin, coords$xmax)
+                rangescalcurve$y <- c(coords$ymin, coords$ymax)
             } else {
                 rangescalcurve$x <- NULL
                 rangescalcurve$y <- NULL
@@ -11012,9 +11180,15 @@ shinyServer(function(input, output, session) {
         observeEvent(input$cropval, {
             brush <- input$plot_val_brush
             if (!is.null(brush)) {
-                rangesvalcurve$x <- c(brush$xmin, brush$xmax)
-                rangesvalcurve$y <- c(brush$ymin, brush$ymax)
-                
+                vf <- tryCatch(valFrame(), error = function(e) NULL)
+                mult <- if (isTRUE(input$plotunit == "ppm")) 10000 else 1
+                x_range <- if (!is.null(vf) && "Prediction" %in% names(vf))
+                    range(vf$Prediction * mult, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (!is.null(vf) && "Concentration" %in% names(vf))
+                    range(vf$Concentration * mult, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                rangesvalcurve$x <- c(coords$xmin, coords$xmax)
+                rangesvalcurve$y <- c(coords$ymin, coords$ymax)
             } else {
                 rangesvalcurve$x <- NULL
                 rangesvalcurve$y <- NULL
@@ -14432,9 +14606,15 @@ shinyServer(function(input, output, session) {
         observeEvent(input$cropcalrandom, {
             brush <- input$plot_cal_brush_random
             if (!is.null(brush)) {
-                rangescalcurverandom$x <- c(brush$xmin, brush$xmax)
-                rangescalcurverandom$y <- c(brush$ymin, brush$ymax)
-                
+                rf <- tryCatch(valFrameRandomizedRev(), error = function(e) NULL)
+                mult <- if (isTRUE(input$plotunit == "ppm")) 10000 else 1
+                x_range <- if (!is.null(rf) && "Intensity" %in% names(rf))
+                    range(rf$Intensity, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (!is.null(rf) && "Concentration" %in% names(rf))
+                    range(rf$Concentration * mult, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                rangescalcurverandom$x <- c(coords$xmin, coords$xmax)
+                rangescalcurverandom$y <- c(coords$ymin, coords$ymax)
             } else {
                 rangescalcurverandom$x <- NULL
                 rangescalcurverandom$y <- NULL
@@ -14526,9 +14706,15 @@ shinyServer(function(input, output, session) {
         observeEvent(input$cropvalrandom, {
             brush <- input$plot_val_brush_random
             if (!is.null(brush)) {
-                rangesvalcurverandom$x <- c(brush$xmin, brush$xmax)
-                rangesvalcurverandom$y <- c(brush$ymin, brush$ymax)
-                
+                vr <- tryCatch(valFrameRandomized(), error = function(e) NULL)
+                mult <- if (isTRUE(input$plotunit == "ppm")) 10000 else 1
+                x_range <- if (!is.null(vr) && "Prediction" %in% names(vr))
+                    range(vr$Prediction * mult, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (!is.null(vr) && "Concentration" %in% names(vr))
+                    range(vr$Concentration * mult, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                rangesvalcurverandom$x <- c(coords$xmin, coords$xmax)
+                rangesvalcurverandom$y <- c(coords$ymin, coords$ymax)
             } else {
                 rangesvalcurverandom$x <- NULL
                 rangesvalcurverandom$y <- NULL
@@ -14614,7 +14800,7 @@ shinyServer(function(input, output, session) {
             # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
 
             hover <- input$plot_hovercal
-            point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar="Intensity", yvar="Concentration", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -14667,7 +14853,7 @@ shinyServer(function(input, output, session) {
             # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
 
             hover <- input$plot_hovercal_random
-            point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar="Intensity", yvar="Concentration", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -14712,12 +14898,12 @@ shinyServer(function(input, output, session) {
                 calValFrame()
             }
             
-            res <- nearPoints(predict.frame, xvar="Intensity", yvar="Concentration", input$plot_cal_click, allRows = TRUE)
-            
+            res <- nearPoints_safe(predict.frame, input$plot_cal_click, xvar="Intensity", yvar="Concentration", allRows = TRUE)
+
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
-        
-        
+
+
         # Toggle points that are brushed, when button is clicked
         observeEvent(input$exclude_toggle, {
             
@@ -14730,11 +14916,11 @@ shinyServer(function(input, output, session) {
             } else if(calType()==5) {
                 calValFrame()
             }
-            res <- brushedPoints(predict.frame, xvar="Intensity", yvar="Concentration", input$plot_cal_brush, allRows = TRUE)
-            
+            res <- brushedPoints_safe(predict.frame, input$plot_cal_brush, xvar="Intensity", yvar="Concentration", allRows = TRUE)
+
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
-        
+
         # Reset all points
         observeEvent(input$exclude_reset, {
             
@@ -14777,7 +14963,7 @@ shinyServer(function(input, output, session) {
             # point.table now includes Spectrum from valFrame - no merge needed
 
             hover <- input$plot_hoverval
-            point <- nearPoints(point.table,  coordinfo=hover,  xvar="Prediction", yvar="Concentration", threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar="Prediction", yvar="Concentration", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -14823,7 +15009,7 @@ shinyServer(function(input, output, session) {
             # point.table now includes Spectrum from valFrame - no merge needed
 
             hover <- input$plot_hoverval_random
-            point <- nearPoints(point.table,  coordinfo=hover,  xvar="Prediction", yvar="Concentration", threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar="Prediction", yvar="Concentration", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -14859,7 +15045,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- calValFrame()
             
-            res <- nearPoints(predict.frame, input$plot_val_click,  xvar="Prediction", yvar="Concentration", allRows = TRUE)
+            res <- nearPoints_safe(predict.frame, input$plot_val_click, xvar="Prediction", yvar="Concentration", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -14869,7 +15055,7 @@ shinyServer(function(input, output, session) {
         observeEvent(input$exclude_toggle, {
             predict.frame <- calValFrame()
             
-            res <- brushedPoints(predict.frame, input$plot_val_brush,  xvar="Prediction", yvar="Concentration", allRows = TRUE)
+            res <- brushedPoints_safe(predict.frame, input$plot_val_brush, xvar="Prediction", yvar="Concentration", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15144,7 +15330,7 @@ shinyServer(function(input, output, session) {
             
             
             hover <- input$plot_hoverresidualsfitted
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar = ".fitted", yvar = ".resid", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -15180,7 +15366,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- nearPoints(predict.frame, input$plot_residualsfitted_click, allRows = TRUE)
+            res <- nearPoints_safe(predict.frame, input$plot_residualsfitted_click, xvar = ".fitted", yvar = ".resid", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15191,7 +15377,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- brushedPoints(predict.frame, input$plot_residualsfitted_brush, allRows = TRUE)
+            res <- brushedPoints_safe(predict.frame, input$plot_residualsfitted_brush, xvar = ".fitted", yvar = ".resid", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15205,7 +15391,7 @@ shinyServer(function(input, output, session) {
             
             
             hover <- input$plot_hoverqq
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar = "qq", yvar = ".std.resid", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -15241,7 +15427,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- nearPoints(predict.frame, input$plot_qq_click, allRows = TRUE)
+            res <- nearPoints_safe(predict.frame, input$plot_qq_click, xvar = "qq", yvar = ".std.resid", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15252,7 +15438,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- brushedPoints(predict.frame, input$plot_qq_brush, allRows = TRUE)
+            res <- brushedPoints_safe(predict.frame, input$plot_qq_brush, xvar = "qq", yvar = ".std.resid", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15266,7 +15452,7 @@ shinyServer(function(input, output, session) {
             
             
             hover <- input$plot_hoverscalelocation
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar = ".fitted", yvar = "sqrt.std.resid", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -15302,7 +15488,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- nearPoints(predict.frame, input$plot_scalelocation_click, allRows = TRUE)
+            res <- nearPoints_safe(predict.frame, input$plot_scalelocation_click, xvar = ".fitted", yvar = "sqrt.std.resid", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15313,7 +15499,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- brushedPoints(predict.frame, input$plot_scalelocation_brush, allRows = TRUE)
+            res <- brushedPoints_safe(predict.frame, input$plot_scalelocation_brush, xvar = ".fitted", yvar = "sqrt.std.resid", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15327,7 +15513,7 @@ shinyServer(function(input, output, session) {
             
             
             hover <- input$plot_hoverresidualleverage
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar = ".hat", yvar = ".std.resid", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -15363,7 +15549,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- nearPoints(predict.frame, input$plot_residualleverage_click, allRows = TRUE)
+            res <- nearPoints_safe(predict.frame, input$plot_residualleverage_click, xvar = ".hat", yvar = ".std.resid", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15374,7 +15560,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- brushedPoints(predict.frame, input$plot_residualleverage_brush, allRows = TRUE)
+            res <- brushedPoints_safe(predict.frame, input$plot_residualleverage_brush, xvar = ".hat", yvar = ".std.resid", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15388,7 +15574,7 @@ shinyServer(function(input, output, session) {
             
             
             hover <- input$plot_hovercooksleverage
-            point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar = ".hat", yvar = ".cooksd", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -15424,7 +15610,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- nearPoints(predict.frame, input$plot_cooksleverage_click, allRows = TRUE)
+            res <- nearPoints_safe(predict.frame, input$plot_cooksleverage_click, xvar = ".hat", yvar = ".cooksd", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15435,7 +15621,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- brushedPoints(predict.frame, input$plot_cooksleverage_brush, allRows = TRUE)
+            res <- brushedPoints_safe(predict.frame, input$plot_cooksleverage_brush, xvar = ".hat", yvar = ".cooksd", allRows = TRUE)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -16876,16 +17062,18 @@ observeEvent(input$actionprocess2_multi, {
         observeEvent(input$cropvar_multi, {
             brush <- input$plot_var_brush_multi
             if (!is.null(brush)) {
-                importanceranges_multi$x <- c(brush$xmin, brush$xmax)
-                importanceranges_multi$y <- c(brush$ymin, brush$ymax)
-                
+                imp <- tryCatch(importanceFrameMulti(), error = function(e) NULL)
+                x_range <- if (!is.null(imp) && "Energy" %in% names(imp))
+                    range(imp$Energy, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (!is.null(imp) && "Importance" %in% names(imp))
+                    range(imp$Importance, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                importanceranges_multi$x <- c(coords$xmin, coords$xmax)
+                importanceranges_multi$y <- c(coords$ymin, coords$ymax)
             } else {
                 importanceranges_multi$x <- NULL
                 importanceranges_multi$y <- NULL
             }
-            
-            
-            
         })
         
         variablesPlotMulti <- reactive({
@@ -17102,7 +17290,7 @@ observeEvent(input$actionprocess2_multi, {
                 point.table <- importanceFrameMulti()
                 
                 hover <- input$plot_hover_variable_multi
-                point <- nearPoints(point.table,  coordinfo=hover,   threshold = 5, maxpoints = 1, addDist = TRUE)
+                point <- nearPoints_safe(point.table, hover, xvar = "Energy", yvar = "Importance", maxpoints = 1)
                 if (nrow(point) == 0) return(NULL)
                 
                 # calculate point position INSIDE the image as percent of total dimensions
@@ -17440,9 +17628,15 @@ observeEvent(input$actionprocess2_multi, {
         observeEvent(input$cropcalmulti, {
             brush <- input$plot_cal_brush_multi
             if (!is.null(brush)) {
-                rangescalcurve_multi$x <- c(brush$xmin, brush$xmax)
-                rangescalcurve_multi$y <- c(brush$ymin, brush$ymax)
-                
+                pf <- tryCatch(predictFrameMulti(), error = function(e) NULL)
+                mult <- if (isTRUE(input$plotunit == "ppm")) 10000 else 1
+                x_range <- if (!is.null(pf) && "Intensity" %in% names(pf))
+                    range(pf$Intensity, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (!is.null(pf) && "Concentration" %in% names(pf))
+                    range(pf$Concentration * mult, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                rangescalcurve_multi$x <- c(coords$xmin, coords$xmax)
+                rangescalcurve_multi$y <- c(coords$ymin, coords$ymax)
             } else {
                 rangescalcurve_multi$x <- NULL
                 rangescalcurve_multi$y <- NULL
@@ -17525,9 +17719,15 @@ observeEvent(input$actionprocess2_multi, {
         observeEvent(input$cropvalmulti, {
             brush <- input$plot_val_brush_multi
             if (!is.null(brush)) {
-                rangesvalcurve_multi$x <- c(brush$xmin, brush$xmax)
-                rangesvalcurve_multi$y <- c(brush$ymin, brush$ymax)
-                
+                vf <- tryCatch(valFrameMulti(), error = function(e) NULL)
+                mult <- if (isTRUE(input$plotunit == "ppm")) 10000 else 1
+                x_range <- if (!is.null(vf) && "Prediction" %in% names(vf))
+                    range(vf$Prediction * mult, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (!is.null(vf) && "Concentration" %in% names(vf))
+                    range(vf$Concentration * mult, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                rangesvalcurve_multi$x <- c(coords$xmin, coords$xmax)
+                rangesvalcurve_multi$y <- c(coords$ymin, coords$ymax)
             } else {
                 rangesvalcurve_multi$x <- NULL
                 rangesvalcurve_multi$y <- NULL
@@ -18202,9 +18402,15 @@ observeEvent(input$actionprocess2_multi, {
         observeEvent(input$cropcalmultirandom, {
             brush <- input$plot_cal_brush_random_multi
             if (!is.null(brush)) {
-                rangescalcurverandom_multi$x <- c(brush$xmin, brush$xmax)
-                rangescalcurverandom_multi$y <- c(brush$ymin, brush$ymax)
-                
+                rf <- tryCatch(valFrameRandomizedRevMulti(), error = function(e) NULL)
+                mult <- if (isTRUE(input$plotunit == "ppm")) 10000 else 1
+                x_range <- if (!is.null(rf) && "Intensity" %in% names(rf))
+                    range(rf$Intensity, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (!is.null(rf) && "Concentration" %in% names(rf))
+                    range(rf$Concentration * mult, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                rangescalcurverandom_multi$x <- c(coords$xmin, coords$xmax)
+                rangescalcurverandom_multi$y <- c(coords$ymin, coords$ymax)
             } else {
                 rangescalcurverandom_multi$x <- NULL
                 rangescalcurverandom_multi$y <- NULL
@@ -18288,9 +18494,15 @@ observeEvent(input$actionprocess2_multi, {
         observeEvent(input$cropvalmultirandom, {
             brush <- input$plot_val_brush_random_multi
             if (!is.null(brush)) {
-                rangesvalcurverandom_multi$x <- c(brush$xmin, brush$xmax)
-                rangesvalcurverandom_multi$y <- c(brush$ymin, brush$ymax)
-                
+                vr <- tryCatch(valFrameRandomizedMulti(), error = function(e) NULL)
+                mult <- if (isTRUE(input$plotunit == "ppm")) 10000 else 1
+                x_range <- if (!is.null(vr) && "Prediction" %in% names(vr))
+                    range(vr$Prediction * mult, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (!is.null(vr) && "Concentration" %in% names(vr))
+                    range(vr$Concentration * mult, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                rangesvalcurverandom_multi$x <- c(coords$xmin, coords$xmax)
+                rangesvalcurverandom_multi$y <- c(coords$ymin, coords$ymax)
             } else {
                 rangesvalcurverandom_multi$x <- NULL
                 rangesvalcurverandom_multi$y <- NULL
@@ -18330,7 +18542,7 @@ observeEvent(input$actionprocess2_multi, {
             # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
 
             hover <- input$plot_hovercal_multi
-            point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar="Intensity", yvar="Concentration", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -18379,7 +18591,7 @@ observeEvent(input$actionprocess2_multi, {
             # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
 
             hover <- input$plot_hovercal_random_multi
-            point <- nearPoints(point.table,  coordinfo=hover, xvar="Intensity", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar="Intensity", yvar="Concentration", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -18425,7 +18637,7 @@ observeEvent(input$actionprocess2_multi, {
                 calValFrameMulti()
             }
             
-            res <- nearPoints(predict.frame, input$plot_cal_click_multi, xvar="Intensity", yvar="Concentration", allRows = TRUE)
+            res <- nearPoints_safe(predict.frame, input$plot_cal_click_multi, xvar="Intensity", yvar="Concentration", allRows = TRUE)
             
             temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
             
@@ -18446,7 +18658,7 @@ observeEvent(input$actionprocess2_multi, {
             } else if(calTypeMulti()==5) {
                 calValFrameMulti()
             }
-            res <- brushedPoints(predict.frame, input$plot_cal_brush_multi, xvar="Intensity", yvar="Concentration", allRows = TRUE)
+            res <- brushedPoints_safe(predict.frame, input$plot_cal_brush_multi, xvar="Intensity", yvar="Concentration", allRows = TRUE)
             
             temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
             
@@ -18495,7 +18707,7 @@ observeEvent(input$actionprocess2_multi, {
             # point.table now includes Spectrum from valFrame - no merge needed
 
             hover <- input$plot_hoverval_multi
-            point <- nearPoints(point.table,  coordinfo=hover, xvar="Prediction", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar="Prediction", yvar="Concentration", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -18536,7 +18748,7 @@ observeEvent(input$actionprocess2_multi, {
             # point.table now includes Spectrum from valFrame - no merge needed
 
             hover <- input$plot_hoverval_random_multi
-            point <- nearPoints(point.table,  coordinfo=hover, xvar="Prediction", yvar="Concentration",  threshold = 5, maxpoints = 1, addDist = TRUE)
+            point <- nearPoints_safe(point.table, hover, xvar="Prediction", yvar="Concentration", maxpoints = 1)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -18574,7 +18786,7 @@ observeEvent(input$actionprocess2_multi, {
             
             predict.frame <- calValFrameMulti()
             
-            res <- nearPoints(predict.frame, input$plot_val_click_multi, xvar="Prediction", yvar="Concentration", allRows = TRUE)
+            res <- nearPoints_safe(predict.frame, input$plot_val_click_multi, xvar="Prediction", yvar="Concentration", allRows = TRUE)
             
             temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
             
@@ -18586,7 +18798,7 @@ observeEvent(input$actionprocess2_multi, {
         observeEvent(input$exclude_toggle_multi, {
             predict.frame <- calValFrameMulti()
             
-            res <- brushedPoints(predict.frame, input$plot_val_brush_multi, xvar="Prediction", yvar="Concentration",  allRows = TRUE)
+            res <- brushedPoints_safe(predict.frame, input$plot_val_brush_multi, xvar="Prediction", yvar="Concentration", allRows = TRUE)
             
             temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
             

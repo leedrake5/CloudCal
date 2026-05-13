@@ -3980,9 +3980,14 @@ ensureOtherSpectraStuff <- function(Calibration, force_create = FALSE) {
     Calibration
 }
 
-# Helper to rebuild all intensity tables
-# Parallelizes the 6 independent table builds on non-Windows systems with sufficient cores
-rebuildIntensityTables <- function(Calibration, elements, allowParallel) {
+# Helper to rebuild intensity tables
+# Parallelizes independent table builds on non-Windows systems with sufficient cores.
+# By default rebuilds all 6 tables; pass a subset via `tables` to rebuild only those.
+rebuildIntensityTables <- function(Calibration, elements, allowParallel,
+                                   tables = c("Intensities", "IntensitiesSplit", "IntensitiesFirst",
+                                              "IntensitiesSecond", "WideIntensities", "WideIntensitiesSplit")) {
+    if (length(tables) == 0) return(Calibration)
+
     other <- Calibration$OtherSpectraStuff
     spectra <- Calibration$Spectra
     defs <- Calibration$Definitions
@@ -3992,62 +3997,75 @@ rebuildIntensityTables <- function(Calibration, elements, allowParallel) {
     # Check if outer-level parallelism is beneficial:
     # - Need non-Windows (mclapply uses forking)
     # - Need enough cores to justify overhead
+    # - Need multiple tables to build
     # - User must have requested parallel processing
     n_cores <- as.numeric(my.cores)
-    use_outer_parallel <- allowParallel && get_os() != "windows" && n_cores >= 4
+    use_outer_parallel <- allowParallel && get_os() != "windows" &&
+                          n_cores >= 4 && length(tables) >= 2
 
     if (use_outer_parallel) {
         # When parallelizing at outer level, disable inner parallelism to avoid oversubscription
-        # Use min(6, cores) since we have exactly 6 independent tasks
-        outer_cores <- min(6, n_cores)
+        outer_cores <- min(length(tables), n_cores)
 
-        # Define the 6 table-building tasks
-        tasks <- list(
-            Intensities = function() narrowLineTable(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = FALSE),
-            IntensitiesSplit = function() narrowLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = FALSE),
-            IntensitiesFirst = function() narrowLineTableFirst(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = FALSE),
-            IntensitiesSecond = function() narrowLineTableSecond(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = FALSE),
-            WideIntensities = function() wideLineTable(spectra, defs, elements, allowParallel = FALSE),
+        all_tasks <- list(
+            Intensities          = function() narrowLineTable(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = FALSE),
+            IntensitiesSplit     = function() narrowLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = FALSE),
+            IntensitiesFirst     = function() narrowLineTableFirst(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = FALSE),
+            IntensitiesSecond    = function() narrowLineTableSecond(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = FALSE),
+            WideIntensities      = function() wideLineTable(spectra, defs, elements, allowParallel = FALSE),
             WideIntensitiesSplit = function() wideLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = FALSE)
         )
+        tasks <- all_tasks[tables]
+        results <- parallel::mclapply(tasks, function(f) f(), mc.cores = outer_cores)
 
-        # Run in parallel using mclapply (fork-based, Unix/macOS only)
-        tables <- parallel::mclapply(tasks, function(f) f(), mc.cores = outer_cores)
-
-        # Merge results with OtherSpectraStuff
-        for (name in names(tables)) {
-            Calibration[[name]] <- merge(tables[[name]], other, by = "Spectrum")
+        for (name in names(results)) {
+            Calibration[[name]] <- merge(results[[name]], other, by = "Spectrum")
         }
     } else {
         # Sequential execution (Windows or low core count or parallel disabled)
         # Inner parallelism handles element-level parallelization
-        Calibration$Intensities <- merge(
-            narrowLineTable(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = allowParallel),
-            other, by = "Spectrum"
+        all_tasks <- list(
+            Intensities          = function() narrowLineTable(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = allowParallel),
+            IntensitiesSplit     = function() narrowLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = allowParallel),
+            IntensitiesFirst     = function() narrowLineTableFirst(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = allowParallel),
+            IntensitiesSecond    = function() narrowLineTableSecond(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = allowParallel),
+            WideIntensities      = function() wideLineTable(spectra, defs, elements, allowParallel = allowParallel),
+            WideIntensitiesSplit = function() wideLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = allowParallel)
         )
-        Calibration$IntensitiesSplit <- merge(
-            narrowLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = allowParallel),
-            other, by = "Spectrum"
-        )
-        Calibration$IntensitiesFirst <- merge(
-            narrowLineTableFirst(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = allowParallel),
-            other, by = "Spectrum"
-        )
-        Calibration$IntensitiesSecond <- merge(
-            narrowLineTableSecond(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = allowParallel),
-            other, by = "Spectrum"
-        )
-        Calibration$WideIntensities <- merge(
-            wideLineTable(spectra, defs, elements, allowParallel = allowParallel),
-            other, by = "Spectrum"
-        )
-        Calibration$WideIntensitiesSplit <- merge(
-            wideLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = allowParallel),
-            other, by = "Spectrum"
-        )
+        for (name in tables) {
+            Calibration[[name]] <- merge(all_tasks[[name]](), other, by = "Spectrum")
+        }
     }
 
     Calibration
+}
+
+# Helper to ensure all intensity tables exist on the calibration.
+# Normalizes the Spectrum column on tables that are present and builds any
+# that are missing. Building requires Definitions, LineDefaults, and a
+# non-empty `elements` vector; if those prerequisites are missing the
+# corresponding tables are simply left absent.
+ensureIntensityTables <- function(Calibration, elements, allowParallel) {
+    intensity_tables <- c("Intensities", "IntensitiesSplit", "IntensitiesFirst",
+                          "IntensitiesSecond", "WideIntensities", "WideIntensitiesSplit")
+
+    for (tbl in intensity_tables) {
+        if (tbl %in% names(Calibration)) {
+            Calibration[[tbl]] <- normalizeSpectrumColumn(Calibration[[tbl]])
+        }
+    }
+
+    missing_tables <- setdiff(intensity_tables, names(Calibration))
+    if (length(missing_tables) == 0) return(Calibration)
+
+    have_defs <- !is.null(Calibration$Definitions) &&
+                 is.data.frame(Calibration$Definitions) &&
+                 nrow(Calibration$Definitions) > 0 &&
+                 any(nzchar(as.character(Calibration$Definitions$Name)))
+    if (!have_defs || length(elements) == 0) return(Calibration)
+
+    Calibration <- ensureOtherSpectraStuff(Calibration)
+    rebuildIntensityTables(Calibration, elements, allowParallel, tables = missing_tables)
 }
 
 # Helper to sort and align Values/Spectra
@@ -4078,15 +4096,6 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
 
     Calibration$Values <- normalizeSpectrumColumn(Calibration$Values)
 
-    # Normalize intensity tables
-    intensity_tables <- c("Intensities", "IntensitiesSplit", "IntensitiesFirst",
-                          "IntensitiesSecond", "WideIntensities", "WideIntensitiesSplit")
-    for (tbl in intensity_tables) {
-        if (tbl %in% names(Calibration)) {
-            Calibration[[tbl]] <- normalizeSpectrumColumn(Calibration[[tbl]])
-        }
-    }
-
     # Normalize deconvoluted tables
     if ("Deconvoluted" %in% names(Calibration)) {
         Calibration$Deconvoluted$Areas <- normalizeSpectrumColumn(Calibration$Deconvoluted$Areas)
@@ -4106,10 +4115,16 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         character(0)
     }
 
+    # LineDefaults must be set before building any intensity tables because
+    # narrow/wide line builders read GausBuffer/SplitBuffer from it.
     if(!"LineDefaults" %in% names(Calibration)){
         Calibration$LineDefaults <- list(GausBuffer=0.02, SplitBuffer=0.1)
     }
-    
+
+    # Normalize any existing intensity tables and build any that are missing
+    Calibration <- ensureIntensityTables(Calibration, elements, allowParallel)
+
+
     if("Deconvoluted" %in% names(Calibration)){
         if(!"Parameters" %in% names(Calibration$Deconvoluted)){
             Calibration$Deconvoluted$Parameters <- list(SmoothWidth=5, SmoothAlpha=2.5, DefaultSigma=0.07, SmoothIter=20, SnipIter=20)
