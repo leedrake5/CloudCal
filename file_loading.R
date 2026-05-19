@@ -1011,7 +1011,7 @@ parseSPEHeader <- function(filepath) {
 }
 
 # Native SPE file reader - reads Itrax SPE files without itraxR dependency
-readSPEData <- function(filepath, filename = NULL, dfl_path = NULL) {
+readSPEData <- function(filepath, filename = NULL, dfl_path = NULL, use_native_calibration = TRUE) {
     if (is.null(filename)) {
         filename <- basename(filepath)
     }
@@ -1062,7 +1062,11 @@ readSPEData <- function(filepath, filename = NULL, dfl_path = NULL) {
 
     # Calculate energy from channel using calibration: Energy = offset + slope * channel
     # Note: Some formats use 0-indexed channels, some 1-indexed
-    energy <- offset + slope * (channels - 1)
+    energy <- if (use_native_calibration == TRUE) {
+        offset + slope * (channels - 1)
+    } else {
+        channels
+    }
 
     # Calculate CPS (counts per second)
     cps <- counts / livetime
@@ -1082,7 +1086,7 @@ readSPEData <- function(filepath, filename = NULL, dfl_path = NULL) {
 }
 
 # Process multiple SPE files
-readSPEProcess <- function(inFile = NULL, inEn = NULL) {
+readSPEProcess <- function(inFile = NULL, inEn = NULL, use_native_calibration = TRUE) {
     if (is.null(inFile)) return(NULL)
 
     n.seq <- seq_len(nrow(inFile))
@@ -1095,7 +1099,8 @@ readSPEProcess <- function(inFile = NULL, inEn = NULL) {
             readSPEData(
                 filepath = inFile[x, "datapath"],
                 filename = inFile[x, "name"],
-                dfl_path = dfl_path
+                dfl_path = dfl_path,
+                use_native_calibration = use_native_calibration
             ),
             error = function(e) {
                 warning(sprintf("Failed to read SPE file %s: %s", inFile[x, "name"], e$message))
@@ -1201,10 +1206,10 @@ readPMCAData4096 <- function(filepath, filename=NULL, full=NULL, use_native_cali
         energy <- if(use_native_calibration==TRUE){
             as.vector(predict.lm(energy.cal, newdata=newdata))
         } else if(use_native_calibration==FALSE){
-            seq(1, length(cps), 1)*0.025001
+            seq(1, length(cps), 1)
         }
     } else {
-        energy <- seq(1, length(cps), 1)*0.025001
+        energy <- seq(1, length(cps), 1)
     }
     spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
     colnames(spectra.frame) <- c("Energy", "CPS", "Spectrum")

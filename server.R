@@ -392,8 +392,17 @@ shinyServer(function(input, output, session) {
         req(input$file1)
         as.data.frame(input$file1)
     })
-    
-    
+
+    # Energy calibration mode adapters. Mode comes from input$encalmode:
+    #   "auto"  -> use file's native calibration (readers return real Energy)
+    #   "evch"  -> apply manual eV/channel + offset in myData()
+    #   "peaks" -> fit a model from anchor (channel, energy) pairs in myData()
+    encal_mode  <- reactive({ if (is.null(input$encalmode)) "auto" else input$encalmode })
+    encal_auto  <- reactive({ identical(encal_mode(), "auto") })
+    encal_evch  <- reactive({ identical(encal_mode(), "evch") })
+    encal_peaks <- reactive({ identical(encal_mode(), "peaks") })
+
+
     fullSpectraDataTable <- reactive(label="fullSpectraDataTable", {
         req(input$file1)
         
@@ -406,7 +415,7 @@ shinyServer(function(input, output, session) {
     fullSpectra <- reactive(label="fullSpectra", {
         req(input$file1)
         
-        fullSpectraProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
+        fullSpectraProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=encal_auto())
 
     })
     
@@ -467,14 +476,14 @@ shinyServer(function(input, output, session) {
     readTXT <- reactive(label="readTXT", {
         req(input$file1)
         
-        readTXTProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
+        readTXTProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=encal_auto())
         
     })
     
     readElio <- reactive(label="readElio", {
         req(input$file1)
         
-        readElioProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
+        readElioProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=encal_auto())
         
     })
     
@@ -482,7 +491,7 @@ shinyServer(function(input, output, session) {
     readMCA <- reactive(label="readMCA", {
         req(input$file1)
        
-       readMCAProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
+       readMCAProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=encal_auto())
         
     })
     
@@ -490,14 +499,14 @@ shinyServer(function(input, output, session) {
     readSPX <- reactive(label="readSPX", {
         req(input$file1)
         
-        readSPXProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=input$energycal)
+        readSPXProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=encal_auto())
         
     })
     
     readSPE <- reactive(label="readSPE", {
         req(input$file1)
         
-        readSPEProcess(inFile=inFile(), inEn=input$dfl_eds)
+        readSPEProcess(inFile=inFile(), inEn=input$dfl_eds, use_native_calibration=encal_auto())
         
     })
     
@@ -510,7 +519,7 @@ shinyServer(function(input, output, session) {
         # Get beam selection (NULL if not applicable or single-spectrum)
         beam_selection <- if(identical(input$filetype, "PDZ") && !is.null(input$beamno)) input$beamno else NULL
 
-        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=FALSE, binaryshift=100, pdzprep=input$pdzprep, use_native_calibration=input$energycal, chosen_beam=beam_selection)
+        readPDZProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), advanced=FALSE, binaryshift=100, pdzprep=input$pdzprep, use_native_calibration=encal_auto(), chosen_beam=beam_selection)
 
     })
     
@@ -533,12 +542,12 @@ shinyServer(function(input, output, session) {
     })
     
     output$first_channel <- renderUI({
-        if(input$energycal==FALSE){
+        if(encal_peaks()){
             numericInput('firstchannel', "Channel 1", value=firstChannelDefault())
-        } else if(input$energycal==TRUE){
+        } else {
             NULL
         }
-        
+
     })
     
     firstEnergyDefault <- reactive({
@@ -554,9 +563,9 @@ shinyServer(function(input, output, session) {
     })
     
     output$first_energy <- renderUI({
-        if(input$energycal==FALSE){
+        if(encal_peaks()){
             numericInput('firstenergy', "Energy 1", value=firstEnergyDefault())
-        } else if(input$energycal==TRUE){
+        } else {
             NULL
         }
     })
@@ -574,9 +583,9 @@ shinyServer(function(input, output, session) {
     })
     
     output$second_channel <- renderUI({
-        if(input$energycal==FALSE){
+        if(encal_peaks()){
             numericInput('secondchannel', "Channel 2", value=secondChannelDefault())
-        } else if(input$energycal==TRUE){
+        } else {
             NULL
         }
     })
@@ -594,9 +603,9 @@ shinyServer(function(input, output, session) {
     })
     
     output$second_energy <- renderUI({
-        if(input$energycal==FALSE){
+        if(encal_peaks()){
             numericInput('secondenergy', "Energy 2", value=secondEnergyDefault())
-        } else if(input$energycal==TRUE){
+        } else {
             NULL
         }
     })
@@ -614,9 +623,9 @@ shinyServer(function(input, output, session) {
     })
     
     output$zero_energy <- renderUI({
-        if(input$energycal==FALSE){
+        if(encal_peaks()){
             numericInput("zeroenergy", "Starting Energy", value=zeroEnergyDefault())
-        } else if(input$energycal==TRUE){
+        } else {
             NULL
         }
     })
@@ -634,20 +643,56 @@ shinyServer(function(input, output, session) {
     })
     
     output$max_energy <- renderUI({
-        if(input$energycal==FALSE){
+        if(encal_peaks()){
             numericInput("maxenergy", "End Energy", value=maxEnergyDefault())
-        } else if(input$energycal==TRUE){
+        } else {
             NULL
         }
     })
-    
+
     output$en_cal_model_type_ui <- renderUI({
-        if(input$energycal==FALSE){
+        if(encal_peaks()){
             selectInput("energycalmodel", "Energy Cal Model", choices=c("Linear", "Exponential"), selected="Linear")
-        } else if(input$energycal==TRUE){
+        } else {
             NULL
         }
-        
+
+    })
+
+    # Manual eV/Channel mode: slope (eV/ch) + offset (keV).
+    # Industry convention is eV/ch in the input (e.g. 20 means 0.020 keV/ch).
+    manualEvChDefault <- reactive({
+        cf <- tryCatch(calFileContents(), error=function(e) NULL)
+        if(!is.null(cf) && !is.null(cf$EnergyCal) && !is.null(cf$EnergyCal$evCh_eV)){
+            as.numeric(cf$EnergyCal$evCh_eV)
+        } else {
+            20
+        }
+    })
+
+    manualOffsetDefault <- reactive({
+        cf <- tryCatch(calFileContents(), error=function(e) NULL)
+        if(!is.null(cf) && !is.null(cf$EnergyCal) && !is.null(cf$EnergyCal$Offset)){
+            as.numeric(cf$EnergyCal$Offset)
+        } else {
+            0
+        }
+    })
+
+    output$manual_evch_ui <- renderUI({
+        if(encal_evch()){
+            numericInput("manual_evch_eV", "eV per channel", value=manualEvChDefault(), min=0.01, step=0.1)
+        } else {
+            NULL
+        }
+    })
+
+    output$manual_offset_ui <- renderUI({
+        if(encal_evch()){
+            numericInput("manual_offset_keV", "Energy offset (keV)", value=manualOffsetDefault(), step=0.01)
+        } else {
+            NULL
+        }
     })
     
     numChannels <- reactive({
@@ -752,9 +797,37 @@ shinyServer(function(input, output, session) {
                 tryCatch(calMemory$Calibration$Beam <- input$beamno)
             }
         })
-        
 
-        
+        # Restore the energy-calibration mode (and any saved manual parameters)
+        # from a loaded .quant file. Older bundles without $Mode fall back to
+        # "peaks" when Channel/Energy anchors are present, otherwise "auto".
+        observeEvent(input$calfileinput, {
+            cf <- calFileContents()
+            if(is.null(cf) || is.null(cf$EnergyCal)) return()
+            ec <- cf$EnergyCal
+
+            mode <- if(!is.null(ec$Mode) && ec$Mode %in% c("auto", "evch", "peaks")){
+                ec$Mode
+            } else if(!is.null(ec$Channel) && !is.null(ec$Energy)){
+                "peaks"
+            } else {
+                "auto"
+            }
+
+            updateSelectInput(session, "encalmode", selected = mode)
+
+            if(identical(mode, "evch")){
+                if(!is.null(ec$evCh_eV)){
+                    updateNumericInput(session, "manual_evch_eV", value = as.numeric(ec$evCh_eV))
+                }
+                if(!is.null(ec$Offset)){
+                    updateNumericInput(session, "manual_offset_keV", value = as.numeric(ec$Offset))
+                }
+            }
+        }, ignoreInit = TRUE)
+
+
+
 
       
       blankNotes <- reactive(label="blankNotes", {
@@ -836,21 +909,29 @@ shinyServer(function(input, output, session) {
         myData <- reactive(label="myData", {
           spectra <- myDataPre()
 
-
-          if (isTRUE(input$energycal == FALSE)) {
+          if (encal_peaks()) {
               dt <- as.data.table(spectra)
 
               # Per-spectrum channel index based on actual rows in each group
               dt[, Energy := seq_len(.N), by = Spectrum]
               channels <- dt$Energy
-              
-            energy_cal <- energyCalibration()
-            dt[, Energy := as.numeric(predict(energy_cal, newdata = list(channel_vector = channels)))]
-            spectra <- as.data.frame(dt)
+
+              energy_cal <- energyCalibration()
+              dt[, Energy := as.numeric(predict(energy_cal, newdata = list(channel_vector = channels)))]
+              spectra <- as.data.frame(dt)
+          } else if (encal_evch()) {
+              dt <- as.data.table(spectra)
+              # Per-spectrum channel index
+              dt[, channel := seq_len(.N), by = Spectrum]
+              slope_keV <- (input$manual_evch_eV %||% 20) / 1000
+              offset_keV <- input$manual_offset_keV %||% 0
+              dt[, Energy := channel * slope_keV + offset_keV]
+              dt[, channel := NULL]
+              spectra <- as.data.frame(dt)
           }
 
           spectra
-          
+
         })
         
         output$spectratest <- renderDataTable({
@@ -15752,11 +15833,27 @@ shinyServer(function(input, output, session) {
                 }
             }
             
-            if(input$energycal==FALSE){
+            if(encal_peaks()){
                 new.cal$EnergyCal <- list()
+                new.cal$EnergyCal$Mode <- "peaks"
                 new.cal$EnergyCal$Channel <- as.numeric(c(0, input$firstchannel, input$secondchannel, numChannels()))
                 new.cal$EnergyCal$Energy <- as.numeric(c(input$zeroenergy, input$firstenergy, input$secondenergy, input$maxenergy))
                 new.cal$EnergyCal$Model <- strip(energyCalibration(), keep=c("predict", "summary"))
+            } else if(encal_evch()){
+                evch_eV  <- input$manual_evch_eV %||% 20
+                offset_keV <- input$manual_offset_keV %||% 0
+                n_chan <- tryCatch(numChannels(), error=function(e) NA_real_)
+                new.cal$EnergyCal <- list()
+                new.cal$EnergyCal$Mode   <- "evch"
+                new.cal$EnergyCal$evCh_eV <- as.numeric(evch_eV)
+                new.cal$EnergyCal$Offset  <- as.numeric(offset_keV)
+                # Synthesize backwards-compatible anchor points so older loaders
+                # still see a usable two-point linear calibration.
+                if(!is.na(n_chan) && n_chan > 0){
+                    slope_keV <- evch_eV / 1000
+                    new.cal$EnergyCal$Channel <- as.numeric(c(0, n_chan))
+                    new.cal$EnergyCal$Energy  <- as.numeric(c(offset_keV, n_chan * slope_keV + offset_keV))
+                }
             }
             
             new.cal
@@ -19130,6 +19227,22 @@ content = function(file){
             NULL
         }
     })
+
+    # Energy-calibration mode carried by the loaded cal bundle.
+    # When a cal saved with manual settings is applied, the val-side readers
+    # must emit channel indices instead of native energies so myValData() can
+    # re-apply the saved transform (peaks model or evCh slope+offset).
+    valEncalMode <- reactive({
+        ec <- calFileContents2()$EnergyCal
+        if(is.null(ec)) return("auto")
+        if(!is.null(ec$Mode) && ec$Mode %in% c("auto", "evch", "peaks")) return(ec$Mode)
+        # Back-compat: legacy bundles only stored Channel/Energy anchors (peak fit)
+        if(!is.null(ec$Model) || (!is.null(ec$Channel) && !is.null(ec$Energy))) return("peaks")
+        "auto"
+    })
+
+    valEncalAuto <- reactive({ identical(valEncalMode(), "auto") })
+
     
     csvTypeDetectedVal <- reactive({
         req(isTruthy(input$valfiletype), identical(input$valfiletype, "CSV"))
@@ -19169,9 +19282,9 @@ content = function(file){
     observeEvent(input$processvalspectra, {
         
         fullValSpectra <- reactive({
-            
-            fullSpectraProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
-                    
+
+            fullSpectraProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold(), use_native_calibration=valEncalAuto())
+
         })
         
         valJSON <- reactive(label="importedCSV", {
@@ -19193,10 +19306,10 @@ content = function(file){
         })
         
         readValTXT <- reactive({
-            
-            readTXTProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
 
-            
+            readTXTProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold(), use_native_calibration=valEncalAuto())
+
+
         })
         
         
@@ -19244,27 +19357,27 @@ content = function(file){
         })
         
         readValElio <- reactive({
-            
-            readElioProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
-            
-            
+
+            readElioProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold(), use_native_calibration=valEncalAuto())
+
+
         })
         
         readValMCA <- reactive({
-            
-            readMCAProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
-            
+
+            readMCAProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold(), use_native_calibration=valEncalAuto())
+
         })
         
         readValSPX <- reactive({
-            
-            readSPXProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold())
-            
+
+            readSPXProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold(), use_native_calibration=valEncalAuto())
+
         })
         
         readValSPE <- reactive({
             # Fixed: was using input$dfl_val_path but UI defines input$dfl_val_eds
-            readSPEProcess(inFile=input$loadvaldata, inEn=input$dfl_val_eds)
+            readSPEProcess(inFile=input$loadvaldata, inEn=input$dfl_val_eds, use_native_calibration=valEncalAuto())
 
         })
             
@@ -19276,7 +19389,7 @@ content = function(file){
             # Get beam selection for validation (NULL if not applicable or single-spectrum)
             beam_selection <- if(identical(input$valfiletype, "PDZ") && !is.null(input$beamno_val)) input$beamno_val else NULL
 
-            readPDZProcess(inFile=input$loadvaldata, gainshiftvalue=0, advanced=FALSE, binaryshift=100, pdzprep=input$pdzprepval, chosen_beam=beam_selection)
+            readPDZProcess(inFile=input$loadvaldata, gainshiftvalue=0, advanced=FALSE, binaryshift=100, pdzprep=input$pdzprepval, chosen_beam=beam_selection, use_native_calibration=valEncalAuto())
 
 
             })
@@ -19324,17 +19437,30 @@ content = function(file){
         })
 
         myValData <- reactive({
-            
-            spectra <- myValDataPre()
-            channels <- spectra$Energy
 
-           if("EnergyCal" %in% names(calFileContents2())){
-                energy_cal <- calFileContents2()$EnergyCal$Model
+            spectra <- myValDataPre()
+
+            ec <- calFileContents2()$EnergyCal
+            mode <- valEncalMode()
+
+            if(identical(mode, "evch") && !is.null(ec)){
+                # Val readers emitted channel indices in $Energy; apply saved
+                # eV/channel slope and offset per-spectrum.
+                dt <- as.data.table(spectra)
+                dt[, channel := seq_len(.N), by = Spectrum]
+                slope_keV  <- (ec$evCh_eV %||% 20) / 1000
+                offset_keV <- ec$Offset %||% 0
+                dt[, Energy := channel * slope_keV + offset_keV]
+                dt[, channel := NULL]
+                spectra <- as.data.frame(dt)
+            } else if(identical(mode, "peaks") && !is.null(ec) && !is.null(ec$Model)){
+                channels <- spectra$Energy
+                energy_cal <- ec$Model
                 spectra$Energy <- predict(object=energy_cal, newdata=list(channel_vector=channels))
             }
-            
+
             spectra
-            
+
         })
         
         myDeconvolutedValData <- reactive({
