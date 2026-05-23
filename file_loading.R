@@ -1772,7 +1772,7 @@ multipleFileLoader <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParal
     return(data)
 }
 
-multipleFileLoaderCommand <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE, use_native_calibration=TRUE){
+multipleFileLoaderCommand <- function(filepath, filetype=NULL, pdzprep=TRUE, allowParallel=FALSE, use_native_calibration=TRUE, ev_ch=1, ev_offset=0){
     files <- list.files(path=filepath, ignore.case=TRUE, full.names=FALSE)
     data_list <- if(allowParallel==FALSE){
         lapply(files, function(x) tryCatch(singleFileLoader(filepath=paste0(filepath, x), filetype=filetype, pdzprep=pdzprep, use_native_calibration=use_native_calibration), error=function(e) NULL))
@@ -1781,6 +1781,9 @@ multipleFileLoaderCommand <- function(filepath, filetype=NULL, pdzprep=TRUE, all
     }
 
     data <- as.data.frame(data.table::rbindlist(data_list, use.names = T, fill = T))
+    if (!use_native_calibration) {
+        data$Energy <- (data$Energy * ev_ch + ev_offset) / 1000
+    }
     return(data)
 }
 
