@@ -12,3 +12,6 @@ commits.txt
 .localagent/index_meta.json
 .localagent/project_overview.md
 /.localagent
+.localagent/code_graph.json
+.localagent/index_meta.json
+.localagent/project_overview.md

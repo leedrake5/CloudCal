@@ -204,7 +204,9 @@ splitLayout(cellWidths = c("50%", "50%"),
         uiOutput('deconvolutionalphaui'),
         uiOutput('deconvolutiondefaultsigmaui'),
         uiOutput('deconvolutionsmoothiterui'),
-        uiOutput('deconvolutionsnipiterui'))
+        uiOutput('deconvolutionsnipiterui'),
+        actionButton('deconvolutebutton', "Deconvolute"),
+        helpText("Re-run deconvolution with the current parameters."))
     ),
 tags$hr(),
 numericInput('plotwidth', "Download Width", step=1, value=5, min=1, max=20),
@@ -540,6 +542,10 @@ tabPanel("Cal Curves",
         actionButton("zeroval", "Zero")
 
         )
+        ),
+        wellPanel(
+            tags$b("Estimated Limit of Detection"),
+            htmlOutput("lodtext")
         ),
         tags$hr(),
         actionButton("exclude_toggle", "Toggle points"),

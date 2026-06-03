@@ -49,7 +49,12 @@ options(shiny.maxRequestSize=500*1024^2)  # 500 MB limit for large calibrations
         all(ys >= dom$bottom - 1e-3) && all(ys <= dom$top + 1e-3)
 }
 
-rescale_brush_coords <- function(brush, x_data_range, y_data_range, expand = 0.05) {
+# When `pre_expanded=TRUE` the caller passes the TRUE panel range (e.g. from
+# ggplot_build()$layout$panel_params, which already includes axis expansion and
+# any layer-driven range extension such as a stat_smooth SE ribbon). In that
+# case we map the normalized click directly onto that range instead of guessing
+# data_range +/- expand, which is inexact whenever extra layers widen the panel.
+rescale_brush_coords <- function(brush, x_data_range, y_data_range, expand = 0.05, pre_expanded = FALSE) {
     if (is.null(brush)) return(NULL)
     x <- c(brush$xmin, brush$xmax)
     y <- c(brush$ymin, brush$ymax)
@@ -57,10 +62,15 @@ rescale_brush_coords <- function(brush, x_data_range, y_data_range, expand = 0.0
     if (.brush_looks_normalized(brush, c(x, y)) &&
         all(is.finite(c(x_data_range, y_data_range))) &&
         diff(x_data_range) > 0 && diff(y_data_range) > 0) {
-        x_pad <- expand * diff(x_data_range)
-        y_pad <- expand * diff(y_data_range)
-        x_panel <- c(x_data_range[1] - x_pad, x_data_range[2] + x_pad)
-        y_panel <- c(y_data_range[1] - y_pad, y_data_range[2] + y_pad)
+        if (pre_expanded) {
+            x_panel <- x_data_range
+            y_panel <- y_data_range
+        } else {
+            x_pad <- expand * diff(x_data_range)
+            y_pad <- expand * diff(y_data_range)
+            x_panel <- c(x_data_range[1] - x_pad, x_data_range[2] + x_pad)
+            y_panel <- c(y_data_range[1] - y_pad, y_data_range[2] + y_pad)
+        }
         panel_span <- dom$right - dom$left
         x <- x_panel[1] + ((x - dom$left) / panel_span) * diff(x_panel)
         y <- y_panel[1] + ((y - dom$bottom) / panel_span) * diff(y_panel)
@@ -68,7 +78,7 @@ rescale_brush_coords <- function(brush, x_data_range, y_data_range, expand = 0.0
     list(xmin = x[1], xmax = x[2], ymin = y[1], ymax = y[2])
 }
 
-rescale_click_coords <- function(click, x_data_range, y_data_range, expand = 0.05) {
+rescale_click_coords <- function(click, x_data_range, y_data_range, expand = 0.05, pre_expanded = FALSE) {
     if (is.null(click)) return(NULL)
     cx <- click$x
     cy <- click$y
@@ -76,10 +86,15 @@ rescale_click_coords <- function(click, x_data_range, y_data_range, expand = 0.0
     if (.brush_looks_normalized(click, c(cx, cx, cy, cy)) &&
         all(is.finite(c(x_data_range, y_data_range))) &&
         diff(x_data_range) > 0 && diff(y_data_range) > 0) {
-        x_pad <- expand * diff(x_data_range)
-        y_pad <- expand * diff(y_data_range)
-        x_panel <- c(x_data_range[1] - x_pad, x_data_range[2] + x_pad)
-        y_panel <- c(y_data_range[1] - y_pad, y_data_range[2] + y_pad)
+        if (pre_expanded) {
+            x_panel <- x_data_range
+            y_panel <- y_data_range
+        } else {
+            x_pad <- expand * diff(x_data_range)
+            y_pad <- expand * diff(y_data_range)
+            x_panel <- c(x_data_range[1] - x_pad, x_data_range[2] + x_pad)
+            y_panel <- c(y_data_range[1] - y_pad, y_data_range[2] + y_pad)
+        }
         panel_span <- dom$right - dom$left
         cx <- x_panel[1] + ((cx - dom$left) / panel_span) * diff(x_panel)
         cy <- y_panel[1] + ((cy - dom$bottom) / panel_span) * diff(y_panel)
@@ -87,9 +102,22 @@ rescale_click_coords <- function(click, x_data_range, y_data_range, expand = 0.0
     list(x = cx, y = cy)
 }
 
+# Actual panel data-range of a built ggplot, in PLOTTED units (so a y mapped as
+# Concentration*10000 reports the 10000x range). Returns NULL on any failure so
+# callers fall back to the data-range estimate.
+panel_ranges <- function(gg) {
+    tryCatch({
+        pp <- ggplot2::ggplot_build(gg)$layout$panel_params[[1]]
+        xr <- pp$x.range; yr <- pp$y.range
+        if (is.null(xr) || is.null(yr)) return(NULL)
+        list(x = xr, y = yr)
+    }, error = function(e) NULL)
+}
+
 # brushedPoints replacement: works around empty brush$mapping by taking xvar/yvar
 # explicitly and rescaling the brush coords from the panel-fraction form.
-brushedPoints_safe <- function(df, brush, xvar, yvar, allRows = FALSE) {
+brushedPoints_safe <- function(df, brush, xvar, yvar, allRows = FALSE,
+                               x_range = NULL, y_range = NULL, xmul = 1, ymul = 1) {
     if (is.null(brush) || is.null(df) || nrow(df) == 0 ||
         !xvar %in% names(df) || !yvar %in% names(df)) {
         if (allRows) {
@@ -98,11 +126,14 @@ brushedPoints_safe <- function(df, brush, xvar, yvar, allRows = FALSE) {
         }
         return(df[0, , drop = FALSE])
     }
-    xv <- suppressWarnings(as.numeric(df[[xvar]]))
-    yv <- suppressWarnings(as.numeric(df[[yvar]]))
-    x_range <- range(xv, na.rm = TRUE, finite = TRUE)
-    y_range <- range(yv, na.rm = TRUE, finite = TRUE)
-    coords <- rescale_brush_coords(brush, x_range, y_range)
+    # Scale the data to the plotted units (e.g. Concentration*10000 for ppm) so
+    # it matches the click/brush coordinates and the supplied panel range.
+    xv <- suppressWarnings(as.numeric(df[[xvar]])) * xmul
+    yv <- suppressWarnings(as.numeric(df[[yvar]])) * ymul
+    have_panel <- !is.null(x_range) && !is.null(y_range) && all(is.finite(c(x_range, y_range)))
+    x_rng <- if (have_panel) x_range else range(xv, na.rm = TRUE, finite = TRUE)
+    y_rng <- if (have_panel) y_range else range(yv, na.rm = TRUE, finite = TRUE)
+    coords <- rescale_brush_coords(brush, x_rng, y_rng, pre_expanded = have_panel)
     keep <- xv >= coords$xmin & xv <= coords$xmax &
             yv >= coords$ymin & yv <= coords$ymax
     keep[is.na(keep)] <- FALSE
@@ -120,7 +151,8 @@ brushedPoints_safe <- function(df, brush, xvar, yvar, allRows = FALSE) {
 # distance (in normalized units).
 nearPoints_safe <- function(df, click, xvar, yvar,
                             threshold_frac = 0.02, maxpoints = NULL,
-                            allRows = FALSE) {
+                            allRows = FALSE, x_range = NULL, y_range = NULL,
+                            xmul = 1, ymul = 1) {
     if (is.null(click) || is.null(df) || nrow(df) == 0 ||
         !xvar %in% names(df) || !yvar %in% names(df)) {
         if (allRows) {
@@ -129,13 +161,16 @@ nearPoints_safe <- function(df, click, xvar, yvar,
         }
         return(df[0, , drop = FALSE])
     }
-    xv <- suppressWarnings(as.numeric(df[[xvar]]))
-    yv <- suppressWarnings(as.numeric(df[[yvar]]))
-    x_range <- range(xv, na.rm = TRUE, finite = TRUE)
-    y_range <- range(yv, na.rm = TRUE, finite = TRUE)
-    coords <- rescale_click_coords(click, x_range, y_range)
-    x_span <- diff(x_range); if (!is.finite(x_span) || x_span <= 0) x_span <- 1
-    y_span <- diff(y_range); if (!is.finite(y_span) || y_span <= 0) y_span <- 1
+    # Scale the data to the plotted units (e.g. Concentration*10000 for ppm) so
+    # it matches the click coordinates and the supplied panel range.
+    xv <- suppressWarnings(as.numeric(df[[xvar]])) * xmul
+    yv <- suppressWarnings(as.numeric(df[[yvar]])) * ymul
+    have_panel <- !is.null(x_range) && !is.null(y_range) && all(is.finite(c(x_range, y_range)))
+    x_rng <- if (have_panel) x_range else range(xv, na.rm = TRUE, finite = TRUE)
+    y_rng <- if (have_panel) y_range else range(yv, na.rm = TRUE, finite = TRUE)
+    coords <- rescale_click_coords(click, x_rng, y_rng, pre_expanded = have_panel)
+    x_span <- diff(x_rng); if (!is.finite(x_span) || x_span <= 0) x_span <- 1
+    y_span <- diff(y_rng); if (!is.finite(y_span) || y_span <= 0) y_span <- 1
     norm_dist <- sqrt(((xv - coords$x) / x_span)^2 + ((yv - coords$y) / y_span)^2)
     keep <- !is.na(norm_dist) & norm_dist <= threshold_frac
     if (!is.null(maxpoints) && sum(keep) > maxpoints) {
@@ -806,8 +841,8 @@ shinyServer(function(input, output, session) {
             if(is.null(cf) || is.null(cf$EnergyCal)) return()
             ec <- cf$EnergyCal
 
-            mode <- if(!is.null(ec$Mode) && ec$Mode %in% c("auto", "evch", "peaks")){
-                ec$Mode
+            mode <- if(!is.null(ec$Mode) && ec$Mode[1] %in% c("auto", "evch", "peaks")){
+                ec$Mode[1]
             } else if(!is.null(ec$Channel) && !is.null(ec$Energy)){
                 "peaks"
             } else {
@@ -1055,9 +1090,49 @@ shinyServer(function(input, output, session) {
         })
         
         dataHoldDeconvolutionSpectra <- reactive({
-            
+
             tryCatch(dataHoldDeconvolution()$Spectra, error=function(e) NULL)
-            
+
+        })
+
+        # Force-regenerate the deconvolution with the current parameters.
+        # Once a calibration is loaded, calMemory$Calibration$Deconvoluted holds
+        # the stored result and dataHoldDeconvolution() returns it unchanged, so
+        # parameter tweaks otherwise have no effect. Overwriting Deconvoluted here
+        # propagates to every downstream consumer (Areas, Baseline, LOD, plots).
+        observeEvent(input$deconvolutebutton, {
+            req(input$deconvolutionwidth, input$deconvolutionalpha, input$deconvolutiondefaultsigma,
+                input$deconvolutionsmoothiter, input$deconvolutionsnipiter)
+
+            data_cached <- tryCatch(dataHold(), error=function(e) NULL)
+            if(is.null(data_cached) || !is.data.frame(data_cached) || nrow(data_cached)==0){
+                showNotification("No spectra available to deconvolute.", type="error")
+                return()
+            }
+
+            width_param <- input$deconvolutionwidth
+            alpha_param <- input$deconvolutionalpha
+            sigma_param <- input$deconvolutiondefaultsigma
+            smooth_param <- input$deconvolutionsmoothiter
+            snip_param <- input$deconvolutionsnipiter
+
+            new_decon <- withProgress(message="Deconvoluting with current parameters...", value=0.5, {
+                tryCatch(
+                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1)),
+                    error=function(e) tryCatch(
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1),
+                        error=function(e) NULL
+                    )
+                )
+            })
+
+            if(is.null(new_decon) || !("Spectra" %in% names(new_decon))){
+                showNotification("Deconvolution failed - check the parameters.", type="error")
+                return()
+            }
+
+            calMemory$Calibration$Deconvoluted <- new_decon
+            showNotification("Deconvolution regenerated with current parameters.", type="message")
         })
         
         
@@ -1475,12 +1550,12 @@ shinyServer(function(input, output, session) {
         
         deconvolutionFunnel <- reactive({
             req(input$calfileinput)
-            if("Deconvoluted" %in% names(calMemory$Calibration)){
-                if("Parameters" %in% names(calMemory$Calibration)){
-                    calMemory$Calibration$Parameters
-                } else {
-                    list(SmoothWidth=5, SmoothAlpha=2.5, DefaultSigma=0.07, SmoothIter=20, SnipIter=20)
-                }
+            # Stored deconvolution parameters live under Deconvoluted$Parameters
+            # (set by spectra_gls_deconvolute), not Calibration$Parameters. Read
+            # them so the sliders open at the loaded cal's actual values.
+            if("Deconvoluted" %in% names(calMemory$Calibration) &&
+               "Parameters" %in% names(calMemory$Calibration$Deconvoluted)){
+                calMemory$Calibration$Deconvoluted$Parameters
             } else {
                 list(SmoothWidth=5, SmoothAlpha=2.5, DefaultSigma=0.07, SmoothIter=20, SnipIter=20)
             }
@@ -11147,8 +11222,76 @@ shinyServer(function(input, output, session) {
         output$calcurveplots <- renderPlot({
             calCurvePlot()
         })
-        
-        
+
+        ## Limit of Detection (LOD) estimate from the baseline-subtracted spectra.
+        ## Reuses the element line definition + normalization choices already on this
+        ## page; the slope is always a linear fit (lm(Concentration ~ Intensity)) so
+        ## the LOD is defined regardless of which calibration model is displayed.
+        lodEstimate <- reactive(label="lodEstimate", {
+            req(input$calcurveelement)
+            tryCatch({
+                ld <- linearModelSet()$data
+                if(is.null(ld) || !all(c("Concentration", "Intensity", "Spectrum") %in% names(ld))){
+                    return(list(note="not_estimable"))
+                }
+                keep <- if(length(vals$keeprows)==nrow(ld)) vals$keeprows else rep(TRUE, nrow(ld))
+                kept <- ld[keep, , drop=FALSE]
+                slope <- tryCatch(as.numeric(coef(lm(Concentration ~ Intensity, data=kept))[2]), error=function(e) NA_real_)
+                comptontype <- if(is.null(input$comptontype)) "Raw" else input$comptontype
+                norm.src <- switch(comptontype,
+                    "Raw"      = calMemory$Calibration$Spectra,
+                    "Baseline" = calMemory$Calibration$Deconvoluted$Baseline,
+                    "Net"      = calMemory$Calibration$Deconvoluted$Spectra,
+                    calMemory$Calibration$Spectra)
+                baseline_lod_estimate(
+                    element.line    = input$calcurveelement,
+                    baseline        = calMemory$Calibration$Deconvoluted$Baseline,
+                    line.preference = if(is.null(input$linepreferenceelement)) "Narrow" else input$linepreferenceelement,
+                    line.structure  = if(is.null(input$linestructureelement)) "gaussian" else input$linestructureelement,
+                    gaus.buffer     = if(is.null(input$gausbuffer)) 0.02 else input$gausbuffer,
+                    split.buffer    = if(is.null(input$splitbuffer)) 0.1 else input$splitbuffer,
+                    norm.type       = if(is.null(input$normcal)) 1 else as.numeric(input$normcal),
+                    norm.src        = norm.src,
+                    norm.min        = if(is.null(input$comptonmin)) 0 else input$comptonmin,
+                    norm.max        = if(is.null(input$comptonmax)) 0 else input$comptonmax,
+                    metadata        = calMemory$Calibration$SpectraMetadata,
+                    keep.spectra    = kept$Spectrum,
+                    slope           = slope,
+                    range.table     = calMemory$Calibration$Definitions)
+            }, error=function(e) list(note="not_estimable"))
+        })
+
+        output$lodtext <- renderUI({
+            est <- lodEstimate()
+            note <- if(is.null(est$note)) "not_estimable" else est$note
+            if(note=="no_baseline"){
+                return(HTML("<em>LOD needs a deconvoluted baseline (run deconvolution on the Spectra page).</em>"))
+            }
+            if(note=="bad_slope"){
+                return(HTML("<em>LOD not estimable: the calibration slope is zero or undefined for this element.</em>"))
+            }
+            if(note!="ok"){
+                return(HTML("<em>LOD not estimable for the current element / line selection.</em>"))
+            }
+            unit <- if(is.null(input$plotunit)) "%" else input$plotunit
+            multiplier <- if(unit=="%") 1 else 10000
+            fmt <- function(x){
+                if(is.null(x) || !is.finite(x)) return(NA_real_)
+                signif(x*multiplier, 3)
+            }
+            sd_val <- fmt(est$lod_sd)
+            sd_line <- if(is.na(sd_val)){
+                paste0("3&middot;SD of baseline across standards: <em>needs &ge;3 standards (have ", est$n, ")</em>")
+            } else {
+                paste0("3&middot;SD of baseline across ", est$n, " standards: <b>", sd_val, " ", unit, "</b>")
+            }
+            HTML(paste0(
+                "<div>", sd_line, "</div>",
+                "<div style='color:#888; font-size:0.85em; margin-top:4px;'>Back-of-hand estimate from the baseline-subtracted spectra (not a measured blank), using a linear sensitivity at the current normalization. </div>"
+            ))
+        })
+
+
         rangesvalcurve <- reactiveValues(x = NULL, y = NULL)
         
         
@@ -14881,7 +15024,9 @@ shinyServer(function(input, output, session) {
             # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
 
             hover <- input$plot_hovercal
-            point <- nearPoints_safe(point.table, hover, xvar="Intensity", yvar="Concentration", maxpoints = 1)
+            mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
+            pr <- panel_ranges(calCurvePlot())
+            point <- nearPoints_safe(point.table, hover, xvar="Intensity", yvar="Concentration", maxpoints = 1, x_range=pr$x, y_range=pr$y, ymul=mult)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -14934,7 +15079,8 @@ shinyServer(function(input, output, session) {
             # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
 
             hover <- input$plot_hovercal_random
-            point <- nearPoints_safe(point.table, hover, xvar="Intensity", yvar="Concentration", maxpoints = 1)
+            mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
+            point <- nearPoints_safe(point.table, hover, xvar="Intensity", yvar="Concentration", maxpoints = 1, ymul=mult)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -14979,7 +15125,9 @@ shinyServer(function(input, output, session) {
                 calValFrame()
             }
             
-            res <- nearPoints_safe(predict.frame, input$plot_cal_click, xvar="Intensity", yvar="Concentration", allRows = TRUE)
+            mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
+            pr <- panel_ranges(calCurvePlot())
+            res <- nearPoints_safe(predict.frame, input$plot_cal_click, xvar="Intensity", yvar="Concentration", allRows = TRUE, x_range=pr$x, y_range=pr$y, ymul=mult)
 
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -14997,7 +15145,9 @@ shinyServer(function(input, output, session) {
             } else if(calType()==5) {
                 calValFrame()
             }
-            res <- brushedPoints_safe(predict.frame, input$plot_cal_brush, xvar="Intensity", yvar="Concentration", allRows = TRUE)
+            mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
+            pr <- panel_ranges(calCurvePlot())
+            res <- brushedPoints_safe(predict.frame, input$plot_cal_brush, xvar="Intensity", yvar="Concentration", allRows = TRUE, x_range=pr$x, y_range=pr$y, ymul=mult)
 
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15044,7 +15194,9 @@ shinyServer(function(input, output, session) {
             # point.table now includes Spectrum from valFrame - no merge needed
 
             hover <- input$plot_hoverval
-            point <- nearPoints_safe(point.table, hover, xvar="Prediction", yvar="Concentration", maxpoints = 1)
+            mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
+            pr <- panel_ranges(valCurvePlot())
+            point <- nearPoints_safe(point.table, hover, xvar="Prediction", yvar="Concentration", maxpoints = 1, x_range=pr$x, y_range=pr$y, xmul=mult, ymul=mult)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -15090,7 +15242,8 @@ shinyServer(function(input, output, session) {
             # point.table now includes Spectrum from valFrame - no merge needed
 
             hover <- input$plot_hoverval_random
-            point <- nearPoints_safe(point.table, hover, xvar="Prediction", yvar="Concentration", maxpoints = 1)
+            mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
+            point <- nearPoints_safe(point.table, hover, xvar="Prediction", yvar="Concentration", maxpoints = 1, xmul=mult, ymul=mult)
             if (nrow(point) == 0) return(NULL)
             
             
@@ -15126,7 +15279,9 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- calValFrame()
             
-            res <- nearPoints_safe(predict.frame, input$plot_val_click, xvar="Prediction", yvar="Concentration", allRows = TRUE)
+            mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
+            pr <- panel_ranges(valCurvePlot())
+            res <- nearPoints_safe(predict.frame, input$plot_val_click, xvar="Prediction", yvar="Concentration", allRows = TRUE, x_range=pr$x, y_range=pr$y, xmul=mult, ymul=mult)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })
@@ -15136,7 +15291,9 @@ shinyServer(function(input, output, session) {
         observeEvent(input$exclude_toggle, {
             predict.frame <- calValFrame()
             
-            res <- brushedPoints_safe(predict.frame, input$plot_val_brush, xvar="Prediction", yvar="Concentration", allRows = TRUE)
+            mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
+            pr <- panel_ranges(valCurvePlot())
+            res <- brushedPoints_safe(predict.frame, input$plot_val_brush, xvar="Prediction", yvar="Concentration", allRows = TRUE, x_range=pr$x, y_range=pr$y, xmul=mult, ymul=mult)
             
             vals$keeprows <- xor(vals$keeprows, res$selected_)
         })

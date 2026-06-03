@@ -1289,6 +1289,123 @@ elementGrabKalpha <- function(element, data, calculation="gaussian", gaus_buffer
 }
 
 
+## ---------------------------------------------------------------------------
+## Limit of Detection (LOD) estimate from the baseline-subtracted spectra.
+##
+## When no blank is available, the SNIP baseline (peaks removed) under a peak is
+## the closest analog to "what a blank would register". This returns a
+## back-of-the-hand 3-sigma LOD for one element/line, in the SAME concentration
+## units as the calibration's stored Concentration column, given the linear
+## sensitivity `slope` (= d Concentration / d Intensity from lm(Concentration ~
+## Intensity)). Two sigma estimates are returned: the empirical SD of the
+## baseline ROI across standards, and a Poisson (counting-statistics) estimate.
+##
+## Arguments mirror the Cal Curves page controls so the result is responsive to
+## the line-definition and normalization choices:
+##   element.line     - full line name, e.g. "Fe.K.alpha" (input$calcurveelement)
+##   baseline         - Deconvoluted$Baseline frame (Spectrum, Energy, CPS)
+##   line.preference  - "Narrow" | "Wide" | "Area"  (input$linepreferenceelement)
+##   line.structure   - "gaussian" | "split" | "first" | "second"
+##   norm.type        - 1 none, 2 total counts, 3 Compton  (input$normcal)
+##   norm.src         - per-channel frame used for normalization divisor
+##                      (Raw/Baseline/Net per input$comptontype)
+##   norm.min/max     - Compton window (input$comptonmin/comptonmax)
+##   metadata         - frame with Spectrum + LiveTime (NULL/absent -> Poisson
+##                      falls back to a per-second approximation)
+##   keep.spectra     - character vector of standards kept on the cal curve
+##   slope            - linear sensitivity (d Concentration / d Intensity)
+##   range.table      - custom line Definitions (Name, EnergyMin, EnergyMax)
+## ---------------------------------------------------------------------------
+baseline_lod_estimate <- function(element.line, baseline, line.preference="Narrow",
+                                   line.structure="gaussian", gaus.buffer=0.02,
+                                   split.buffer=0.1, norm.type=1, norm.src=NULL,
+                                   norm.min=0, norm.max=0, metadata=NULL,
+                                   keep.spectra=NULL, slope=NA, range.table=NULL){
+
+    if(is.null(baseline) || !all(c("Spectrum", "Energy", "CPS") %in% names(baseline))){
+        return(list(note="no_baseline"))
+    }
+    if(!is.finite(slope) || slope==0){
+        return(list(note="bad_slope"))
+    }
+
+    ## Baseline ROI per standard, using the SAME window dispatch as the cal build.
+    roi <- if(line.preference=="Wide"){
+        calc <- if(line.structure %in% c("gaussian", "split")) line.structure else "gaussian"
+        wideElementGrab(element.line=element.line, data=baseline, range.table=range.table, calculation=calc, buffer=split.buffer)
+    } else {
+        elementGrab(element.line=element.line, data=baseline, range.table=range.table, calculation=line.structure, gaus_buffer=gaus.buffer, split_buffer=split.buffer)
+    }
+    if(is.null(roi) || ncol(roi) < 2){
+        return(list(note="not_estimable"))
+    }
+    ## Normalize Spectrum keys the same way elementFrame() does, so baseline names
+    ## (which keep file extensions through elementGrab) match the calibration names.
+    strip_ext <- function(x){
+        mgsub::mgsub(as.character(x), c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe"), rep("", 8))
+    }
+    roi <- data.frame(Spectrum=strip_ext(roi$Spectrum), rawBase=as.numeric(roi[[2]]), stringsAsFactors=FALSE)
+
+    ## Normalization divisor per standard (mirrors spectra_tc_/spectra_comp_/lucas_* logic).
+    if(norm.type==1 || is.null(norm.src)){
+        roi$F <- 1
+    } else {
+        src <- norm.src
+        if(norm.type==3){
+            src <- subset(src, !(src$Energy < norm.min | src$Energy > norm.max))
+        }
+        fac <- aggregate(CPS ~ Spectrum, data=src, FUN=sum)
+        colnames(fac) <- c("Spectrum", "F")
+        fac$Spectrum <- strip_ext(fac$Spectrum)
+        fac$F[fac$F==0] <- 1
+        roi <- merge(roi, fac, by="Spectrum", all.x=TRUE)
+        roi$F[is.na(roi$F) | roi$F==0] <- 1
+    }
+
+    ## LiveTime (seconds) for the Poisson count recovery, if available.
+    livetime_used <- FALSE
+    if(!is.null(metadata) && all(c("Spectrum", "LiveTime") %in% names(metadata))){
+        lt <- data.frame(Spectrum=strip_ext(metadata$Spectrum), LiveTime=as.numeric(metadata$LiveTime), stringsAsFactors=FALSE)
+        lt <- lt[is.finite(lt$LiveTime) & lt$LiveTime > 0, ]
+        if(nrow(lt) > 0){
+            roi <- merge(roi, lt, by="Spectrum", all.x=TRUE)
+            livetime_used <- TRUE
+        }
+    }
+
+    ## Restrict to the standards kept on the cal curve.
+    if(!is.null(keep.spectra)){
+        roi <- roi[roi$Spectrum %in% strip_ext(keep.spectra), ]
+    }
+    roi <- roi[is.finite(roi$rawBase), ]
+    n <- nrow(roi)
+    if(n < 1){
+        return(list(note="not_estimable"))
+    }
+
+    B <- roi$rawBase / roi$F          # baseline ROI in the cal's normalized units
+    m <- abs(slope)
+
+    ## Empirical: 3 x SD of the normalized baseline ROI across standards.
+    lod_sd <- if(n >= 3) 3 * stats::sd(B, na.rm=TRUE) * m else NA_real_
+
+    ## Poisson: sigma from counting statistics, returned to normalized-CPS units.
+    meanF <- mean(roi$F, na.rm=TRUE)
+    if(livetime_used && "LiveTime" %in% names(roi) && any(is.finite(roi$LiveTime))){
+        good <- is.finite(roi$LiveTime) & roi$LiveTime > 0
+        counts <- roi$rawBase[good] * roi$LiveTime[good]
+        sigma_pois <- sqrt(mean(counts, na.rm=TRUE)) / mean(roi$LiveTime[good], na.rm=TRUE) / meanF
+    } else {
+        livetime_used <- FALSE
+        sigma_pois <- sqrt(mean(roi$rawBase, na.rm=TRUE)) / meanF
+    }
+    lod_pois <- 3 * sigma_pois * m
+
+    list(n=n, lod_sd=lod_sd, lod_pois=lod_pois, livetime_used=livetime_used, note="ok")
+}
+baseline_lod_estimate <- cmpfun(baseline_lod_estimate)
+
+
 elementGaussianKbeta <- function(element, data, method="sum", buffer=0.02) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
