@@ -1426,6 +1426,15 @@ baseline_lod_estimate <- function(element.line, baseline, line.preference="Narro
     }
     lod_pois <- 3 * sigma_pois * m
 
+    print(paste0("LOD DIAG ", element.line, ": n=", n,
+                 " slope|m|=", signif(m, 4),
+                 " norm.type=", norm.type, " meanF=", signif(meanF, 4),
+                 " mean(rawBase)=", signif(mean(roi$rawBase, na.rm=TRUE), 4),
+                 " mean(B)=", signif(mean(B, na.rm=TRUE), 4),
+                 " sd(B)=", signif(stats::sd(B, na.rm=TRUE), 4),
+                 " lod_sd=", signif(lod_sd, 4),
+                 " lod_pois=", signif(lod_pois, 4)))
+
     list(n=n, lod_sd=lod_sd, lod_pois=lod_pois, livetime_used=livetime_used, note="ok")
 }
 baseline_lod_estimate <- cmpfun(baseline_lod_estimate)
@@ -8322,6 +8331,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
 
 
 mclValGen <- function(model, data, predict.frame, dependent.transformation, y_min=0, y_max=1){
+    # Guard against a missing/NA/unrecognized transformation (e.g. older or large
+    # cals whose CalTable$DepTrans is NA). Without this the if-chain below either
+    # errors on `if(NA)` or leaves the prediction NULL, which makes the val.frame
+    # collapse to all-zero predictions.
+    if(is.null(dependent.transformation) || length(dependent.transformation) != 1 ||
+       is.na(dependent.transformation) || !dependent.transformation %in% c("None", "Log", "e", "Scale")){
+        dependent.transformation <- "None"
+    }
     cal.est.conc.pred.luc <- if(dependent.transformation=="None"){
         predict(object=model, newdata=data)
     } else if(dependent.transformation=="Log"){
@@ -8355,6 +8372,10 @@ mclValGen <- function(model, data, predict.frame, dependent.transformation, y_mi
 }
 
 xgbValGen <- function(model, data, predict.frame, dependent.transformation, y_min=0, y_max=1){
+    if(is.null(dependent.transformation) || length(dependent.transformation) != 1 ||
+       is.na(dependent.transformation) || !dependent.transformation %in% c("None", "Log", "e", "Scale")){
+        dependent.transformation <- "None"
+    }
     cal.est.conc.pred.luc <- if(dependent.transformation=="None"){
         predict(object=model, newdata=xgb.DMatrix(as.matrix(data)))
     } else if(dependent.transformation=="Log"){

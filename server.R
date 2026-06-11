@@ -1095,6 +1095,30 @@ shinyServer(function(input, output, session) {
 
         })
 
+        # Per-spectrum baseline (one row per Spectrum/Energy). Source for the
+        # standalone Baseline view (per-spectrum, like Raw/Net) and for the dotted
+        # background overlay drawn under Combo.
+        dataHoldDeconvolutionBaselinePerSpectrum <- reactive({
+            tryCatch(dataHoldDeconvolution()$Baseline, error=function(e) NULL)
+        })
+
+        # "Combo" reconstruction: net peaks summed back onto each spectrum's own SNIP
+        # baseline, in RAW CPS, per spectrum. Summing before normalization keeps the
+        # peak-to-baseline ratio intact; the plot then normalizes the whole
+        # reconstruction together. The dotted overlay (comboBaselineLine) marks where
+        # the baseline sits inside this reconstruction, so over/under-subtraction is
+        # visible.
+        dataHoldDeconvolutionCombo <- reactive({
+            net  <- dataHoldDeconvolutionSpectra()
+            base <- dataHoldDeconvolutionBaselinePerSpectrum()
+            if(is.null(net) || is.null(base)) return(net)
+            m <- merge(net[, c("Spectrum", "Energy", "CPS")],
+                       base[, c("Spectrum", "Energy", "CPS")],
+                       by = c("Spectrum", "Energy"), suffixes = c(".net", ".base"))
+            data.frame(Spectrum = m$Spectrum, Energy = m$Energy,
+                       CPS = m$CPS.net + m$CPS.base, stringsAsFactors = FALSE)
+        })
+
         # Force-regenerate the deconvolution with the current parameters.
         # Once a calibration is loaded, calMemory$Calibration$Deconvoluted holds
         # the stored result and dataHoldDeconvolution() returns it unchanged, so
@@ -1665,12 +1689,64 @@ shinyServer(function(input, output, session) {
                     )
             })
 
+            # Baseline summary: feed the PER-SPECTRUM baseline so spectra_stats
+            # normalizes each spectrum first (time / total counts / compton), then
+            # builds the population Mean/SD bands -- a normalization-respecting
+            # average background.
+            spectraSummaryBaseline <- reactive({
+                spectra_stats(
+                    spectra.frame=dataHoldDeconvolutionBaselinePerSpectrum(),
+                    norm.type=input$normspectra,
+                    norm.min=comptonmin_d(),
+                    norm.max=comptonmax_d(),
+                    compress=input$compressplot,
+                    energy.range=energyRangeCache()
+                    )
+            })
+
+            # Combo's main spectra are the reconstruction (net peaks on top of
+            # baseline, per spectrum); the background is delineated separately by the
+            # dotted overlay (comboBaselineLine).
+            spectraSummaryCombo <- reactive({
+                spectra_stats(
+                    spectra.frame=dataHoldDeconvolutionCombo(),
+                    norm.type=input$normspectra,
+                    norm.min=comptonmin_d(),
+                    norm.max=comptonmax_d(),
+                    compress=input$compressplot,
+                    energy.range=energyRangeCache()
+                    )
+            })
+
+            # Single smoothed background line for the Combo overlay: normalize each
+            # spectrum's baseline first (respects time / total counts / compton), then
+            # average per energy into one readable curve.
+            comboBaselineLine <- reactive({
+                per <- just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionBaselinePerSpectrum(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=dataHoldDeconvolution())
+                if(is.null(per) || !all(c("Energy", "CPS") %in% names(per)) || nrow(per)==0) return(NULL)
+                aggregate(CPS ~ Energy, data=per[, c("Energy", "CPS")], FUN=mean)
+            })
+
+            # ggplot layer (or NULL) for the dotted background line, added to the
+            # spectra plots only when Combo is selected. `ggplot(...) + NULL` is a
+            # valid no-op, so the same expression works in every plot.
+            comboBaselineLayer <- reactive({
+                if(!identical(input$deconvolutespectra, "Combo")) return(NULL)
+                bl <- comboBaselineLine()
+                if(is.null(bl) || nrow(bl)==0) return(NULL)
+                geom_line(data=bl, aes(x=Energy, y=CPS), linetype="dotted", colour="grey30", inherit.aes=FALSE)
+            })
+
             spectraSummary <- reactive({
 
-                if(input$deconvolutespectra=="None"){
-                    spectraSummaryNormal()
-                } else if(input$deconvolutespectra=="Least Squares"){
+                if(input$deconvolutespectra=="Net"){
                     spectraSummaryDeconvolution()
+                } else if(input$deconvolutespectra=="Baseline"){
+                    spectraSummaryBaseline()
+                } else if(input$deconvolutespectra=="Combo"){
+                    spectraSummaryCombo()
+                } else {
+                    spectraSummaryNormal()
                 }
 
             })
@@ -1682,16 +1758,33 @@ shinyServer(function(input, output, session) {
             spectraPlotDataDeconvolution <- reactive({
                 just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionSpectra(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=dataHoldDeconvolution())
             })
-            
-            
+
+            # Baseline lines view: per-spectrum, treated exactly like Raw/Net -- each
+            # sample's baseline as its own line (or the variance band in summary mode).
+            spectraPlotDataBaseline <- reactive({
+                just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionBaselinePerSpectrum(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=dataHoldDeconvolution())
+            })
+
+            # Combo lines view: the reconstruction (net + baseline) per spectrum,
+            # normalized as one whole; the dotted background line is added on top via
+            # comboBaselineLayer so you can see where the baseline falls.
+            spectraPlotDataCombo <- reactive({
+                just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionCombo(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=dataHoldDeconvolution())
+            })
+
+
             spectraPlotData <- reactive({
-                
-                if(input$deconvolutespectra=="None"){
-                    spectraPlotDataNormal()
-                } else if(input$deconvolutespectra=="Least Squares"){
+
+                if(input$deconvolutespectra=="Net"){
                     spectraPlotDataDeconvolution()
+                } else if(input$deconvolutespectra=="Baseline"){
+                    spectraPlotDataBaseline()
+                } else if(input$deconvolutespectra=="Combo"){
+                    spectraPlotDataCombo()
+                } else {
+                    spectraPlotDataNormal()
                 }
-                
+
             })
             
             spectraWithLabels <- reactive({
@@ -1707,6 +1800,7 @@ shinyServer(function(input, output, session) {
 
                 ggplot(data, aes(x = Energy, y = CPS, colour = Spectrum)) +
                 geom_line() +
+                comboBaselineLayer() +
                 xlab("Energy (keV)") + ylab(yLabel()) +
                 theme_light(base_size = 15) +
                 theme(legend.position="bottom") +
@@ -1730,6 +1824,7 @@ shinyServer(function(input, output, session) {
 
                 ggplot(data, aes(x = Energy, y = CPS, colour = Spectrum)) +
                 geom_line() +
+                comboBaselineLayer() +
                 xlab("Energy (keV)") + ylab(yLabel()) +
                 theme_light(base_size = 15) +
                 theme(legend.position="bottom") +
@@ -1756,6 +1851,7 @@ shinyServer(function(input, output, session) {
                 ggplot(data.summary) +
                 geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max), alpha=0.2, fill="#619CFF", colour="grey20") +
                 geom_line(aes(Energy, Mean), lty=2) +
+                comboBaselineLayer() +
                 geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
                 scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
                 scale_y_continuous(yLabel()) +
@@ -3689,20 +3785,43 @@ shinyServer(function(input, output, session) {
         
 
         calConditions <- reactiveValues()
+        # Number of standards, derived from the loaded calibration so it never
+        # depends on dataCount()/req(input$file1) (which halts when a cal is loaded
+        # without importing new spectra).
+        robustStandardCount <- reactive({
+            n <- tryCatch(nrow(calMemory$Calibration$Values), error=function(e) NA_integer_)
+            if(is.null(n) || is.na(n) || n < 1){
+                n <- tryCatch(length(unique(calMemory$Calibration$Spectra$Spectrum)), error=function(e) NA_integer_)
+            }
+            if(is.null(n) || is.na(n) || n < 1){
+                n <- tryCatch(dataCount(), error=function(e) 0)
+            }
+            if(is.null(n) || is.na(n) || n < 1) n <- 1
+            n
+        })
+
+        # Runs first (high priority) on every element switch: guarantee the selected
+        # element has a calList entry BEFORE any per-element reactive reads
+        # calSettings$calList[[element]][[1]]. Without an entry, those reads hit
+        # NULL[[1]] ("subscript out of bounds"), which aborts the reset observers and
+        # freezes slope/normalization/etc. on the previously selected element.
+        observeEvent(input$calcurveelement, priority=200, {
+            req(input$calcurveelement)
+            if(!is.null(calSettings$calList) && !(input$calcurveelement %in% names(calSettings$calList))){
+                calSettings$calList[[input$calcurveelement]] <- list(
+                    defaultCalConditions(element=input$calcurveelement, number.of.standards=robustStandardCount())
+                )
+            }
+        })
+
         observeEvent(input$calcurveelement, {
-            
+
             calConditions$hold <- if(input$calcurveelement %in% names(calSettings$calList)){
                 calSettings$calList[[input$calcurveelement]][[1]]
             } else if(!input$calcurveelement %in% names(calSettings$calList)){
-                defaultCalConditions(element=input$calcurveelement, number.of.standards=dataCount())
+                defaultCalConditions(element=input$calcurveelement, number.of.standards=robustStandardCount())
             }
-            
-            #if(!is.null(input$calcurveelement) && is.null(calSettings[[input$calcurveelemet]])){
-            #   calSettings[[input$calcurveelemet]][[1]] <<- calConditions$hold
-            #} else if(!is.null(input$calcurveelement) && !is.null(calSettings[[input$calcurveelemet]])){
-            #   calSettings[[input$calcurveelemet]][[1]] <<- calMemory$Calibration$calList[[input$calcurveelement]][[1]]
-            #}
-            
+
         })
         
         observeEvent(input$radiocal, {
@@ -3841,18 +3960,38 @@ shinyServer(function(input, output, session) {
         
         
         calFileStandards <- reactive({
-            if(is.null((input$calcurveelement))){
-                NULL
-            } else if(!is.null((input$calcurveelement))){
-                if(!is.null(calSettings$calList) && !"StandardsUsed" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
-                    rep(TRUE, dataCount())
-                } else if(!is.null(calSettings$calList) && "StandardsUsed" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
-                    calSettings$calList[[input$calcurveelement]][[1]]$StandardsUsed
-                } else if(is.null(calSettings$calList)){
-                    rep(TRUE, dataCount())
-                }
+            if(is.null(input$calcurveelement)) return(NULL)
+
+            # Number of standards, derived from the loaded calibration itself so we
+            # never depend on dataCount()/req(input$file1). When a cal is loaded
+            # without importing new spectra, input$file1 is NULL and dataCount()
+            # halts -- which silently aborted this reactive and left vals$keeprows
+            # NULL, producing 0-row models and all-zero predictions.
+            n_standards <- tryCatch(nrow(calMemory$Calibration$Values), error=function(e) NA_integer_)
+            if(is.null(n_standards) || is.na(n_standards) || n_standards < 1){
+                n_standards <- tryCatch(length(unique(calMemory$Calibration$Spectra$Spectrum)), error=function(e) NA_integer_)
             }
- 
+            if(is.null(n_standards) || is.na(n_standards) || n_standards < 1){
+                n_standards <- tryCatch(dataCount(), error=function(e) 0)
+            }
+
+            has_su <- !is.null(calSettings$calList) &&
+                      "StandardsUsed" %in% names(calSettings$calList[[input$calcurveelement]][[1]])
+
+            if(has_su){
+                # Coerce a stored StandardsUsed (may be character/list/numeric/factor)
+                # to a clean logical mask, then require it to match the standard count;
+                # otherwise keep all standards rather than mis-subsetting on a stale or
+                # malformed mask. This also feeds `!keeprows` and the xor() toggles.
+                su <- calSettings$calList[[input$calcurveelement]][[1]]$StandardsUsed
+                if(is.list(su)) su <- unlist(su, use.names = FALSE)
+                su <- suppressWarnings(as.logical(su))
+                su[is.na(su)] <- TRUE
+                if(length(su) != n_standards) su <- rep(TRUE, n_standards)
+                su
+            } else {
+                rep(TRUE, n_standards)
+            }
         })
         
         
@@ -3883,16 +4022,21 @@ shinyServer(function(input, output, session) {
         
         calSlopeSelectionPre <- reactive({
             req(input$radiocal, input$calcurveelement)
+            # Safely fetch this element's stored Parameters; NULL when the element
+            # has no calList entry yet (no pre-existing model). Reading [[1]] off a
+            # missing entry would throw and freeze the per-element reset.
+            params <- tryCatch(calSettings$calList[[input$calcurveelement]][[1]], error=function(e) NULL)
             if(input$radiocal==3){
-                calSettings$calList[[input$calcurveelement]][[1]]$Slope
+                sl <- if(!is.null(params)) params$Slope else NULL
+                if(is.null(sl)) input$calcurveelement else sl
             } else if(input$radiocal==4 | input$radiocal==6 | input$radiocal==8 | input$radiocal==10 | input$radiocal==12){
-                if(!"Slope" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
+                if(is.null(params) || !"Slope" %in% names(params)){
                     outVaralt()
-                } else if("Slope" %in% names(calSettings$calList[[input$calcurveelement]][[1]])){
-                    if( length(calSettings$calList[[input$calcurveelement]][[1]]$Slope)<=1){
+                } else if("Slope" %in% names(params)){
+                    if( length(params$Slope)<=1){
                         outVaralt()
-                    } else if( length(calSettings$calList[[input$calcurveelement]][[1]]$Slope)>1){
-                        calSettings$calList[[input$calcurveelement]][[1]]$Slope
+                    } else if( length(params$Slope)>1){
+                        params$Slope
                     }
                 }
             }
@@ -4862,13 +5006,13 @@ shinyServer(function(input, output, session) {
         })
         linearModel <- reactive(label="nonLinearModel", {
             set.seed(input$randomize)
-            
+
             predict.frame <- linearModelSet()$data[linearModelSet()$parameters$StandardsUsed,]
-            
+
             l.model <- lm(Concentration~Intensity, data=predict.frame, na.action=na.omit)
-            
+
             l.model
-            
+
         })
         
         nonLinearParameters <- reactive(label="nonLinearParameters", {
@@ -10056,6 +10200,17 @@ shinyServer(function(input, output, session) {
               }
           }
 
+          # Lucas-Tooth (radiocal 3) shares the slope_vars selector with the ML
+          # models (4/6/8/10/12) handled above, but differs in its default: a single
+          # slope (the element's own line) rather than all lines. Re-sync it here so
+          # the previously selected element's line doesn't stay shown and get used.
+          if(isTRUE(input$radiocal == 3)){
+              new_slope <- tryCatch(calSlopeSelectionPre(), error = function(e) input$calcurveelement)
+              if(is.null(new_slope) || length(new_slope) == 0) new_slope <- input$calcurveelement
+              lucashold$slope <- new_slope
+              updateSelectInput(session, "slope_vars", selected = new_slope)
+          }
+
           programmatic(FALSE)
         })
         
@@ -10645,6 +10800,11 @@ shinyServer(function(input, output, session) {
         
         elementModelGen <- reactive(label="elementModelGen",{
             req(input$radiocal, input$calcurveelement)
+            print(paste0("MODEL DIAG ", input$calcurveelement, ": radiocal=", input$radiocal,
+                         " lucashold$slope=", paste(lucashold$slope, collapse=","),
+                         " input$slope_vars=", paste(input$slope_vars, collapse=","),
+                         " calSlopeSelectionPre=", paste(tryCatch(calSlopeSelectionPre(), error=function(e) "ERR"), collapse=","),
+                         " calList_has_element=", (input$calcurveelement %in% names(calSettings$calList))))
             if(input$radiocal==1){
                 tryCatch(linearModel(), error=function(e) NULL)
             } else if(input$radiocal==2){
@@ -10712,7 +10872,7 @@ shinyServer(function(input, output, session) {
             req(input$calcurveelement, input$radiocal)
             
             val.frame <- tryCatch(mclValGen(model=elementModel(), data=predictIntensity(), predict.frame=predictFrame(), dependent.transformation=basichold$deptransformation, y_min=yMin(), y_max=yMax()), error=function(e) NULL)
-            
+
             if(is.null(val.frame)){
                 # Include Spectrum for proper data linkage
                 pf <- predictFrame()
@@ -10804,13 +10964,28 @@ shinyServer(function(input, output, session) {
             val_data <- valFrame()
             val_frame_val_data <- valFrameVal$val.frame
 
+            # Normalize the standards mask before subsetting. A stored StandardsUsed
+            # can be character/list/numeric, NULL, or a length that no longer matches
+            # a given frame; any of those makes `!keep` error out ("invalid argument
+            # type") and kills the plot. Coerce to a clean logical and fall back to
+            # "keep all standards" per-frame when the mask is malformed or stale.
+            keep_raw <- vals$keeprows
+            if(is.list(keep_raw)) keep_raw <- unlist(keep_raw, use.names = FALSE)
+            keep_raw <- suppressWarnings(as.logical(keep_raw))
+            keep_for <- function(df){
+                if(is.null(df)) return(NULL)
+                k <- keep_raw
+                if(length(k) != nrow(df) || any(is.na(k))) k <- rep(TRUE, nrow(df))
+                k
+            }
+
             # Pre-compute filtered subsets once
-            predict_kept <- predict_data[vals$keeprows, , drop = FALSE]
-            predict_excluded <- predict_data[!vals$keeprows, , drop = FALSE]
-            val_kept <- val_data[vals$keeprows, , drop = FALSE]
-            val_excluded <- val_data[!vals$keeprows, , drop = FALSE]
-            val_frame_val_kept <- if(!is.null(val_frame_val_data)) val_frame_val_data[vals$keeprows, , drop = FALSE] else NULL
-            val_frame_val_excluded <- if(!is.null(val_frame_val_data)) val_frame_val_data[!vals$keeprows, , drop = FALSE] else NULL
+            predict_kept <- predict_data[keep_for(predict_data), , drop = FALSE]
+            predict_excluded <- predict_data[!keep_for(predict_data), , drop = FALSE]
+            val_kept <- val_data[keep_for(val_data), , drop = FALSE]
+            val_excluded <- val_data[!keep_for(val_data), , drop = FALSE]
+            val_frame_val_kept <- if(!is.null(val_frame_val_data)) val_frame_val_data[keep_for(val_frame_val_data), , drop = FALSE] else NULL
+            val_frame_val_excluded <- if(!is.null(val_frame_val_data)) val_frame_val_data[!keep_for(val_frame_val_data), , drop = FALSE] else NULL
 
             element.name <- if(input$calcurveelement %in% spectralLines){
                 gsub("[.]", "", substr(input$calcurveelement, 1, 2))
@@ -11238,6 +11413,12 @@ shinyServer(function(input, output, session) {
                 kept <- ld[keep, , drop=FALSE]
                 slope <- tryCatch(as.numeric(coef(lm(Concentration ~ Intensity, data=kept))[2]), error=function(e) NA_real_)
                 comptontype <- if(is.null(input$comptontype)) "Raw" else input$comptontype
+                print(paste0("LOD DIAG ", input$calcurveelement, ": cal Intensity range=[",
+                             signif(min(kept$Intensity, na.rm=TRUE), 4), ", ", signif(max(kept$Intensity, na.rm=TRUE), 4),
+                             "] Concentration range=[",
+                             signif(min(kept$Concentration, na.rm=TRUE), 4), ", ", signif(max(kept$Concentration, na.rm=TRUE), 4),
+                             "] slope=", signif(slope, 4),
+                             " normcal=", input$normcal, " comptontype=", comptontype))
                 norm.src <- switch(comptontype,
                     "Raw"      = calMemory$Calibration$Spectra,
                     "Baseline" = calMemory$Calibration$Deconvoluted$Baseline,
@@ -11304,9 +11485,21 @@ shinyServer(function(input, output, session) {
             tryCatch(val.frame$Concentration <- val.frame$Concentration*multiplier, error=function(e) NULL)
             tryCatch(val.frame$Prediction <- val.frame$Prediction*multiplier, error=function(e) NULL)
 
+            # Normalize the standards mask before subsetting. A stored StandardsUsed
+            # can be character/list/numeric, NULL, or a length that no longer matches
+            # the current value frame; any of those makes `!keep` error out ("invalid
+            # argument type") and kills the plot. Coerce to a clean logical and fall
+            # back to "keep all standards" when the mask is malformed or stale.
+            keep <- vals$keeprows
+            if(is.list(keep)) keep <- unlist(keep, use.names = FALSE)
+            keep <- suppressWarnings(as.logical(keep))
+            if(length(keep) != nrow(val.frame) || any(is.na(keep))){
+                keep <- rep(TRUE, nrow(val.frame))
+            }
+
             # Pre-compute filtered subsets once
-            val_kept <- val.frame[vals$keeprows, , drop = FALSE]
-            val_excluded <- val.frame[!vals$keeprows, , drop = FALSE]
+            val_kept <- val.frame[keep, , drop = FALSE]
+            val_excluded <- val.frame[!keep, , drop = FALSE]
 
             element.name <- if(input$calcurveelement %in% spectralLines){
                 gsub("[.]", "", substr(input$calcurveelement, 1, 2))

@@ -3696,7 +3696,15 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     } else if(!"StandardsUsed" %in% names(imported.cal.conditions)){
         default.cal.conditions$StandardsUsed
     }
-    
+
+    # StandardsUsed must be a logical mask. Older/large cals sometimes stored it as
+    # character/list/numeric, which breaks `!keep` subsetting and xor() toggles in
+    # the calibration-curve UI. Coerce here, the single import chokepoint, so every
+    # downstream consumer (vals$keeprows, model fitting) gets a clean logical.
+    if(is.list(standards.used)) standards.used <- unlist(standards.used, use.names = FALSE)
+    standards.used <- suppressWarnings(as.logical(standards.used))
+    standards.used[is.na(standards.used)] <- TRUE
+
     scale <- if("Scale" %in% names(imported.cal.conditions)){
         imported.cal.conditions$Scale
     } else if(!"Scale" %in% names(imported.cal.conditions)){
