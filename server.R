@@ -1037,20 +1037,25 @@ shinyServer(function(input, output, session) {
         })
         
     dataHoldDeconvolution <- reactive({
-        req(input$deconvolutionwidth, input$deconvolutionalpha, input$deconvolutiondefaultsigma, input$deconvolutionsmoothiter, input$deconvolutionsnipiter)
+        # Gate deconvolution behind the Deconvolute button: take a dependency on the
+        # button (and on the data / loaded cal, which legitimately require a re-run),
+        # but read the deconvolution PARAMETERS with isolate() so editing a width /
+        # alpha / sigma / iteration value does NOT re-run deconvolution or fade the
+        # plot until the user actually presses Deconvolute.
+        input$deconvolutebutton
+
+        width_param  <- isolate(input$deconvolutionwidth)
+        alpha_param  <- isolate(input$deconvolutionalpha)
+        sigma_param  <- isolate(input$deconvolutiondefaultsigma)
+        smooth_param <- isolate(input$deconvolutionsmoothiter)
+        snip_param   <- isolate(input$deconvolutionsnipiter)
+        req(width_param, alpha_param, sigma_param, smooth_param, snip_param)
         print("Starting deconvolution")
 
         # Cache dataHold() once - it was being called 8+ times in this function
         data_cached <- dataHold()
         n_spectra <- length(unique(data_cached$Spectrum))
         my.cores.mod <- if(n_spectra < as.numeric(my.cores)) n_spectra else as.numeric(my.cores)
-
-        # Cache deconvolution parameters
-        width_param <- input$deconvolutionwidth
-        alpha_param <- input$deconvolutionalpha
-        sigma_param <- input$deconvolutiondefaultsigma
-        smooth_param <- input$deconvolutionsmoothiter
-        snip_param <- input$deconvolutionsnipiter
 
         deconvolution_data <- if(is.null(input$file1)){
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
