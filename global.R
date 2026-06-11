@@ -1,6 +1,7 @@
 cloudcal <- "Loaded"
 
 # Disable client-side error popups while keeping console stack traces
+#options(warn = 2, shiny.fullstacktrace = TRUE)
 options(shiny.devmode.verbose = FALSE)
 
 get_os <- function(){
@@ -22,11 +23,35 @@ get_os <- function(){
 tryCatch(options(java.parameters = c("-XX:+UseConcMarkSweepGC", "-Xmx81920m")), error=function(e) NULL)
 
 list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "remotes", "tidyverse", "tools", "shinycssloaders", "openxlsx", "itraxR", "pbmcapply")
+# Install a single package, falling back to its CRAN GitHub mirror when it is not
+# available from CRAN itself (e.g. archived or platform-specific packages such as
+# RDCOMClient). install.packages signals an unavailable package/dependency as a
+# warning, so we install each package defensively and only fall back / report a
+# failure if the package is still missing afterwards.
+install_one <- function(pkg, type) {
+    if (pkg %in% rownames(installed.packages())) return(invisible(TRUE))
+    tryCatch(
+        install.packages(pkg, repos = "http://cran.rstudio.com/", dep = TRUE, ask = FALSE, type = type),
+        error = function(e) NULL, warning = function(w) NULL)
+    if (!(pkg %in% rownames(installed.packages()))) {
+        if (!requireNamespace("remotes", quietly = TRUE))
+            try(install.packages("remotes", repos = "http://cran.rstudio.com/"), silent = TRUE)
+        tryCatch(
+            remotes::install_github(paste0("cran/", pkg)),
+            error = function(e) message("Could not install package '", pkg, "': ", conditionMessage(e)))
+    }
+    invisible(pkg %in% rownames(installed.packages()))
+}
+
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(get_os()!="linux"){
-    if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="binary"))
-} else if(get_os()=="linux"){
-    if(length(new.packages)) lapply(new.packages, function(x) install.packages(x, repos="http://cran.rstudio.com/", dep = TRUE, ask=FALSE, type="source"))
+if(length(new.packages)){
+    # Don't let a benign install warning (e.g. an unavailable optional dependency)
+    # abort setup via warn = 2; install each package defensively, then restore.
+    old.warn <- getOption("warn")
+    options(warn = 1)
+    install.type <- if (get_os() == "linux") "source" else "binary"
+    for (x in new.packages) install_one(x, install.type)
+    options(warn = old.warn)
 }
 
 #if(!"caret" %in% installed.packages()[,"Package"]){
@@ -8623,21 +8648,49 @@ calibrationElements <- function(calibration){
 
 defaultCalList <- function(calibration, temp=FALSE){
     variables <- calibrationElements(calibration)
-    
+
+    skipped <- character(0)
+    candidates <- character(0)
+
     for(i in variables){
         if(i %in% colnames(calibration$Intensities)){
             if(i %in% names(calibration$calList)){
                 calibration$calList[[i]] <- calibration$calList[[i]]
             } else if(!i %in% names(calibration$calList)){
-                calibration$calList[[i]] <- list(Parameters=deleteCalConditions(element=i), Model=lm(calibration$Values[,i]~calibration$Intensities[,i]), na.action=na.omit)
+                candidates <- c(candidates, i)
+                cal.df <- merge(
+                    calibration$Values[, c("Spectrum", i)],
+                    calibration$Intensities[, c("Spectrum", i)],
+                    by = "Spectrum", suffixes = c(".val", ".int")
+                )
+                val.col <- paste0(i, ".val")
+                int.col <- paste0(i, ".int")
+                cal.df <- cal.df[complete.cases(cal.df[, c(val.col, int.col)]), ]
+                # Skip elements with too few overlapping standards to fit a line;
+                # otherwise lm() aborts with "0 (non-NA) cases" and kills the whole load.
+                if(nrow(cal.df) >= 2){
+                    calibration$calList[[i]] <- list(Parameters=deleteCalConditions(element=i), Model=lm(cal.df[, val.col]~cal.df[, int.col]), na.action=na.omit)
+                } else {
+                    skipped <- c(skipped, i)
+                }
             }
         }
-        
+
     }
-    
+
+    if(length(skipped) > 0){
+        if(length(skipped) == length(candidates)){
+            warning("defaultCalList: every element was skipped (no Spectrum overlap between Values and Intensities had >=2 complete cases). Likely a Spectrum-key mismatch between the two tables, not a sparse calibration.")
+        } else {
+            print(paste0("defaultCalList: skipped ", length(skipped), "/", length(candidates), " elements with <2 co-measured standards: ", paste(skipped, collapse=", ")))
+        }
+    }
+
     if(temp==TRUE){
         for(i in variables){
-            calibration$calList[[i]][[1]]$CalTable$Delete <- TRUE
+            if(i %in% names(calibration$calList)){
+                calibration$calList[[i]][[1]]$CalTable$Delete <- TRUE
+            }
         }
     }
 
