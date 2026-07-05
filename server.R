@@ -11418,12 +11418,6 @@ shinyServer(function(input, output, session) {
                 kept <- ld[keep, , drop=FALSE]
                 slope <- tryCatch(as.numeric(coef(lm(Concentration ~ Intensity, data=kept))[2]), error=function(e) NA_real_)
                 comptontype <- if(is.null(input$comptontype)) "Raw" else input$comptontype
-                print(paste0("LOD DIAG ", input$calcurveelement, ": cal Intensity range=[",
-                             signif(min(kept$Intensity, na.rm=TRUE), 4), ", ", signif(max(kept$Intensity, na.rm=TRUE), 4),
-                             "] Concentration range=[",
-                             signif(min(kept$Concentration, na.rm=TRUE), 4), ", ", signif(max(kept$Concentration, na.rm=TRUE), 4),
-                             "] slope=", signif(slope, 4),
-                             " normcal=", input$normcal, " comptontype=", comptontype))
                 norm.src <- switch(comptontype,
                     "Raw"      = calMemory$Calibration$Spectra,
                     "Baseline" = calMemory$Calibration$Deconvoluted$Baseline,
@@ -11432,6 +11426,8 @@ shinyServer(function(input, output, session) {
                 baseline_lod_estimate(
                     element.line    = input$calcurveelement,
                     baseline        = calMemory$Calibration$Deconvoluted$Baseline,
+                    spectra_raw     = calMemory$Calibration$Spectra,
+                    fit             = calMemory$Calibration$Deconvoluted$Spectra,
                     line.preference = if(is.null(input$linepreferenceelement)) "Narrow" else input$linepreferenceelement,
                     line.structure  = if(is.null(input$linestructureelement)) "gaussian" else input$linestructureelement,
                     gaus.buffer     = if(is.null(input$gausbuffer)) 0.02 else input$gausbuffer,
@@ -11465,15 +11461,32 @@ shinyServer(function(input, output, session) {
                 if(is.null(x) || !is.finite(x)) return(NA_real_)
                 signif(x*multiplier, 3)
             }
-            sd_val <- fmt(est$lod_sd)
-            sd_line <- if(is.na(sd_val)){
-                paste0("3&middot;SD of baseline across standards: <em>needs &ge;3 standards (have ", est$n, ")</em>")
-            } else {
-                paste0("3&middot;SD of baseline across ", est$n, " standards: <b>", sd_val, " ", unit, "</b>")
+            lod_val <- fmt(est$lod)
+            if(is.na(lod_val)){
+                return(HTML("<em>LOD not estimable for the current element / line selection.</em>"))
             }
+            resid_val  <- fmt(est$lod_resid)
+            currie_val <- fmt(est$lod_currie)
+
+            # Compact breakdown of the two noise terms (the reported LOD is the
+            # per-standard max of the two, aggregated by median).
+            parts <- c()
+            if(!is.na(resid_val))  parts <- c(parts, paste0("residual noise ", resid_val))
+            if(!is.na(currie_val)) parts <- c(parts, paste0("counting stat ", currie_val))
+            breakdown <- if(length(parts) > 0) paste0(" (", paste(parts, collapse=" &middot; "), " ", unit, ")") else ""
+
+            caption <- if(isTRUE(est$livetime_used)){
+                "3&sigma; detection limit across %d standards, noise from raw&minus;baseline&minus;fit residual cross-checked against counting statistics (conservative max). Not a measured blank."
+            } else {
+                "3&sigma; detection limit across %d standards, noise from the raw&minus;baseline&minus;fit residual (no LiveTime, so counting-statistics cross-check unavailable). Not a measured blank."
+            }
+
             HTML(paste0(
-                "<div>", sd_line, "</div>",
-                "<div style='color:#888; font-size:0.85em; margin-top:4px;'>Back-of-hand estimate from the baseline-subtracted spectra (not a measured blank), using a linear sensitivity at the current normalization. </div>"
+                "<div>Estimated LOD: <b>", lod_val, " ", unit, "</b>",
+                "<span style='color:#888;'>", breakdown, "</span></div>",
+                "<div style='color:#888; font-size:0.85em; margin-top:4px;'>",
+                sprintf(caption, est$n),
+                "</div>"
             ))
         })
 

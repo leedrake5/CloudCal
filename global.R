@@ -1315,33 +1315,48 @@ elementGrabKalpha <- function(element, data, calculation="gaussian", gaus_buffer
 
 
 ## ---------------------------------------------------------------------------
-## Limit of Detection (LOD) estimate from the baseline-subtracted spectra.
+## Limit of Detection (LOD) estimate from the calibration spectra.
 ##
-## When no blank is available, the SNIP baseline (peaks removed) under a peak is
-## the closest analog to "what a blank would register". This returns a
-## back-of-the-hand 3-sigma LOD for one element/line, in the SAME concentration
-## units as the calibration's stored Concentration column, given the linear
-## sensitivity `slope` (= d Concentration / d Intensity from lm(Concentration ~
-## Intensity)). Two sigma estimates are returned: the empirical SD of the
-## baseline ROI across standards, and a Poisson (counting-statistics) estimate.
+## Reports a 3-sigma detection limit for one element/line, in the SAME
+## concentration units as the calibration's stored Concentration column, given
+## the linear sensitivity `slope` (= d Concentration / d Intensity from
+## lm(Concentration ~ Intensity)).
+##
+## The noise term is the crux. The SNIP baseline is a SMOOTH continuum, so its
+## own point-to-point scatter has had the counting noise removed - using it to
+## set the noise level badly underestimates the LOD. Instead we recover the real
+## noise two ways and take the LARGER (conservative):
+##
+##  1. Residual noise (primary): resid = raw - baseline - fit. Because the
+##     deconvolution fits (smooth - baseline), this residual is essentially
+##     raw - smooth, i.e. exactly the high-frequency noise smoothing discarded.
+##     We measure its per-channel SD in PEAK-FREE SHOULDER windows just outside
+##     the line ROI (where fit ~ 0), then scale to the ROI sum by sqrt(n_ROI).
+##  2. Currie/counting-statistics (cross-check): sigma = sqrt(background counts)
+##     from the baseline ROI level and LiveTime - the textbook XRF LLD. Only
+##     available when LiveTime is known.
+##
+## LOD_i = 3 * max(sigma_resid, sigma_currie) * slope / F_i, aggregated across
+## the kept standards by the median.
 ##
 ## Arguments mirror the Cal Curves page controls so the result is responsive to
 ## the line-definition and normalization choices:
 ##   element.line     - full line name, e.g. "Fe.K.alpha" (input$calcurveelement)
 ##   baseline         - Deconvoluted$Baseline frame (Spectrum, Energy, CPS)
+##   spectra_raw      - Calibration$Spectra (raw per-channel CPS, same grid)
+##   fit              - Deconvoluted$Spectra (fitted peak response, same grid)
 ##   line.preference  - "Narrow" | "Wide" | "Area"  (input$linepreferenceelement)
 ##   line.structure   - "gaussian" | "split" | "first" | "second"
 ##   norm.type        - 1 none, 2 total counts, 3 Compton  (input$normcal)
 ##   norm.src         - per-channel frame used for normalization divisor
-##                      (Raw/Baseline/Net per input$comptontype)
 ##   norm.min/max     - Compton window (input$comptonmin/comptonmax)
-##   metadata         - frame with Spectrum + LiveTime (NULL/absent -> Poisson
-##                      falls back to a per-second approximation)
+##   metadata         - frame with Spectrum + LiveTime (enables the Currie term)
 ##   keep.spectra     - character vector of standards kept on the cal curve
 ##   slope            - linear sensitivity (d Concentration / d Intensity)
 ##   range.table      - custom line Definitions (Name, EnergyMin, EnergyMax)
 ## ---------------------------------------------------------------------------
-baseline_lod_estimate <- function(element.line, baseline, line.preference="Narrow",
+baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=NULL,
+                                   line.preference="Narrow",
                                    line.structure="gaussian", gaus.buffer=0.02,
                                    split.buffer=0.1, norm.type=1, norm.src=NULL,
                                    norm.min=0, norm.max=0, metadata=NULL,
@@ -1354,22 +1369,75 @@ baseline_lod_estimate <- function(element.line, baseline, line.preference="Narro
         return(list(note="bad_slope"))
     }
 
-    ## Baseline ROI per standard, using the SAME window dispatch as the cal build.
-    roi <- if(line.preference=="Wide"){
-        calc <- if(line.structure %in% c("gaussian", "split")) line.structure else "gaussian"
-        wideElementGrab(element.line=element.line, data=baseline, range.table=range.table, calculation=calc, buffer=split.buffer)
-    } else {
-        elementGrab(element.line=element.line, data=baseline, range.table=range.table, calculation=line.structure, gaus_buffer=gaus.buffer, split_buffer=split.buffer)
-    }
-    if(is.null(roi) || ncol(roi) < 2){
-        return(list(note="not_estimable"))
-    }
-    ## Normalize Spectrum keys the same way elementFrame() does, so baseline names
-    ## (which keep file extensions through elementGrab) match the calibration names.
     strip_ext <- function(x){
         mgsub::mgsub(as.character(x), c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe"), rep("", 8))
     }
+
+    ## Window dispatch shared by the ROI sum and the ROI-membership probe, so the
+    ## LOD window is always identical to the one the calibration itself uses.
+    grab <- function(dat){
+        if(line.preference=="Wide"){
+            calc <- if(line.structure %in% c("gaussian", "split")) line.structure else "gaussian"
+            wideElementGrab(element.line=element.line, data=dat, range.table=range.table, calculation=calc, buffer=split.buffer)
+        } else {
+            elementGrab(element.line=element.line, data=dat, range.table=range.table, calculation=line.structure, gaus_buffer=gaus.buffer, split_buffer=split.buffer)
+        }
+    }
+
+    ## Baseline ROI level per standard (the background level under the peak).
+    roi <- grab(baseline)
+    if(is.null(roi) || ncol(roi) < 2){
+        return(list(note="not_estimable"))
+    }
     roi <- data.frame(Spectrum=strip_ext(roi$Spectrum), rawBase=as.numeric(roi[[2]]), stringsAsFactors=FALSE)
+
+    ## Discover which energy channels fall in the ROI by probing the SAME window
+    ## with a one-channel-per-"spectrum" frame: the returned Spectrum names come
+    ## back as the in-window energies. n_ROI scales channel noise to the ROI sum.
+    grid <- sort(unique(round(as.numeric(baseline$Energy), 3)))
+    roi_energies <- tryCatch({
+        probe <- data.frame(Spectrum=sprintf("%.3f", grid), Energy=grid, CPS=1, stringsAsFactors=FALSE)
+        hit <- grab(probe)
+        e <- suppressWarnings(as.numeric(hit$Spectrum[is.finite(as.numeric(hit[[2]])) & as.numeric(hit[[2]]) > 0]))
+        round(e[is.finite(e)], 3)
+    }, error=function(e) numeric(0))
+    n_roi <- length(roi_energies)
+
+    ## Per-standard residual noise in peak-free shoulder windows around the ROI.
+    ## resid = raw - baseline - fit; fit ~ 0 in the shoulders so this is the local
+    ## measured noise, in raw CPS units.
+    sigma_ch <- NULL   # data.frame(Spectrum, sigma) once computed
+    if(n_roi > 0 && !is.null(spectra_raw) && all(c("Spectrum","Energy","CPS") %in% names(spectra_raw))){
+        lo <- min(roi_energies); hi <- max(roi_energies)
+        step <- stats::median(diff(grid)); if(!is.finite(step) || step <= 0) step <- 0.02
+        w <- max(2 * (hi - lo), 8 * step)
+        roi_set <- roi_energies
+        shoulder <- grid[((grid >= lo - w & grid < lo) | (grid > hi & grid <= hi + w)) & !(round(grid,3) %in% roi_set)]
+        if(length(shoulder) >= 3){
+            keep_e <- round(shoulder, 3)
+            prep <- function(df, val){
+                d <- df[round(as.numeric(df$Energy),3) %in% keep_e, c("Spectrum","Energy","CPS")]
+                d$Spectrum <- strip_ext(d$Spectrum); d$Energy <- round(as.numeric(d$Energy),3)
+                colnames(d) <- c("Spectrum","Energy",val); d
+            }
+            res <- prep(spectra_raw, "raw")
+            bl  <- prep(baseline, "bl")
+            res <- merge(res, bl, by=c("Spectrum","Energy"))
+            if(!is.null(fit) && all(c("Spectrum","Energy","CPS") %in% names(fit))){
+                ft <- prep(fit, "ft")
+                res <- merge(res, ft, by=c("Spectrum","Energy"), all.x=TRUE)
+                res$ft[is.na(res$ft)] <- 0
+            } else {
+                res$ft <- 0
+            }
+            if(nrow(res) > 0){
+                res$resid <- res$raw - res$bl - res$ft
+                sig <- aggregate(resid ~ Spectrum, data=res, FUN=function(z) if(length(z) >= 3) stats::sd(z) else NA_real_)
+                colnames(sig) <- c("Spectrum","sigma")
+                sigma_ch <- sig
+            }
+        }
+    }
 
     ## Normalization divisor per standard (mirrors spectra_tc_/spectra_comp_/lucas_* logic).
     if(norm.type==1 || is.null(norm.src)){
@@ -1387,7 +1455,7 @@ baseline_lod_estimate <- function(element.line, baseline, line.preference="Narro
         roi$F[is.na(roi$F) | roi$F==0] <- 1
     }
 
-    ## LiveTime (seconds) for the Poisson count recovery, if available.
+    ## LiveTime (seconds) for the Currie counting-statistics term, if available.
     livetime_used <- FALSE
     if(!is.null(metadata) && all(c("Spectrum", "LiveTime") %in% names(metadata))){
         lt <- data.frame(Spectrum=strip_ext(metadata$Spectrum), LiveTime=as.numeric(metadata$LiveTime), stringsAsFactors=FALSE)
@@ -1396,6 +1464,13 @@ baseline_lod_estimate <- function(element.line, baseline, line.preference="Narro
             roi <- merge(roi, lt, by="Spectrum", all.x=TRUE)
             livetime_used <- TRUE
         }
+    }
+
+    ## Attach per-standard shoulder sigma.
+    if(!is.null(sigma_ch)){
+        roi <- merge(roi, sigma_ch, by="Spectrum", all.x=TRUE)
+    } else {
+        roi$sigma <- NA_real_
     }
 
     ## Restrict to the standards kept on the cal curve.
@@ -1408,34 +1483,46 @@ baseline_lod_estimate <- function(element.line, baseline, line.preference="Narro
         return(list(note="not_estimable"))
     }
 
-    B <- roi$rawBase / roi$F          # baseline ROI in the cal's normalized units
     m <- abs(slope)
 
-    ## Empirical: 3 x SD of the normalized baseline ROI across standards.
-    lod_sd <- if(n >= 3) 3 * stats::sd(B, na.rm=TRUE) * m else NA_real_
+    ## Per-standard sigma (normalized CPS units) for each method.
+    ## Residual: channel SD scaled to the ROI sum by sqrt(n_ROI).
+    sigma_resid_i <- if(!is.null(sigma_ch) && n_roi > 0){
+        sqrt(n_roi) * roi$sigma / roi$F
+    } else rep(NA_real_, n)
+    ## Currie: sqrt(background counts) from baseline level and LiveTime.
+    sigma_currie_i <- if(livetime_used && "LiveTime" %in% names(roi)){
+        lt_ok <- is.finite(roi$LiveTime) & roi$LiveTime > 0 & is.finite(roi$rawBase) & roi$rawBase > 0
+        s <- rep(NA_real_, n)
+        s[lt_ok] <- sqrt(roi$rawBase[lt_ok] / roi$LiveTime[lt_ok]) / roi$F[lt_ok]
+        s
+    } else rep(NA_real_, n)
 
-    ## Poisson: sigma from counting statistics, returned to normalized-CPS units.
-    meanF <- mean(roi$F, na.rm=TRUE)
-    if(livetime_used && "LiveTime" %in% names(roi) && any(is.finite(roi$LiveTime))){
-        good <- is.finite(roi$LiveTime) & roi$LiveTime > 0
-        counts <- roi$rawBase[good] * roi$LiveTime[good]
-        sigma_pois <- sqrt(mean(counts, na.rm=TRUE)) / mean(roi$LiveTime[good], na.rm=TRUE) / meanF
-    } else {
-        livetime_used <- FALSE
-        sigma_pois <- sqrt(mean(roi$rawBase, na.rm=TRUE)) / meanF
+    ## Conservative per-standard sigma = max of the two available terms.
+    sigma_i <- mapply(function(a, b){
+        vals <- c(a, b); vals <- vals[is.finite(vals)]
+        if(length(vals)==0) NA_real_ else max(vals)
+    }, sigma_resid_i, sigma_currie_i)
+
+    lod_i     <- 3 * sigma_i * m
+    lod_resid <- if(any(is.finite(sigma_resid_i))) 3 * stats::median(sigma_resid_i[is.finite(sigma_resid_i)]) * m else NA_real_
+    lod_currie<- if(any(is.finite(sigma_currie_i))) 3 * stats::median(sigma_currie_i[is.finite(sigma_currie_i)]) * m else NA_real_
+    lod       <- if(any(is.finite(lod_i))) stats::median(lod_i[is.finite(lod_i)]) else NA_real_
+
+    if(!is.finite(lod)){
+        return(list(note="not_estimable"))
     }
-    lod_pois <- 3 * sigma_pois * m
 
-    print(paste0("LOD DIAG ", element.line, ": n=", n,
-                 " slope|m|=", signif(m, 4),
-                 " norm.type=", norm.type, " meanF=", signif(meanF, 4),
-                 " mean(rawBase)=", signif(mean(roi$rawBase, na.rm=TRUE), 4),
-                 " mean(B)=", signif(mean(B, na.rm=TRUE), 4),
-                 " sd(B)=", signif(stats::sd(B, na.rm=TRUE), 4),
-                 " lod_sd=", signif(lod_sd, 4),
-                 " lod_pois=", signif(lod_pois, 4)))
+    method <- if(any(is.finite(sigma_resid_i)) && any(is.finite(sigma_currie_i))){
+        "residual+currie"
+    } else if(any(is.finite(sigma_resid_i))){
+        "residual"
+    } else {
+        "currie"
+    }
 
-    list(n=n, lod_sd=lod_sd, lod_pois=lod_pois, livetime_used=livetime_used, note="ok")
+    list(n=n, n_roi=n_roi, lod=lod, lod_resid=lod_resid, lod_currie=lod_currie,
+         method=method, livetime_used=livetime_used, note="ok")
 }
 baseline_lod_estimate <- cmpfun(baseline_lod_estimate)
 
