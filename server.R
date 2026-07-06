@@ -11471,14 +11471,14 @@ shinyServer(function(input, output, session) {
             # Compact breakdown of the two noise terms (the reported LOD is the
             # per-standard max of the two, aggregated by median).
             parts <- c()
-            if(!is.na(resid_val))  parts <- c(parts, paste0("residual noise ", resid_val))
+            if(!is.na(resid_val))  parts <- c(parts, paste0("shoulder noise ", resid_val))
             if(!is.na(currie_val)) parts <- c(parts, paste0("counting stat ", currie_val))
             breakdown <- if(length(parts) > 0) paste0(" (", paste(parts, collapse=" &middot; "), " ", unit, ")") else ""
 
             caption <- if(isTRUE(est$livetime_used)){
-                "3&sigma; detection limit across %d standards, noise from raw&minus;baseline&minus;fit residual cross-checked against counting statistics (conservative max). Not a measured blank."
+                "3&sigma; detection limit across %d standards, counting noise from robust channel-to-channel scatter in peak-free shoulders, cross-checked against counting statistics (conservative max). Not a measured blank."
             } else {
-                "3&sigma; detection limit across %d standards, noise from the raw&minus;baseline&minus;fit residual (no LiveTime, so counting-statistics cross-check unavailable). Not a measured blank."
+                "3&sigma; detection limit across %d standards, counting noise from robust channel-to-channel scatter in peak-free shoulders (no LiveTime, so counting-statistics cross-check unavailable). Not a measured blank."
             }
 
             HTML(paste0(

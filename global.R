@@ -1327,14 +1327,16 @@ elementGrabKalpha <- function(element, data, calculation="gaussian", gaus_buffer
 ## set the noise level badly underestimates the LOD. Instead we recover the real
 ## noise two ways and take the LARGER (conservative):
 ##
-##  1. Residual noise (primary): resid = raw - baseline - fit. Because the
-##     deconvolution fits (smooth - baseline), this residual is essentially
-##     raw - smooth, i.e. exactly the high-frequency noise smoothing discarded.
-##     We measure its per-channel SD in PEAK-FREE SHOULDER windows just outside
-##     the line ROI (where fit ~ 0), then scale to the ROI sum by sqrt(n_ROI).
+##  1. Shoulder noise (primary): the high-frequency counting noise measured from
+##     robust channel-to-channel first differences of the raw spectrum in
+##     PEAK-FREE SHOULDER windows just outside the line ROI. Differencing cancels
+##     the smooth continuum/peak shape and any baseline/fit mis-modelling, and
+##     MAD(diff)/sqrt(2) rejects contaminated channels - so this recovers the
+##     counting noise smoothing removed, without needing LiveTime. Scaled to the
+##     ROI sum by sqrt(n_ROI).
 ##  2. Currie/counting-statistics (cross-check): sigma = sqrt(background counts)
 ##     from the baseline ROI level and LiveTime - the textbook XRF LLD. Only
-##     available when LiveTime is known.
+##     available when LiveTime is known; converges with (1) when present.
 ##
 ## LOD_i = 3 * max(sigma_resid, sigma_currie) * slope / F_i, aggregated across
 ## the kept standards by the median.
@@ -1403,38 +1405,42 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
     }, error=function(e) numeric(0))
     n_roi <- length(roi_energies)
 
-    ## Per-standard residual noise in peak-free shoulder windows around the ROI.
-    ## resid = raw - baseline - fit; fit ~ 0 in the shoulders so this is the local
-    ## measured noise, in raw CPS units.
-    sigma_ch <- NULL   # data.frame(Spectrum, sigma) once computed
+    ## Per-standard COUNTING noise from peak-free shoulder windows flanking the
+    ## ROI. We take successive-channel first differences of the raw spectrum
+    ## within each shoulder and estimate the per-channel sigma robustly as
+    ## MAD(diff)/sqrt(2). Differencing cancels the smooth continuum, peak tails,
+    ## and any baseline/fit mis-modelling (all low-frequency), so only the
+    ## high-frequency counting noise survives; MAD rejects the odd contaminated
+    ## channel (e.g. a neighbouring L-line edge). This isolates exactly the noise
+    ## that smoothing removed, needs no LiveTime, and converges to the Currie
+    ## counting-statistics value when LiveTime is available.
+    sigma_ch <- NULL   # data.frame(Spectrum, sigma) per standard
     if(n_roi > 0 && !is.null(spectra_raw) && all(c("Spectrum","Energy","CPS") %in% names(spectra_raw))){
         lo <- min(roi_energies); hi <- max(roi_energies)
         step <- stats::median(diff(grid)); if(!is.finite(step) || step <= 0) step <- 0.02
         w <- max(2 * (hi - lo), 8 * step)
-        roi_set <- roi_energies
-        shoulder <- grid[((grid >= lo - w & grid < lo) | (grid > hi & grid <= hi + w)) & !(round(grid,3) %in% roi_set)]
-        if(length(shoulder) >= 3){
-            keep_e <- round(shoulder, 3)
-            prep <- function(df, val){
-                d <- df[round(as.numeric(df$Energy),3) %in% keep_e, c("Spectrum","Energy","CPS")]
-                d$Spectrum <- strip_ext(d$Spectrum); d$Energy <- round(as.numeric(d$Energy),3)
-                colnames(d) <- c("Spectrum","Energy",val); d
-            }
-            res <- prep(spectra_raw, "raw")
-            bl  <- prep(baseline, "bl")
-            res <- merge(res, bl, by=c("Spectrum","Energy"))
-            if(!is.null(fit) && all(c("Spectrum","Energy","CPS") %in% names(fit))){
-                ft <- prep(fit, "ft")
-                res <- merge(res, ft, by=c("Spectrum","Energy"), all.x=TRUE)
-                res$ft[is.na(res$ft)] <- 0
-            } else {
-                res$ft <- 0
-            }
-            if(nrow(res) > 0){
-                res$resid <- res$raw - res$bl - res$ft
-                sig <- aggregate(resid ~ Spectrum, data=res, FUN=function(z) if(length(z) >= 3) stats::sd(z) else NA_real_)
-                colnames(sig) <- c("Spectrum","sigma")
-                sigma_ch <- sig
+        roi_set <- round(roi_energies, 3)
+        left_e  <- round(grid[grid >= lo - w & grid < lo & !(round(grid,3) %in% roi_set)], 3)
+        right_e <- round(grid[grid > hi & grid <= hi + w & !(round(grid,3) %in% roi_set)], 3)
+        keep_e <- c(left_e, right_e)
+        if(length(keep_e) >= 5){
+            sh <- spectra_raw[round(as.numeric(spectra_raw$Energy),3) %in% keep_e, c("Spectrum","Energy","CPS")]
+            if(nrow(sh) > 0){
+                sh$Spectrum <- strip_ext(sh$Spectrum)
+                sh$Energy <- round(as.numeric(sh$Energy), 3)
+                sh$side <- ifelse(sh$Energy < lo, "L", "R")
+                ## Robust per-channel sigma via MAD of within-shoulder first
+                ## differences; sqrt(2) undoes the variance doubling from diffing.
+                robust_sigma <- function(d){
+                    d <- d[order(d$Energy), ]
+                    diffs <- unlist(lapply(split(d$CPS, d$side), function(v) if(length(v) >= 2) diff(v) else numeric(0)))
+                    if(length(diffs) < 4) return(NA_real_)
+                    s <- stats::mad(diffs) / sqrt(2)
+                    if(!is.finite(s) || s == 0) s <- stats::sd(diffs) / sqrt(2)
+                    s
+                }
+                parts <- lapply(split(sh, sh$Spectrum), function(d) data.frame(Spectrum=d$Spectrum[1], sigma=robust_sigma(d), stringsAsFactors=FALSE))
+                sigma_ch <- do.call(rbind, parts)
             }
         }
     }
