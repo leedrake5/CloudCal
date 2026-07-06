@@ -11403,16 +11403,21 @@ shinyServer(function(input, output, session) {
             calCurvePlot()
         })
 
-        ## Limit of Detection (LOD) estimate from the baseline-subtracted spectra.
-        ## Reuses the element line definition + normalization choices already on this
-        ## page; the slope is always a linear fit (lm(Concentration ~ Intensity)) so
-        ## the LOD is defined regardless of which calibration model is displayed.
+        ## Limit of Detection (LOD) estimate. Two complementary numbers:
+        ##  - Calibration-curve LOD (headline): 3 x RMSE of the SELECTED model's
+        ##    validation-curve residuals (IUPAC calibration method). Reflects the
+        ##    full model - overlap corrections, matrix effects - so it matches what
+        ##    this calibration can actually detect (e.g. Lucas-Tooth with overlaps).
+        ##  - Instrumental single-line 3-sigma-blank (reference): counting noise on
+        ##    the bare line from baseline_lod_estimate(). Model-independent and
+        ##    conservative; can exceed the working range when overlap corrections
+        ##    are doing the work.
         lodEstimate <- reactive(label="lodEstimate", {
             req(input$calcurveelement)
             tryCatch({
                 ld <- linearModelSet()$data
                 if(is.null(ld) || !all(c("Concentration", "Intensity", "Spectrum") %in% names(ld))){
-                    return(list(note="not_estimable"))
+                    return(list(inst_note="not_estimable", lod_cal=NA_real_))
                 }
                 keep <- if(length(vals$keeprows)==nrow(ld)) vals$keeprows else rep(TRUE, nrow(ld))
                 kept <- ld[keep, , drop=FALSE]
@@ -11423,7 +11428,7 @@ shinyServer(function(input, output, session) {
                     "Baseline" = calMemory$Calibration$Deconvoluted$Baseline,
                     "Net"      = calMemory$Calibration$Deconvoluted$Spectra,
                     calMemory$Calibration$Spectra)
-                baseline_lod_estimate(
+                inst <- baseline_lod_estimate(
                     element.line    = input$calcurveelement,
                     baseline        = calMemory$Calibration$Deconvoluted$Baseline,
                     spectra_raw     = calMemory$Calibration$Spectra,
@@ -11440,54 +11445,81 @@ shinyServer(function(input, output, session) {
                     keep.spectra    = kept$Spectrum,
                     slope           = slope,
                     range.table     = calMemory$Calibration$Definitions)
-            }, error=function(e) list(note="not_estimable"))
+
+                ## Calibration-curve LOD = 3 x RMSE of the selected model's
+                ## validation curve (predicted vs true concentration), kept points.
+                lod_cal <- NA_real_; n_cal <- 0L
+                vf <- tryCatch(valFrame(), error=function(e) NULL)
+                if(!is.null(vf) && all(c("Prediction", "Concentration") %in% names(vf))){
+                    keepv <- if(length(vals$keeprows)==nrow(vf)) vals$keeprows else rep(TRUE, nrow(vf))
+                    d <- vf[keepv, c("Prediction", "Concentration")]
+                    d <- d[is.finite(d$Prediction) & is.finite(d$Concentration), ]
+                    if(nrow(d) >= 3 && sd(d$Concentration) > 0){
+                        lod_cal <- 3 * sqrt(mean((d$Prediction - d$Concentration)^2))
+                        n_cal <- nrow(d)
+                    }
+                }
+
+                list(lod_cal      = lod_cal,
+                     n_cal        = n_cal,
+                     inst_lod     = if(isTRUE(inst$note=="ok")) inst$lod else NA_real_,
+                     inst_note    = if(is.null(inst$note)) "not_estimable" else inst$note,
+                     n            = inst$n,
+                     livetime_used= isTRUE(inst$livetime_used))
+            }, error=function(e) list(inst_note="not_estimable", lod_cal=NA_real_))
         })
 
         output$lodtext <- renderUI({
             est <- lodEstimate()
-            note <- if(is.null(est$note)) "not_estimable" else est$note
-            if(note=="no_baseline"){
-                return(HTML("<em>LOD needs a deconvoluted baseline (run deconvolution on the Spectra page).</em>"))
-            }
-            if(note=="bad_slope"){
-                return(HTML("<em>LOD not estimable: the calibration slope is zero or undefined for this element.</em>"))
-            }
-            if(note!="ok"){
-                return(HTML("<em>LOD not estimable for the current element / line selection.</em>"))
-            }
             unit <- if(is.null(input$plotunit)) "%" else input$plotunit
             multiplier <- if(unit=="%") 1 else 10000
             fmt <- function(x){
                 if(is.null(x) || !is.finite(x)) return(NA_real_)
                 signif(x*multiplier, 3)
             }
-            lod_val <- fmt(est$lod)
-            if(is.na(lod_val)){
-                return(HTML("<em>LOD not estimable for the current element / line selection.</em>"))
+            cal_val  <- fmt(est$lod_cal)
+            inst_val <- fmt(est$inst_lod)
+
+            if(is.na(cal_val) && is.na(inst_val)){
+                inst_note <- if(is.null(est$inst_note)) "not_estimable" else est$inst_note
+                msg <- if(inst_note=="no_baseline"){
+                    "LOD needs a deconvoluted baseline (run deconvolution on the Spectra page)."
+                } else if(inst_note=="bad_slope"){
+                    "LOD not estimable: the calibration slope is zero or undefined for this element."
+                } else {
+                    "LOD not estimable for the current element / line selection."
+                }
+                return(HTML(paste0("<em>", msg, "</em>")))
             }
-            resid_val  <- fmt(est$lod_resid)
-            currie_val <- fmt(est$lod_currie)
 
-            # Compact breakdown of the two noise terms (the reported LOD is the
-            # per-standard max of the two, aggregated by median).
-            parts <- c()
-            if(!is.na(resid_val))  parts <- c(parts, paste0("shoulder noise ", resid_val))
-            if(!is.na(currie_val)) parts <- c(parts, paste0("counting stat ", currie_val))
-            breakdown <- if(length(parts) > 0) paste0(" (", paste(parts, collapse=" &middot; "), " ", unit, ")") else ""
+            # Headline: calibration-curve LOD when available (reflects the selected
+            # model). Instrumental single-line 3-sigma-blank shown as reference.
+            inst_line <- if(!is.na(inst_val)){
+                paste0("<div style='color:#888; font-size:0.9em;'>instrumental single-line 3&sigma;-blank: ", inst_val, " ", unit, "</div>")
+            } else ""
 
-            caption <- if(isTRUE(est$livetime_used)){
-                "3&sigma; detection limit across %d standards, counting noise from robust channel-to-channel scatter in peak-free shoulders, cross-checked against counting statistics (conservative max). Not a measured blank."
+            if(!is.na(cal_val)){
+                cross <- if(!is.na(inst_val) && cal_val > 0 && inst_val > 5*cal_val){
+                    " The single-line value is much higher, i.e. this element leans on the model's overlap/matrix corrections rather than a clean line."
+                } else ""
+                lt_note <- if(!is.na(inst_val) && !isTRUE(est$livetime_used)) " Single-line term has no LiveTime, so its counting-statistics cross-check is unavailable." else ""
+                HTML(paste0(
+                    "<div>Estimated LOD (this calibration): <b>", cal_val, " ", unit, "</b></div>",
+                    inst_line,
+                    "<div style='color:#888; font-size:0.85em; margin-top:4px;'>",
+                    sprintf("Headline = 3&times;RMSE of the selected model across %d standards (IUPAC calibration method). Reference = 3&sigma; single-line counting noise from peak-free shoulders. Not a measured blank.", est$n_cal),
+                    cross, lt_note,
+                    "</div>"
+                ))
             } else {
-                "3&sigma; detection limit across %d standards, counting noise from robust channel-to-channel scatter in peak-free shoulders (no LiveTime, so counting-statistics cross-check unavailable). Not a measured blank."
+                # Only the instrumental estimate is available.
+                HTML(paste0(
+                    "<div>Estimated LOD (single-line 3&sigma;-blank): <b>", inst_val, " ", unit, "</b></div>",
+                    "<div style='color:#888; font-size:0.85em; margin-top:4px;'>",
+                    sprintf("3&sigma; single-line counting noise from peak-free shoulders across %d standards. Calibration-curve LOD unavailable (no validation curve yet). Not a measured blank.", est$n),
+                    "</div>"
+                ))
             }
-
-            HTML(paste0(
-                "<div>Estimated LOD: <b>", lod_val, " ", unit, "</b>",
-                "<span style='color:#888;'>", breakdown, "</span></div>",
-                "<div style='color:#888; font-size:0.85em; margin-top:4px;'>",
-                sprintf(caption, est$n),
-                "</div>"
-            ))
         })
 
 
