@@ -11405,14 +11405,15 @@ shinyServer(function(input, output, session) {
 
         ## Limit of Detection / Quantification. Two complementary bases:
         ##  - Calibration-curve LOD & LOQ (headline): the ICH/IUPAC method =
-        ##    3*s and 10*s, where s is the RESIDUAL STANDARD ERROR of the
-        ##    calibration line (Concentration ~ Intensity) in concentration units.
-        ##    This is the scatter of the fit itself - consistent with the cal-curve
-        ##    r-squared - not the selected model's prediction bias (an earlier
-        ##    version used 3*RMSE of predicted-vs-true, which conflated model
-        ##    bias/overfit with noise and could diverge wildly, e.g. Sm).
+        ##    3*s and 10*s, where s is the RESIDUAL STANDARD ERROR of the SELECTED
+        ##    model's displayed cal curve (Concentration ~ Intensity on
+        ##    predictFrame(), which carries the corrected intensity for Lucas-Tooth
+        ##    etc.), in concentration units. Because it is that curve's own scatter,
+        ##    it matches the cal-curve r-squared shown on the plot and conforms to
+        ##    whatever model the user selected.
         ##  - Instrumental single-line 3-sigma-blank (reference): counting noise on
-        ##    the bare line from baseline_lod_estimate(). Model-independent.
+        ##    the bare line from baseline_lod_estimate(), using the raw/linear
+        ##    sensitivity. Model-independent.
         lodEstimate <- reactive(label="lodEstimate", {
             req(input$calcurveelement)
             tryCatch({
@@ -11450,15 +11451,23 @@ shinyServer(function(input, output, session) {
                     range.table     = calMemory$Calibration$Definitions)
 
                 ## Calibration-curve LOD & LOQ (ICH/IUPAC): 3*s and 10*s, where s is
-                ## the residual standard error of the calibration line, in
-                ## concentration units (Concentration ~ Intensity fit above).
+                ## the residual standard error of the SELECTED model's displayed cal
+                ## curve. predictFrame() carries the corrected intensity for the
+                ## chosen model (e.g. Lucas-Tooth overlap corrections), so lm on it
+                ## reproduces the cal-curve r-squared shown on the plot. Falls back
+                ## to the linear/uncorrected data only if predictFrame lacks a single
+                ## Intensity column (e.g. spectra-based ML models).
                 lod_cal <- NA_real_; loq_cal <- NA_real_; n_cal <- 0L
-                if(!is.null(cal_fit) && nrow(kept) >= 3){
-                    s_conc <- tryCatch(summary(cal_fit)$sigma, error=function(e) NA_real_)
+                pf <- tryCatch(predictFrame(), error=function(e) NULL)
+                cal_src <- if(!is.null(pf) && all(c("Concentration", "Intensity") %in% names(pf))) pf else ld
+                kc <- if(length(keep)==nrow(cal_src)) cal_src[keep, , drop=FALSE] else cal_src
+                kc <- kc[is.finite(kc$Concentration) & is.finite(kc$Intensity), , drop=FALSE]
+                if(nrow(kc) >= 3){
+                    s_conc <- tryCatch(summary(lm(Concentration ~ Intensity, data=kc))$sigma, error=function(e) NA_real_)
                     if(is.finite(s_conc)){
                         lod_cal <- 3 * s_conc
                         loq_cal <- 10 * s_conc
-                        n_cal <- nrow(kept)
+                        n_cal <- nrow(kc)
                     }
                 }
 
