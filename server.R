@@ -11404,13 +11404,20 @@ shinyServer(function(input, output, session) {
         })
 
         ## Limit of Detection / Quantification. Two complementary bases:
-        ##  - Calibration-curve LOD & LOQ (headline): the ICH/IUPAC method =
-        ##    3*s and 10*s, where s is the RESIDUAL STANDARD ERROR of the SELECTED
-        ##    model's displayed cal curve (Concentration ~ Intensity on
-        ##    predictFrame(), which carries the corrected intensity for Lucas-Tooth
-        ##    etc.), in concentration units. Because it is that curve's own scatter,
-        ##    it matches the cal-curve r-squared shown on the plot and conforms to
-        ##    whatever model the user selected.
+        ##  - Calibration-curve LOD & LOQ (headline): LOD = 3*sigma0, LOQ = 10*sigma0
+        ##    (ICH/IUPAC multipliers), where sigma0 is a robust scale (MAD) of the
+        ##    residuals of ONLY the LOWEST-concentration standards to the SELECTED
+        ##    model's fit, in concentration units. Residuals come from valFrame()
+        ##    (the chosen model's predicted-vs-actual concentration, which is what
+        ##    the Cal Curves plot's r-squared reflects for Lucas-Tooth/ML and is
+        ##    transform-safe via mclValGen), so it conforms to the selected model.
+        ##    Using only the near-blank subset (not the whole-range residual SE)
+        ##    keeps it valid across wide dynamic ranges: the pooled residual SE is
+        ##    dominated by the large absolute scatter of high-concentration
+        ##    standards (heteroscedasticity) and grossly overstates the LOD (e.g.
+        ##    Nd 8.5-314 ppm gave a farcical 160 ppm). sigma0 is floored at the
+        ##    single-line counting noise (physical detection limit; also guards a
+        ##    degenerate near-tied low subset from collapsing the estimate).
         ##  - Instrumental single-line 3-sigma-blank (reference): counting noise on
         ##    the bare line from baseline_lod_estimate(), using the raw/linear
         ##    sensitivity. Model-independent.
@@ -11450,30 +11457,65 @@ shinyServer(function(input, output, session) {
                     slope           = slope,
                     range.table     = calMemory$Calibration$Definitions)
 
-                ## Calibration-curve LOD & LOQ (ICH/IUPAC): 3*s and 10*s, where s is
-                ## the residual standard error of the SELECTED model's displayed cal
-                ## curve. predictFrame() carries the corrected intensity for the
-                ## chosen model (e.g. Lucas-Tooth overlap corrections), so lm on it
-                ## reproduces the cal-curve r-squared shown on the plot. Falls back
-                ## to the linear/uncorrected data only if predictFrame lacks a single
-                ## Intensity column (e.g. spectra-based ML models).
-                lod_cal <- NA_real_; loq_cal <- NA_real_; n_cal <- 0L
-                pf <- tryCatch(predictFrame(), error=function(e) NULL)
-                cal_src <- if(!is.null(pf) && all(c("Concentration", "Intensity") %in% names(pf))) pf else ld
-                kc <- if(length(keep)==nrow(cal_src)) cal_src[keep, , drop=FALSE] else cal_src
-                kc <- kc[is.finite(kc$Concentration) & is.finite(kc$Intensity), , drop=FALSE]
-                if(nrow(kc) >= 3){
-                    s_conc <- tryCatch(summary(lm(Concentration ~ Intensity, data=kc))$sigma, error=function(e) NA_real_)
-                    if(is.finite(s_conc)){
-                        lod_cal <- 3 * s_conc
-                        loq_cal <- 10 * s_conc
-                        n_cal <- nrow(kc)
+                ## Heteroscedasticity-robust calibration LOD/LOQ (near-blank anchored).
+                lod_cal <- NA_real_; loq_cal <- NA_real_; n_cal <- 0L; n_low_cal <- 0L
+                cal_method <- "lowend"
+                inst_lod_val <- if(isTRUE(inst$note=="ok") && is.finite(inst$lod)) inst$lod else NA_real_
+
+                ## Model-conforming residuals in concentration units: prefer valFrame()
+                ## (selected model's predicted vs actual concentration; transform-safe),
+                ## fall back to the displayed linear cal line if valFrame is degenerate.
+                resid_conc <- NULL
+                vf <- tryCatch(valFrame(), error=function(e) NULL)
+                if(!is.null(vf) && all(c("Concentration", "Prediction") %in% names(vf))){
+                    kv <- if(length(keep)==nrow(vf)) vf[keep, , drop=FALSE] else vf
+                    kv <- kv[is.finite(kv$Concentration) & is.finite(kv$Prediction), , drop=FALSE]
+                    ## reject the all-zero prediction fallback (models valFrame can't predict)
+                    if(nrow(kv) >= 5 && stats::sd(kv$Prediction) > 0){
+                        vfit <- tryCatch(lm(Concentration ~ Prediction, data=kv), error=function(e) NULL)
+                        if(!is.null(vfit)) resid_conc <- data.frame(conc=kv$Concentration, resid=residuals(vfit))
                     }
+                }
+                if(is.null(resid_conc)){
+                    pf <- tryCatch(predictFrame(), error=function(e) NULL)
+                    if(!is.null(pf) && all(c("Concentration", "Intensity") %in% names(pf))){
+                        kc <- if(length(keep)==nrow(pf)) pf[keep, , drop=FALSE] else pf
+                        kc <- kc[is.finite(kc$Concentration) & is.finite(kc$Intensity), , drop=FALSE]
+                        if(nrow(kc) >= 5){
+                            cfit <- tryCatch(lm(Concentration ~ Intensity, data=kc), error=function(e) NULL)
+                            if(!is.null(cfit)) resid_conc <- data.frame(conc=kc$Concentration, resid=residuals(cfit))
+                        }
+                    }
+                }
+
+                if(!is.null(resid_conc) && nrow(resid_conc) >= 5){
+                    rc <- resid_conc[order(resid_conc$conc), , drop=FALSE]
+                    n_r <- nrow(rc)
+                    n_low <- min(n_r, max(8L, ceiling(0.25 * n_r)))
+                    e_low <- rc$resid[seq_len(n_low)]
+                    unbias <- 1 / (1 - 3/(4*n_low))
+                    sigma0 <- stats::mad(e_low) * unbias
+                    if(!is.finite(sigma0) || sigma0 == 0) sigma0 <- stats::sd(e_low) * unbias
+                    ## Physical floor: detection cannot beat single-line counting
+                    ## statistics; also guards a near-tied low subset from collapsing.
+                    if(is.finite(inst_lod_val)) sigma0 <- max(sigma0, inst_lod_val/3)
+                    if(is.finite(sigma0) && sigma0 > 0){
+                        lod_cal <- 3 * sigma0; loq_cal <- 10 * sigma0
+                        n_cal <- n_r; n_low_cal <- n_low
+                    }
+                }
+                ## Too few standards / degenerate -> trust the instrumental near-blank value.
+                if(!is.finite(lod_cal) && is.finite(inst_lod_val)){
+                    lod_cal <- inst_lod_val; loq_cal <- (10/3) * inst_lod_val
+                    n_cal <- if(is.finite(inst$n)) inst$n else 0L
+                    cal_method <- "instrumental-fallback"
                 }
 
                 list(lod_cal      = lod_cal,
                      loq_cal      = loq_cal,
                      n_cal        = n_cal,
+                     n_low        = n_low_cal,
+                     cal_method   = cal_method,
                      inst_lod     = if(isTRUE(inst$note=="ok")) inst$lod else NA_real_,
                      inst_note    = if(is.null(inst$note)) "not_estimable" else inst$note,
                      n            = inst$n,
@@ -11512,12 +11554,17 @@ shinyServer(function(input, output, session) {
 
             if(!is.na(cal_val)){
                 lt_note <- if(!is.na(inst_val) && !isTRUE(est$livetime_used)) " Single-line term has no LiveTime, so its counting-statistics cross-check is unavailable." else ""
+                caption <- if(isTRUE(est$cal_method == "instrumental-fallback")){
+                    "Too few standards for a low-end calibration estimate; showing the instrumental single-line 3&sigma;-blank counting noise (LOQ = 10/3 &times; LOD). Not a measured blank."
+                } else {
+                    sprintf("LOD = 3&sigma;, LOQ = 10&sigma; (ICH/IUPAC), where &sigma; is the robust residual scatter of the %d lowest-concentration standards to the selected model's fit (near-blank; uses low-end scatter, not the whole-range residual SE, so it stays valid over wide dynamic ranges), floored at the single-line counting noise. Reference = 3&sigma; single-line counting noise from peak-free shoulders. Not a measured blank.", if(is.null(est$n_low) || est$n_low==0) est$n_cal else est$n_low)
+                }
                 HTML(paste0(
                     "<div>Estimated LOD: <b>", cal_val, " ", unit, "</b>",
                     "&nbsp;&middot;&nbsp; LOQ: <b>", loq_val, " ", unit, "</b></div>",
                     inst_line,
                     "<div style='color:#888; font-size:0.85em; margin-top:4px;'>",
-                    sprintf("Calibration-curve method across %d standards: LOD = 3&sigma;, LOQ = 10&sigma;, where &sigma; is the residual standard error of the calibration line (ICH/IUPAC). Reference = 3&sigma; single-line counting noise from peak-free shoulders. Not a measured blank.", est$n_cal),
+                    caption,
                     lt_note,
                     "</div>"
                 ))
