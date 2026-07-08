@@ -11403,25 +11403,28 @@ shinyServer(function(input, output, session) {
             calCurvePlot()
         })
 
-        ## Limit of Detection (LOD) estimate. Two complementary numbers:
-        ##  - Calibration-curve LOD (headline): 3 x RMSE of the SELECTED model's
-        ##    validation-curve residuals (IUPAC calibration method). Reflects the
-        ##    full model - overlap corrections, matrix effects - so it matches what
-        ##    this calibration can actually detect (e.g. Lucas-Tooth with overlaps).
+        ## Limit of Detection / Quantification. Two complementary bases:
+        ##  - Calibration-curve LOD & LOQ (headline): the ICH/IUPAC method =
+        ##    3*s and 10*s, where s is the RESIDUAL STANDARD ERROR of the
+        ##    calibration line (Concentration ~ Intensity) in concentration units.
+        ##    This is the scatter of the fit itself - consistent with the cal-curve
+        ##    r-squared - not the selected model's prediction bias (an earlier
+        ##    version used 3*RMSE of predicted-vs-true, which conflated model
+        ##    bias/overfit with noise and could diverge wildly, e.g. Sm).
         ##  - Instrumental single-line 3-sigma-blank (reference): counting noise on
-        ##    the bare line from baseline_lod_estimate(). Model-independent and
-        ##    conservative; can exceed the working range when overlap corrections
-        ##    are doing the work.
+        ##    the bare line from baseline_lod_estimate(). Model-independent.
         lodEstimate <- reactive(label="lodEstimate", {
             req(input$calcurveelement)
             tryCatch({
                 ld <- linearModelSet()$data
                 if(is.null(ld) || !all(c("Concentration", "Intensity", "Spectrum") %in% names(ld))){
-                    return(list(inst_note="not_estimable", lod_cal=NA_real_))
+                    return(list(inst_note="not_estimable", lod_cal=NA_real_, loq_cal=NA_real_))
                 }
                 keep <- if(length(vals$keeprows)==nrow(ld)) vals$keeprows else rep(TRUE, nrow(ld))
                 kept <- ld[keep, , drop=FALSE]
-                slope <- tryCatch(as.numeric(coef(lm(Concentration ~ Intensity, data=kept))[2]), error=function(e) NA_real_)
+                kept <- kept[is.finite(kept$Concentration) & is.finite(kept$Intensity), , drop=FALSE]
+                cal_fit <- tryCatch(lm(Concentration ~ Intensity, data=kept), error=function(e) NULL)
+                slope <- if(!is.null(cal_fit)) as.numeric(coef(cal_fit)[2]) else NA_real_
                 comptontype <- if(is.null(input$comptontype)) "Raw" else input$comptontype
                 norm.src <- switch(comptontype,
                     "Raw"      = calMemory$Calibration$Spectra,
@@ -11446,27 +11449,27 @@ shinyServer(function(input, output, session) {
                     slope           = slope,
                     range.table     = calMemory$Calibration$Definitions)
 
-                ## Calibration-curve LOD = 3 x RMSE of the selected model's
-                ## validation curve (predicted vs true concentration), kept points.
-                lod_cal <- NA_real_; n_cal <- 0L
-                vf <- tryCatch(valFrame(), error=function(e) NULL)
-                if(!is.null(vf) && all(c("Prediction", "Concentration") %in% names(vf))){
-                    keepv <- if(length(vals$keeprows)==nrow(vf)) vals$keeprows else rep(TRUE, nrow(vf))
-                    d <- vf[keepv, c("Prediction", "Concentration")]
-                    d <- d[is.finite(d$Prediction) & is.finite(d$Concentration), ]
-                    if(nrow(d) >= 3 && sd(d$Concentration) > 0){
-                        lod_cal <- 3 * sqrt(mean((d$Prediction - d$Concentration)^2))
-                        n_cal <- nrow(d)
+                ## Calibration-curve LOD & LOQ (ICH/IUPAC): 3*s and 10*s, where s is
+                ## the residual standard error of the calibration line, in
+                ## concentration units (Concentration ~ Intensity fit above).
+                lod_cal <- NA_real_; loq_cal <- NA_real_; n_cal <- 0L
+                if(!is.null(cal_fit) && nrow(kept) >= 3){
+                    s_conc <- tryCatch(summary(cal_fit)$sigma, error=function(e) NA_real_)
+                    if(is.finite(s_conc)){
+                        lod_cal <- 3 * s_conc
+                        loq_cal <- 10 * s_conc
+                        n_cal <- nrow(kept)
                     }
                 }
 
                 list(lod_cal      = lod_cal,
+                     loq_cal      = loq_cal,
                      n_cal        = n_cal,
                      inst_lod     = if(isTRUE(inst$note=="ok")) inst$lod else NA_real_,
                      inst_note    = if(is.null(inst$note)) "not_estimable" else inst$note,
                      n            = inst$n,
                      livetime_used= isTRUE(inst$livetime_used))
-            }, error=function(e) list(inst_note="not_estimable", lod_cal=NA_real_))
+            }, error=function(e) list(inst_note="not_estimable", lod_cal=NA_real_, loq_cal=NA_real_))
         })
 
         output$lodtext <- renderUI({
@@ -11478,6 +11481,7 @@ shinyServer(function(input, output, session) {
                 signif(x*multiplier, 3)
             }
             cal_val  <- fmt(est$lod_cal)
+            loq_val  <- fmt(est$loq_cal)
             inst_val <- fmt(est$inst_lod)
 
             if(is.na(cal_val) && is.na(inst_val)){
@@ -11492,23 +11496,20 @@ shinyServer(function(input, output, session) {
                 return(HTML(paste0("<em>", msg, "</em>")))
             }
 
-            # Headline: calibration-curve LOD when available (reflects the selected
-            # model). Instrumental single-line 3-sigma-blank shown as reference.
+            # Instrumental single-line 3-sigma-blank shown as a reference line.
             inst_line <- if(!is.na(inst_val)){
                 paste0("<div style='color:#888; font-size:0.9em;'>instrumental single-line 3&sigma;-blank: ", inst_val, " ", unit, "</div>")
             } else ""
 
             if(!is.na(cal_val)){
-                cross <- if(!is.na(inst_val) && cal_val > 0 && inst_val > 5*cal_val){
-                    " The single-line value is much higher, i.e. this element leans on the model's overlap/matrix corrections rather than a clean line."
-                } else ""
                 lt_note <- if(!is.na(inst_val) && !isTRUE(est$livetime_used)) " Single-line term has no LiveTime, so its counting-statistics cross-check is unavailable." else ""
                 HTML(paste0(
-                    "<div>Estimated LOD (this calibration): <b>", cal_val, " ", unit, "</b></div>",
+                    "<div>Estimated LOD: <b>", cal_val, " ", unit, "</b>",
+                    "&nbsp;&middot;&nbsp; LOQ: <b>", loq_val, " ", unit, "</b></div>",
                     inst_line,
                     "<div style='color:#888; font-size:0.85em; margin-top:4px;'>",
-                    sprintf("Headline = 3&times;RMSE of the selected model across %d standards (IUPAC calibration method). Reference = 3&sigma; single-line counting noise from peak-free shoulders. Not a measured blank.", est$n_cal),
-                    cross, lt_note,
+                    sprintf("Calibration-curve method across %d standards: LOD = 3&sigma;, LOQ = 10&sigma;, where &sigma; is the residual standard error of the calibration line (ICH/IUPAC). Reference = 3&sigma; single-line counting noise from peak-free shoulders. Not a measured blank.", est$n_cal),
+                    lt_note,
                     "</div>"
                 ))
             } else {
@@ -11516,7 +11517,7 @@ shinyServer(function(input, output, session) {
                 HTML(paste0(
                     "<div>Estimated LOD (single-line 3&sigma;-blank): <b>", inst_val, " ", unit, "</b></div>",
                     "<div style='color:#888; font-size:0.85em; margin-top:4px;'>",
-                    sprintf("3&sigma; single-line counting noise from peak-free shoulders across %d standards. Calibration-curve LOD unavailable (no validation curve yet). Not a measured blank.", est$n),
+                    sprintf("3&sigma; single-line counting noise from peak-free shoulders across %d standards. Calibration-curve LOD/LOQ unavailable (need a fitted calibration line). Not a measured blank.", est$n),
                     "</div>"
                 ))
             }
