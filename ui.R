@@ -179,6 +179,7 @@ splitLayout(cellWidths = c("50%", "50%"),
     column(width=12, uiOutput("manual_offset_ui"))
 ),
 actionButton("cropspectra", "Zoom"),
+checkboxInput('autoscaley', "Auto-scale Y to zoom window", value=TRUE),
 downloadButton('downloadPlot', "Plot"),
 checkboxInput('showlegend', "Show Legend", value=FALSE),
 splitLayout(cellWidths = c("50%", "50%"),

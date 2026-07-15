@@ -1964,23 +1964,68 @@ shinyServer(function(input, output, session) {
                 
             })
             
-            # When a double-click happens, check if there's a brush on the plot.
-            # If so, zoom to the brush bounds; if not, reset the zoom.
+            # Zoom to the current brush when the Zoom button is clicked.
+            # The brush comes back as 0..1 panel fractions under the ggplot2 4.0
+            # shim, so we map it onto the TRUE built-plot panel range
+            # (panel_ranges + pre_expanded=TRUE) rather than guessing
+            # range(CPS) +/- 5%. The naive guess matched x (Energy fully drives
+            # the x panel) but not y, because the element-line segments (y=0..)
+            # and baseline layer extend the y panel beyond the CPS range - that
+            # was the mismatched-y-scale bug.
             observeEvent(input$cropspectra, {
                 brush <- input$plot1_brush
-                if (!is.null(brush)) {
-                    plot_data <- tryCatch(spectraPlotData(), error = function(e) NULL)
+                if (is.null(brush)) {
+                    ranges$x <- NULL
+                    ranges$y <- NULL
+                    return()
+                }
+
+                plot_data <- tryCatch(spectraPlotData(), error = function(e) NULL)
+                pr <- tryCatch(panel_ranges(plotInput()), error = function(e) NULL)
+                if (!is.null(pr)) {
+                    coords <- rescale_brush_coords(brush, pr$x, pr$y, pre_expanded = TRUE)
+                } else {
+                    # Fallback: build failed, use the data-range estimate.
                     x_range <- if (!is.null(plot_data) && "Energy" %in% names(plot_data))
                         range(plot_data$Energy, na.rm = TRUE) else c(NA, NA)
                     y_range <- if (!is.null(plot_data) && "CPS" %in% names(plot_data))
                         range(plot_data$CPS, na.rm = TRUE) else c(NA, NA)
                     coords <- rescale_brush_coords(brush, x_range, y_range)
-                    ranges$x <- c(coords$xmin, coords$xmax)
-                    ranges$y <- c(coords$ymin, coords$ymax)
-                } else {
-                    ranges$x <- NULL
-                    ranges$y <- NULL
                 }
+
+                ranges$x <- c(coords$xmin, coords$xmax)
+
+                # Auto-scale Y: fit the y axis to the spectra data inside the
+                # brushed x window so a small peak fills the frame vertically.
+                # Toggle off to keep the exact height you dragged.
+                auto_y <- isTRUE(input$autoscaley) &&
+                    !is.null(plot_data) &&
+                    all(c("Energy", "CPS") %in% names(plot_data)) &&
+                    all(is.finite(c(coords$xmin, coords$xmax)))
+                if (auto_y) {
+                    in_win <- plot_data$Energy >= coords$xmin &
+                              plot_data$Energy <= coords$xmax
+                    win_cps <- plot_data$CPS[in_win]
+                    win_cps <- win_cps[is.finite(win_cps)]
+                    if (length(win_cps) > 0) {
+                        y_top <- max(win_cps)
+                        y_bot <- min(0, min(win_cps))
+                        pad <- 0.05 * (y_top - y_bot)
+                        if (!is.finite(pad) || pad == 0) pad <- 0.05 * abs(y_top)
+                        ranges$y <- c(y_bot, y_top + pad)
+                    } else {
+                        ranges$y <- c(coords$ymin, coords$ymax)
+                    }
+                } else {
+                    ranges$y <- c(coords$ymin, coords$ymax)
+                }
+            })
+
+            # Double-click the spectrum to reset the zoom (wired in the UI as
+            # plot1_dblclick but previously unhandled).
+            observeEvent(input$plot1_dblclick, {
+                ranges$x <- NULL
+                ranges$y <- NULL
             })
             
             output$downloadPlot <- downloadHandler(

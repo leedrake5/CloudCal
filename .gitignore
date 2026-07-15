@@ -16,3 +16,6 @@ commits.txt
 .localagent/index_meta.json
 .localagent/project_overview.md
 /.localagent
+lod_sim.R
+lod_sim2.R
+lod_sim3.R

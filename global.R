@@ -600,6 +600,147 @@ BayesianOptimizationDebug <- function(FUN, bounds, init_grid_dt = NULL, init_poi
 }
 
 
+# ---------------------------------------------------------------------------
+# mergeOptRes: combine the History of two or more BayesianOptimization runs
+# (or BayesianOptimizationDebug runs) so you can see which hyperparameter
+# settings score well ACROSS instruments, not just on a single one.
+#
+# Each run samples different hyperparameter points, so points are first grouped
+# into "similar" bins: integer-valued parameters are matched exactly, and
+# continuous parameters are rounded to `digits` significant figures. Within a
+# run, points falling in the same bin are collapsed with `agg` (max by default,
+# matching BO's maximise-the-metric convention). Runs are then outer-joined on
+# the binned hyperparameters, each run's metric column is renamed to its source
+# label, and a trailing Mean column averages the metric across runs -- so the
+# rows with the highest Mean are the settings that generalise best.
+#
+# Runs can be supplied via `...` (argument names become source labels) or as a
+# single named list, e.g. both of these are equivalent:
+#     mergeOptRes(InstrA = resA, InstrB = resB)
+#     mergeOptRes(list(InstrA = resA, InstrB = resB))
+#
+# Works on output from BOTH BayesianOptimization (failed points = NA) and
+# BayesianOptimizationDebug (failed points = -Inf): unevaluated points are
+# dropped with a finite check either way. By default a malformed run is skipped
+# with a warning ("jump around errors"); set debug = TRUE to let it raise so
+# you get a traceback.
+#
+# Args:
+#   ...          OPT_Res lists, or one named list of them (see above).
+#   .list        Optional extra named list of runs, merged with `...`.
+#   digits       Sig figs for binning continuous hyperparameters (default 3).
+#   agg          Within-run collapse of a bin's metrics (default max).
+#   min_sources  Keep only settings evaluated by at least this many runs
+#                (default 1; set to the number of runs for shared-only).
+#   value_col    Name of the metric column in History (default "Value").
+#   sort         Sort rows by descending Mean (default TRUE).
+#   debug        FALSE = skip bad runs with a warning; TRUE = raise (traceback).
+#
+# Returns a data.frame: [binned hyperparameters..., <one column per source>,
+# N_Sources, Mean], Mean last.
+# ---------------------------------------------------------------------------
+mergeOptRes <- function(..., .list = NULL, digits = 3, agg = max,
+                        min_sources = 1, value_col = "Value",
+                        sort = TRUE, debug = FALSE) {
+
+    runs <- c(list(...), .list)
+
+    # Unwrap a single list-of-runs passed positionally.
+    is_run <- function(x) is.list(x) && !is.null(x[["History"]])
+    if (length(runs) == 1 && is.list(runs[[1]]) && !is_run(runs[[1]]) &&
+        length(runs[[1]]) > 0 && all(vapply(runs[[1]], is_run, logical(1)))) {
+        runs <- runs[[1]]
+    }
+
+    if (length(runs) < 2)
+        stop("mergeOptRes() needs at least two OPT_Res runs to merge.")
+
+    # Source labels: use names where given, fill blanks with Source<i>.
+    src <- names(runs)
+    if (is.null(src)) src <- rep("", length(runs))
+    blank <- !nzchar(src)
+    src[blank] <- paste0("Source", seq_along(runs))[blank]
+    src <- make.unique(src, sep = "_")
+
+    guarded <- function(expr, label) {
+        if (debug) return(force(expr))
+        tryCatch(force(expr), error = function(e) {
+            warning(sprintf("mergeOptRes: skipping run '%s': %s",
+                            label, conditionMessage(e)), call. = FALSE)
+            NULL
+        })
+    }
+
+    # Pull one run's History down to param cols + a finite metric column.
+    extract_one <- function(run, label) {
+        hist <- as.data.frame(run[["History"]], stringsAsFactors = FALSE)
+        if (!value_col %in% names(hist))
+            stop(sprintf("no '%s' column in History", value_col))
+        param_cols <- setdiff(names(hist), c(value_col, "Round"))
+        if (length(param_cols) == 0)
+            stop("no hyperparameter columns in History")
+        v <- suppressWarnings(as.numeric(hist[[value_col]]))
+        keep <- is.finite(v)
+        out <- hist[keep, c(param_cols, value_col), drop = FALSE]
+        out[[value_col]] <- v[keep]
+        attr(out, "param_cols") <- param_cols
+        out
+    }
+
+    tabs <- Map(function(run, label) guarded(extract_one(run, label), label),
+                runs, src)
+    ok <- !vapply(tabs, is.null, logical(1))
+    tabs <- tabs[ok]; src <- src[ok]
+    if (length(tabs) < 2)
+        stop("Fewer than two runs could be read; nothing to merge.")
+
+    # Hyperparameters common to every surviving run.
+    param_cols <- Reduce(intersect, lapply(tabs, attr, "param_cols"))
+    if (length(param_cols) == 0)
+        stop("Runs share no common hyperparameter columns.")
+
+    # Integer-valued params (matched exactly) vs continuous (rounded), decided
+    # from the pooled values so binning is consistent across runs.
+    pooled <- do.call(rbind, lapply(tabs, function(d) d[, param_cols, drop = FALSE]))
+    is_int <- vapply(param_cols, function(p) {
+        x <- suppressWarnings(as.numeric(pooled[[p]]))
+        x <- x[is.finite(x)]
+        length(x) > 0 && all(abs(x - round(x)) < 1e-8)
+    }, logical(1))
+
+    bin_key <- function(d) {
+        for (p in param_cols) {
+            x <- suppressWarnings(as.numeric(d[[p]]))
+            d[[p]] <- if (is_int[[p]]) round(x) else signif(x, digits)
+        }
+        d
+    }
+
+    # Bin, then collapse within-run duplicate bins to one metric per bin.
+    collapse_one <- function(d, label) {
+        d <- bin_key(d[, c(param_cols, value_col), drop = FALSE])
+        aggd <- aggregate(d[[value_col]], by = d[param_cols], FUN = agg)
+        names(aggd)[ncol(aggd)] <- label
+        aggd
+    }
+
+    binned <- Map(collapse_one, tabs, src)
+
+    merged <- Reduce(function(a, b) merge(a, b, by = param_cols, all = TRUE), binned)
+
+    val_mat <- as.matrix(merged[, src, drop = FALSE])
+    merged[["N_Sources"]] <- rowSums(!is.na(val_mat))
+    merged[["Mean"]] <- rowMeans(val_mat, na.rm = TRUE)
+
+    merged <- merged[merged[["N_Sources"]] >= min_sources, , drop = FALSE]
+    if (sort) merged <- merged[order(-merged[["Mean"]]), , drop = FALSE]
+    rownames(merged) <- NULL
+
+    # Hyperparameters, per-source metrics, N_Sources, then Mean last.
+    merged[, c(param_cols, src, "N_Sources", "Mean"), drop = FALSE]
+}
+
+
 fluorescence.lines.directory <- if(file.exists("data/FluorescenceLines.csv")){
     "data/FluorescenceLines.csv"
 } else if(!file.exists("data/FluorescenceLines.csv")){
