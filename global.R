@@ -167,10 +167,10 @@ if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows
         tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.tar.gz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
     }
 
-if(packageVersion("xrftools")!="0.0.2" && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
-} else if(packageVersion("xrftools")!="0.0.2" && get_os()!="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
+if(packageVersion("xrftools")!="0.0.3" && get_os()=="windows"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.3.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
+} else if(packageVersion("xrftools")!="0.0.3" && get_os()!="windows"){
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.3.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
 }
 
 #sourceCpp("pdz.cpp")
@@ -312,13 +312,13 @@ generate_grid_multi <- function(bounds, init_points, init_grid_dt = NULL){
         {
             if (any(DT_bounds[, Type] == "integer")) {
                 set(., j = DT_bounds[Type == "integer", Parameter],
-                  value = round(extract(., j = DT_bounds[Type ==
+                  value = round(magrittr::extract(., j = DT_bounds[Type ==
                     "integer", Parameter], with = FALSE)))
             }
             else {
                 .
             }
-        } %T>% extract(., j = `:=`(Value, -Inf))
+        } %T>% magrittr::extract(., j = `:=`(Value, -Inf))
         
         result <- as.data.frame(init_points_dt)
         result <- result[,!colnames(result) %in% "Value"]
@@ -332,24 +332,86 @@ generate_grid_single <- function(bounds){
 generate_grid <- function(bounds, init_points, init_grid_dt = NULL){
     
     tryCatch(generate_grid_multi(bounds=bounds, init_points=init_points, init_grid_dt=init_grid_dt), error=function(e) generate_grid_single(bounds))
-    
+
+}
+
+
+# Reset foreach's registered parallel backend to sequential and clear its
+# accumulated globals. The usual one-liner (foreach:::.foreachGlobals) hard-errors
+# if that internal is renamed or if foreach isn't loaded; this version guards
+# both (exists() check + tryCatch) and no-ops safely instead of throwing. Defined
+# here in global.R so any code that expects unregister_dopar() finds it on the
+# search path -- a missing definition is what surfaced under debug = TRUE.
+unregister_dopar <- function() {
+    ns <- tryCatch(getNamespace("foreach"), error = function(e) NULL)
+    if (!is.null(ns) && exists(".foreachGlobals", envir = ns)) {
+        env <- get(".foreachGlobals", envir = ns)
+        rm(list = ls(name = env), pos = env)
+    }
+    invisible(NULL)
 }
 
 
 BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points = 0,
                                  n_iter, acq = "ei", kappa = 2.576, eps = 0,
                                  kernel = list(type = "exponential", power = 2),
-                                 verbose = TRUE) {
+                                 verbose = TRUE, seed = NULL, debug = FALSE) {
   require(data.table)
+  # Seed the RNG INSIDE the call so the random initialisation is reproducible
+  # even in parallel workers (a set.seed() in the master process does not reach
+  # %dopar%/doSNOW workers). Passing the same seed to each group's run makes
+  # every group draw the identical init_points, so their Histories align.
+  if (!is.null(seed)) set.seed(seed)
+  # debug = TRUE is what BayesianOptimizationDebug() sets: errors propagate with
+  # a full traceback instead of being caught and logged. debug = FALSE (default)
+  # "jumps around" errors, recording them in Error_Log and continuing.
   DT_bounds <- data.table(Parameter = names(bounds),
                           Lower = sapply(bounds, `[[`, 1),
                           Upper = sapply(bounds, `[[`, 2),
                           Type = sapply(bounds, class))
+  # NB: select columns with `..param_cols`. The `..` prefix binds only to the
+  # token after it, so the earlier `..DT_bounds$Parameter` parsed as
+  # `(..DT_bounds)$Parameter` and returned the name vector itself (which then
+  # reached FUN as character args). That broke every round.
+  param_cols <- DT_bounds$Parameter
 
   setDT(init_grid_dt)
   
   # Initialize error tracking dataframe
   Error_DT <- data.table()
+
+  # Catch a step's error, log it to Error_DT (when `step` is given), and continue
+  # with `fallback`. In debug mode ALSO print the failing step, message, and the
+  # live call stack (a traceback) BEFORE recovering -- so you can walk a whole
+  # run and see every failure instead of aborting at the first one. Both `expr`
+  # and `fallback` are lazy, so `fallback` (e.g. a random Matrix_runif draw) is
+  # only evaluated on failure and never disturbs the seeded stream.
+  guard <- function(expr, step = NULL, fallback = NULL) {
+    logit <- function(e) {
+      if (!is.null(step))
+        Error_DT <<- rbind(Error_DT, data.table(Round = i, Step = step,
+                                                Message = conditionMessage(e)))
+    }
+    if (!isTRUE(debug))
+      return(tryCatch(expr, error = function(e) { logit(e); fallback }))
+    # debug: capture the call stack at the point of failure (via
+    # withCallingHandlers, stack still intact), but PRINT in the outer handler
+    # after the stack has unwound -- otherwise a cat() fired inside FUN's
+    # capture.output() sink is swallowed. Then recover and continue.
+    tb <- NULL
+    tryCatch(
+      withCallingHandlers(expr, error = function(e) { tb <<- sys.calls() }),
+      error = function(e) {
+        logit(e)
+        cat(sprintf("\n[debug] Round %d step '%s' FAILED: %s\n",
+                    i, if (is.null(step)) "FUN" else step, conditionMessage(e)))
+        if (!is.null(tb) && length(tb) > 1) {
+          cat("[debug] traceback:\n"); print(utils::head(tb, -1))
+        }
+        fallback
+      }
+    )
+  }
 
   if (!is.null(init_grid_dt) && nrow(init_grid_dt) != 0) {
     if (identical(names(init_grid_dt), DT_bounds$Parameter)) {
@@ -380,7 +442,7 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
   # Evaluation loop
   for (i in seq_len(nrow(DT_history) + n_iter)) {
     if (i <= nrow(DT_history)) {
-      This_Par <- DT_history[i, ..DT_bounds$Parameter]
+      This_Par <- DT_history[i, ..param_cols]
     } else {
       # Fit GP model on good data
       valid_rows <- DT_history[!is.na(Value)]
@@ -390,25 +452,24 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
         next
       }
 
-      Par_Mat <- Min_Max_Scale_Mat(as.matrix(valid_rows[, ..DT_bounds$Parameter]),
+      Par_Mat <- Min_Max_Scale_Mat(as.matrix(valid_rows[, ..param_cols]),
                                    DT_bounds$Lower, DT_bounds$Upper)
 
-      GP <- tryCatch(GPfit::GP_fit(X = Par_Mat, Y = valid_rows$Value, corr = kernel),
-                     error = function(e) {
-                       Error_DT <<- rbind(Error_DT, data.table(Round=i, Step="GP_fit", Message=e$message))
-                       NULL
-                     })
+      GP <- guard(GPfit::GP_fit(X = Par_Mat, Y = valid_rows$Value, corr = kernel),
+                  step = "GP_fit", fallback = NULL)
 
       if (is.null(GP)) next
 
-      Next_Par <- tryCatch(
+      Next_Par <- guard(
         Utility_Max(DT_bounds, GP, acq, max(valid_rows$Value), kappa, eps) %>%
           Min_Max_Inverse_Scale_Vec(DT_bounds$Lower, DT_bounds$Upper) %>%
           setNames(DT_bounds$Parameter),
-        error = function(e) {
-          Error_DT <<- rbind(Error_DT, data.table(Round=i, Step="Utility_Max", Message=e$message))
-          Matrix_runif(1, DT_bounds$Lower, DT_bounds$Upper)
-        })
+        step = "Utility_Max",
+        # Name the fallback draw like the success path (x, y, ...); an unnamed
+        # Matrix_runif matrix would otherwise land as V1/V2 columns via
+        # rbind(fill=TRUE) and pollute History.
+        fallback = setNames(as.numeric(Matrix_runif(1, DT_bounds$Lower, DT_bounds$Upper)),
+                            param_cols))
 
       # Round integers
       for (param in DT_bounds[Type == "integer", Parameter]) {
@@ -418,31 +479,48 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
       DT_history <- rbind(DT_history, cbind(This_Par, Value=NA_real_, Round=i), fill=TRUE)
     }
 
-    # Evaluate function quietly
-    This_Score_Pred <- tryCatch(
-      suppressMessages(suppressWarnings(capture.output(
-        do.call(FUN, as.list(This_Par))
-      ))),
-      error = function(e) NULL
+    # Evaluate FUN quietly: suppress its printed output/messages but KEEP the
+    # list(Score, Pred) return value (capture.output() alone returns the printed
+    # TEXT, discarding the value -- that was a bug). Time it for the verbose log.
+    # In debug mode a FUN error propagates for a traceback instead of NULL.
+    This_Time <- system.time(
+      This_Score_Pred <- guard({
+        .fun_out <- NULL
+        suppressMessages(suppressWarnings(capture.output(
+          .fun_out <- do.call(FUN, as.list(This_Par))
+        )))
+        .fun_out
+      }, step = NULL, fallback = NULL)
     )
+
+    # Human-readable "param=value, ..." for the tested point (compact: integers
+    # print whole, continuous to 5 sig figs), so the log shows WHERE we sampled.
+    if (verbose) {
+      pv <- unlist(This_Par)
+      par_str <- paste(names(pv),
+                       vapply(pv, function(v) format(v, trim = TRUE, digits = 5),
+                              character(1)),
+                       sep = "=", collapse = ", ")
+    }
 
     if (is.null(This_Score_Pred) || is.null(This_Score_Pred$Score)) {
       DT_history[i, Value := NA_real_]
       Error_DT <- rbind(Error_DT, data.table(Round=i, Step="FUN", Message="Returned NULL or missing Score"))
       Pred_list[[i]] <- NULL
-      if (verbose) cat(sprintf("Round %d failed; error logged.\n", i))
+      if (verbose) cat(sprintf("Round %d FAILED (%.2fs) | %s\n",
+                               i, This_Time["elapsed"], par_str))
     } else {
       DT_history[i, Value := This_Score_Pred$Score]
       Pred_list[[i]] <- This_Score_Pred$Pred
-      if (verbose) {
-        cat(sprintf("Round %d completed successfully. Value = %0.4f\n", i, This_Score_Pred$Score))
-      }
+      if (verbose)
+        cat(sprintf("Round %d | Value = %0.4f (%.2fs) | %s\n",
+                    i, This_Score_Pred$Score, This_Time["elapsed"], par_str))
     }
   }
 
   # Final best results
   valid_history <- DT_history[!is.na(Value)]
-  Best_Par <- as.numeric(valid_history[which.max(Value), ..DT_bounds$Parameter]) %>%
+  Best_Par <- as.numeric(valid_history[which.max(Value), ..param_cols]) %>%
     setNames(DT_bounds$Parameter)
   Best_Value <- max(valid_history$Value)
 
@@ -465,138 +543,17 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
 }
 
 
+# BayesianOptimizationDebug: identical to BayesianOptimization but with
+# debug = TRUE, so evaluation errors propagate with a full traceback instead of
+# being caught and logged to Error_Log. Kept as a thin wrapper so the two never
+# drift apart -- every feature (seed, Error_Log, History shape) lives in one
+# place. Returns the same result structure, so mergeOptRes() accepts either.
 BayesianOptimizationDebug <- function(FUN, bounds, init_grid_dt = NULL, init_points = 0,
-    n_iter, acq = "ei", kappa = 2.576, eps = 0, kernel = list(type = "exponential",
-        power = 2), verbose = TRUE)
-{
-    DT_bounds <- data.table(Parameter = names(bounds), Lower = sapply(bounds,
-    magrittr::extract2, 1), Upper = sapply(bounds, magrittr::extract2, 2), Type = sapply(bounds,
-        class))
-    setDT(init_grid_dt)
-    if (nrow(init_grid_dt) != 0) {
-        if (identical(names(init_grid_dt), DT_bounds[, Parameter]) ==
-            TRUE) {
-            init_grid_dt[, `:=`(Value, -Inf)]
-        }
-        else if (identical(names(init_grid_dt), c(DT_bounds[,
-            Parameter], "Value")) == TRUE) {
-            paste(nrow(init_grid_dt), "points in hyperparameter space were pre-sampled\n",
-                sep = " ") %>% cat(.)
-        }
-        else {
-            stop("bounds and init_grid_dt should be compatible")
-        }
-    }
-    init_points_dt <- Matrix_runif(n = init_points, lower = DT_bounds[,
-        Lower], upper = DT_bounds[, Upper]) %>% data.table(.) %T>%
-        setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>%
-        {
-            if (any(DT_bounds[, Type] == "integer")) {
-                set(., j = DT_bounds[Type == "integer", Parameter],
-                  value = round(extract(., j = DT_bounds[Type ==
-                    "integer", Parameter], with = FALSE)))
-            }
-            else {
-                .
-            }
-        } %T>% extract(., j = `:=`(Value, -Inf))
-    iter_points_dt_backup <- Matrix_runif(n = init_points+n_iter, lower = DT_bounds[,
-            Lower], upper = DT_bounds[, Upper]) %>% data.table(.) %T>%
-            setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>%
-            {
-                if (any(DT_bounds[, Type] == "integer")) {
-                    set(., j = DT_bounds[Type == "integer", Parameter],
-                      value = round(extract(., j = DT_bounds[Type ==
-                        "integer", Parameter], with = FALSE)))
-                }
-                else {
-                    .
-                }
-            }
-    iter_points_dt <- data.table(matrix(-Inf, nrow = n_iter,
-        ncol = nrow(DT_bounds) + 1)) %>% setnames(., old = names(.),
-        new = c(DT_bounds[, Parameter], "Value"))
-    DT_history <- rbind(init_grid_dt, init_points_dt, iter_points_dt) %>%
-        cbind(data.table(Round = 1:nrow(.)), .)
-    Pred_list <- vector(mode = "list", length = nrow(DT_history))
-    for (i in 1:(nrow(init_grid_dt) + nrow(init_points_dt))) {
-        if (is.infinite(DT_history[i, Value]) == TRUE) {
-            This_Par <- DT_history[i, DT_bounds[, Parameter],
-                with = FALSE]
-        }
-        else {
-            next
-        }
-        This_Log <- utils::capture.output({
-            This_Time <- system.time({
-                This_Score_Pred <- do.call(what = FUN, args = as.list(This_Par))
-            })
-        })
-        data.table::set(DT_history, i = as.integer(i), j = "Value",
-            value = as.list(c(This_Score_Pred$Score)))
-        Pred_list[[i]] <- This_Score_Pred$Pred
-        if (verbose == TRUE) {
-            paste(c("elapsed", names(DT_history)), c(format(This_Time["elapsed"],
-                trim = FALSE, digits = 3, nsmall = 2), format(DT_history[i,
-                "Round", with = FALSE], trim = FALSE, digits = NULL,
-                nsmall = 0), format(DT_history[i, -"Round", with = FALSE],
-                trim = FALSE, digits = 3, nsmall = 3)), sep = " = ",
-                collapse = "\t") %>% cat(., "\n")
-        }
-    }
-   for (j in (nrow(init_grid_dt) + nrow(init_points_dt) + 1):nrow(DT_history)) {
-       if (nrow(iter_points_dt) == 0) {
-            next
-        }
-        Par_Mat <- Min_Max_Scale_Mat(as.matrix(DT_history[1:(j -
-            1), DT_bounds[, Parameter], with = FALSE]), lower = DT_bounds[,
-            Lower], upper = DT_bounds[, Upper])
-        Rounds_Unique <- setdiff(1:(j - 1), which(duplicated(Par_Mat) ==
-            TRUE))
-        Value_Vec <- DT_history[1:(j - 1), Value]
-        GP_Log <- utils::capture.output({
-            GP <- GPfit::GP_fit(X = Par_Mat[Rounds_Unique, ],
-                Y = Value_Vec[Rounds_Unique], corr = kernel)
-        })
-        Next_Par <- tryCatch(Utility_Max(DT_bounds, GP, acq = acq, y_max = max(DT_history[,
-            Value]), kappa = kappa, eps = eps) %>% Min_Max_Inverse_Scale_Vec(.,
-            lower = DT_bounds[, Lower], upper = DT_bounds[, Upper]) %>%
-            magrittr::set_names(., DT_bounds[, Parameter]) %>%
-            inset(., DT_bounds[Type == "integer", Parameter],
-                round(extract(., DT_bounds[Type == "integer",
-                  Parameter]))), error=function(e) unlist(iter_points_dt_backup[j,]))
-        Next_Log <- tryCatch(utils::capture.output({
-            Next_Time <- system.time({
-                Next_Score_Pred <- do.call(what = FUN, args = as.list(Next_Par))
-            })
-        }), error=function(e) NULL)
-        tryCatch(data.table::set(DT_history, i = as.integer(j), j = c(DT_bounds[,
-            Parameter], "Value"), value = as.list(c(Next_Par,
-            Value = Next_Score_Pred$Score))), error=function(e) NULL)
-        tryCatch(Pred_list[[j]] <- Next_Score_Pred$Pred, error=function(e) NULL)
-        if (verbose == TRUE) {
-            tryCatch(paste(c("elapsed", names(DT_history)), c(format(Next_Time["elapsed"],
-                trim = FALSE, digits = NULL, nsmall = 2), format(DT_history[j,
-                "Round", with = FALSE], trim = FALSE, digits = NULL,
-                nsmall = 0), format(DT_history[j, -"Round", with = FALSE],
-                trim = FALSE, digits = NULL, nsmall = 4)), sep = " = ",
-                collapse = "\t") %>% cat(., "\n"), error=function(e) NULL)
-        }#, error=function(e) NULL})
-    }
-    Best_Par <- as.numeric(DT_history[which.max(Value), DT_bounds[,
-        Parameter], with = FALSE]) %>% magrittr::set_names(.,
-        DT_bounds[, Parameter])
-    Best_Value <- max(DT_history[, Value], na.rm = TRUE)
-    Pred_DT <- data.table::as.data.table(Pred_list)
-    Result <- list(Best_Par = Best_Par, Best_Value = Best_Value,
-        History = DT_history, Pred = Pred_DT)
-    cat("\n Best Parameters Found: \n")
-    paste(names(DT_history), c(format(DT_history[which.max(Value),
-        "Round", with = FALSE], trim = FALSE, digits = NULL,
-        nsmall = 0), format(DT_history[which.max(Value), -"Round",
-        with = FALSE], trim = FALSE, digits = NULL, nsmall = 4)),
-        sep = " = ", collapse = "\t") %>% cat(., "\n")
-    return(Result)
+    n_iter, acq = "ei", kappa = 2.576, eps = 0,
+    kernel = list(type = "exponential", power = 2), verbose = TRUE, seed = NULL) {
+    BayesianOptimization(FUN = FUN, bounds = bounds, init_grid_dt = init_grid_dt,
+        init_points = init_points, n_iter = n_iter, acq = acq, kappa = kappa,
+        eps = eps, kernel = kernel, verbose = verbose, seed = seed, debug = TRUE)
 }
 
 
@@ -645,15 +602,24 @@ mergeOptRes <- function(..., .list = NULL, digits = 3, agg = max,
 
     runs <- c(list(...), .list)
 
-    # Unwrap a single list-of-runs passed positionally.
+    # Unwrap a single list-of-runs passed positionally (e.g. a result_list from
+    # a parallel sweep). Unwrap when it holds AT LEAST ONE run -- using `all`
+    # here meant a single failed/NULL parallel task left the list wrapped, so it
+    # looked like "one run" and produced the misleading "needs at least two".
     is_run <- function(x) is.list(x) && !is.null(x[["History"]])
     if (length(runs) == 1 && is.list(runs[[1]]) && !is_run(runs[[1]]) &&
-        length(runs[[1]]) > 0 && all(vapply(runs[[1]], is_run, logical(1)))) {
+        length(runs[[1]]) > 0 && any(vapply(runs[[1]], is_run, logical(1)))) {
         runs <- runs[[1]]
     }
 
-    if (length(runs) < 2)
-        stop("mergeOptRes() needs at least two OPT_Res runs to merge.")
+    n_supplied <- length(runs)
+    n_valid    <- sum(vapply(runs, is_run, logical(1)))
+    if (n_valid < 2)
+        stop(sprintf(paste0("mergeOptRes() needs >= 2 valid OPT_Res runs; found %d valid ",
+                            "of %d supplied. A valid run is a list with a $History element -- ",
+                            "failed or NULL parallel tasks do not qualify (check which tasks ",
+                            "errored in your sweep)."),
+                     n_valid, n_supplied))
 
     # Source labels: use names where given, fill blanks with Source<i>.
     src <- names(runs)
@@ -673,6 +639,8 @@ mergeOptRes <- function(..., .list = NULL, digits = 3, agg = max,
 
     # Pull one run's History down to param cols + a finite metric column.
     extract_one <- function(run, label) {
+        if (!is_run(run))
+            stop("not a valid OPT_Res (no $History) -- likely a failed or NULL task")
         hist <- as.data.frame(run[["History"]], stringsAsFactors = FALSE)
         if (!value_col %in% names(hist))
             stop(sprintf("no '%s' column in History", value_col))
@@ -692,7 +660,9 @@ mergeOptRes <- function(..., .list = NULL, digits = 3, agg = max,
     ok <- !vapply(tabs, is.null, logical(1))
     tabs <- tabs[ok]; src <- src[ok]
     if (length(tabs) < 2)
-        stop("Fewer than two runs could be read; nothing to merge.")
+        stop(sprintf(paste0("mergeOptRes(): only %d of %d valid run(s) had a usable History ",
+                            "(a '%s' column with finite values). Nothing to merge."),
+                     length(tabs), n_valid, value_col))
 
     # Hyperparameters common to every surviving run.
     param_cols <- Reduce(intersect, lapply(tabs, attr, "param_cols"))
@@ -4312,6 +4282,44 @@ deconvolutionSnipIterUI <- function(selection=20){
     sliderInput('deconvolutionsnipiter', "Baseline Snip Iterations", min=5, max=100, step=1, value=selection)
 }
 
+# --- Deconvolution physics UI (phase b2) --------------------------------------------------------
+# "Legacy (current)" reproduces historical behaviour; the other modes opt into the newer xrftools
+# physics (non-negative fit, energy-dependent resolution, cross-section/electron excitation, etc.).
+deconvolutionModeUI <- function(selection="legacy"){
+    selectInput('deconvolutionmode', "Instrument / physics mode",
+        choices=c("Legacy (current)"="legacy", "Handheld XRF"="handheld", "SEM-EDS (electron)"="sem",
+                  "PIXE"="pixe", "High-energy / HPGe-CdTe"="high_energy"),
+        selected=selection)
+}
+
+# Beam / accelerating voltage (keV). Blank = auto (max spectrum energy). Only used by non-legacy modes.
+deconvolutionBeamEnergyUI <- function(selection=NULL){
+    numericInput('deconvolutionbeamenergy', "Beam / tube voltage (keV, blank = auto)",
+        value=selection, min=1, max=300, step=1)
+}
+
+# Tube anode element (enables Rayleigh/Compton scatter templates). Handheld / high-energy modes.
+deconvolutionTubeAnodeUI <- function(selection="None"){
+    selectInput('deconvolutiontubeanode', "Tube anode (scatter)",
+        choices=c("None", "Rh", "Ag", "W", "Mo", "Au", "Pd", "Cr", "Ta", "Cu"), selected=selection)
+}
+
+# Detector type (energy-dependent resolution + efficiency). "Auto" follows the instrument mode
+# (SDD for handheld/SEM/PIXE, HPGe for high-energy); the ubiquitous default is a silicon-drift detector.
+deconvolutionDetectorUI <- function(selection="Auto"){
+    selectInput('deconvolutiondetector', "Detector",
+        choices=c("Auto (mode default: SDD)"="Auto", "SDD", "SiLi", "SiPIN", "HPGe", "CdTe"),
+        selected=selection)
+}
+
+# Detector active-layer thickness (microns) for the efficiency model. Defaults to 450 um, the modern
+# silicon-drift-detector standard. Applied to SDD/Si detectors; HPGe/CdTe keep their mm-scale preset
+# unless a non-450 value is entered. Only used when a non-legacy mode engages the efficiency model.
+deconvolutionThicknessUI <- function(selection=450){
+    numericInput('deconvolutionthickness', "Detector active thickness (um, SDD = 450)",
+        value=selection, min=1, max=20000, step=10)
+}
+
 
 
 deconvolutionUI <- function(radiocal=3, selection=NULL){
@@ -6734,7 +6742,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
     
     if(is.null(deconvoluted_valdata)){
         deconvolution_parameters <- Calibration$Deconvoluted$Parameters
-        deconvoluted_data <-spectra_gls_deconvolute(valdata, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1)
+        deconvoluted_data <-spectra_gls_deconvolute(valdata, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1, physics=deconvolution_physics_from_params(deconvolution_parameters))
         deconvoluted_valdata <- deconvoluted_data
     }
 
@@ -9519,34 +9527,117 @@ intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
     return(result_frame)
 }
 
-deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, use_qr=TRUE){
+# --- Deconvolution physics helpers (phase b2) ---------------------------------------------------
+# Map an instrument mode to the optional xrftools deconvolution arguments (the `physics=` bundle for
+# spectra_gls_deconvolute / deconvolute_complete). `kv` = tube voltage or accelerating voltage;
+# `anode` = tube anode element (handheld / high-energy). "legacy" reproduces historical behaviour.
+instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detector_type=NULL, active_thickness_um=NULL){
+    mode <- match.arg(as.character(mode), c("legacy","handheld","sem","pixe","high_energy"))
+    dt <- function(d) if(is.null(detector_type) || is.na(detector_type) || detector_type=="") d else detector_type
+    base <- switch(mode,
+        legacy      = list(),   # unconstrained OLS + jump-ratio intensities (no new physics)
+        handheld    = list(excitation="photon",   detector_type=dt("SDD"),  tube_anode=anode, tube_kv=kv,
+                           efficiency=TRUE, nonneg=TRUE, excitation_weighting="cross_section", coster_kronig=TRUE),
+        sem         = list(excitation="electron", detector_type=dt("SDD"),  overvoltage_min=1.2,
+                           efficiency=TRUE, nonneg=TRUE, excitation_weighting="cross_section", coster_kronig=TRUE),
+        pixe        = list(excitation="photon",   detector_type=dt("SDD"),
+                           efficiency=TRUE, nonneg=TRUE, excitation_weighting="cross_section", coster_kronig=TRUE),
+        high_energy = list(excitation="photon",   detector_type=dt("HPGe"), tube_anode=anode, tube_kv=kv,
+                           efficiency=TRUE, escape=TRUE, nonneg=TRUE,
+                           excitation_weighting="cross_section", coster_kronig=TRUE))
+    # Active-layer thickness for the efficiency model. The ubiquitous modern SDD is 450 um (the xrftools
+    # SDD preset), so a 450 default on a silicon SDD is a no-op that simply makes the assumption explicit
+    # in the persisted metadata. Apply the UI value to a true SDD/Si detector; for HPGe/CdTe/Si(Li) --
+    # whose active layers are mm-scale -- keep the detector's own preset unless the user deliberately
+    # typed a non-default (non-450) thickness. A blank field (NULL/NA) always defers to the preset.
+    if(mode != "legacy" && !is.null(active_thickness_um) && !is.na(active_thickness_um)){
+        eff_det <- toupper(if(is.null(base$detector_type)) "" else base$detector_type)
+        if(eff_det %in% c("SDD","SI","") || active_thickness_um != 450){
+            base$active_thickness_um <- active_thickness_um
+        }
+    }
+    # Beam energy also only applies to non-legacy modes: legacy must stay an EMPTY bundle (apart from the
+    # stripped .mode tag) so it reproduces the historical result byte-for-byte even if the always-visible
+    # beam-energy field happens to hold a value from a mode the user was previously exploring.
+    if(mode != "legacy" && !is.null(kv) && !is.na(kv)) base$beam_energy_kev <- kv
+    base$.mode <- mode   # UI-only metadata (stripped before the deconvolution call; used to restore the selector)
+    base
+}
+
+# Extract the persisted physics bundle from a calibration's Deconvoluted$Parameters (old calibrations
+# have no Physics field -> empty list -> historical behaviour reproduced).
+deconvolution_physics_from_params <- function(params){
+    if(is.list(params) && !is.null(params$Physics) && is.list(params$Physics)) params$Physics else list()
+}
+
+deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07,
+    smooth_iter=20, snip_iter=20, use_qr=TRUE,
+    # --- estimator: backward-compat defaults reproduce the historical unconstrained OLS ---
+    nonneg=FALSE, weighting="none",
+    # --- excitation / line model: backward-compat defaults reproduce the historical jump-ratio model
+    #     (identical for single-family K-only / L-only elements; the emission-probability omega fix is
+    #     the only unrevertable change and cancels under per-element normalization there) ---
+    beam_energy_kev=NULL, excitation="photon", overvoltage_min=1,
+    excitation_weighting="jump", coster_kronig=FALSE,
+    # --- detector resolution: overrides default_sigma with sigma(E) when detector_type is set ---
+    detector_type=NULL, fano=NULL, epsilon_ev=NULL, noise_fwhm_ev=NULL,
+    # --- detector response (all off by default) ---
+    efficiency=FALSE, escape=FALSE, be_window_um=NULL, dead_layer_um=NULL, active_thickness_um=NULL,
+    # --- scatter (needs a tube) ---
+    tube_anode=NULL, tube_kv=NULL, scatter=NULL, scatter_angle_deg=135, compton_broadening=2,
+    # --- line shape / engine ---
+    tail=0, step=0, beta=NULL, refine_calibration=FALSE, sum_peaks=FALSE, pileup_tau=NULL,
+    cache_templates=TRUE){
     if(is.null(energy_max)){
         energy_max <- max(spectra_frame$Energy)
+    }
+    # Physics excitation energy is decoupled from the fit window (energy_max). Defaults to energy_max.
+    if(is.null(beam_energy_kev)){
+        beam_energy_kev <- energy_max
     }
     if(is.data.frame(spectra_frame)){
         spectrum_name <- unique(spectra_frame$Spectrum)
         spectra_tibble <- tibble_convert(spectra_frame)
+
+        # Peak template list. Defensive: fall back to the minimal xrf_energies() on older xrftools.
+        peaks <- tryCatch(
+            xrf_energies("everything", beam_energy_kev=beam_energy_kev, excitation=excitation,
+                overvoltage_min=overvoltage_min, excitation_weighting=excitation_weighting,
+                coster_kronig=coster_kronig),
+            error=function(e) xrf_energies("everything", beam_energy_kev=beam_energy_kev))
+
+        # Tube / geometry for optional Rayleigh-Compton scatter templates.
+        tube <- tryCatch(
+            if(!is.null(tube_anode) && !is.null(tube_kv)) xrf_tube(tube_anode, kv=tube_kv) else NULL,
+            error=function(e) NULL)
+        geometry <- tryCatch(xrf_geometry(scatter_angle_deg=scatter_angle_deg), error=function(e) NULL)
 
         # Apply smoothing and baseline
         smoothed_tibble <- spectra_tibble %>%
             xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = width, alpha = alpha), .iter = smooth_iter) %>%
             xrf_add_baseline_snip(.values = .spectra$smooth, iterations = snip_iter)
 
-        # Try with use_qr parameter first (newer xrftools), fall back to without (older versions)
+        # Full (new-xrftools) call; fall back to the historical minimal signature on any older
+        # xrftools that lacks the added arguments ("unused argument").
         deconvoluted_spectra_tibble <- tryCatch({
             smoothed_tibble %>%
                 xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline,
-                    energy_max_kev = energy_max,
-                    peaks = xrf_energies("everything", beam_energy_kev=energy_max),
-                    default_sigma = default_sigma,
-                    use_qr = use_qr)
+                    energy_max_kev = energy_max, peaks = peaks, default_sigma = default_sigma,
+                    detector_type = detector_type, fano = fano, epsilon_ev = epsilon_ev,
+                    noise_fwhm_ev = noise_fwhm_ev, nonneg = nonneg, weighting = weighting,
+                    efficiency = efficiency, escape = escape, be_window_um = be_window_um,
+                    dead_layer_um = dead_layer_um, active_thickness_um = active_thickness_um,
+                    tube = tube, geometry = geometry, scatter = scatter,
+                    compton_broadening = compton_broadening, tail = tail, step = step, beta = beta,
+                    refine_calibration = refine_calibration, sum_peaks = sum_peaks,
+                    pileup_tau = pileup_tau, cache_templates = cache_templates, use_qr = use_qr)
         }, error = function(e) {
-            if (grepl("unused argument.*use_qr", e$message)) {
-                # Older xrftools version without use_qr parameter
+            if (grepl("unused argument", e$message)) {
+                # Older xrftools: original behaviour (unconstrained OLS, jump-ratio + double-omega).
                 smoothed_tibble %>%
                     xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline,
                         energy_max_kev = energy_max,
-                        peaks = xrf_energies("everything", beam_energy_kev=energy_max),
+                        peaks = xrf_energies("everything", beam_energy_kev=beam_energy_kev),
                         default_sigma = default_sigma)
             } else {
                 stop(e)
@@ -9563,7 +9654,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
 
 }
 
-spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, cores=1){
+spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, cores=1, physics=list()){
     spectra_frame$Spectrum <- as.character(spectra_frame$Spectrum)
     spectra_frame$Energy <- as.numeric(spectra_frame$Energy)
     spectra_frame$CPS <- as.numeric(spectra_frame$CPS)
@@ -9573,11 +9664,18 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     # Use fast QR for single-core, fork-safe lm() for multicore
     use_qr <- (cores == 1)
 
+    # `physics` bundles the optional new xrftools deconvolution arguments (detector_type, excitation,
+    # nonneg, tube_anode/tube_kv, efficiency, escape, tail, ...). Empty list = historical behaviour.
+    if(is.null(physics)) physics <- list()
+    # dot-prefixed keys (e.g. .mode) are UI-only metadata: keep them in the persisted Parameters for
+    # restoring the UI, but strip them from the arguments passed to deconvolute_complete.
+    physics_call <- physics[!startsWith(names(physics), ".")]
+
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
 
     safe_deconvolute <- function(x){
         tryCatch(
-            deconvolute_complete(
+            do.call(deconvolute_complete, c(list(
                 spectra_frame=x,
                 energy_max=energy_max,
                 width=width,
@@ -9585,7 +9683,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
                 default_sigma=default_sigma,
                 smooth_iter=smooth_iter,
                 snip_iter=snip_iter,
-                use_qr=use_qr),
+                use_qr=use_qr), physics_call)),
             error = function(e){
                 warning("Skipping spectrum '", unique(x$Spectrum), "': ", e$message)
                 NULL
@@ -9628,7 +9726,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     if(baseline==FALSE){
         return(list(Spectra=new_spectra_frame, Areas=new_area_frame))
     } else if(baseline==TRUE){
-        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Baseline=new_baseline_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter)))
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Baseline=new_baseline_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter, ParamVersion=2, Physics=physics)))
     }
     
 }

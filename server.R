@@ -1050,6 +1050,15 @@ shinyServer(function(input, output, session) {
         smooth_param <- isolate(input$deconvolutionsmoothiter)
         snip_param   <- isolate(input$deconvolutionsnipiter)
         req(width_param, alpha_param, sigma_param, smooth_param, snip_param)
+
+        # New physics options (phase b2): instrument mode + optional beam/anode/detector overrides.
+        # isolate() so editing them does not re-run deconvolution until Deconvolute is pressed.
+        mode_param   <- isolate(input$deconvolutionmode);      if(is.null(mode_param) || mode_param=="") mode_param <- "legacy"
+        kv_param     <- isolate(input$deconvolutionbeamenergy)
+        anode_param  <- isolate(input$deconvolutiontubeanode); if(!is.null(anode_param) && anode_param %in% c("", "None")) anode_param <- NULL
+        det_param    <- isolate(input$deconvolutiondetector);  if(!is.null(det_param) && det_param %in% c("", "Auto")) det_param <- NULL
+        thick_param  <- isolate(input$deconvolutionthickness)
+        physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param), error=function(e) list())
         print("Starting deconvolution")
 
         # Cache dataHold() once - it was being called 8+ times in this function
@@ -1060,9 +1069,9 @@ shinyServer(function(input, output, session) {
         deconvolution_data <- if(is.null(input$file1)){
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 tryCatch(
-                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1)),
+                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param),
                     error=function(e) tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param),
                         error=function(e) NULL
                     )
                 )
@@ -1071,9 +1080,9 @@ shinyServer(function(input, output, session) {
                     calMemory$Calibration$Deconvoluted
                 } else {
                     tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1)),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param),
                         error=function(e) tryCatch(
-                            spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1),
+                            spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param),
                             error=function(e) NULL
                         )
                     )
@@ -1081,9 +1090,9 @@ shinyServer(function(input, output, session) {
             }
         } else {
            tryCatch(
-               spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1)),
+               spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param),
                error=function(e) tryCatch(
-                   spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1),
+                   spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param),
                    error=function(e) NULL
                )
            )
@@ -1145,11 +1154,18 @@ shinyServer(function(input, output, session) {
             smooth_param <- input$deconvolutionsmoothiter
             snip_param <- input$deconvolutionsnipiter
 
+            mode_param  <- input$deconvolutionmode; if(is.null(mode_param) || mode_param=="") mode_param <- "legacy"
+            kv_param    <- input$deconvolutionbeamenergy
+            anode_param <- input$deconvolutiontubeanode; if(!is.null(anode_param) && anode_param %in% c("", "None")) anode_param <- NULL
+            det_param   <- input$deconvolutiondetector;  if(!is.null(det_param) && det_param %in% c("", "Auto")) det_param <- NULL
+            thick_param <- input$deconvolutionthickness
+            physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param), error=function(e) list())
+
             new_decon <- withProgress(message="Deconvoluting with current parameters...", value=0.5, {
                 tryCatch(
-                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1)),
+                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param),
                     error=function(e) tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param),
                         error=function(e) NULL
                     )
                 )
@@ -1651,7 +1667,28 @@ shinyServer(function(input, output, session) {
                 deconvolutionSnipIterUI(selection=20)
             }
         })
-        
+
+        # Phase b2: physics-mode controls, restored from the loaded calibration's stored Physics bundle.
+        .deconvPhysics <- reactive({
+            if("Deconvoluted" %in% names(calMemory$Calibration)) deconvolution_physics_from_params(deconvolutionFunnel()) else list()
+        })
+        output$deconvolutionmodeui <- renderUI({
+            p <- .deconvPhysics(); sel <- if(!is.null(p$.mode)) p$.mode else "legacy"
+            deconvolutionModeUI(selection=sel)
+        })
+        output$deconvolutionbeamenergyui <- renderUI({
+            p <- .deconvPhysics(); deconvolutionBeamEnergyUI(selection=if(!is.null(p$beam_energy_kev)) p$beam_energy_kev else NULL)
+        })
+        output$deconvolutiontubeanodeui <- renderUI({
+            p <- .deconvPhysics(); deconvolutionTubeAnodeUI(selection=if(!is.null(p$tube_anode)) p$tube_anode else "None")
+        })
+        output$deconvolutiondetectorui <- renderUI({
+            p <- .deconvPhysics(); deconvolutionDetectorUI(selection=if(!is.null(p$detector_type)) p$detector_type else "Auto")
+        })
+        output$deconvolutionthicknessui <- renderUI({
+            p <- .deconvPhysics(); deconvolutionThicknessUI(selection=if(!is.null(p$active_thickness_um)) p$active_thickness_um else 450)
+        })
+
             
             # Expression that generates a histogram. The expression is
             # wrapped in a call to renderPlot to indicate that:
@@ -19975,7 +20012,8 @@ content = function(file){
             }
             
             
-            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=as.numeric(1)), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1))
+            deconvolution_physics <- deconvolution_physics_from_params(deconvolution_parameters)
+            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=as.numeric(1), physics=deconvolution_physics), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1, physics=deconvolution_physics))
             
             deconvolution
             
