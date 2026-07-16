@@ -211,6 +211,7 @@ splitLayout(cellWidths = c("50%", "50%"),
         uiOutput('deconvolutiontubeanodeui'),
         uiOutput('deconvolutiondetectorui'),
         uiOutput('deconvolutionthicknessui'),
+        uiOutput('deconvolutionmassui'),
         actionButton('deconvolutebutton', "Deconvolute"),
         helpText("Re-run deconvolution with the current parameters."))
     ),
@@ -329,9 +330,16 @@ tabsetPanel(id = 'widelines',
         downloadButton('downloadSplitWideData', "Table")))
 ),
 tabPanel('Deconvoluted',
-    dataTableOutput('mytable3'),
-    tags$hr(),
-    downloadButton('downloadDataDeconvoluted', "Table")),
+tabsetPanel(id = 'deconvoluted',
+    tabPanel("Net Counts",
+        dataTableOutput('mytable3'),
+        tags$hr(),
+        downloadButton('downloadDataDeconvoluted', "Table")),
+    tabPanel("Estimated Mass",
+        dataTableOutput('mytableMass'),
+        tags$hr(),
+        downloadButton('downloadDataDeconvolutedMass', "Table")))
+),
 #tabPanel('Wide Deconvoluted', dataTableOutput('mytable4')),
 tabPanel('Covariance',
 tabsetPanel(
@@ -876,7 +884,10 @@ tabPanel('Narrow', dataTableOutput('myvaltable1'), downloadButton('downloadValDa
 tabPanel('Wide', dataTableOutput('myvaltablewide'), downloadButton('downloadValDataWide', "Download")),
 tabPanel('NarrowSplit', dataTableOutput('myvaltablesplit'), downloadButton('downloadValDataNarrowSplit', "Download")),
 tabPanel('WideSplit', dataTableOutput('myvaltablewidesplit'), downloadButton('downloadValDataWideSplit', "Download")),
-tabPanel('Deconvoluted', dataTableOutput('myvaltabledeconvoluted'), downloadButton('downloadValDataDeconvoluted', "Download"))
+tabPanel('Deconvoluted',
+    tabsetPanel(id='valdeconvoluted',
+        tabPanel('Net Counts', dataTableOutput('myvaltabledeconvoluted'), downloadButton('downloadValDataDeconvoluted', "Download")),
+        tabPanel('Estimated Mass', dataTableOutput('myvaltableMass'), downloadButton('downloadValDataDeconvolutedMass', "Download"))))
 #tabPanel('Wide Deconvoluted', dataTableOutput('myvaltablewidedeconvoluted'))
 ),uiOutput('rounding2ui')
 )

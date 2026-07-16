@@ -1058,6 +1058,7 @@ shinyServer(function(input, output, session) {
         anode_param  <- isolate(input$deconvolutiontubeanode); if(!is.null(anode_param) && anode_param %in% c("", "None")) anode_param <- NULL
         det_param    <- isolate(input$deconvolutiondetector);  if(!is.null(det_param) && det_param %in% c("", "Auto")) det_param <- NULL
         thick_param  <- isolate(input$deconvolutionthickness)
+        mass_param   <- isTRUE(isolate(input$deconvolutionmass))   # FP $Mass gate (off by default)
         physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param), error=function(e) list())
         print("Starting deconvolution")
 
@@ -1069,9 +1070,9 @@ shinyServer(function(input, output, session) {
         deconvolution_data <- if(is.null(input$file1)){
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 tryCatch(
-                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param),
+                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param),
                     error=function(e) tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param),
                         error=function(e) NULL
                     )
                 )
@@ -1080,9 +1081,9 @@ shinyServer(function(input, output, session) {
                     calMemory$Calibration$Deconvoluted
                 } else {
                     tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param),
                         error=function(e) tryCatch(
-                            spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param),
+                            spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param),
                             error=function(e) NULL
                         )
                     )
@@ -1090,9 +1091,9 @@ shinyServer(function(input, output, session) {
             }
         } else {
            tryCatch(
-               spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param),
+               spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param),
                error=function(e) tryCatch(
-                   spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param),
+                   spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param),
                    error=function(e) NULL
                )
            )
@@ -1159,13 +1160,14 @@ shinyServer(function(input, output, session) {
             anode_param <- input$deconvolutiontubeanode; if(!is.null(anode_param) && anode_param %in% c("", "None")) anode_param <- NULL
             det_param   <- input$deconvolutiondetector;  if(!is.null(det_param) && det_param %in% c("", "Auto")) det_param <- NULL
             thick_param <- input$deconvolutionthickness
+            mass_param  <- isTRUE(input$deconvolutionmass)   # FP $Mass gate (off by default)
             physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param), error=function(e) list())
 
             new_decon <- withProgress(message="Deconvoluting with current parameters...", value=0.5, {
                 tryCatch(
-                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param),
+                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param),
                     error=function(e) tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param),
                         error=function(e) NULL
                     )
                 )
@@ -1687,6 +1689,10 @@ shinyServer(function(input, output, session) {
         })
         output$deconvolutionthicknessui <- renderUI({
             p <- .deconvPhysics(); deconvolutionThicknessUI(selection=if(!is.null(p$active_thickness_um)) p$active_thickness_um else 450)
+        })
+        output$deconvolutionmassui <- renderUI({
+            has_mass <- "Deconvoluted" %in% names(calMemory$Calibration) && !is.null(calMemory$Calibration$Deconvoluted$Mass)
+            deconvolutionMassUI(selection=isTRUE(has_mass))
         })
 
             
@@ -2491,13 +2497,14 @@ shinyServer(function(input, output, session) {
 
             spectra_stuff <- totalCountsGen(spectra)
 
-            # Safely get deconvoluted data with defensive checks
+            # Safely get deconvoluted data with defensive checks. Pull the special (non-element) channels --
+            # Baseline plus the tube-scatter Compton / Rayleigh areas -- so they can serve as calibration
+            # slope/intercept covariates.
             deconvoluted <- calMemory$Calibration$Deconvoluted
-            if (!is.null(deconvoluted) && !is.null(deconvoluted$Areas) &&
-                "Spectrum" %in% names(deconvoluted$Areas) &&
-                "Baseline" %in% names(deconvoluted$Areas)) {
+            extra_cols <- if (!is.null(deconvoluted)) deconvolution_extra_cols(deconvoluted$Areas) else character(0)
+            if (length(extra_cols) > 0) {
                 other_spectra_stuff <- merge(spectra_stuff,
-                    deconvoluted$Areas[, c("Spectrum", "Baseline")],
+                    deconvoluted$Areas[, c("Spectrum", extra_cols), drop = FALSE],
                     by = "Spectrum", all = TRUE, sort = TRUE)
             } else {
                 # No deconvolution data available, return just the spectra stuff
@@ -3102,12 +3109,36 @@ shinyServer(function(input, output, session) {
         })
         
         output$mytable3 <- renderDataTable({
-            
+
             base.table <- tableInputDeconvoluted()[,-1]
             rownames(base.table) <- tableInputDeconvoluted()$Spectrum
             base.table
-            
+
         })
+
+        # FP mass-estimate table ($Mass): present only when the deconvolution was run with the mass gate on.
+        tableInputDeconvolutedMass <- reactive({
+            mass.table <- calMemory$Calibration$Deconvoluted$Mass
+            if(is.null(mass.table)){
+                return(data.frame(Note="No FP mass estimate. Tick 'Estimate mass (FP)' and re-run the deconvolution."))
+            }
+            elements <- colnames(mass.table)[-1]
+            rounded <- as.data.frame(lapply(mass.table[, elements, drop=FALSE], signif, digits=4), check.names=FALSE)
+            data.frame(Spectrum=mass.table$Spectrum, rounded, check.names=FALSE)
+        })
+
+        output$mytableMass <- renderDataTable({
+            tab <- tableInputDeconvolutedMass()
+            if(identical(names(tab), "Note")) return(tab)
+            base.table <- tab[,-1, drop=FALSE]
+            rownames(base.table) <- tab$Spectrum
+            base.table
+        })
+
+        output$downloadDataDeconvolutedMass <- downloadHandler(
+            filename = function() paste0("deconvoluted_mass_", Sys.Date(), ".csv"),
+            content = function(file) write.csv(tableInputDeconvolutedMass(), file, row.names=FALSE)
+        )
         
         
         
@@ -3331,7 +3362,8 @@ shinyServer(function(input, output, session) {
             input$linecommit
             
             
-            myelements <- c(elementallinestouse(), "Baseline", "Total")
+            scatter_cols <- intersect(c("Compton", "Rayleigh"), deconvolution_extra_cols(calMemory$Calibration$Deconvoluted$Areas))
+            myelements <- c(elementallinestouse(), "Baseline", "Total", scatter_cols)
             
             
             if(is.null(myelements)){
@@ -3346,7 +3378,8 @@ shinyServer(function(input, output, session) {
             input$linecommit
             
             
-            myelements <- c(elementallinestouse(), "Baseline", "Total")
+            scatter_cols <- intersect(c("Compton", "Rayleigh"), deconvolution_extra_cols(calMemory$Calibration$Deconvoluted$Areas))
+            myelements <- c(elementallinestouse(), "Baseline", "Total", scatter_cols)
             
             
             if(is.null(myelements)){
@@ -20013,7 +20046,7 @@ content = function(file){
             
             
             deconvolution_physics <- deconvolution_physics_from_params(deconvolution_parameters)
-            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=as.numeric(1), physics=deconvolution_physics), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1, physics=deconvolution_physics))
+            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=as.numeric(1), physics=deconvolution_physics, mass=TRUE), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1, physics=deconvolution_physics, mass=TRUE))
             
             deconvolution
             
@@ -20140,7 +20173,10 @@ content = function(file){
             deconvoluted <- myDeconvolutedValData()
             
             spectra_stuff <- totalCountsGen(spectra)
-            other_spectra_stuff <- merge(spectra_stuff, deconvoluted$Areas[,c("Spectrum", "Baseline")], by="Spectrum", all=T, sort=T)
+            val_extra_cols <- deconvolution_extra_cols(deconvoluted$Areas)   # Baseline + Compton/Rayleigh if present
+            other_spectra_stuff <- if(length(val_extra_cols) > 0){
+                merge(spectra_stuff, deconvoluted$Areas[,c("Spectrum", val_extra_cols), drop=FALSE], by="Spectrum", all=T, sort=T)
+            } else spectra_stuff
             other_spectra_stuff
             
         })
@@ -20488,9 +20524,25 @@ content = function(file){
         })
         
         output$myvaltabledeconvoluted <- renderDataTable({
-            
+
             roundNumericColumns(df=fullInputValCountsDeconvoluted(), digits=input$resultrounding2)
-            
+
+        })
+
+        # Validation FP mass estimate ($Mass): the validation deconvolution runs with mass = TRUE, so this is
+        # populated whenever a deconvoluted validation set exists. Small relative-mass values -> signif(4).
+        valTableDeconvolutedMass <- reactive({
+            mass.table <- tryCatch(myDeconvolutedValData()$Mass, error=function(e) NULL)
+            if(is.null(mass.table)){
+                return(data.frame(Note="No FP mass estimate available for the validation set."))
+            }
+            elements <- colnames(mass.table)[-1]
+            rounded <- as.data.frame(lapply(mass.table[, elements, drop=FALSE], signif, digits=4), check.names=FALSE)
+            data.frame(Spectrum=mass.table$Spectrum, rounded, check.names=FALSE)
+        })
+
+        output$myvaltableMass <- renderDataTable({
+            valTableDeconvolutedMass()
         })
         
         #output$myvaltablewidedeconvoluted <- renderDataTable({
@@ -20628,6 +20680,11 @@ content = function(file){
         ) {
             write.csv(roundNumericColumns(fullInputValCountsDeconvoluted(), digits=input$resultrounding2), file)
         }
+        )
+
+        output$downloadValDataDeconvolutedMass <- downloadHandler(
+        filename = function() { paste(input$quantifiedname, "_ValDataDeconvolutedMass", '.csv', sep='', collapse='') },
+        content = function(file) { write.csv(valTableDeconvolutedMass(), file, row.names=FALSE) }
         )
         
         

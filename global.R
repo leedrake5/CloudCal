@@ -162,9 +162,9 @@ if("Peaks" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 }
 
 if("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
-    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
+    tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.3.zip", repos=NULL, type="win.binary"), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
 } else if ("xrftools" %in% installed.packages()[,"Package"]==FALSE && get_os()!="windows"){
-        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.2.tar.gz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
+        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/line_calculation/Packages/xrftools_0.0.3.tar.gz", type="binary", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/xrftools"), error=function(e) NULL))
     }
 
 if(packageVersion("xrftools")!="0.0.3" && get_os()=="windows"){
@@ -744,7 +744,11 @@ atomic_order <- cmpfun(atomic_order)
 
 
 atomic_order_vector <- function(elements){
-    unlist(lapply(elements, atomic_order))
+    # Length-preserving: a non-element (e.g. the new xrftools scatter_compton / scatter_rayleigh or escape
+    # templates) yields numeric(0) from atomic_order. Map those to NA instead of letting unlist() silently
+    # drop them -- dropping shortened the result and broke `frame$order <- atomic_order_vector(frame$element)`
+    # ("replacement has N rows, data has M").
+    vapply(elements, function(e){ o <- atomic_order(e); if(length(o) == 0) NA_real_ else as.numeric(o[1]) }, numeric(1))
 }
 atomic_order_vector <- cmpfun(atomic_order_vector)
 
@@ -4320,6 +4324,13 @@ deconvolutionThicknessUI <- function(selection=450){
         value=selection, min=1, max=20000, step=10)
 }
 
+# FP mass-estimate gate. Off by default: computing $Mass adds one xrf_fp_sensitivity() call per batch
+# (~a couple of seconds, independent of spectrum count). When on, spectra_gls_deconvolute also returns a
+# $Mass table (observed areal mass per element = peak_area / FP sensitivity), organised like $Areas.
+deconvolutionMassUI <- function(selection=FALSE){
+    checkboxInput('deconvolutionmass', "Estimate mass (FP) - adds a $Mass table", value=selection)
+}
+
 
 
 deconvolutionUI <- function(radiocal=3, selection=NULL){
@@ -6742,12 +6753,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
     
     if(is.null(deconvoluted_valdata)){
         deconvolution_parameters <- Calibration$Deconvoluted$Parameters
-        deconvoluted_data <-spectra_gls_deconvolute(valdata, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1, physics=deconvolution_physics_from_params(deconvolution_parameters))
+        deconvoluted_data <-spectra_gls_deconvolute(valdata, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1, physics=deconvolution_physics_from_params(deconvolution_parameters), mass=TRUE)
         deconvoluted_valdata <- deconvoluted_data
     }
 
     other_spectra_stuff <- totalCountsGen(valdata)
-    other_spectra_stuff <- merge(other_spectra_stuff, deconvoluted_valdata$Areas[,c("Spectrum", "Baseline")], all=T, sort=T)
+    val_extra_cols <- deconvolution_extra_cols(deconvoluted_valdata$Areas)   # Baseline + Compton/Rayleigh if present
+    if(length(val_extra_cols) > 0){
+        other_spectra_stuff <- merge(other_spectra_stuff, deconvoluted_valdata$Areas[,c("Spectrum", val_extra_cols), drop=FALSE], all=T, sort=T)
+    }
         
     
     if(is.null(count.list)){
@@ -9517,13 +9531,25 @@ intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
     
     deconvolution_frame <- as.data.frame(deconvolution_tibble)
     deconvolution_frame$order <- atomic_order_vector(deconvolution_frame$element)
-    deconvolution_frame <- deconvolution_frame[order(deconvolution_frame$order),]
-    #elements <- deconvolution_frame$element
-    #elements[1:51] <- paste0(elements[1:51], ".K.alpha")
-    #elements[52:length(elements)] <- paste0(elements[52:length(elements)], ".L.alpha")
-    deconvolution_t_frame <- t(deconvolution_frame[,"peak_area"])
+
+    # Real elements: keep, ordered by atomic number.
+    element_frame <- deconvolution_frame[!is.na(deconvolution_frame$order), , drop=FALSE]
+    element_frame <- element_frame[order(element_frame$order),]
+
+    # Non-element fit components. Keep the tube-scatter channels as named columns (Compton / Rayleigh) so
+    # they are available as slope/intercept correction covariates in calibration -- alongside Baseline /
+    # Total via otherSpectraStuff -- and drop the rest (e.g. escape peaks). Scatter sharpens the fit either
+    # way (its intensity is no longer misattributed to elements); this just also exports the two areas.
+    scatter_map <- c(scatter_compton = "Compton", scatter_rayleigh = "Rayleigh")
+    scatter_frame <- deconvolution_frame[deconvolution_frame$element %in% names(scatter_map), , drop=FALSE]
+    scatter_frame <- scatter_frame[order(match(scatter_frame$element, names(scatter_map))), , drop=FALSE]
+
+    keep_names <- c(element_frame$element, unname(scatter_map[scatter_frame$element]))
+    keep_areas <- c(element_frame$peak_area, scatter_frame$peak_area)
+
+    deconvolution_t_frame <- t(keep_areas)
     result_frame <- data.frame(Spectrum=name, deconvolution_t_frame)
-    colnames(result_frame) <- c("Spectrum", deconvolution_frame$element)
+    colnames(result_frame) <- c("Spectrum", keep_names)
     return(result_frame)
 }
 
@@ -9568,6 +9594,51 @@ instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detec
 # have no Physics field -> empty list -> historical behaviour reproduced).
 deconvolution_physics_from_params <- function(params){
     if(is.list(params) && !is.null(params$Physics) && is.list(params$Physics)) params$Physics else list()
+}
+
+# Special (non-element) deconvolution channels usable as calibration slope/intercept covariates: the SNIP
+# Baseline area plus the tube-scatter Compton / Rayleigh peak areas (present only when a tube is modelled).
+# Defensive: returns just the columns actually present, so old calibrations (Baseline only, or none) work.
+deconvolution_extra_cols <- function(areas){
+    if(is.null(areas) || !is.data.frame(areas) || !("Spectrum" %in% names(areas))) return(character(0))
+    intersect(c("Baseline", "Compton", "Rayleigh"), names(areas))
+}
+
+# Fundamental-parameters mass estimate for a whole deconvolution batch. Observed areal mass per element =
+# peak_area / FP sensitivity (matrix-decoupled, un-normalized: A_i/S_i). The sensitivity S_i depends only on
+# the element set + excitation/detector physics -- NOT on the spectrum -- so it is computed ONCE via
+# xrf_fp_sensitivity and the entire Areas table is divided by it (one FP call per batch, not one per
+# spectrum). Returns a frame organised like $Areas (Spectrum + element columns), or NULL on any failure
+# (e.g. an older xrftools without xrf_fp_sensitivity) so the deconvolution never fails just to build $Mass.
+deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL, fallback_energy=NULL){
+    tryCatch({
+        element_cols <- setdiff(names(area_frame), c("Spectrum", "Baseline", "Compton", "Rayleigh"))
+        if(length(element_cols) == 0) return(NULL)
+        pget <- function(k, default){ v <- physics[[k]]; if(!is.null(v) && !is.na(v[1])) v else default }
+        beam <- pget("beam_energy_kev", if(!is.null(energy_max)) energy_max else fallback_energy)
+        if(is.null(beam) || !is.finite(beam)) return(NULL)
+        tube_obj <- tryCatch(
+            if(!is.null(physics$tube_anode) && !is.null(physics$tube_kv)) xrf_tube(physics$tube_anode, kv=physics$tube_kv) else NULL,
+            error=function(e) NULL)
+        # Sensitivity uses the run's excitation/detector physics, defaulting to a full-physics estimate
+        # (efficiency on, cross-section weighting) so the mass is meaningful even from a legacy fit.
+        sens_args <- list(elements = element_cols, beam_energy_kev = beam,
+                 detector_type = physics$detector_type,
+                 be_window_um = physics$be_window_um, dead_layer_um = physics$dead_layer_um,
+                 efficiency = pget("efficiency", TRUE),
+                 excitation = pget("excitation", "photon"),
+                 excitation_weighting = pget("excitation_weighting", "cross_section"),
+                 coster_kronig = pget("coster_kronig", TRUE),
+                 tube = tube_obj)
+        # active_thickness_um only exists in newer xrftools; pass it only when the installed function accepts
+        # it, so an older install still builds $Mass (just without the thickness-consistency refinement).
+        if("active_thickness_um" %in% names(formals(xrf_fp_sensitivity)))
+            sens_args$active_thickness_um <- physics$active_thickness_um
+        S <- do.call(xrf_fp_sensitivity, sens_args)
+        sens <- setNames(S$sensitivity, S$element)[element_cols]           # NA for unexcited elements -> NA mass
+        mass_mat <- sweep(as.matrix(area_frame[, element_cols, drop=FALSE]), 2, sens, "/")
+        data.frame(Spectrum = area_frame$Spectrum, mass_mat, check.names=FALSE, stringsAsFactors=FALSE)
+    }, error = function(e){ warning("Could not compute FP $Mass table: ", conditionMessage(e)); NULL })
 }
 
 deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07,
@@ -9654,7 +9725,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
 
 }
 
-spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, cores=1, physics=list()){
+spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, cores=1, physics=list(), mass=FALSE){
     spectra_frame$Spectrum <- as.character(spectra_frame$Spectrum)
     spectra_frame$Energy <- as.numeric(spectra_frame$Energy)
     spectra_frame$CPS <- as.numeric(spectra_frame$CPS)
@@ -9669,7 +9740,10 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     if(is.null(physics)) physics <- list()
     # dot-prefixed keys (e.g. .mode) are UI-only metadata: keep them in the persisted Parameters for
     # restoring the UI, but strip them from the arguments passed to deconvolute_complete.
-    physics_call <- physics[!startsWith(names(physics), ".")]
+    # NB: names() is NULL for an empty/unnamed physics (the default list()), and startsWith(NULL, ".")
+    # errors ("non-character object(s)") -- guard it, since an unnamed bundle has no dot-keys to strip.
+    physics_names <- names(physics)
+    physics_call <- if (is.null(physics_names)) physics else physics[!startsWith(physics_names, ".")]
 
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
 
@@ -9723,10 +9797,17 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
         new_baseline_frame <- as.data.frame(rbindlist(only_background_list))
         new_area_frame$Baseline <- aggregate(CPS ~ Spectrum, data = new_baseline_frame[,c("Spectrum", "CPS")], FUN = sum)$CPS
     }
+    # FP mass estimate ($Mass): observed areal mass per element = peak_area / FP sensitivity, computed once
+    # for the whole batch (see deconvolution_mass_frame). Organised like $Areas (Spectrum + element columns).
+    new_mass_frame <- if(isTRUE(mass)){
+        deconvolution_mass_frame(new_area_frame, physics=physics, energy_max=energy_max,
+            fallback_energy=suppressWarnings(max(as.numeric(spectra_frame$Energy), na.rm=TRUE)))
+    } else NULL
+
     if(baseline==FALSE){
-        return(list(Spectra=new_spectra_frame, Areas=new_area_frame))
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame))
     } else if(baseline==TRUE){
-        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Baseline=new_baseline_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter, ParamVersion=2, Physics=physics)))
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame, Baseline=new_baseline_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter, ParamVersion=2, Physics=physics)))
     }
     
 }
