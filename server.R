@@ -700,9 +700,12 @@ shinyServer(function(input, output, session) {
     manualEvChDefault <- reactive({
         cf <- tryCatch(calFileContents(), error=function(e) NULL)
         if(!is.null(cf) && !is.null(cf$EnergyCal) && !is.null(cf$EnergyCal$evCh_eV)){
-            as.numeric(cf$EnergyCal$evCh_eV)
+            as.numeric(cf$EnergyCal$evCh_eV)          # a loaded .quant's stored value wins
         } else {
-            20
+            # else pre-fill from the imported file's own eV/channel (PDZ/CSV/MCA/TXT), normalised to eV/ch;
+            # falls back to 20 when the format carries no calibration. Persists into the .quant on save.
+            inf <- tryCatch(.deconvInferredMeta(), error=function(e) NULL)
+            if(!is.null(inf$evch_ev) && is.finite(inf$evch_ev) && inf$evch_ev > 0) as.numeric(inf$evch_ev) else 20
         }
     })
 
@@ -1067,6 +1070,11 @@ shinyServer(function(input, output, session) {
         filter_param <- isolate(input$deconvolutiontubefilter)     # beam-filter stack (reviewed in the UI)
         env_param    <- isolate(input$deconvolutionenvironment); if(is.null(env_param) || env_param=="") env_param <- "air_pp"
         physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param, filter=filter_param, environment=env_param), error=function(e) list())
+        if(isTRUE(isolate(input$deconvolutiongeometry))){   # gated: fold the file's incidence/take-off into full-FP $Mass
+            geo <- tryCatch(isolate(.deconvInferredMeta()), error=function(e) NULL)
+            if(!is.null(geo$incidence)) physics_param$incidence_deg <- geo$incidence
+            if(!is.null(geo$takeoff))   physics_param$takeoff_deg   <- geo$takeoff
+        }
         # Per-spectrum LiveTime (named by cleaned Spectrum) for the full-FP $Mass count-space LOD filter.
         # NULL when metadata carries no LiveTime -> the LOD falls back to the col-max signal filter.
         lt_param <- tryCatch(deconvolution_livetime_lookup(isolate(myMetaData())), error=function(e) NULL)
@@ -1174,6 +1182,11 @@ shinyServer(function(input, output, session) {
             filter_param <- input$deconvolutiontubefilter    # beam-filter stack (reviewed in the UI)
             env_param    <- input$deconvolutionenvironment; if(is.null(env_param) || env_param=="") env_param <- "air_pp"
             physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param, filter=filter_param, environment=env_param), error=function(e) list())
+            if(isTRUE(input$deconvolutiongeometry)){   # gated: fold the file's incidence/take-off into full-FP $Mass
+                geo <- tryCatch(.deconvInferredMeta(), error=function(e) NULL)
+                if(!is.null(geo$incidence)) physics_param$incidence_deg <- geo$incidence
+                if(!is.null(geo$takeoff))   physics_param$takeoff_deg   <- geo$takeoff
+            }
             lt_param <- tryCatch(deconvolution_livetime_lookup(myMetaData()), error=function(e) NULL)   # LiveTime for the $Mass LOD
 
             new_decon <- withProgress(message="Deconvoluting with current parameters...", value=0.5, {
@@ -1609,10 +1622,11 @@ shinyServer(function(input, output, session) {
         })
         
         deconvolutionFunnel <- reactive({
-            req(input$calfileinput)
-            # Stored deconvolution parameters live under Deconvoluted$Parameters
-            # (set by spectra_gls_deconvolute), not Calibration$Parameters. Read
-            # them so the sliders open at the loaded cal's actual values.
+            # Stored deconvolution parameters live under Deconvoluted$Parameters (set by
+            # spectra_gls_deconvolute), not Calibration$Parameters. Read them so the sliders open at the
+            # loaded cal's actual values. NOTE: do NOT req(input$calfileinput) here -- that is only set when a
+            # .quant is LOADED, so gating on it hard-failed this reactive for freshly-built calibrations, which
+            # blanked EVERY deconvolution control (they all funnel through here) the moment you deconvolved.
             if("Deconvoluted" %in% names(calMemory$Calibration) &&
                "Parameters" %in% names(calMemory$Calibration$Deconvoluted)){
                 calMemory$Calibration$Deconvoluted$Parameters
@@ -1730,6 +1744,11 @@ shinyServer(function(input, output, session) {
         output$deconvolutionenvironmentui <- renderUI({
             p <- .deconvPhysics()
             deconvolutionEnvironmentUI(selection=if(!is.null(p$.environment)) p$.environment else "air_pp")
+        })
+        output$deconvolutiongeometryui <- renderUI({
+            p <- .deconvPhysics()
+            # checked if a prior run stored explicit geometry; else off (defaults 45/45 stand)
+            deconvolutionGeometryUI(selection=!is.null(p$incidence_deg) || !is.null(p$takeoff_deg))
         })
         output$deconvolutionmassui <- renderUI({
             fid <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$MassFidelity, error=function(e) NULL)

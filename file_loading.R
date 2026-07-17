@@ -1901,6 +1901,17 @@ readPDZMetadata <- function(filepath, filename=NULL) {
 
     num_spectra <- meta$spectrum_count
 
+    # File-level hardware. Next-gen v25 PDZs encode the real anode / detector / geometry in a Record-1 block
+    # (rPDZ returns anode_z, detector_model, sample_incidence_deg, sample_takeoff_deg, be_thickness_um); older
+    # flat simple_v2 files do NOT, so fall back to the instrument lookup (Bruker handheld = Rh / SDD).
+    gnum <- function(v){ v <- suppressWarnings(as.numeric(v)); if(length(v)==1 && is.finite(v) && v > 0) v else NA_real_ }
+    file_anode <- .z_to_symbol(gnum(meta$anode_z))
+    if(is.na(file_anode)) file_anode <- deconvolution_instrument_anode("Bruker")     # Rh
+    file_det <- deconvolution_detector_from_model(meta$detector_model)
+    if(is.na(file_det)) file_det <- "SDD"
+    file_incidence <- gnum(meta$sample_incidence_deg)                                 # sample incidence angle (deg)
+    file_takeoff   <- gnum(meta$sample_takeoff_deg)                                   # detector take-off angle (deg)
+
     # Build data.frame with one row per spectrum
     result_list <- lapply(seq_len(num_spectra), function(i) {
         # Create spectrum name (add suffix for multi-spectrum files)
@@ -1938,11 +1949,12 @@ readPDZMetadata <- function(filepath, filename=NULL) {
             DeadTimePct = g("dead_time_pct"),
             TubeVoltage = spec_meta$tube_voltage_kV,
             TubeCurrent = g("tube_current_uA"),
-            # Anode and detector are NOT encoded in the PDZ format; they are instrument-known. PDZ is a Bruker
-            # handheld (Tracer/Titan family) -> Rh anode, silicon-drift detector. Stamped so the physics
-            # controls can auto-populate (and switch off "legacy") on import. Editable in the UI if wrong.
-            TubeAnode = deconvolution_instrument_anode("Bruker"),
-            DetectorType = "SDD",
+            # Anode/detector/geometry: from the file when it is a v25 PDZ (Record 1), else the instrument
+            # lookup (Bruker handheld = Rh / SDD). Auto-populates the physics controls; editable in the UI.
+            TubeAnode = file_anode,
+            DetectorType = file_det,
+            IncidenceAngle = file_incidence,
+            TakeoffAngle = file_takeoff,
             Vacuum = g("vacuum"),
             # primary beam filter for the (currently single-filter) tube model; full stack kept for later use
             TubeFilter = if(length(filters)) filters[1] else NA_character_,

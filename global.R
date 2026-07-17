@@ -4394,6 +4394,14 @@ deconvolutionEnvironmentUI <- function(selection="air_pp"){
         choices=deconvolution_environment_presets(), selected=selection)
 }
 
+# Toggle: use the instrument's measurement geometry (sample incidence + detector take-off angles) in the
+# full-FP $Mass self-absorption path. OFF by default because most files/instruments do not report it; when ON,
+# the angles inferred from the file (currently v25 PDZ Record-1) are used, else the FP defaults (45/45) stand.
+deconvolutionGeometryUI <- function(selection=FALSE){
+    checkboxInput('deconvolutiongeometry', "Use instrument geometry (file incidence/take-off angles)",
+        value=isTRUE(selection))
+}
+
 # FP mass-estimate control. Off by default. "Relative" divides areas by an FP sensitivity computed once per
 # batch (fast; matrix-decoupled A/S). "Full FP" runs a per-spectrum fundamental-parameters solve with
 # self-absorption + secondary/tertiary fluorescence (slower, but correct for heavy matrices where secondary
@@ -9694,12 +9702,26 @@ deconvolution_instrument_anode <- function(instrument){
     if(grepl("niton|thermo", instrument, ignore.case=TRUE)) "Ag" else "Rh"
 }
 
+# Map a detector MODEL string (e.g. the v25 PDZ Record-1 "Commando_TITAN\\KETEK ... (20mm2)" or "xFlash",
+# "Amptek", "SiPin", "Ketek") to a detector TYPE the physics understands. Silicon-drift models (KETEK, xFlash,
+# Amptek SDD, "silicon drift") -> SDD; Si-PIN -> SiPIN; CdTe / HPGe by name. NA when unrecognisable.
+deconvolution_detector_from_model <- function(model){
+    if(is.null(model) || is.na(model) || !nzchar(model)) return(NA_character_)
+    m <- toupper(model)
+    if(grepl("CDTE", m)) "CdTe"
+    else if(grepl("HPGE", m)) "HPGe"
+    else if(grepl("SI[ -]?PIN", m)) "SiPIN"
+    else if(grepl("KETEK|XFLASH|AMPTEK|SDD|SILICON DRIFT|DRIFT|TITAN|CTH", m)) "SDD"
+    else NA_character_
+}
+
 # Auto-inference (Phase 0/1): pull representative instrument settings out of an imported SpectraMetadata frame
 # so the physics controls can be pre-seeded from the file -- and, crucially, suggest an instrument `mode` so
 # import can switch the deconvolution off "legacy" (which discards the seeded values). Returns NULLs for
 # anything not present, so callers fall through to UI / preset defaults.
 deconvolution_infer_from_metadata <- function(md){
-    out <- list(kv=NULL, filter=NULL, filter_stack=NULL, anode=NULL, detector=NULL, mode=NULL)
+    out <- list(kv=NULL, filter=NULL, filter_stack=NULL, anode=NULL, detector=NULL,
+                incidence=NULL, takeoff=NULL, evch_ev=NULL, mode=NULL)
     if(is.null(md) || !is.data.frame(md) || nrow(md) == 0) return(out)
     num1 <- function(col){ if(!col %in% names(md)) return(NULL)
         v <- suppressWarnings(as.numeric(md[[col]])); v <- v[is.finite(v) & v > 0]
@@ -9710,8 +9732,13 @@ deconvolution_infer_from_metadata <- function(md){
     out$kv           <- num1("TubeVoltage")
     out$filter       <- chr1("TubeFilter")        # primary filter only
     out$filter_stack <- chr1("TubeFilterStack")   # full "Cu 100; Ti 25; Al 300" stack (modelled by xrf_tube)
-    out$anode        <- chr1("TubeAnode")          # stamped per-instrument at import (Ag for Niton, else Rh)
+    out$anode        <- chr1("TubeAnode")          # v25 PDZ Record-1, else per-instrument (Ag Niton / Rh else)
     out$detector     <- chr1("DetectorType")       # SDD for handhelds; CdTe/HPGe for high-energy benchtops
+    out$incidence    <- num1("IncidenceAngle")     # v25 PDZ geometry; feeds $Mass self-absorption path length
+    out$takeoff      <- num1("TakeoffAngle")
+    # Energy calibration eV/channel from the file. Sources are mixed-unit (PDZ ~20 eV/ch; CSV/MCA/TXT keV/ch
+    # ~0.02), so normalise to eV/channel: a value below 1 is keV/ch and is scaled up.
+    ev <- num1("eVCh"); if(!is.null(ev)) out$evch_ev <- if(ev < 1) ev * 1000 else ev
     # Suggest a mode when the file carries recognisable hardware, so the mode UI can leave "legacy" behind.
     known <- !is.null(out$kv) || !is.null(out$filter_stack) || !is.null(out$anode) || !is.null(out$detector)
     if(known){
@@ -10016,6 +10043,9 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
     air_path_cm=NULL, atmosphere="Air", window=NULL,
     # --- scatter (needs a tube) ---
     tube_anode=NULL, tube_kv=NULL, tube_filter=NULL, scatter=NULL, scatter_angle_deg=135, compton_broadening=2,
+    # incidence/takeoff geometry are consumed only by the full-FP $Mass self-absorption path (deconvolution_mass_frame);
+    # accepted here (unused) so the physics bundle can carry them through without an "unused argument" error.
+    incidence_deg=NULL, takeoff_deg=NULL,
     # --- line shape / engine ---
     tail=0, step=0, beta=NULL, refine_calibration=FALSE, sum_peaks=FALSE, pileup_tau=NULL,
     # abundance_prior>0 turns on the crustal-abundance NNLS ridge (collinearity-weighted); used only for
