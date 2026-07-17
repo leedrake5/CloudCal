@@ -9685,11 +9685,21 @@ deconvolution_physics_from_params <- function(params){
     if(is.list(params) && !is.null(params$Physics) && is.list(params$Physics)) params$Physics else list()
 }
 
-# Auto-inference (Phase 0): pull representative instrument settings out of an imported SpectraMetadata frame
-# so the physics controls can be pre-seeded from the file. Returns NULLs for anything not present, so callers
-# fall through to UI / preset defaults. Extended in later phases (geometry, air path, detector cal, ...).
+# Tube anode by instrument family. No handheld file format encodes the anode, but it is fixed per instrument:
+# Niton (Thermo) uses a SILVER (Ag) anode; essentially every other handheld -- Bruker Tracer/Titan, Olympus
+# Vanta/Delta, SciAps -- uses RHODIUM (Rh). Metadata builders call this to stamp `TubeAnode` at import so the
+# physics can auto-populate; the value is a best guess and remains editable in the UI.
+deconvolution_instrument_anode <- function(instrument){
+    if(is.null(instrument) || is.na(instrument) || !nzchar(instrument)) return(NA_character_)
+    if(grepl("niton|thermo", instrument, ignore.case=TRUE)) "Ag" else "Rh"
+}
+
+# Auto-inference (Phase 0/1): pull representative instrument settings out of an imported SpectraMetadata frame
+# so the physics controls can be pre-seeded from the file -- and, crucially, suggest an instrument `mode` so
+# import can switch the deconvolution off "legacy" (which discards the seeded values). Returns NULLs for
+# anything not present, so callers fall through to UI / preset defaults.
 deconvolution_infer_from_metadata <- function(md){
-    out <- list(kv=NULL, filter=NULL, filter_stack=NULL, anode=NULL)
+    out <- list(kv=NULL, filter=NULL, filter_stack=NULL, anode=NULL, detector=NULL, mode=NULL)
     if(is.null(md) || !is.data.frame(md) || nrow(md) == 0) return(out)
     num1 <- function(col){ if(!col %in% names(md)) return(NULL)
         v <- suppressWarnings(as.numeric(md[[col]])); v <- v[is.finite(v) & v > 0]
@@ -9700,7 +9710,14 @@ deconvolution_infer_from_metadata <- function(md){
     out$kv           <- num1("TubeVoltage")
     out$filter       <- chr1("TubeFilter")        # primary filter only
     out$filter_stack <- chr1("TubeFilterStack")   # full "Cu 100; Ti 25; Al 300" stack (modelled by xrf_tube)
-    out$anode        <- chr1("TubeAnode")          # not carried by PDZ yet; harmless when absent
+    out$anode        <- chr1("TubeAnode")          # stamped per-instrument at import (Ag for Niton, else Rh)
+    out$detector     <- chr1("DetectorType")       # SDD for handhelds; CdTe/HPGe for high-energy benchtops
+    # Suggest a mode when the file carries recognisable hardware, so the mode UI can leave "legacy" behind.
+    known <- !is.null(out$kv) || !is.null(out$filter_stack) || !is.null(out$anode) || !is.null(out$detector)
+    if(known){
+        det <- toupper(if(!is.null(out$detector)) out$detector else "")
+        out$mode <- if(grepl("CDTE|HPGE", det) || (!is.null(out$kv) && out$kv > 60)) "high_energy" else "handheld"
+    }
     out
 }
 
@@ -10001,6 +10018,9 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
     tube_anode=NULL, tube_kv=NULL, tube_filter=NULL, scatter=NULL, scatter_angle_deg=135, compton_broadening=2,
     # --- line shape / engine ---
     tail=0, step=0, beta=NULL, refine_calibration=FALSE, sum_peaks=FALSE, pileup_tau=NULL,
+    # abundance_prior>0 turns on the crustal-abundance NNLS ridge (collinearity-weighted); used only for
+    # full-FP $Mass, where degenerate phantoms most poison the solve. 0 = legacy fit.
+    abundance_prior=0,
     cache_templates=TRUE){
     if(is.null(energy_max)){
         energy_max <- max(spectra_frame$Energy)
@@ -10054,7 +10074,8 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
                     tube = tube, geometry = geometry, scatter = scatter,
                     compton_broadening = compton_broadening, tail = tail, step = step, beta = beta,
                     refine_calibration = refine_calibration, sum_peaks = sum_peaks,
-                    pileup_tau = pileup_tau, cache_templates = cache_templates, use_qr = use_qr)
+                    pileup_tau = pileup_tau, cache_templates = cache_templates, use_qr = use_qr,
+                    abundance_prior = abundance_prior)
         }, error = function(e) {
             if (grepl("unused argument", e$message)) {
                 # Older xrftools: original behaviour (unconstrained OLS, jump-ratio + double-omega).
@@ -10098,6 +10119,13 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     physics_names <- names(physics)
     physics_call <- if (is.null(physics_names)) physics else physics[!startsWith(physics_names, ".")]
 
+    # $Mass fidelity, resolved up front so full-FP can regularise the deconvolution itself. The
+    # crustal-abundance NNLS ridge (collinearity-weighted) is applied ONLY for full-FP $Mass -- where
+    # degenerate phantoms most poison the self-absorption solve -- and left off (0) for plain deconvolution
+    # and relative $Mass, so the displayed Areas and legacy behaviour are unchanged outside full mode.
+    mass_mode <- if(isTRUE(mass)) "relative" else if(is.character(mass) && length(mass)==1) tolower(mass) else "off"
+    abundance_prior <- if(identical(mass_mode, "full")) 0.2 else 0
+
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
 
     safe_deconvolute <- function(x){
@@ -10110,7 +10138,8 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
                 default_sigma=default_sigma,
                 smooth_iter=smooth_iter,
                 snip_iter=snip_iter,
-                use_qr=use_qr), physics_call)),
+                use_qr=use_qr,
+                abundance_prior=abundance_prior), physics_call)),
             error = function(e){
                 warning("Skipping spectrum '", unique(x$Spectrum), "': ", e$message)
                 NULL
@@ -10151,10 +10180,9 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
         new_baseline_frame <- as.data.frame(rbindlist(only_background_list))
         new_area_frame$Baseline <- aggregate(CPS ~ Spectrum, data = new_baseline_frame[,c("Spectrum", "CPS")], FUN = sum)$CPS
     }
-    # FP mass estimate ($Mass). `mass` selects fidelity: FALSE/"off" = none; TRUE/"relative" = fast A/S
-    # (sensitivity once per batch); "full" = per-spectrum fundamental parameters (self-absorption +
-    # secondary/tertiary fluorescence), correct for heavy matrices but slower. Organised like $Areas.
-    mass_mode <- if(isTRUE(mass)) "relative" else if(is.character(mass) && length(mass)==1) tolower(mass) else "off"
+    # FP mass estimate ($Mass). `mass_mode` (resolved at the top) selects fidelity: "off" = none;
+    # "relative" = fast A/S (sensitivity once per batch); "full" = per-spectrum fundamental parameters
+    # (self-absorption + secondary/tertiary fluorescence + the abundance-regularised deconvolution above).
     new_mass_frame <- if(mass_mode %in% c("relative","full")){
         deconvolution_mass_frame(new_area_frame, physics=physics, energy_max=energy_max,
             fallback_energy=suppressWarnings(max(as.numeric(spectra_frame$Energy), na.rm=TRUE)),

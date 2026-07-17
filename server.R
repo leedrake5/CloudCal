@@ -456,9 +456,10 @@ shinyServer(function(input, output, session) {
     
     fullSpectraMetadata <- reactive(label="fullSpectraMetadata", {
         req(input$file1)
-        
-        #fullSpectraMetadataProcess(inFile=inFile())
-
+        # Per-file CSV metadata (eVCh, LiveTime + tube kV / filter / anode / detector where the format carries
+        # them: Olympus/Vanta rich, Niton = Ag anode, Bruker/Generic = eVCh+LiveTime). Feeds physics
+        # auto-population via deconvolution_infer_from_metadata. tryCatch so a metadata-less CSV never blocks import.
+        tryCatch(fullSpectraMetadataProcess(inFile=inFile()), error=function(e) NULL)
     })
     
     fullJSON <- reactive(label = "fullJSON", {
@@ -980,6 +981,10 @@ shinyServer(function(input, output, session) {
                 readPDZMetadata()
             } else if(input$filetype=="CSV"){
                 fullSpectraMetadata()
+            } else if(input$filetype=="MCA"){
+                tryCatch(fileMetadataProcess(inFile(), mcaFrameMetadata), error=function(e) NULL)
+            } else if(input$filetype=="TXT"){
+                tryCatch(fileMetadataProcess(inFile(), txtFrameMetadata), error=function(e) NULL)
             } else {
                 NULL
             }
@@ -1692,7 +1697,11 @@ shinyServer(function(input, output, session) {
             deconvolution_infer_from_metadata(md)
         })
         output$deconvolutionmodeui <- renderUI({
-            p <- .deconvPhysics(); sel <- if(!is.null(p$.mode)) p$.mode else "legacy"
+            p <- .deconvPhysics(); inf <- .deconvInferredMeta()
+            # persisted mode first; else the mode inferred from the imported file's hardware (so a PDZ/CSV with
+            # a known kV / filter / anode / detector switches OFF "legacy" and its seeded physics takes effect);
+            # else legacy.
+            sel <- if(!is.null(p$.mode)) p$.mode else if(!is.null(inf$mode)) inf$mode else "legacy"
             deconvolutionModeUI(selection=sel)
         })
         output$deconvolutionbeamenergyui <- renderUI({
@@ -1701,7 +1710,9 @@ shinyServer(function(input, output, session) {
             deconvolutionBeamEnergyUI(selection=sel)
         })
         output$deconvolutiontubeanodeui <- renderUI({
-            p <- .deconvPhysics(); deconvolutionTubeAnodeUI(selection=if(!is.null(p$tube_anode)) p$tube_anode else "None")
+            p <- .deconvPhysics(); inf <- .deconvInferredMeta()
+            sel <- if(!is.null(p$tube_anode)) p$tube_anode else if(!is.null(inf$anode)) inf$anode else "None"
+            deconvolutionTubeAnodeUI(selection=sel)   # persisted -> inferred (Ag for Niton, Rh else) -> None
         })
         output$deconvolutiontubefilterui <- renderUI({
             p <- .deconvPhysics(); inf <- .deconvInferredMeta()
@@ -1709,7 +1720,9 @@ shinyServer(function(input, output, session) {
             deconvolutionTubeFilterUI(selection=sel)
         })
         output$deconvolutiondetectorui <- renderUI({
-            p <- .deconvPhysics(); deconvolutionDetectorUI(selection=if(!is.null(p$detector_type)) p$detector_type else "Auto")
+            p <- .deconvPhysics(); inf <- .deconvInferredMeta()
+            sel <- if(!is.null(p$detector_type)) p$detector_type else if(!is.null(inf$detector)) inf$detector else "Auto"
+            deconvolutionDetectorUI(selection=sel)   # persisted -> inferred (SDD handheld / CdTe|HPGe benchtop) -> Auto
         })
         output$deconvolutionthicknessui <- renderUI({
             p <- .deconvPhysics(); deconvolutionThicknessUI(selection=if(!is.null(p$active_thickness_um)) p$active_thickness_um else 450)

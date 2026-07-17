@@ -165,12 +165,102 @@ csvFrameMetadata <- function(filepath, filename=NULL){
     }
     filename <- make.names(filename)
     filename <- gsub(".csv", "", filename, ignore.case=TRUE)
-    
-    ret <- read.csv(file=filepath, sep=",", header=FALSE)
-    
-    result <- data.frame(Spectrum=filename, eVCh=as.numeric(as.vector(ret[ret$V1 %in% "eV per channel",]$V2))/1000, LiveTime=round(as.numeric(as.vector(ret[ret$V1 %in% "Live Time",]$V2)), 2))
-    
-    return(result)
+
+    # Instrument determines the anode/detector (never encoded in a CSV) and which header block to parse.
+    inst <- tryCatch(get_instrument_and_beams(filepath)$instrument, error=function(e) "Generic")
+    base <- data.frame(Spectrum=filename, eVCh=NA_real_, LiveTime=NA_real_,
+                       TubeVoltage=NA_real_, TubeAnode=deconvolution_instrument_anode(inst),
+                       TubeFilter=NA_character_, TubeFilterStack=NA_character_, DetectorType="SDD",
+                       stringsAsFactors=FALSE)
+    ret <- tryCatch(read.csv(file=filepath, sep=",", header=FALSE, stringsAsFactors=FALSE),
+                    error=function(e) NULL)
+    if(is.null(ret) || !("V1" %in% names(ret))) return(base)
+    # first-row numeric values (over all beam/exposure columns) for a header key
+    rowval <- function(keys){ i <- which(ret$V1 %in% keys); if(!length(i)) return(numeric(0))
+        suppressWarnings(as.numeric(as.character(unlist(ret[i[1], -1])))) }
+
+    if(inst == "Olympus"){
+        # Olympus/Vanta multi-beam header block: pick the PRIMARY (highest-kV) beam's settings.
+        kv    <- rowval(c("Tube Voltage Set", "Tension du tube réglée"))
+        lt    <- rowval(c("Live Time", "Temps actif", "Temps réel actif"))
+        slope <- rowval(c("Energy Slope", "Pente énergie", "Pente de tension"))
+        fmat  <- rowval("Filter Material"); fthk <- rowval("Filter Thickness")
+        okv <- which(is.finite(kv) & kv > 0)
+        if(length(okv)){
+            j <- okv[which.max(kv[okv])]                       # primary analytical beam
+            base$TubeVoltage <- kv[j]
+            if(length(fmat) >= j && length(fthk) >= j && is.finite(fmat[j]) && fmat[j] > 0 &&
+               is.finite(fthk[j]) && fthk[j] > 0){
+                sym <- .z_to_symbol(fmat[j])                    # Filter Material is an atomic number
+                if(!is.na(sym)){ base$TubeFilter <- paste(sym, signif(fthk[j], 4)); base$TubeFilterStack <- base$TubeFilter }
+            }
+            if(length(lt) >= j && is.finite(lt[j])) base$LiveTime <- round(lt[j], 2)
+        }
+        s <- slope[is.finite(slope) & slope > 0]; if(length(s)) base$eVCh <- s[1]   # keV per channel
+    } else if(inst == "Niton"){
+        # Niton carries no hardware block; the win is anode = Ag (already set). eVCh from the keV column spacing.
+        kev <- suppressWarnings(as.numeric(as.character(ret[[1]])))
+        d <- suppressWarnings(stats::median(diff(kev[is.finite(kev)]), na.rm=TRUE))
+        if(is.finite(d) && d > 0) base$eVCh <- d
+    } else {
+        # Generic / Bruker S1PXRF: the historical "eV per channel" + "Live Time" rows.
+        ev <- rowval("eV per channel"); if(length(ev) && is.finite(ev[1])) base$eVCh <- ev[1] / 1000
+        lt <- rowval("Live Time");      if(length(lt) && is.finite(lt[1])) base$LiveTime <- round(lt[1], 2)
+    }
+    base
+}
+
+# Amptek PMCA (.mca) metadata. The tube/anode is NOT in the file (benchtop DPP), so anode is left blank; the
+# detector is taken from the filename (sdd / cdte / hpge, since Amptek setups vary), LiveTime from LIVE_TIME,
+# and eVCh from a "<<CALIBRATION>> / LABEL - keV" block if one is present (often absent on these exports).
+mcaFrameMetadata <- function(filepath, filename=NULL){
+    if(is.null(filename)) filename <- basename(filepath)
+    fn <- make.names(gsub("[.]mca$", "", filename, ignore.case=TRUE))
+    lines <- tryCatch(suppressWarnings(readLines(filepath, warn=FALSE, encoding="latin1")), error=function(e) character(0))
+    getnum <- function(key){ ln <- grep(key, lines, value=TRUE, ignore.case=TRUE)[1]
+        if(is.na(ln)) return(NA_real_); suppressWarnings(as.numeric(sub(".*-\\s*", "", ln))) }
+    lt  <- getnum("^LIVE_TIME")
+    det <- if(grepl("cdte", fn, ignore.case=TRUE)) "CdTe"
+           else if(grepl("hpge|_ge_|\\bge\\b", fn, ignore.case=TRUE)) "HPGe" else "SDD"
+    evch <- NA_real_
+    ci <- grep("LABEL - keV|<<CALIBRATION>>", lines, ignore.case=TRUE)
+    if(length(ci)){
+        cal <- lines[seq(ci[1] + 1, min(ci[1] + 8, length(lines)))]
+        pr <- lapply(strsplit(trimws(cal), "[ \t]+"), function(p) suppressWarnings(as.numeric(p)))
+        pr <- do.call(rbind, pr[vapply(pr, function(v) length(v) >= 2 && all(is.finite(v[1:2])), logical(1))])
+        if(!is.null(pr) && nrow(pr) >= 2 && diff(pr[1:2, 1]) != 0) evch <- diff(pr[1:2, 2]) / diff(pr[1:2, 1])
+    }
+    data.frame(Spectrum=fn, eVCh=evch, LiveTime=if(is.finite(lt)) round(lt, 2) else NA_real_,
+               TubeVoltage=NA_real_, TubeAnode=NA_character_, TubeFilter=NA_character_,
+               TubeFilterStack=NA_character_, DetectorType=det, stringsAsFactors=FALSE)
+}
+
+# Hitachi (.txt) metadata: eVCh from the "Energy Calibration:" slope and LiveTime from "Live Time:". Tube
+# kV/filter are not in the file; Hitachi handhelds are Rh anode / SDD.
+txtFrameMetadata <- function(filepath, filename=NULL){
+    if(is.null(filename)) filename <- basename(filepath)
+    fn <- make.names(gsub("[.]txt$", "", filename, ignore.case=TRUE))
+    # Hitachi puts the "Live Time:" / "Energy Calibration:" lines AFTER the 2048-channel data block, so read
+    # the whole (small) file, not just the head.
+    lines <- tryCatch(suppressWarnings(readLines(filepath, warn=FALSE, encoding="latin1")), error=function(e) character(0))
+    evch <- NA_real_
+    cal_ln <- grep("Energy Calibration:", lines, value=TRUE, ignore.case=TRUE)[1]
+    if(!is.na(cal_ln)){ ec <- tryCatch(extract_hitachi_energy_calibration(cal_ln), error=function(e) NULL)
+        if(!is.null(ec) && is.finite(ec$slope)) evch <- ec$slope }
+    lt_ln <- grep("Live Time:", lines, value=TRUE, ignore.case=TRUE)[1]
+    lt <- if(!is.na(lt_ln)) suppressWarnings(as.numeric(gsub("[^0-9.]", "", sub(".*Live Time:", "", lt_ln)))) else NA_real_
+    data.frame(Spectrum=fn, eVCh=evch, LiveTime=if(is.finite(lt)) round(lt, 2) else NA_real_,
+               TubeVoltage=NA_real_, TubeAnode=deconvolution_instrument_anode("Hitachi"),
+               TubeFilter=NA_character_, TubeFilterStack=NA_character_, DetectorType="SDD", stringsAsFactors=FALSE)
+}
+
+# Iterate a per-file metadata builder over an uploaded fileInput frame (shiny inFile: datapath/name columns).
+fileMetadataProcess <- function(inFile=NULL, builder){
+    if(is.null(inFile)) return(NULL)
+    dl <- pblapply(seq_len(nrow(inFile)), function(x)
+        tryCatch(builder(inFile[x, "datapath"], inFile[x, "name"]), error=function(e) NULL))
+    dl <- Filter(Negate(is.null), dl); if(!length(dl)) return(NULL)
+    as.data.frame(data.table::rbindlist(dl, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
 }
 
 fullSpectraDataTableProcess <- function(inFile=NULL, gainshiftvalue=0){
@@ -1848,6 +1938,11 @@ readPDZMetadata <- function(filepath, filename=NULL) {
             DeadTimePct = g("dead_time_pct"),
             TubeVoltage = spec_meta$tube_voltage_kV,
             TubeCurrent = g("tube_current_uA"),
+            # Anode and detector are NOT encoded in the PDZ format; they are instrument-known. PDZ is a Bruker
+            # handheld (Tracer/Titan family) -> Rh anode, silicon-drift detector. Stamped so the physics
+            # controls can auto-populate (and switch off "legacy") on import. Editable in the UI if wrong.
+            TubeAnode = deconvolution_instrument_anode("Bruker"),
+            DetectorType = "SDD",
             Vacuum = g("vacuum"),
             # primary beam filter for the (currently single-filter) tube model; full stack kept for later use
             TubeFilter = if(length(filters)) filters[1] else NA_character_,
