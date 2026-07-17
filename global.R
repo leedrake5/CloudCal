@@ -108,7 +108,7 @@ if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 # so tryCatch(..., error=...) misses the common case. Verify by checking the
 # installed version afterward, and fall back to remotes::install_github if the
 # hosted archive didn't land.
-required_version <- "2.0.2"
+required_version <- "2.0.3"
 
 installed_version <- function(pkg) {
     if (pkg %in% rownames(installed.packages())) as.character(packageVersion(pkg)) else NA_character_
