@@ -1058,8 +1058,13 @@ shinyServer(function(input, output, session) {
         anode_param  <- isolate(input$deconvolutiontubeanode); if(!is.null(anode_param) && anode_param %in% c("", "None")) anode_param <- NULL
         det_param    <- isolate(input$deconvolutiondetector);  if(!is.null(det_param) && det_param %in% c("", "Auto")) det_param <- NULL
         thick_param  <- isolate(input$deconvolutionthickness)
-        mass_param   <- isTRUE(isolate(input$deconvolutionmass))   # FP $Mass gate (off by default)
-        physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param), error=function(e) list())
+        mass_param   <- isolate(input$deconvolutionmass); if(is.null(mass_param) || mass_param=="") mass_param <- "off"   # FP $Mass mode: off/relative/full
+        filter_param <- isolate(input$deconvolutiontubefilter)     # beam-filter stack (reviewed in the UI)
+        env_param    <- isolate(input$deconvolutionenvironment); if(is.null(env_param) || env_param=="") env_param <- "air_pp"
+        physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param, filter=filter_param, environment=env_param), error=function(e) list())
+        # Per-spectrum LiveTime (named by cleaned Spectrum) for the full-FP $Mass count-space LOD filter.
+        # NULL when metadata carries no LiveTime -> the LOD falls back to the col-max signal filter.
+        lt_param <- tryCatch(deconvolution_livetime_lookup(isolate(myMetaData())), error=function(e) NULL)
         print("Starting deconvolution")
 
         # Cache dataHold() once - it was being called 8+ times in this function
@@ -1070,9 +1075,9 @@ shinyServer(function(input, output, session) {
         deconvolution_data <- if(is.null(input$file1)){
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 tryCatch(
-                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param),
+                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param, livetime=lt_param),
                     error=function(e) tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param, livetime=lt_param),
                         error=function(e) NULL
                     )
                 )
@@ -1081,9 +1086,9 @@ shinyServer(function(input, output, session) {
                     calMemory$Calibration$Deconvoluted
                 } else {
                     tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param, livetime=lt_param),
                         error=function(e) tryCatch(
-                            spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param),
+                            spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param, livetime=lt_param),
                             error=function(e) NULL
                         )
                     )
@@ -1091,9 +1096,9 @@ shinyServer(function(input, output, session) {
             }
         } else {
            tryCatch(
-               spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param),
+               spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param, livetime=lt_param),
                error=function(e) tryCatch(
-                   spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param),
+                   spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param, livetime=lt_param),
                    error=function(e) NULL
                )
            )
@@ -1160,14 +1165,17 @@ shinyServer(function(input, output, session) {
             anode_param <- input$deconvolutiontubeanode; if(!is.null(anode_param) && anode_param %in% c("", "None")) anode_param <- NULL
             det_param   <- input$deconvolutiondetector;  if(!is.null(det_param) && det_param %in% c("", "Auto")) det_param <- NULL
             thick_param <- input$deconvolutionthickness
-            mass_param  <- isTRUE(input$deconvolutionmass)   # FP $Mass gate (off by default)
-            physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param), error=function(e) list())
+            mass_param  <- input$deconvolutionmass; if(is.null(mass_param) || mass_param=="") mass_param <- "off"   # FP $Mass mode: off/relative/full
+            filter_param <- input$deconvolutiontubefilter    # beam-filter stack (reviewed in the UI)
+            env_param    <- input$deconvolutionenvironment; if(is.null(env_param) || env_param=="") env_param <- "air_pp"
+            physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param, filter=filter_param, environment=env_param), error=function(e) list())
+            lt_param <- tryCatch(deconvolution_livetime_lookup(myMetaData()), error=function(e) NULL)   # LiveTime for the $Mass LOD
 
             new_decon <- withProgress(message="Deconvoluting with current parameters...", value=0.5, {
                 tryCatch(
-                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param),
+                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param, livetime=lt_param),
                     error=function(e) tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param, livetime=lt_param),
                         error=function(e) NULL
                     )
                 )
@@ -1674,15 +1682,31 @@ shinyServer(function(input, output, session) {
         .deconvPhysics <- reactive({
             if("Deconvoluted" %in% names(calMemory$Calibration)) deconvolution_physics_from_params(deconvolutionFunnel()) else list()
         })
+        # Phase 0 auto-inference: representative instrument settings read from the imported file metadata
+        # (tube kV, beam filter, ...), used to PRE-SEED physics controls when the calibration has no
+        # persisted value yet. Prefers the current import's metadata, falling back to a loaded calibration's.
+        .deconvInferredMeta <- reactive({
+            md <- tryCatch(myMetaData(), error=function(e) NULL)
+            if(is.null(md) || !is.data.frame(md) || nrow(md) == 0)
+                md <- tryCatch(calMemory$Calibration$SpectraMetadata, error=function(e) NULL)
+            deconvolution_infer_from_metadata(md)
+        })
         output$deconvolutionmodeui <- renderUI({
             p <- .deconvPhysics(); sel <- if(!is.null(p$.mode)) p$.mode else "legacy"
             deconvolutionModeUI(selection=sel)
         })
         output$deconvolutionbeamenergyui <- renderUI({
-            p <- .deconvPhysics(); deconvolutionBeamEnergyUI(selection=if(!is.null(p$beam_energy_kev)) p$beam_energy_kev else NULL)
+            p <- .deconvPhysics(); inf <- .deconvInferredMeta()
+            sel <- if(!is.null(p$beam_energy_kev)) p$beam_energy_kev else inf$kv   # persisted first, then inferred from file
+            deconvolutionBeamEnergyUI(selection=sel)
         })
         output$deconvolutiontubeanodeui <- renderUI({
             p <- .deconvPhysics(); deconvolutionTubeAnodeUI(selection=if(!is.null(p$tube_anode)) p$tube_anode else "None")
+        })
+        output$deconvolutiontubefilterui <- renderUI({
+            p <- .deconvPhysics(); inf <- .deconvInferredMeta()
+            sel <- if(!is.null(p$tube_filter)) p$tube_filter else inf$filter_stack   # persisted first, then the inferred stack
+            deconvolutionTubeFilterUI(selection=sel)
         })
         output$deconvolutiondetectorui <- renderUI({
             p <- .deconvPhysics(); deconvolutionDetectorUI(selection=if(!is.null(p$detector_type)) p$detector_type else "Auto")
@@ -1690,9 +1714,15 @@ shinyServer(function(input, output, session) {
         output$deconvolutionthicknessui <- renderUI({
             p <- .deconvPhysics(); deconvolutionThicknessUI(selection=if(!is.null(p$active_thickness_um)) p$active_thickness_um else 450)
         })
+        output$deconvolutionenvironmentui <- renderUI({
+            p <- .deconvPhysics()
+            deconvolutionEnvironmentUI(selection=if(!is.null(p$.environment)) p$.environment else "air_pp")
+        })
         output$deconvolutionmassui <- renderUI({
+            fid <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$MassFidelity, error=function(e) NULL)
             has_mass <- "Deconvoluted" %in% names(calMemory$Calibration) && !is.null(calMemory$Calibration$Deconvoluted$Mass)
-            deconvolutionMassUI(selection=isTRUE(has_mass))
+            sel <- if(!is.null(fid) && nzchar(fid)) fid else if(isTRUE(has_mass)) "relative" else "off"
+            deconvolutionMassUI(selection=sel)
         })
 
             

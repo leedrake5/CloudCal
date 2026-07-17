@@ -479,19 +479,29 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
       DT_history <- rbind(DT_history, cbind(This_Par, Value=NA_real_, Round=i), fill=TRUE)
     }
 
-    # Evaluate FUN quietly: suppress its printed output/messages but KEEP the
-    # list(Score, Pred) return value (capture.output() alone returns the printed
-    # TEXT, discarding the value -- that was a bug). Time it for the verbose log.
-    # In debug mode a FUN error propagates for a traceback instead of NULL.
+    # Evaluate FUN but KEEP everything it emits so a failed round can be
+    # explained: the list(Score, Pred) return value, its printed output, and any
+    # warnings (muffled from the console on success, surfaced on failure). Only
+    # messages stay suppressed (usually progress noise). In debug mode a thrown
+    # error still propagates with a traceback via guard().
+    .fun_out <- NULL
+    .fun_log <- character(0)
+    .warnbox <- new.env(parent = emptyenv()); .warnbox$w <- character(0)
     This_Time <- system.time(
       This_Score_Pred <- guard({
-        .fun_out <- NULL
-        suppressMessages(suppressWarnings(capture.output(
-          .fun_out <- do.call(FUN, as.list(This_Par))
-        )))
+        .fun_log <- withCallingHandlers(
+          suppressMessages(capture.output(
+            .fun_out <- do.call(FUN, as.list(This_Par))
+          )),
+          warning = function(w) {
+            .warnbox$w <- c(.warnbox$w, conditionMessage(w))
+            invokeRestart("muffleWarning")
+          }
+        )
         .fun_out
       }, step = NULL, fallback = NULL)
     )
+    .fun_warn <- .warnbox$w
 
     # Human-readable "param=value, ..." for the tested point (compact: integers
     # print whole, continuous to 5 sig figs), so the log shows WHERE we sampled.
@@ -505,10 +515,29 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
 
     if (is.null(This_Score_Pred) || is.null(This_Score_Pred$Score)) {
       DT_history[i, Value := NA_real_]
-      Error_DT <- rbind(Error_DT, data.table(Round=i, Step="FUN", Message="Returned NULL or missing Score"))
+      # Explain WHY: NULL result vs a result that lacks a usable $Score, plus
+      # what FUN actually returned (so you can see if the shape is wrong).
+      reason <- if (is.null(This_Score_Pred)) {
+        "FUN returned NULL (it caught/swallowed an error, or produced no value)"
+      } else {
+        sprintf("FUN returned no $Score (got %s%s)",
+                paste(class(This_Score_Pred), collapse = "/"),
+                if (!is.null(names(This_Score_Pred)))
+                  paste0(" with names: ", paste(names(This_Score_Pred), collapse = ", "))
+                else "")
+      }
+      Error_DT <- rbind(Error_DT, data.table(Round=i, Step="FUN", Message=reason))
       Pred_list[[i]] <- NULL
-      if (verbose) cat(sprintf("Round %d FAILED (%.2fs) | %s\n",
-                               i, This_Time["elapsed"], par_str))
+      if (verbose) {
+        cat(sprintf("Round %d FAILED (%.2fs) | %s\n", i, This_Time["elapsed"], par_str))
+        cat("   why:", reason, "\n")
+        if (length(.fun_warn))
+          cat(paste0("   FUN warning: ", utils::tail(.fun_warn, 5)), sep = "\n")
+        if (length(.fun_log)) {
+          cat("   FUN output (last lines):\n")
+          cat(paste0("     ", utils::tail(.fun_log, 15)), sep = "\n"); cat("\n")
+        }
+      }
     } else {
       DT_history[i, Value := This_Score_Pred$Score]
       Pred_list[[i]] <- This_Score_Pred$Pred
@@ -594,7 +623,8 @@ BayesianOptimizationDebug <- function(FUN, bounds, init_grid_dt = NULL, init_poi
 #   debug        FALSE = skip bad runs with a warning; TRUE = raise (traceback).
 #
 # Returns a data.frame: [binned hyperparameters..., <one column per source>,
-# N_Sources, Mean], Mean last.
+# N_Sources, Mean, SD], with Mean then SD last (SD = spread of the metric across
+# sources; NA when only one source contributed).
 # ---------------------------------------------------------------------------
 mergeOptRes <- function(..., .list = NULL, digits = 3, agg = max,
                         min_sources = 1, value_col = "Value",
@@ -701,13 +731,17 @@ mergeOptRes <- function(..., .list = NULL, digits = 3, agg = max,
     val_mat <- as.matrix(merged[, src, drop = FALSE])
     merged[["N_Sources"]] <- rowSums(!is.na(val_mat))
     merged[["Mean"]] <- rowMeans(val_mat, na.rm = TRUE)
+    # Spread of the metric across sources (NA where only one source contributed,
+    # since SD is undefined for a single value) -- high SD = the setting works on
+    # some instruments but not others, low SD = it generalises evenly.
+    merged[["SD"]] <- apply(val_mat, 1, function(v) stats::sd(v, na.rm = TRUE))
 
     merged <- merged[merged[["N_Sources"]] >= min_sources, , drop = FALSE]
     if (sort) merged <- merged[order(-merged[["Mean"]]), , drop = FALSE]
     rownames(merged) <- NULL
 
-    # Hyperparameters, per-source metrics, N_Sources, then Mean last.
-    merged[, c(param_cols, src, "N_Sources", "Mean"), drop = FALSE]
+    # Hyperparameters, per-source metrics, N_Sources, then Mean, SD last.
+    merged[, c(param_cols, src, "N_Sources", "Mean", "SD"), drop = FALSE]
 }
 
 
@@ -4308,6 +4342,15 @@ deconvolutionTubeAnodeUI <- function(selection="None"){
         choices=c("None", "Rh", "Ag", "W", "Mo", "Au", "Pd", "Cr", "Ta", "Cu"), selected=selection)
 }
 
+# Primary-beam filter that hardens the tube spectrum. Free text so a filter stack can be given, e.g.
+# "Cu 100; Ti 25; Al 300" (each "Element thickness_um"; ';' or ',' separated; blank = none). Auto-seeded
+# from the imported file's filter metadata when available -- REVIEW/EDIT before use, since a handheld may
+# report filter-wheel contents rather than the single in-beam filter for a given measurement.
+deconvolutionTubeFilterUI <- function(selection=NULL){
+    textInput('deconvolutiontubefilter', "Beam filter (e.g. 'Cu 100; Ti 25; Al 300'; blank = none)",
+        value=if(is.null(selection)) "" else selection)
+}
+
 # Detector type (energy-dependent resolution + efficiency). "Auto" follows the instrument mode
 # (SDD for handheld/SEM/PIXE, HPGe for high-energy); the ubiquitous default is a silicon-drift detector.
 deconvolutionDetectorUI <- function(selection="Auto"){
@@ -4324,11 +4367,44 @@ deconvolutionThicknessUI <- function(selection=450){
         value=selection, min=1, max=20000, step=10)
 }
 
-# FP mass-estimate gate. Off by default: computing $Mass adds one xrf_fp_sensitivity() call per batch
-# (~a couple of seconds, independent of spectrum count). When on, spectra_gls_deconvolute also returns a
-# $Mass table (observed areal mass per element = peak_area / FP sensitivity), organised like $Areas.
-deconvolutionMassUI <- function(selection=FALSE){
-    checkboxInput('deconvolutionmass', "Estimate mass (FP) - adds a $Mass table", value=selection)
+# Measurement-environment presets: the atmosphere over the sample->detector path plus any polymer snout
+# window, which attenuate low-energy lines. There's no reliable way to read the exact path/window from a
+# file, so we default to the most common handheld setup (air + a 4 um polypropylene window) and let the
+# user revise. Each maps to (atmosphere, air_path_cm, window) consumed by xrf_detector_efficiency.
+deconvolution_environment_presets <- function(){
+    c("Air + polypropylene window (4 um)"="air_pp",
+      "Helium flush + polypropylene (4 um)"="helium",
+      "Air + Kapton window (8 um)"="air_kapton",
+      "Air only (no window)"="air_only",
+      "Vacuum"="vacuum",
+      "None (ignore path)"="none")
+}
+deconvolution_environment_config <- function(preset){
+    switch(as.character(preset),
+        air_pp     = list(atmosphere="Air",    air_path_cm=0.5, window="polypropylene 4"),
+        helium     = list(atmosphere="He",     air_path_cm=0.5, window="polypropylene 4"),
+        air_kapton = list(atmosphere="Air",    air_path_cm=0.5, window="Kapton 8"),
+        air_only   = list(atmosphere="Air",    air_path_cm=0.5, window=NULL),
+        vacuum     = list(atmosphere="vacuum", air_path_cm=0,   window=NULL),
+        list(atmosphere=NULL, air_path_cm=NULL, window=NULL))   # "none" / unknown -> no path model
+}
+# Measurement environment selector. Defaults to the most common handheld case; user revises otherwise.
+deconvolutionEnvironmentUI <- function(selection="air_pp"){
+    selectInput('deconvolutionenvironment', "Measurement environment (path + window)",
+        choices=deconvolution_environment_presets(), selected=selection)
+}
+
+# FP mass-estimate control. Off by default. "Relative" divides areas by an FP sensitivity computed once per
+# batch (fast; matrix-decoupled A/S). "Full FP" runs a per-spectrum fundamental-parameters solve with
+# self-absorption + secondary/tertiary fluorescence (slower, but correct for heavy matrices where secondary
+# fluorescence -- e.g. Cu enhancing Fe/Mn/Cr in a bronze -- biases the relative estimate). Adds a $Mass table.
+deconvolutionMassUI <- function(selection="off"){
+    # accept the legacy logical (TRUE/FALSE) as well as the new mode strings
+    sel <- if(isTRUE(selection)) "relative" else if(isFALSE(selection) || is.null(selection)) "off" else as.character(selection)
+    selectInput('deconvolutionmass', "Estimate mass (FP)",
+        choices=c("Off"="off", "Relative (fast)"="relative",
+                  "Full FP (self-absorption + secondary fluor.; slower)"="full"),
+        selected=sel)
 }
 
 
@@ -9557,7 +9633,7 @@ intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
 # Map an instrument mode to the optional xrftools deconvolution arguments (the `physics=` bundle for
 # spectra_gls_deconvolute / deconvolute_complete). `kv` = tube voltage or accelerating voltage;
 # `anode` = tube anode element (handheld / high-energy). "legacy" reproduces historical behaviour.
-instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detector_type=NULL, active_thickness_um=NULL){
+instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detector_type=NULL, active_thickness_um=NULL, filter=NULL, environment="air_pp"){
     mode <- match.arg(as.character(mode), c("legacy","handheld","sem","pixe","high_energy"))
     dt <- function(d) if(is.null(detector_type) || is.na(detector_type) || detector_type=="") d else detector_type
     base <- switch(mode,
@@ -9586,6 +9662,19 @@ instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detec
     # stripped .mode tag) so it reproduces the historical result byte-for-byte even if the always-visible
     # beam-energy field happens to hold a value from a mode the user was previously exploring.
     if(mode != "legacy" && !is.null(kv) && !is.na(kv)) base$beam_energy_kev <- kv
+    # Primary-beam filter (xrftools "Sym um" string, e.g. the PDZ-inferred "Cu 100"). Non-legacy modes only.
+    if(mode != "legacy" && !is.null(filter) && !is.na(filter) && nzchar(trimws(as.character(filter)))){
+        base$tube_filter <- as.character(filter)
+    }
+    # Measurement environment (atmosphere + air path + polymer snout window) for the efficiency model.
+    # Non-legacy modes only; defaults to the most common handheld setup (air + 4 um polypropylene).
+    if(mode != "legacy"){
+        env <- deconvolution_environment_config(environment)
+        if(!is.null(env$atmosphere))  base$atmosphere  <- env$atmosphere
+        if(!is.null(env$air_path_cm)) base$air_path_cm <- env$air_path_cm
+        if(!is.null(env$window))      base$window      <- env$window
+        base$.environment <- as.character(environment)   # UI-only tag to restore the selector
+    }
     base$.mode <- mode   # UI-only metadata (stripped before the deconvolution call; used to restore the selector)
     base
 }
@@ -9594,6 +9683,25 @@ instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detec
 # have no Physics field -> empty list -> historical behaviour reproduced).
 deconvolution_physics_from_params <- function(params){
     if(is.list(params) && !is.null(params$Physics) && is.list(params$Physics)) params$Physics else list()
+}
+
+# Auto-inference (Phase 0): pull representative instrument settings out of an imported SpectraMetadata frame
+# so the physics controls can be pre-seeded from the file. Returns NULLs for anything not present, so callers
+# fall through to UI / preset defaults. Extended in later phases (geometry, air path, detector cal, ...).
+deconvolution_infer_from_metadata <- function(md){
+    out <- list(kv=NULL, filter=NULL, filter_stack=NULL, anode=NULL)
+    if(is.null(md) || !is.data.frame(md) || nrow(md) == 0) return(out)
+    num1 <- function(col){ if(!col %in% names(md)) return(NULL)
+        v <- suppressWarnings(as.numeric(md[[col]])); v <- v[is.finite(v) & v > 0]
+        if(length(v)) as.numeric(stats::median(v)) else NULL }
+    chr1 <- function(col){ if(!col %in% names(md)) return(NULL)
+        v <- unique(as.character(md[[col]])); v <- v[!is.na(v) & nzchar(trimws(v))]
+        if(length(v) == 1) v else NULL }   # only infer when unambiguous across the imported set
+    out$kv           <- num1("TubeVoltage")
+    out$filter       <- chr1("TubeFilter")        # primary filter only
+    out$filter_stack <- chr1("TubeFilterStack")   # full "Cu 100; Ti 25; Al 300" stack (modelled by xrf_tube)
+    out$anode        <- chr1("TubeAnode")          # not carried by PDZ yet; harmless when absent
+    out
 }
 
 # Special (non-element) deconvolution channels usable as calibration slope/intercept covariates: the SNIP
@@ -9610,7 +9718,159 @@ deconvolution_extra_cols <- function(areas){
 # xrf_fp_sensitivity and the entire Areas table is divided by it (one FP call per batch, not one per
 # spectrum). Returns a frame organised like $Areas (Spectrum + element columns), or NULL on any failure
 # (e.g. an older xrftools without xrf_fp_sensitivity) so the deconvolution never fails just to build $Mass.
-deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL, fallback_energy=NULL){
+# Crustal abundance of the elements (ppm by mass, upper continental crust; ~0 for synthetic / short-lived
+# nuclides). Used as a Bayesian prior in the full-FP phantom filter: a rarer element must clear a higher
+# detection bar than a common one, and physically-impossible elements (Tc, Pm, Po, At, Rn, Ra, Ac, Fr, Pa,
+# Np, Pu) get an essentially infinite bar. Standard crustal-abundance values (CRC / USGS).
+.xrf_crustal_abundance_ppm <- c(
+  O=461000, Si=282000, Al=82300, Fe=56300, Ca=41500, Na=23600, Mg=23300, K=20900, Ti=5650, H=1400,
+  P=1050, Mn=950, F=585, Ba=425, Sr=370, S=350, C=200, Zr=165, Cl=145, V=120, Cr=102, Ni=84, Zn=70,
+  Cu=60, Ce=66.5, Nd=41.5, La=39, Y=33, Co=25, Sc=22, Li=20, Nb=20, Ga=19, Pb=14, B=10, Th=9.6, Pr=9.2,
+  Sm=7.05, Gd=6.2, Dy=5.2, Er=3.5, Yb=3.2, Hf=3, Cs=3, Be=2.8, Sn=2.3, U=2.7, Br=2.4, Ta=2, Eu=2,
+  As=1.8, Ge=1.5, Ho=1.3, W=1.25, Mo=1.2, Tb=1.2, Tl=0.85, Lu=0.8, Tm=0.52, I=0.45, In=0.25, Sb=0.2,
+  Cd=0.15, Hg=0.085, Ag=0.075, Se=0.05, Ar=1.2, Pd=0.015, Bi=0.009, Os=0.0015, Pt=0.005, Au=0.004,
+  Te=0.001, Ru=0.001, Rh=0.001, Ir=0.001, Re=0.0007, Kr=1e-4, Xe=3e-5,
+  Tc=1e-9, Pm=1e-9, Po=2e-10, At=1e-12, Rn=4e-13, Ra=9e-7, Ac=5e-10, Pa=1.4e-6, Fr=1e-18, Np=1e-12, Pu=1e-12)
+
+# Full-FP phantom filter. The "fit everything" deconvolution invents dozens of spurious elements at
+# baseline-noise level (and worse, at degenerate overlaps: Tb Lalpha+Lbeta land on Fe Kalpha+Kbeta, actinide
+# L-lines land on the real Th/U/Pb/Rb lines) which poison the per-spectrum self-absorption matrix. This gates
+# each candidate element, per spectrum, through four stacked Bayesian checks -- each catches what the previous
+# cannot -- and returns which (spectrum, element) cells are real plus a per-cell area cap:
+#   (1) LOD          -- net counts AND fitted-area both >= lod_sigma over the primary line's Poisson background.
+#   (2) line-ratio   -- the element's supportable amplitude is bounded by its LEAST-supported *detectable* line
+#                       (a = min over lines of (net + cushion)/p, p = rel_intensity x detector_efficiency, so
+#                       filtered-out low-E lines don't falsely veto). A phantom can borrow a neighbour's strong
+#                       line but not reproduce its own distinguishing lines -> capped near zero (Tb 370->5 sigma).
+#   (3) attribution  -- the element's fitted share of its own window vs all competing fitted components,
+#                       INCLUDING the Compton/Rayleigh scatter at the KNOWN tube-anode energy. Kills single-line
+#                       parasites sitting under a dominant feature (Co under Fe Kbeta; Rh == the anode line).
+#   (4) abundance    -- the (2) significance must clear a crustal-abundance-scaled bar: 3 + 1.5*log10(400/ppm),
+#                       clamped [3,40]. Fe -> 3 sigma; Tb -> 6.8; Po -> 21. Removes the impossible elements.
+# `cap` (<=1) scales a kept element's fitted area down to what its own line ratios actually support, so a
+# barely-surviving degenerate (Tb) contributes bounded mass instead of poisoning the matrix at its stolen area.
+deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spectra_raw, livetime,
+                                          physics, beam, lod_sigma=3){
+  det <- if(!is.null(physics$detector_type)) physics$detector_type else "SDD"
+  sig_kev <- function(E){ s <- tryCatch(xrf_detector_sigma_kev(E, det), error=function(e) NA_real_)
+      if(!is.finite(s) || s<=0) s <- 0.05 + 0.0025*E; s }
+  eff_at <- function(E){ e <- tryCatch(xrf_detector_efficiency(E, det, active_thickness_um=physics$active_thickness_um,
+        air_path_cm=physics$air_path_cm, atmosphere=if(!is.null(physics$atmosphere)) physics$atmosphere else "Air",
+        window=physics$window), error=function(err) rep(1, length(E)))
+      e[!is.finite(e) | e<0] <- 0; e }
+  # per-element detectable line clusters (merge lines within 0.18 keV; keep those expected >= 15% of the primary)
+  cl_of <- function(el){
+    en <- tryCatch(xrf_energies(el, beam_energy_kev=beam), error=function(e) NULL)
+    if(!is.data.frame(en) || !nrow(en)) return(NULL)
+    en <- en[is.finite(en$energy_kev) & en$energy_kev>1.5 & en$energy_kev<(beam-1) & en$relative_peak_intensity>=0.02, , drop=FALSE]
+    if(!nrow(en)) return(NULL)
+    o <- order(en$energy_kev); E <- en$energy_kev[o]; r <- en$relative_peak_intensity[o]
+    grp <- cumsum(c(1, diff(E) > 0.18)); Ec <- as.numeric(tapply(E*r, grp, sum)/tapply(r, grp, sum)); rc <- as.numeric(tapply(r, grp, sum))
+    p <- rc * eff_at(Ec); o2 <- order(-p); Ec <- Ec[o2]; p <- p[o2]
+    if(!length(p) || !is.finite(p[1]) || p[1]<=0) return(NULL)
+    # keep lines expected >= 5% of the primary: the DISTINGUISHING lines (an element's weak minor lines a
+    # phantom can't fake -- Tb Lbeta2/Lgamma) are the ones refutation needs, so the cutoff must stay low.
+    p <- p/p[1]; ok <- p >= 0.05
+    list(E=Ec[ok], p=p[ok], Eprim=Ec[1], sigprim=sig_kev(Ec[1]))
+  }
+  clusters <- lapply(keep, cl_of); names(clusters) <- keep
+  valid <- vapply(clusters, Negate(is.null), logical(1))
+  ab_ppm <- function(el){ v <- as.numeric(.xrf_crustal_abundance_ppm[el]); if(length(v)!=1 || is.na(v)) 1e-6 else max(v, 1e-18) }
+  thr_ab <- setNames(vapply(keep, function(el) max(3, min(3 + 1.5*log10(400/ab_ppm(el)), 40)), numeric(1)), keep)
+  abE <- vapply(keep, ab_ppm, numeric(1))
+  compE <- vapply(keep, function(el) if(valid[[el]]) clusters[[el]]$Eprim   else NA_real_, numeric(1))
+  compS <- vapply(keep, function(el) if(valid[[el]]) clusters[[el]]$sigprim else NA_real_, numeric(1))
+  # known-anode scatter competitors: Rayleigh at the (intensity-weighted) anode line, Compton shifted by angle
+  scat <- NULL
+  if(!is.null(physics$tube_anode) && all(c("Compton","Rayleigh") %in% names(area_frame))){
+    aen <- tryCatch(xrf_energies(physics$tube_anode, beam_energy_kev=beam), error=function(e) NULL)
+    if(is.data.frame(aen) && nrow(aen)){
+      aen <- aen[aen$relative_peak_intensity >= 0.1, , drop=FALSE]
+      Eray <- sum(aen$energy_kev*aen$relative_peak_intensity)/sum(aen$relative_peak_intensity)
+      th <- if(!is.null(physics$scatter_angle_deg)) physics$scatter_angle_deg else 135
+      Ecom <- Eray/(1 + (Eray/511)*(1 - cos(th*pi/180)))
+      br <- if(!is.null(physics$compton_broadening)) physics$compton_broadening else 2
+      scat <- list(E=c(Eray, Ecom), S=c(sig_kev(Eray), sig_kev(Ecom)*br))
+    }
+  }
+  lt_num <- suppressWarnings(as.numeric(livetime))
+  lt_named <- if(!is.null(names(livetime))) setNames(lt_num, names(livetime)) else NULL
+  lt_med <- suppressWarnings(stats::median(lt_num[is.finite(lt_num)]))
+  lt_lookup <- function(nm){ v <- if(!is.null(lt_named) && nm %in% names(lt_named)) lt_named[[nm]] else NA_real_
+      if(!is.finite(v)) v <- lt_med; v }
+  bl_by  <- split(baseline_frame[, c("Energy","CPS")], as.character(baseline_frame$Spectrum))
+  raw_by <- split(spectra_raw[, c("Energy","CPS")],    as.character(spectra_raw$Spectrum))
+  specnames <- as.character(area_frame$Spectrum); ns <- nrow(area_frame); nk <- length(keep)
+  pass <- matrix(FALSE, ns, nk, dimnames=list(NULL, keep)); cap <- matrix(1, ns, nk, dimnames=list(NULL, keep))
+  winsum <- function(v, en, E, s){ sum(v[en>=E-1.5*s & en<=E+1.5*s], na.rm=TRUE) }
+  for(i in seq_len(ns)){
+    bl <- bl_by[[specnames[i]]]; rw <- raw_by[[specnames[i]]]
+    if(is.null(bl) || !nrow(bl) || is.null(rw) || !nrow(rw)) next
+    lt_i <- lt_lookup(specnames[i]); if(!is.finite(lt_i) || lt_i<=0) next
+    dE <- suppressWarnings(stats::median(diff(sort(unique(bl$Energy))))); if(!is.finite(dE) || dE<=0) next
+    ben <- bl$Energy; bcps <- bl$CPS; ren <- rw$Energy; rcps <- rw$CPS
+    areas_i <- suppressWarnings(as.numeric(area_frame[i, keep]))
+    sc_area <- if(!is.null(scat)) c(suppressWarnings(as.numeric(area_frame[i,"Rayleigh"])), suppressWarnings(as.numeric(area_frame[i,"Compton"]))) else NULL
+    for(kk in seq_len(nk)){
+      el <- keep[kk]; if(!valid[[el]]) next
+      A <- areas_i[kk]; if(!is.finite(A) || A<=0) next
+      cz <- clusters[[el]]; Ep <- cz$Eprim; sp <- cz$sigprim
+      bgp <- winsum(bcps, ben, Ep, sp) * lt_i; if(!is.finite(bgp) || bgp<=0) next
+      # (1) LOD: net and fitted-area both above the primary line's Poisson noise
+      grossp <- winsum(rcps, ren, Ep, sp) * lt_i; a_prim <- grossp - bgp
+      net_sig <- a_prim/sqrt(bgp); fit_sig <- (A*lt_i/dE)/sqrt(bgp)
+      if(!(is.finite(net_sig) && is.finite(fit_sig) && net_sig>=lod_sigma && fit_sig>=lod_sigma)) next
+      # (2) line-ratio refutation: if a strong detectable line predicts far more counts than observed, the
+      #     element's pattern is refuted (it borrowed a neighbour's line but can't produce its own). A weak
+      #     line lost in noise predicts little, so it cannot refute -- this protects real minor elements.
+      #     a_sup tracks the amplitude the lines jointly support, for the mass cap.
+      refuted <- FALSE; a_sup <- a_prim
+      for(j in seq_along(cz$E)){
+        s_j <- sig_kev(cz$E[j]); bg_j <- winsum(bcps, ben, cz$E[j], s_j)*lt_i
+        net_j <- winsum(rcps, ren, cz$E[j], s_j)*lt_i - bg_j; pred_j <- a_prim*cz$p[j]
+        if(cz$p[j] >= 0.05 && is.finite(pred_j) && pred_j > 0 &&
+           (pred_j - net_j)/sqrt(bg_j + pred_j + 1) >= lod_sigma){ refuted <- TRUE; break }
+        a_sup <- min(a_sup, (net_j + sqrt(max(bg_j,1)))/cz$p[j])
+      }
+      if(refuted) next
+      # (4) abundance-scaled evidence bar: rarer element -> higher sigma required (impossibles need ~infinite)
+      if(!(fit_sig >= thr_ab[[el]])) next
+      # (3) attribution: fitted share of the primary window vs competitors incl. the KNOWN-anode scatter.
+      #     Each element competitor's leak is downweighted by min(1, abundance_D/abundance_E) -- a rarer
+      #     competitor makes a weaker claim on the window -- so the more abundant element wins an overlap.
+      lo <- Ep-1.5*sp; hi <- Ep+1.5*sp
+      own <- A*(pnorm(hi, Ep, sp) - pnorm(lo, Ep, sp)); leak <- 0
+      othr <- which(is.finite(compE) & is.finite(compS)); othr <- othr[othr != kk]
+      if(length(othr)) leak <- leak + sum(pmin(1, abE[othr]/abE[kk]) * areas_i[othr] *
+          (pnorm(hi, compE[othr], compS[othr]) - pnorm(lo, compE[othr], compS[othr])), na.rm=TRUE)
+      if(!is.null(scat) && !is.null(sc_area)) leak <- leak + sum(sc_area*(pnorm(hi, scat$E, scat$S) - pnorm(lo, scat$E, scat$S)), na.rm=TRUE)
+      attrib <- own/(own + leak)
+      if(!(is.finite(attrib) && attrib >= 0.5)) next
+      pass[i,kk] <- TRUE
+      fitted_counts <- A*lt_i/dE
+      cap[i,kk] <- if(is.finite(a_sup) && fitted_counts>0) max(0, min(1, a_sup/fitted_counts)) else 1
+    }
+  }
+  list(pass=pass, cap=cap)
+}
+
+# Build a per-spectrum LiveTime lookup (named numeric, seconds) from an imported metadata frame, for the
+# full-FP $Mass count-space LOD. Names are cleaned to match dataHold()'s Spectrum ids (extension stripped).
+# Returns NULL when no usable LiveTime column is present (the LOD then falls back to the col-max signal filter).
+deconvolution_livetime_lookup <- function(md){
+    if(!is.data.frame(md) || !("LiveTime" %in% names(md))) return(NULL)
+    lt <- suppressWarnings(as.numeric(md$LiveTime))
+    if(!any(is.finite(lt))) return(NULL)
+    if("Spectrum" %in% names(md)){
+        nm <- gsub("\\.(pdz|csv|CSV|spt|mca|spx|spe)$", "", as.character(md$Spectrum))
+        if(length(nm) == length(lt)) return(setNames(lt, nm))
+    }
+    lt                                               # unnamed -> deconvolution_mass_frame uses the batch median
+}
+
+deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL, fallback_energy=NULL,
+                                     mass_min_sensitivity=1e-2, fidelity="relative", mass_full_min_signal=2e-3,
+                                     baseline_frame=NULL, spectra_raw=NULL, livetime=NULL, lod_sigma=3){
     tryCatch({
         element_cols <- setdiff(names(area_frame), c("Spectrum", "Baseline", "Compton", "Rayleigh"))
         if(length(element_cols) == 0) return(NULL)
@@ -9618,7 +9878,7 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
         beam <- pget("beam_energy_kev", if(!is.null(energy_max)) energy_max else fallback_energy)
         if(is.null(beam) || !is.finite(beam)) return(NULL)
         tube_obj <- tryCatch(
-            if(!is.null(physics$tube_anode) && !is.null(physics$tube_kv)) xrf_tube(physics$tube_anode, kv=physics$tube_kv) else NULL,
+            if(!is.null(physics$tube_anode) && !is.null(physics$tube_kv)) xrf_tube(physics$tube_anode, kv=physics$tube_kv, filter=physics$tube_filter) else NULL,
             error=function(e) NULL)
         # Sensitivity uses the run's excitation/detector physics, defaulting to a full-physics estimate
         # (efficiency on, cross-section weighting) so the mass is meaningful even from a legacy fit.
@@ -9634,9 +9894,91 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
         # it, so an older install still builds $Mass (just without the thickness-consistency refinement).
         if("active_thickness_um" %in% names(formals(xrf_fp_sensitivity)))
             sens_args$active_thickness_um <- physics$active_thickness_um
+        # measurement environment (air path / atmosphere / snout window) -- newer xrftools only
+        if("air_path_cm" %in% names(formals(xrf_fp_sensitivity))){
+            sens_args$air_path_cm <- physics$air_path_cm
+            sens_args$atmosphere  <- if(!is.null(physics$atmosphere)) physics$atmosphere else "Air"
+            sens_args$window      <- physics$window
+        }
         S <- do.call(xrf_fp_sensitivity, sens_args)
-        sens <- setNames(S$sensitivity, S$element)[element_cols]           # NA for unexcited elements -> NA mass
-        mass_mat <- sweep(as.matrix(area_frame[, element_cols, drop=FALSE]), 2, sens, "/")
+        sens <- setNames(S$sensitivity, S$element)[element_cols]           # NA for unexcited elements
+        # Detectability floor. An element whose emission line the detector effectively cannot see (below the
+        # window cutoff -- e.g. C at 0.28 keV or O at 0.53 keV on an 8um-Be SDD) or that is barely excited has
+        # a near-zero FP sensitivity. Its fitted peak_area is then just baseline noise, and peak_area /
+        # sensitivity amplifies that into absurd masses (obsidian carbon came out ~1e13). Drop any element
+        # whose sensitivity is below `mass_min_sensitivity` x the strongest element's sensitivity -- these are
+        # not measurable by this instrument, so a mass estimate for them is meaningless rather than merely noisy.
+        smax <- suppressWarnings(max(sens, na.rm=TRUE))
+        keep <- element_cols[is.finite(sens) & sens > 0 & is.finite(smax) & sens >= mass_min_sensitivity * smax]
+        if(length(keep) == 0) return(NULL)
+
+        if(identical(as.character(fidelity), "full")){
+            # Full fidelity: per-spectrum fundamental-parameters solve (self-absorption + secondary/tertiary
+            # fluorescence) via xrf_quantify's un-normalized observed_mass. Slower -- one FP solve per spectrum,
+            # and the matrix couples elements -- but correct for heavy matrices where secondary fluorescence
+            # (e.g. Cu enhancing Fe/Mn/Cr in a bronze) badly biases the relative A/S estimate.
+            #
+            qargs <- list(beam_energy_kev = beam, detector_type = physics$detector_type,
+                be_window_um = physics$be_window_um, dead_layer_um = physics$dead_layer_um,
+                efficiency = pget("efficiency", TRUE), excitation = pget("excitation", "photon"),
+                excitation_weighting = pget("excitation_weighting", "cross_section"),
+                coster_kronig = pget("coster_kronig", TRUE), tube = tube_obj,
+                self_absorption = TRUE, secondary_fluorescence = TRUE, tertiary_fluorescence = TRUE)
+            qf <- names(formals(xrf_quantify))
+            if("active_thickness_um" %in% qf) qargs$active_thickness_um <- physics$active_thickness_um
+            if("air_path_cm" %in% qf){ qargs$air_path_cm <- physics$air_path_cm
+                qargs$atmosphere <- if(!is.null(physics$atmosphere)) physics$atmosphere else "Air"
+                qargs$window <- physics$window }
+            if("incidence_deg" %in% qf && !is.null(physics$incidence_deg)) qargs$incidence_deg <- physics$incidence_deg
+            if("takeoff_deg"  %in% qf && !is.null(physics$takeoff_deg))  qargs$takeoff_deg  <- physics$takeoff_deg
+
+            # Restrict the FP element set to real signal, per spectrum, via the four-gate Bayesian phantom
+            # filter (LOD + line-ratio refutation + abundance-weighted attribution + crustal-abundance prior;
+            # see deconvolution_fp_phantom_gate). The "fit everything" deconvolution invents dozens of spurious
+            # elements that would otherwise poison the self-absorption matrix. `pass` keeps only elements
+            # detected in a given spectrum; `cap` (<=1) scales a barely-surviving degenerate's stolen area down
+            # to what its own line ratios support. Needs per-channel raw + baseline + LiveTime; when any is
+            # missing (metadata-less import, baseline off, older caller) it falls back to the col-max filter.
+            lt_num <- if(!is.null(livetime)) suppressWarnings(as.numeric(livetime)) else numeric(0)
+            use_gate <- is.data.frame(baseline_frame) && all(c("Spectrum","Energy","CPS") %in% names(baseline_frame)) &&
+                        is.data.frame(spectra_raw)  && all(c("Spectrum","Energy","CPS") %in% names(spectra_raw)) &&
+                        any(is.finite(lt_num))
+            pass_mat <- NULL; cap_mat <- NULL
+            if(use_gate){
+                gate <- tryCatch(deconvolution_fp_phantom_gate(area_frame, keep, baseline_frame, spectra_raw,
+                                     livetime, physics, beam, lod_sigma), error=function(e) NULL)
+                if(is.null(gate)) use_gate <- FALSE else {
+                    pass_mat <- gate$pass; cap_mat <- gate$cap
+                    ever <- colSums(pass_mat) > 0
+                    keep <- keep[ever]; pass_mat <- pass_mat[, ever, drop=FALSE]; cap_mat <- cap_mat[, ever, drop=FALSE]
+                    if(length(keep) == 0) return(NULL)
+                }
+            }
+            if(!use_gate){
+                col_max <- vapply(keep, function(el) suppressWarnings(max(as.numeric(area_frame[[el]]), na.rm=TRUE)), numeric(1))
+                gmax <- suppressWarnings(max(col_max, na.rm=TRUE))
+                keep <- keep[is.finite(col_max) & is.finite(gmax) & gmax > 0 & col_max >= mass_full_min_signal * gmax]
+                if(length(keep) == 0) return(NULL)
+            }
+            rows <- lapply(seq_len(nrow(area_frame)), function(i){
+                # per-spectrum element set: only lines detected in THIS spectrum enter the FP solve, so
+                # phantom/absent lines cannot poison this spectrum's self-absorption matrix.
+                els_i <- if(!is.null(pass_mat)) keep[pass_mat[i, ]] else keep
+                if(length(els_i) == 0) return(setNames(rep(NA_real_, length(keep)), keep))
+                ar <- as.numeric(area_frame[i, els_i])
+                if(!is.null(cap_mat)) ar <- ar * as.numeric(cap_mat[i, els_i])   # cap degenerate stolen area
+                pk <- data.frame(element = els_i, peak_area = ar, stringsAsFactors=FALSE)
+                pk <- pk[is.finite(pk$peak_area) & pk$peak_area > 0, , drop=FALSE]
+                if(!nrow(pk)) return(setNames(rep(NA_real_, length(keep)), keep))
+                q <- tryCatch(do.call(xrf_quantify, c(list(object = pk), qargs)), error = function(e) NULL)
+                if(is.null(q) || !("observed_mass" %in% names(q))) return(setNames(rep(NA_real_, length(keep)), keep))
+                setNames(q$observed_mass[match(keep, q$element)], keep)   # NA for below-LOD / absent this spectrum
+            })
+            mass_mat <- do.call(rbind, rows)
+        } else {
+            # Relative (fast): the sensitivity is spectrum-independent, so divide the whole Areas table once.
+            mass_mat <- sweep(as.matrix(area_frame[, keep, drop=FALSE]), 2, sens[keep], "/")
+        }
         data.frame(Spectrum = area_frame$Spectrum, mass_mat, check.names=FALSE, stringsAsFactors=FALSE)
     }, error = function(e){ warning("Could not compute FP $Mass table: ", conditionMessage(e)); NULL })
 }
@@ -9654,8 +9996,9 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
     detector_type=NULL, fano=NULL, epsilon_ev=NULL, noise_fwhm_ev=NULL,
     # --- detector response (all off by default) ---
     efficiency=FALSE, escape=FALSE, be_window_um=NULL, dead_layer_um=NULL, active_thickness_um=NULL,
+    air_path_cm=NULL, atmosphere="Air", window=NULL,
     # --- scatter (needs a tube) ---
-    tube_anode=NULL, tube_kv=NULL, scatter=NULL, scatter_angle_deg=135, compton_broadening=2,
+    tube_anode=NULL, tube_kv=NULL, tube_filter=NULL, scatter=NULL, scatter_angle_deg=135, compton_broadening=2,
     # --- line shape / engine ---
     tail=0, step=0, beta=NULL, refine_calibration=FALSE, sum_peaks=FALSE, pileup_tau=NULL,
     cache_templates=TRUE){
@@ -9666,6 +10009,14 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
     if(is.null(beam_energy_kev)){
         beam_energy_kev <- energy_max
     }
+    # The Gaussian smoothing filter needs an ODD, integer number of taps, and the SNIP/smooth iteration
+    # counts must be whole numbers. A caller optimizing these over a continuous range (e.g. width = 20.327)
+    # would otherwise build an even-length filter that crashes the smoother. Snap them to valid values.
+    if(is.numeric(width) && length(width) == 1 && is.finite(width)){
+        width <- max(1, 2 * round((width - 1) / 2) + 1)   # nearest odd integer >= 1
+    }
+    if(is.numeric(smooth_iter) && is.finite(smooth_iter)) smooth_iter <- max(0L, as.integer(round(smooth_iter)))
+    if(is.numeric(snip_iter)   && is.finite(snip_iter))   snip_iter   <- max(0L, as.integer(round(snip_iter)))
     if(is.data.frame(spectra_frame)){
         spectrum_name <- unique(spectra_frame$Spectrum)
         spectra_tibble <- tibble_convert(spectra_frame)
@@ -9677,9 +10028,10 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
                 coster_kronig=coster_kronig),
             error=function(e) xrf_energies("everything", beam_energy_kev=beam_energy_kev))
 
-        # Tube / geometry for optional Rayleigh-Compton scatter templates.
+        # Tube / geometry for optional Rayleigh-Compton scatter templates. A primary-beam filter (e.g. the
+        # PDZ-inferred "Cu 100") hardens the excitation spectrum; passed through to xrf_tube when present.
         tube <- tryCatch(
-            if(!is.null(tube_anode) && !is.null(tube_kv)) xrf_tube(tube_anode, kv=tube_kv) else NULL,
+            if(!is.null(tube_anode) && !is.null(tube_kv)) xrf_tube(tube_anode, kv=tube_kv, filter=tube_filter) else NULL,
             error=function(e) NULL)
         geometry <- tryCatch(xrf_geometry(scatter_angle_deg=scatter_angle_deg), error=function(e) NULL)
 
@@ -9698,6 +10050,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
                     noise_fwhm_ev = noise_fwhm_ev, nonneg = nonneg, weighting = weighting,
                     efficiency = efficiency, escape = escape, be_window_um = be_window_um,
                     dead_layer_um = dead_layer_um, active_thickness_um = active_thickness_um,
+                    air_path_cm = air_path_cm, atmosphere = atmosphere, window = window,
                     tube = tube, geometry = geometry, scatter = scatter,
                     compton_broadening = compton_broadening, tail = tail, step = step, beta = beta,
                     refine_calibration = refine_calibration, sum_peaks = sum_peaks,
@@ -9725,7 +10078,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
 
 }
 
-spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, cores=1, physics=list(), mass=FALSE){
+spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, cores=1, physics=list(), mass=FALSE, livetime=NULL){
     spectra_frame$Spectrum <- as.character(spectra_frame$Spectrum)
     spectra_frame$Energy <- as.numeric(spectra_frame$Energy)
     spectra_frame$CPS <- as.numeric(spectra_frame$CPS)
@@ -9793,21 +10146,25 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     }
     new_spectra_frame <- as.data.frame(rbindlist(only_spectra_list))
     new_area_frame <- as.data.frame(rbindlist(only_areas_list))
+    new_baseline_frame <- NULL                       # per-channel SNIP baseline (Spectrum/Energy/CPS); feeds the LOD filter
     if(baseline==TRUE){
         new_baseline_frame <- as.data.frame(rbindlist(only_background_list))
         new_area_frame$Baseline <- aggregate(CPS ~ Spectrum, data = new_baseline_frame[,c("Spectrum", "CPS")], FUN = sum)$CPS
     }
-    # FP mass estimate ($Mass): observed areal mass per element = peak_area / FP sensitivity, computed once
-    # for the whole batch (see deconvolution_mass_frame). Organised like $Areas (Spectrum + element columns).
-    new_mass_frame <- if(isTRUE(mass)){
+    # FP mass estimate ($Mass). `mass` selects fidelity: FALSE/"off" = none; TRUE/"relative" = fast A/S
+    # (sensitivity once per batch); "full" = per-spectrum fundamental parameters (self-absorption +
+    # secondary/tertiary fluorescence), correct for heavy matrices but slower. Organised like $Areas.
+    mass_mode <- if(isTRUE(mass)) "relative" else if(is.character(mass) && length(mass)==1) tolower(mass) else "off"
+    new_mass_frame <- if(mass_mode %in% c("relative","full")){
         deconvolution_mass_frame(new_area_frame, physics=physics, energy_max=energy_max,
-            fallback_energy=suppressWarnings(max(as.numeric(spectra_frame$Energy), na.rm=TRUE)))
+            fallback_energy=suppressWarnings(max(as.numeric(spectra_frame$Energy), na.rm=TRUE)),
+            fidelity=mass_mode, baseline_frame=new_baseline_frame, spectra_raw=spectra_frame, livetime=livetime)
     } else NULL
 
     if(baseline==FALSE){
         return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame))
     } else if(baseline==TRUE){
-        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame, Baseline=new_baseline_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter, ParamVersion=2, Physics=physics)))
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame, Baseline=new_baseline_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter, ParamVersion=2, Physics=physics, MassFidelity=mass_mode)))
     }
     
 }

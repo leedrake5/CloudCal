@@ -1787,6 +1787,16 @@ multipleFileLoaderCommand <- function(filepath, filetype=NULL, pdzprep=TRUE, all
     return(data)
 }
 
+# Atomic number -> element symbol (for PDZ filter fields, which store the filter element as its Z).
+# Uses the globally-loaded fluorescence.lines table; returns NA on any miss so callers degrade gracefully.
+.z_to_symbol <- function(z){
+    if(is.null(z) || length(z) != 1 || is.na(z) || !is.finite(z) || z <= 0) return(NA_character_)
+    tab <- tryCatch(unique(fluorescence.lines[, c("AtomicNumber", "Symbol")]), error=function(e) NULL)
+    if(is.null(tab)) return(NA_character_)
+    sym <- tab$Symbol[match(as.integer(z), tab$AtomicNumber)]
+    if(length(sym) == 1 && !is.na(sym)) as.character(sym) else NA_character_
+}
+
 readPDZMetadata <- function(filepath, filename=NULL) {
     # Universal PDZ metadata reader using rPDZ::getPDZMetadata
     # Returns data.frame with one row per spectrum in the file
@@ -1813,6 +1823,20 @@ readPDZMetadata <- function(filepath, filename=NULL) {
         # Per-spectrum metadata is in meta$spectra list (0-indexed in C++, but R list is 1-indexed)
         spec_meta <- meta$spectra[[i]]
 
+        # Defensive scalar accessor: NA if a field is absent (rPDZ versions/format variants differ).
+        g <- function(nm){ v <- spec_meta[[nm]]; if(is.null(v) || length(v) != 1 || is.na(v)) NA else v }
+        # Build an xrftools-style "Sym thickness_um" filter token from a (Z, thickness) pair.
+        mk_filter <- function(z_field, t_field){
+            z <- g(z_field); t <- g(t_field)
+            if(is.na(z) || is.na(t) || z <= 0 || t <= 0) return(NA_character_)
+            sym <- .z_to_symbol(z)
+            if(is.na(sym)) NA_character_ else paste(sym, signif(as.numeric(t), 4))
+        }
+        filters <- c(mk_filter("filter1_element","filter1_thickness_um"),
+                     mk_filter("filter2_element","filter2_thickness_um"),
+                     mk_filter("filter3_element","filter3_thickness_um"))
+        filters <- filters[!is.na(filters)]
+
         data.frame(
             Spectrum = spec_name,
             FormatVersion = meta$format_version,
@@ -1820,7 +1844,14 @@ readPDZMetadata <- function(filepath, filename=NULL) {
             TotalSpectra = num_spectra,
             eVCh = meta$eVCh,
             LiveTime = spec_meta$live_time_s,
+            RealTime = g("real_time_s"),
+            DeadTimePct = g("dead_time_pct"),
             TubeVoltage = spec_meta$tube_voltage_kV,
+            TubeCurrent = g("tube_current_uA"),
+            Vacuum = g("vacuum"),
+            # primary beam filter for the (currently single-filter) tube model; full stack kept for later use
+            TubeFilter = if(length(filters)) filters[1] else NA_character_,
+            TubeFilterStack = if(length(filters)) paste(filters, collapse="; ") else NA_character_,
             stringsAsFactors = FALSE
         )
     })
