@@ -1075,6 +1075,13 @@ shinyServer(function(input, output, session) {
             if(!is.null(geo$incidence)) physics_param$incidence_deg <- geo$incidence
             if(!is.null(geo$takeoff))   physics_param$takeoff_deg   <- geo$takeoff
         }
+        physics_param$scatter_background <- !isFALSE(isolate(input$deconvolutionscatterbg))   # E1 default-ON; off only if unchecked
+        # Protect the calibration's TARGET elements from the abundance prior, so the full-FP tiebreaker never
+        # penalises an element the user is deliberately measuring (only bites when abundance_prior>0 anyway).
+        protect_els <- unique(c(isolate(input$show_vars_k_alpha), isolate(input$show_vars_k_beta),
+                                isolate(input$show_vars_l_alpha), isolate(input$show_vars_l_beta), isolate(input$show_vars_m)))
+        protect_els <- protect_els[!is.na(protect_els) & nzchar(protect_els)]
+        if(length(protect_els)) physics_param$abundance_protect <- protect_els
         # Per-spectrum LiveTime (named by cleaned Spectrum) for the full-FP $Mass count-space LOD filter.
         # NULL when metadata carries no LiveTime -> the LOD falls back to the col-max signal filter.
         lt_param <- tryCatch(deconvolution_livetime_lookup(isolate(myMetaData())), error=function(e) NULL)
@@ -1187,6 +1194,11 @@ shinyServer(function(input, output, session) {
                 if(!is.null(geo$incidence)) physics_param$incidence_deg <- geo$incidence
                 if(!is.null(geo$takeoff))   physics_param$takeoff_deg   <- geo$takeoff
             }
+            physics_param$scatter_background <- !isFALSE(input$deconvolutionscatterbg)   # E1 default-ON; off only if unchecked
+            protect_els <- unique(c(input$show_vars_k_alpha, input$show_vars_k_beta,
+                                    input$show_vars_l_alpha, input$show_vars_l_beta, input$show_vars_m))
+            protect_els <- protect_els[!is.na(protect_els) & nzchar(protect_els)]
+            if(length(protect_els)) physics_param$abundance_protect <- protect_els   # protect target elements from the prior
             lt_param <- tryCatch(deconvolution_livetime_lookup(myMetaData()), error=function(e) NULL)   # LiveTime for the $Mass LOD
 
             new_decon <- withProgress(message="Deconvoluting with current parameters...", value=0.5, {
@@ -1749,6 +1761,10 @@ shinyServer(function(input, output, session) {
             p <- .deconvPhysics()
             # checked if a prior run stored explicit geometry; else off (defaults 45/45 stand)
             deconvolutionGeometryUI(selection=!is.null(p$incidence_deg) || !is.null(p$takeoff_deg))
+        })
+        output$deconvolutionscatterbgui <- renderUI({
+            p <- .deconvPhysics()
+            deconvolutionScatterBgUI(selection=!isFALSE(p$scatter_background))   # default-ON unless explicitly disabled
         })
         output$deconvolutionmassui <- renderUI({
             fid <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$MassFidelity, error=function(e) NULL)

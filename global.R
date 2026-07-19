@@ -4402,16 +4402,32 @@ deconvolutionGeometryUI <- function(selection=FALSE){
         value=isTRUE(selection))
 }
 
+# Toggle: fit the scatter background jointly (E1) instead of subtracting a SNIP baseline. Fits the un-baselined
+# raw cps with scatter-continuum + smooth-background templates (Poisson-weighted), recovering peaks on steep
+# backgrounds -- validated against certified steel (Mn on the Fe tail 267% -> 88%; Mo under the scatter hump
+# 177% -> 93%) and across the obsidian/mudrock/high-kV quants (better fit, trace tracking preserved, phantoms
+# not increased). DEFAULT ON: the deconvolution falls back to the SNIP fit automatically when there is no tube
+# or per-spectrum LiveTime, so it is safe as a default. Rescales areas (persisted so calibration + validation
+# stay consistent). A heavy element read via an L-line that overlaps an abundant K-line or the scatter peak can
+# still read low -- name it in the target list (it is then exempted from the abundance prior).
+deconvolutionScatterBgUI <- function(selection=TRUE){
+    checkboxInput('deconvolutionscatterbg', "Fit scatter background (E1 — recommended; needs LiveTime)",
+        value=!isFALSE(selection))
+}
+
 # FP mass-estimate control. Off by default. "Relative" divides areas by an FP sensitivity computed once per
 # batch (fast; matrix-decoupled A/S). "Full FP" runs a per-spectrum fundamental-parameters solve with
-# self-absorption + secondary/tertiary fluorescence (slower, but correct for heavy matrices where secondary
-# fluorescence -- e.g. Cu enhancing Fe/Mn/Cr in a bronze -- biases the relative estimate). Adds a $Mass table.
+# self-absorption (slower). Secondary/tertiary fluorescence are OFF by default: the Shiraiwa-Fujino enhancement
+# over-estimates in dilute / near-pure-exciter matrices and, via sum-to-one closure, corrupts even
+# non-enhanced elements -- re-enable per-run (physics$secondary_fluorescence) once its magnitude is
+# recalibrated. Adds a $Mass table. High-Z K-lines the detector cannot see (e.g. U-K/Th-K at 90-100 keV on a
+# thin SDD) are auto-routed to their L-lines by the deconvolution's detector-visibility filter.
 deconvolutionMassUI <- function(selection="off"){
     # accept the legacy logical (TRUE/FALSE) as well as the new mode strings
     sel <- if(isTRUE(selection)) "relative" else if(isFALSE(selection) || is.null(selection)) "off" else as.character(selection)
     selectInput('deconvolutionmass', "Estimate mass (FP)",
         choices=c("Off"="off", "Relative (fast)"="relative",
-                  "Full FP (self-absorption + secondary fluor.; slower)"="full"),
+                  "Full FP (self-absorption; slower)"="full"),
         selected=sel)
 }
 
@@ -9768,7 +9784,7 @@ deconvolution_extra_cols <- function(areas){
 # Np, Pu) get an essentially infinite bar. Standard crustal-abundance values (CRC / USGS).
 .xrf_crustal_abundance_ppm <- c(
   O=461000, Si=282000, Al=82300, Fe=56300, Ca=41500, Na=23600, Mg=23300, K=20900, Ti=5650, H=1400,
-  P=1050, Mn=950, F=585, Ba=425, Sr=370, S=350, C=200, Zr=165, Cl=145, V=120, Cr=102, Ni=84, Zn=70,
+  P=1050, Mn=950, F=585, Ba=425, Sr=370, S=350, C=200, Zr=165, Cl=145, V=120, Cr=102, Rb=90, Ni=84, Zn=70,
   Cu=60, Ce=66.5, Nd=41.5, La=39, Y=33, Co=25, Sc=22, Li=20, Nb=20, Ga=19, Pb=14, B=10, Th=9.6, Pr=9.2,
   Sm=7.05, Gd=6.2, Dy=5.2, Er=3.5, Yb=3.2, Hf=3, Cs=3, Be=2.8, Sn=2.3, U=2.7, Br=2.4, Ta=2, Eu=2,
   As=1.8, Ge=1.5, Ho=1.3, W=1.25, Mo=1.2, Tb=1.2, Tl=0.85, Lu=0.8, Tm=0.52, I=0.45, In=0.25, Sb=0.2,
@@ -9787,10 +9803,17 @@ deconvolution_extra_cols <- function(areas){
 #                       filtered-out low-E lines don't falsely veto). A phantom can borrow a neighbour's strong
 #                       line but not reproduce its own distinguishing lines -> capped near zero (Tb 370->5 sigma).
 #   (3) attribution  -- the element's fitted share of its own window vs all competing fitted components,
-#                       INCLUDING the Compton/Rayleigh scatter at the KNOWN tube-anode energy. Kills single-line
-#                       parasites sitting under a dominant feature (Co under Fe Kbeta; Rh == the anode line).
-#   (4) abundance    -- the (2) significance must clear a crustal-abundance-scaled bar: 3 + 1.5*log10(400/ppm),
-#                       clamped [3,40]. Fe -> 3 sigma; Tb -> 6.8; Po -> 21. Removes the impossible elements.
+#                       INCLUDING the Compton/Rayleigh scatter at the KNOWN tube-anode energy. Each competitor's
+#                       leak is weighted by its fluorescence PRODUCTION efficiency (a weak-line competitor claims
+#                       less), so a strong K-line wins an overlap. Kills single-line parasites (Co under Fe Kbeta;
+#                       Rh == the anode line) and low-voltage REE L-line phantoms sitting under a transition-metal K.
+#   (4) efficiency   -- the (2) significance must clear a bar set by the line's matrix-free fluorescence PRODUCTION
+#                       efficiency (photoionization cross-section x yield x branching at the beam, NO detector term):
+#                       bar = 3 + 1.5*log10(effMax/eff), clamped [3,40]. Because production collapses to the weak
+#                       L-lines below an element's K-edge, a low-voltage REE (L-only) faces a high bar while the SAME
+#                       REE on its efficient K-line at high voltage passes near 3 sigma. Crustal abundance is kept
+#                       ONLY as a binary EXISTENCE floor (Tc/Pm/Po/At/Rn/Ac/Fr/Ra/Pa/Np/Pu -> ~infinite bar) --
+#                       non-natural nuclides, not matrix chemistry. Replaces the old matrix-flavored abundance bar.
 # `cap` (<=1) scales a kept element's fitted area down to what its own line ratios actually support, so a
 # barely-surviving degenerate (Tb) contributes bounded mass instead of poisoning the matrix at its stolen area.
 deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spectra_raw, livetime,
@@ -9819,9 +9842,40 @@ deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spec
   }
   clusters <- lapply(keep, cl_of); names(clusters) <- keep
   valid <- vapply(clusters, Negate(is.null), logical(1))
-  ab_ppm <- function(el){ v <- as.numeric(.xrf_crustal_abundance_ppm[el]); if(length(v)!=1 || is.na(v)) 1e-6 else max(v, 1e-18) }
-  thr_ab <- setNames(vapply(keep, function(el) max(3, min(3 + 1.5*log10(400/ab_ppm(el)), 40)), numeric(1)), keep)
-  abE <- vapply(keep, ab_ppm, numeric(1))
+  # Credibility prior = matrix-free fluorescence PRODUCTION efficiency (photoionization cross-section x fluorescence
+  # yield x radiative branching at the run's beam, with the detector term OFF). The detector factor is common to
+  # everything at a given energy, so it cancels in element-vs-element discrimination and lives only in the count-
+  # space LOD (gate 1); including it here would wrongly penalise an isolated high-energy line (U-Kalpha at 98 keV,
+  # SDD ~0.5% efficient). Production auto-selects the excitable series: below an element's K-edge it collapses to
+  # the weak L-lines, so a low-voltage REE (L-only) gets a high bar while the same REE on its efficient K-line at
+  # high voltage does not. One batch call (spectrum-independent), like xrf_fp_sensitivity in deconvolution_mass_frame.
+  effP <- setNames(rep(NA_real_, length(keep)), keep)
+  tryCatch({
+    tube_eff <- if(!is.null(physics$tube_anode) && !is.null(physics$tube_kv))
+        xrf_tube(physics$tube_anode, kv=physics$tube_kv, filter=physics$tube_filter) else NULL
+    Seff <- xrf_fp_sensitivity(keep, beam_energy_kev=beam, detector_type=det, efficiency=FALSE,
+        excitation=if(!is.null(physics$excitation)) physics$excitation else "photon",
+        excitation_weighting=if(!is.null(physics$excitation_weighting)) physics$excitation_weighting else "cross_section",
+        coster_kronig=if(!is.null(physics$coster_kronig)) physics$coster_kronig else TRUE, tube=tube_eff)
+    if(is.data.frame(Seff)) effP[as.character(Seff$element)] <- suppressWarnings(as.numeric(Seff$sensitivity))
+  }, error=function(e) NULL)
+  effRef <- suppressWarnings(max(effP[is.finite(effP) & effP>0])); if(!is.finite(effRef) || effRef<=0) effRef <- 1
+  ab_raw <- function(el){ v <- as.numeric(.xrf_crustal_abundance_ppm[el]); if(length(v)!=1) NA_real_ else v }
+  # (4) credibility bar = max of two UNIVERSAL (matrix-INDEPENDENT, same threshold for every sample) priors:
+  #   - production-efficiency grade: 3 + 1.5*log10(effMax/eff)  -- the K-vs-L / voltage credibility (primary).
+  #   - crustal-RARITY floor for elements below 1 ppm: 3 + 3*log10(1/ppm) -- catches what efficiency CANNOT,
+  #     i.e. elements that are ultra-rare in EVERY rock. The anode-scatter K-line region (Ru/Rh/Pd/Ag/Au/Pt/Te/Bi,
+  #     19-27 keV under the Rh Compton/Rayleigh) is rare-but-EFFICIENT, so a pure-efficiency bar lets it leak; the
+  #     non-natural nuclides (Tc/Pm/Po/.../Pu) also land here (~30-40 sigma). Pivoting at 1 ppm keeps it OFF the REE
+  #     (all >= 0.5 ppm -> <= ~3.9 sigma), so it does NOT reintroduce the crustal under-penalisation of REE that the
+  #     efficiency prior replaced -- it is universal, not matrix-aware.
+  thr_ab <- setNames(vapply(keep, function(el){
+      e <- effP[[el]]; grade  <- if(is.finite(e) && e>0) 3 + 1.5*log10(effRef/e) else 3
+      a <- ab_raw(el);  rarity <- if(is.finite(a) && a < 1)  3 + 3*log10(1/max(a, 1e-18)) else 3
+      max(3, min(max(grade, rarity), 40)) }, numeric(1)), keep)
+  # (3) attribution competitor weight also by production efficiency (weak-line competitor makes a weaker claim)
+  eff_floor <- suppressWarnings(min(c(effP[is.finite(effP) & effP>0], effRef))) * 1e-3
+  abE <- effP; abE[!is.finite(abE) | abE<=0] <- if(is.finite(eff_floor) && eff_floor>0) eff_floor else 1e-9
   compE <- vapply(keep, function(el) if(valid[[el]]) clusters[[el]]$Eprim   else NA_real_, numeric(1))
   compS <- vapply(keep, function(el) if(valid[[el]]) clusters[[el]]$sigprim else NA_real_, numeric(1))
   # known-anode scatter competitors: Rayleigh at the (intensity-weighted) anode line, Compton shifted by angle
@@ -9877,8 +9931,15 @@ deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spec
         a_sup <- min(a_sup, (net_j + sqrt(max(bg_j,1)))/cz$p[j])
       }
       if(refuted) next
-      # (4) abundance-scaled evidence bar: rarer element -> higher sigma required (impossibles need ~infinite)
-      if(!(fit_sig >= thr_ab[[el]])) next
+      # (4) credibility bar: rarer/less-efficient element -> higher sigma required (impossibles need ~infinite).
+      # BOTH the fitted-area significance AND the raw-ROI net significance must clear the bar. Testing fit_sig
+      # alone is a loophole: the E1 scatter-continuum+background basis can inflate a rare element's FITTED area
+      # (broad multi-line L-templates soak up continuum SNIP would subtract) so fit_sig >> net_sig -- e.g. Ra at
+      # 220 kV got fit_sig 42 (>21 bar) from net_sig 6. Requiring net_sig (actual counts at the primary line) to
+      # also clear the bar rejects that (verified: drops Ra on all spectra, keeps real Sr/Zr/Rb/Y/Nb/Fe whose
+      # net_sig >= their ~3 bar). For common elements the ~3-sigma bar makes this near-redundant with gate (1);
+      # it only bites the rare/inefficient high-bar elements that are exactly the phantom-prone ones.
+      if(!(fit_sig >= thr_ab[[el]] && net_sig >= thr_ab[[el]])) next
       # (3) attribution: fitted share of the primary window vs competitors incl. the KNOWN-anode scatter.
       #     Each element competitor's leak is downweighted by min(1, abundance_D/abundance_E) -- a rarer
       #     competitor makes a weaker claim on the window -- so the more abundant element wins an overlap.
@@ -9967,7 +10028,17 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
                 efficiency = pget("efficiency", TRUE), excitation = pget("excitation", "photon"),
                 excitation_weighting = pget("excitation_weighting", "cross_section"),
                 coster_kronig = pget("coster_kronig", TRUE), tube = tube_obj,
-                self_absorption = TRUE, secondary_fluorescence = TRUE, tertiary_fluorescence = TRUE)
+                # secondary/tertiary fluorescence OFF by default (matches xrf_quantify's own default). Empirically
+                # the Shiraiwa-Fujino enhancement is correct for concentrated exciter/analyte (18-8 stainless Cr
+                # ~58%) but GROWS UNPHYSICALLY with no saturation in the dilute-analyte / near-pure-exciter regime
+                # (measured 132% applied vs a <=22% empirical bound on our steel CRMs = 2-6x over), and -- via the
+                # sum-to-one closure -- corrupts even NON-enhanced elements (Mn concentration R2 0.942->0.916). The
+                # over-correction is invisible to the enhanced element's own R2 (Cr stays ~1.0), so it silently
+                # biases quant. Re-enable per-run (physics$secondary_fluorescence) once the g-factor incident leg is
+                # recalibrated (fold over the tube excitation grid, not the endpoint mu at kV -- cuts it ~1/3).
+                self_absorption = TRUE,
+                secondary_fluorescence = pget("secondary_fluorescence", FALSE),
+                tertiary_fluorescence = pget("tertiary_fluorescence", FALSE))
             qf <- names(formals(xrf_quantify))
             if("active_thickness_um" %in% qf) qargs$active_thickness_um <- physics$active_thickness_um
             if("air_path_cm" %in% qf){ qargs$air_path_cm <- physics$air_path_cm
@@ -10049,8 +10120,17 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
     # --- line shape / engine ---
     tail=0, step=0, beta=NULL, refine_calibration=FALSE, sum_peaks=FALSE, pileup_tau=NULL,
     # abundance_prior>0 turns on the crustal-abundance NNLS ridge (collinearity-weighted); used only for
-    # full-FP $Mass, where degenerate phantoms most poison the solve. 0 = legacy fit.
-    abundance_prior=0,
+    # full-FP $Mass, where degenerate phantoms most poison the solve. 0 = legacy fit. abundance_protect exempts
+    # named elements (the calibration's target list) from that prior, so the tiebreaker never crushes an element
+    # the user is deliberately measuring (e.g. a heavy-L trace like Pb whose lines overlap phantom neighbours).
+    abundance_prior=0, abundance_protect=NULL,
+    # scatter_background (E1): fit the UN-baselined raw cps with a jointly-fitted scatter continuum + smooth
+    # background basis (Poisson-weighted) instead of subtracting a SNIP baseline. Recovers peaks on steep
+    # backgrounds (Mn on the Fe Kalpha tail, Mo under the scatter hump) and models the physics ~2.5x better
+    # (validated on obsidian/steel/mudrock/high-kV: better fit, trace tracking preserved, no regression). Needs
+    # a tube + a per-spectrum `livetime` for the Poisson weights; the `use_e1` guard below silently falls back
+    # to the classic SNIP-subtract fit without them -- so defaulting TRUE is safe (auto-fallback, never errors).
+    scatter_background=TRUE, scatter_background_n=10L, livetime=NULL,
     cache_templates=TRUE){
     if(is.null(energy_max)){
         energy_max <- max(spectra_frame$Energy)
@@ -10078,6 +10158,24 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
                 coster_kronig=coster_kronig),
             error=function(e) xrf_energies("everything", beam_energy_kev=beam_energy_kev))
 
+        # Detector-efficiency line-visibility filter (feasibility gate + L-line routing). Drop element lines the
+        # detector effectively cannot see -- efficiency < min_line_efficiency, e.g. U-Kalpha/Th-Kalpha at 90-100 keV
+        # on a thin SDD (~0.6-0.7% full-energy efficiency). Quantifying such a line divides noise by a near-zero
+        # sensitivity: at 220 kV on SDD U-K net counts are ~noise (cor with certified ~0, R^2 0.06). Dropping the
+        # invisible K-lines routes the element onto its detector-VISIBLE lines instead (U/Th -> their L-lines at
+        # 13-16 keV, ~90% efficient -- the same L-line route that gives U R^2 0.90 in the mudrock beam); an element
+        # with NO visible line drops out of the fit entirely (correctly flagged infeasible on this detector). It is
+        # detector-AWARE and a NO-OP at handheld energies (every line is >~10% efficient) and on CdTe (high-E K-lines
+        # stay visible). Guarded: only when a detector is known; never drops ALL lines.
+        if(!is.null(detector_type) && is.data.frame(peaks) && nrow(peaks) && "energy_kev" %in% names(peaks)){
+            eff_line <- tryCatch(xrf_detector_efficiency(peaks$energy_kev, detector_type,
+                        active_thickness_um=active_thickness_um, air_path_cm=air_path_cm,
+                        atmosphere=if(!is.null(atmosphere)) atmosphere else "Air", window=window),
+                    error=function(e) rep(1, nrow(peaks)))
+            visible <- !is.finite(eff_line) | eff_line >= 0.02            # 2% full-energy efficiency floor
+            if(any(visible) && !all(visible)) peaks <- peaks[visible, , drop=FALSE]
+        }
+
         # Tube / geometry for optional Rayleigh-Compton scatter templates. A primary-beam filter (e.g. the
         # PDZ-inferred "Cu 100") hardens the excitation spectrum; passed through to xrf_tube when present.
         tube <- tryCatch(
@@ -10090,9 +10188,35 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
             xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = width, alpha = alpha), .iter = smooth_iter) %>%
             xrf_add_baseline_snip(.values = .spectra$smooth, iterations = snip_iter)
 
+        # E1 (experimental) opt-in: fit the UN-baselined raw cps with a jointly-fitted scatter continuum +
+        # smooth background basis, Poisson-weighted, so the deconvolution models the background ITSELF rather
+        # than pre-subtracting SNIP. CRITICAL: it must be fed raw cps + real Poisson weights (counts = cps *
+        # livetime) -- a smoothed or unweighted input silently destroys traces. Only engaged with a tube, a
+        # valid per-spectrum livetime, and a new-enough xrftools; else the standard SNIP fit runs.
+        gls_formals <- names(formals(xrf_add_deconvolution_gls))
+        use_e1 <- isTRUE(scatter_background) && !is.null(tube) &&
+                  is.numeric(livetime) && length(livetime) == 1 && is.finite(livetime) && livetime > 0 &&
+                  all(c("scatter_continuum", "background") %in% gls_formals)
         # Full (new-xrftools) call; fall back to the historical minimal signature on any older
         # xrftools that lacks the added arguments ("unused argument").
         deconvoluted_spectra_tibble <- tryCatch({
+            if(use_e1){
+                smoothed_tibble %>%
+                    xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$cps,   # RAW, un-baselined
+                        energy_max_kev = energy_max, peaks = peaks, default_sigma = default_sigma,
+                        detector_type = detector_type, fano = fano, epsilon_ev = epsilon_ev,
+                        noise_fwhm_ev = noise_fwhm_ev, nonneg = nonneg, weighting = "poisson",
+                        .counts = .spectra$cps * livetime, .livetime = livetime,
+                        efficiency = efficiency, escape = escape, be_window_um = be_window_um,
+                        dead_layer_um = dead_layer_um, active_thickness_um = active_thickness_um,
+                        air_path_cm = air_path_cm, atmosphere = atmosphere, window = window,
+                        tube = tube, geometry = geometry, scatter = scatter,
+                        compton_broadening = compton_broadening, tail = tail, step = step, beta = beta,
+                        refine_calibration = refine_calibration, sum_peaks = sum_peaks,
+                        pileup_tau = pileup_tau, cache_templates = cache_templates, use_qr = use_qr,
+                        abundance_prior = abundance_prior, abundance_protect = abundance_protect,
+                        scatter_continuum = TRUE, background = max(1L, as.integer(scatter_background_n)))
+            } else {
             smoothed_tibble %>%
                 xrf_add_deconvolution_gls(.spectra$energy_kev, .spectra$smooth - .spectra$baseline,
                     energy_max_kev = energy_max, peaks = peaks, default_sigma = default_sigma,
@@ -10105,7 +10229,8 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
                     compton_broadening = compton_broadening, tail = tail, step = step, beta = beta,
                     refine_calibration = refine_calibration, sum_peaks = sum_peaks,
                     pileup_tau = pileup_tau, cache_templates = cache_templates, use_qr = use_qr,
-                    abundance_prior = abundance_prior)
+                    abundance_prior = abundance_prior, abundance_protect = abundance_protect)
+            }
         }, error = function(e) {
             if (grepl("unused argument", e$message)) {
                 # Older xrftools: original behaviour (unconstrained OLS, jump-ratio + double-omega).
@@ -10156,6 +10281,47 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     mass_mode <- if(isTRUE(mass)) "relative" else if(is.character(mass) && length(mass)==1) tolower(mass) else "off"
     abundance_prior <- if(identical(mass_mode, "full")) 0.2 else 0
 
+    # Self-calibrate the scatter geometry from the anode Rayleigh/Compton splitting: when the anode is known
+    # but the scatter angle was NOT explicitly set, infer the effective angle (and Compton width) from the
+    # highest-scatter spectrum in the batch and apply it to the whole run (same instrument -> same geometry).
+    # xrf_infer_scatter_geometry is conservative -- only a high-count, clean anode-scatter measurement clears
+    # its guards; otherwise it returns confident=FALSE and the assumed angle is kept. Guarded on the function's
+    # existence so an older xrftools install is unaffected.
+    if(is.null(physics_call$scatter_angle_deg) && !is.null(physics_call$tube_anode) && !is.null(physics_call$tube_kv) &&
+       exists("xrf_infer_scatter_geometry") && nrow(spectra_frame) > 0){
+        geo <- tryCatch({
+            tot <- tapply(spectra_frame$CPS, spectra_frame$Spectrum, sum, na.rm=TRUE)
+            d <- spectra_frame[spectra_frame$Spectrum == names(tot)[which.max(tot)], ]
+            xrf_infer_scatter_geometry(d$Energy, d$CPS, physics_call$tube_anode, physics_call$tube_kv,
+                detector_type = if(!is.null(physics_call$detector_type)) physics_call$detector_type else "SDD")
+        }, error=function(e) NULL)
+        if(!is.null(geo) && isTRUE(geo$confident)){
+            physics_call$scatter_angle_deg  <- geo$scatter_angle_deg
+            physics_call$compton_broadening <- geo$compton_broadening
+            # Persist the inferred geometry into `physics` so $Deconvoluted$Parameters$Physics FAITHFULLY records
+            # the angle actually used, reproducing the calibration exactly on reload (a set scatter_angle_deg then
+            # skips re-inference, which could otherwise drift if the reloaded spectra / confidence guards change).
+            # Two-part record following the dot-key convention: (1) FUNCTIONAL keys (non-dot) that flow to the fit
+            # and are restored on reload; (2) a `.scatter_geometry` PROVENANCE bundle (dot-key -> stripped from the
+            # fit call, kept in the record) so the UI/user can see the angle was auto-inferred from the anode
+            # Rayleigh/Compton split and inspect the evidence (measured line energies, width ratio, band counts).
+            physics$scatter_angle_deg  <- geo$scatter_angle_deg
+            physics$compton_broadening <- geo$compton_broadening
+            physics$.scatter_geometry  <- list(inferred = TRUE,
+                scatter_angle_deg = geo$scatter_angle_deg, compton_broadening = geo$compton_broadening,
+                e_rayleigh = geo$e_rayleigh, e_compton = geo$e_compton, e_anode_ka = geo$e_anode_ka,
+                width_ratio = geo$width_ratio, band_counts = geo$band_counts)
+        }
+    }
+
+    # Per-spectrum LiveTime lookup (Poisson weights for the E1 scatter-background fit; falls back to the batch
+    # median when a spectrum's name isn't matched). Named vector -> by name; unnamed -> median.
+    lt_num <- if(!is.null(livetime)) suppressWarnings(as.numeric(livetime)) else numeric(0)
+    lt_named <- if(!is.null(names(livetime))) setNames(lt_num, names(livetime)) else NULL
+    lt_med <- suppressWarnings(stats::median(lt_num[is.finite(lt_num)]))
+    lt_lookup <- function(nm){ v <- if(!is.null(lt_named) && nm %in% names(lt_named)) lt_named[[nm]] else NA_real_
+        if(!is.finite(v)) v <- lt_med; if(is.finite(v)) v else NULL }
+
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
 
     safe_deconvolute <- function(x){
@@ -10169,7 +10335,8 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
                 smooth_iter=smooth_iter,
                 snip_iter=snip_iter,
                 use_qr=use_qr,
-                abundance_prior=abundance_prior), physics_call)),
+                abundance_prior=abundance_prior,
+                livetime=lt_lookup(as.character(unique(x$Spectrum))[1])), physics_call)),
             error = function(e){
                 warning("Skipping spectrum '", unique(x$Spectrum), "': ", e$message)
                 NULL
