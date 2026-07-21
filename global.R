@@ -256,6 +256,15 @@ my.cores <- if(parallel::detectCores()>=3){
     "1"
 }
 
+# Deconvolution parallelism gate. spectra_gls_deconvolute() forks per-spectrum via pbmclapply (mclapply),
+# which only parallelizes on Unix/macOS -- Windows cannot fork, so we run serial there (mclapply would
+# silently coerce to 1 anyway). Fork is also the right model here rather than a PSOCK cluster: forked
+# workers inherit xrftools' warm in-process template + per-element sensitivity caches copy-on-write, whereas
+# PSOCK workers would each cold-start those caches and pay a data-copy tax -- often slower than serial. The
+# per-spectrum xrftools work is now ~0.37 s (see the 2026-07 physics/perf batch), so Windows-serial is a
+# small, honest cost. my.cores = detectCores()-2 (a string); a <=2-core machine is already serial.
+decon_cores <- if(get_os() == "windows") 1L else as.numeric(my.cores)
+
 source('file_loading.R')
 #tryCatch(source('file_loading.R'), error=function(e) source("https://raw.githubusercontent.com/leedrake5/CloudCal/line_calculation/file_loading.R"))
 
@@ -6853,7 +6862,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
     
     if(is.null(deconvoluted_valdata)){
         deconvolution_parameters <- Calibration$Deconvoluted$Parameters
-        deconvoluted_data <-spectra_gls_deconvolute(valdata, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1, physics=deconvolution_physics_from_params(deconvolution_parameters), mass=TRUE)
+        deconvoluted_data <-spectra_gls_deconvolute(valdata, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=decon_cores, physics=deconvolution_physics_from_params(deconvolution_parameters), mass=TRUE)
         deconvoluted_valdata <- deconvoluted_data
     }
 
@@ -10254,7 +10263,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
 
 }
 
-spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, cores=1, physics=list(), mass=FALSE, livetime=NULL){
+spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07, smooth_iter=20, snip_iter=20, cores=decon_cores, physics=list(), mass=FALSE, livetime=NULL){
     spectra_frame$Spectrum <- as.character(spectra_frame$Spectrum)
     spectra_frame$Energy <- as.numeric(spectra_frame$Energy)
     spectra_frame$CPS <- as.numeric(spectra_frame$CPS)

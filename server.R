@@ -1095,9 +1095,9 @@ shinyServer(function(input, output, session) {
         deconvolution_data <- if(is.null(input$file1)){
             if(!"Deconvoluted" %in% names(calMemory$Calibration)){
                 tryCatch(
-                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param, livetime=lt_param),
+                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=decon_cores, physics=physics_param, mass=mass_param, livetime=lt_param),
                     error=function(e) tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param, livetime=lt_param),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=decon_cores, physics=physics_param, mass=mass_param, livetime=lt_param),
                         error=function(e) NULL
                     )
                 )
@@ -1106,9 +1106,9 @@ shinyServer(function(input, output, session) {
                     calMemory$Calibration$Deconvoluted
                 } else {
                     tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param, livetime=lt_param),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=decon_cores, physics=physics_param, mass=mass_param, livetime=lt_param),
                         error=function(e) tryCatch(
-                            spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param, livetime=lt_param),
+                            spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=decon_cores, physics=physics_param, mass=mass_param, livetime=lt_param),
                             error=function(e) NULL
                         )
                     )
@@ -1116,9 +1116,9 @@ shinyServer(function(input, output, session) {
             }
         } else {
            tryCatch(
-               spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param, livetime=lt_param),
+               spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=decon_cores, physics=physics_param, mass=mass_param, livetime=lt_param),
                error=function(e) tryCatch(
-                   spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param, livetime=lt_param),
+                   spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=decon_cores, physics=physics_param, mass=mass_param, livetime=lt_param),
                    error=function(e) NULL
                )
            )
@@ -1203,9 +1203,9 @@ shinyServer(function(input, output, session) {
 
             new_decon <- withProgress(message="Deconvoluting with current parameters...", value=0.5, {
                 tryCatch(
-                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=as.numeric(1), physics=physics_param, mass=mass_param, livetime=lt_param),
+                    spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=decon_cores, physics=physics_param, mass=mass_param, livetime=lt_param),
                     error=function(e) tryCatch(
-                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=1, physics=physics_param, mass=mass_param, livetime=lt_param),
+                        spectra_gls_deconvolute(data_cached, width=width_param, alpha=alpha_param, default_sigma=sigma_param, smooth_iter=smooth_param, snip_iter=snip_param, cores=decon_cores, physics=physics_param, mass=mass_param, livetime=lt_param),
                         error=function(e) NULL
                     )
                 )
@@ -20124,7 +20124,7 @@ content = function(file){
             
             
             deconvolution_physics <- deconvolution_physics_from_params(deconvolution_parameters)
-            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=as.numeric(1), physics=deconvolution_physics, mass=TRUE), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=1, physics=deconvolution_physics, mass=TRUE))
+            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=decon_cores, physics=deconvolution_physics, mass=TRUE), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=decon_cores, physics=deconvolution_physics, mass=TRUE))
             
             deconvolution
             
