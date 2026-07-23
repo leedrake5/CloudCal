@@ -217,6 +217,26 @@ shinyServer(function(input, output, session) {
     })
     
     calMemory <- reactiveValues()
+
+    # input$multicore_behavior comes from a renderUI control; until that control
+    # has rendered (fresh session, hidden sidebar, headless run) the input is
+    # NULL, and every `if(input$multicore_behavior==...)` comparison errored with
+    # "argument is of length zero" - killing whole flushes (notably the Train
+    # button pipeline). Read it through this accessor, which supplies the same
+    # OS default the UI control itself would pick.
+    bayesParameterMode <- reactive({
+        bp <- input[["bayesparameter"]]
+        if(is.null(bp) || length(bp) != 1) "GridSearch" else bp
+    })
+
+    multicoreBehavior <- reactive({
+        mb <- input[["multicore_behavior"]]
+        if(is.null(mb) || length(mb) != 1){
+            if(get_os()=="windows") "Serialize" else "Fork"
+        } else {
+            mb
+        }
+    })
     calMemory$Calibration <- list(Spectra=NULL)
     
     oldCalCompatibility <- reactive(label="oldCalCompatibility", {
@@ -934,7 +954,11 @@ shinyServer(function(input, output, session) {
                     }  else if(input$filetype=="SPE"){
                         readSPE()
                     }
-                    data$Spectrum <- make.names(data$Spectrum, unique=FALSE)
+                    # make.names over unique names only: the long frame repeats each
+                    # file name ~2048 times, so this is ~2000x less string work.
+                    spec_chr <- as.character(data$Spectrum)
+                    u <- unique(spec_chr)
+                    data$Spectrum <- make.names(u, unique=FALSE)[match(spec_chr, u)]
                     data <- data[complete.cases(data),]
                 } else if(is.null(input$file1) && !is.null(input$calfileinput)){
                     data <- calFileContents()$Spectra
@@ -1015,9 +1039,14 @@ shinyServer(function(input, output, session) {
 
             data$Energy <- data$Energy + energynudge_d()
 
-            data <- data[order(as.character(data$Spectrum)),]
-
-            data$Spectrum <- gsub("\\.(pdz|csv|CSV|spt|mca|spx|spe)$", "", data$Spectrum)
+            # Same operations as before (sort by name, then strip extensions), but
+            # ranked/stripped on the ~40 unique names instead of the full
+            # long-format character column (~2048 rows per spectrum).
+            spec_chr <- as.character(data$Spectrum)
+            u <- unique(spec_chr)
+            data <- data[order(match(spec_chr, sort(u))),]
+            cleaned <- gsub("\\.(pdz|csv|CSV|spt|mca|spx|spe)$", "", u)
+            data$Spectrum <- cleaned[match(as.character(data$Spectrum), u)]
 
             data
 
@@ -2363,7 +2392,11 @@ shinyServer(function(input, output, session) {
             } else {
                 DF <- lineTableInput()
             }
-            linevalues[["DF"]] <- DF
+            # Only write on real change: unconditional writes re-render the Element
+            # dropdown (outVar -> inVar2) every time the line table widget re-emits
+            # (e.g. every visit to the Counts page). dfSame (not identical) so
+            # round-trip artifacts (rownames/attributes) don't count as changes.
+            if (!dfSame(DF, isolate(linevalues[["DF"]]))) linevalues[["DF"]] <- DF
         })
         
         eventReactive(input$linecommit,{
@@ -3468,10 +3501,21 @@ shinyServer(function(input, output, session) {
             
         })
         
+        # Deduplicated choices: outVar() can recompute (line-table widget re-emits,
+        # commit presses) without the choice list actually changing. Only a REAL
+        # change may re-render the Element dropdown, otherwise every recompute
+        # rebuilds the widget and risks resetting the user's selection.
+        outVarStable <- reactiveVal(NULL)
+        observe({
+            ch <- outVar()
+            if (!identical(ch, isolate(outVarStable()))) outVarStable(ch)
+        })
+
         output$inVar2 <- renderUI({
-            choices <- outVar()
+            choices <- outVarStable()
             req(length(choices) > 0)
-            selectInput(inputId = "calcurveelement", label = h4("Element"), choices = choices)
+            selectInput(inputId = "calcurveelement", label = h4("Element"), choices = choices,
+                selected = isolate(input$calcurveelement))
         })
         
         
@@ -3596,17 +3640,28 @@ shinyServer(function(input, output, session) {
         })
         
         values <- reactiveValues()
-        
+
+        # Last content reported by the concentrations widget itself. Lets the
+        # renderer skip the echo re-render after a user edit (the widget already
+        # shows that content), so a cell edit no longer rebuilds the whole table.
+        hotEcho <- reactiveVal(NULL)
+
         observe({
             if (!is.null(input$hot)) {
                 DF <- hot_to_r(input$hot)
+                hotEcho(DF)
             } else {
-                if (input$linecommit)
+                if (isTRUE(input$linecommit > 0))
                 DF <- hotableInput()
                 else
-                DF <- values[["DF"]]
+                DF <- isolate(values[["DF"]])
             }
-            values[["DF"]] <- DF
+            # Only write on real change: an unconditional write invalidates every
+            # downstream consumer (concentrationTable -> holdFrame -> models -> plots)
+            # on every firing, and the self-read branch above otherwise re-triggers
+            # this observer on each flush. dfSame (not identical) so handsontable
+            # round-trip artifacts (rownames/attributes) don't count as changes.
+            if (!dfSame(DF, isolate(values[["DF"]]))) values[["DF"]] <- DF
         })
         
         eventReactive(input$linecommit,  {
@@ -3619,17 +3674,24 @@ shinyServer(function(input, output, session) {
         ## Handsontable
         
         output$hot <- renderRHandsontable({
-            
+
             DF <- values[["DF"]]
-            
+            if(is.null(DF)) return(NULL)
+
             DF <- DF[order(as.character(DF$Spectrum)),]
-            
-            
-            
-            if(!is.null(DF))
+
+            # Echo suppression: when this render was triggered by the widget's own
+            # edit round-trip, the browser already displays exactly this content -
+            # keep the existing widget (cursor, scroll, selection) instead of
+            # rebuilding it.
+            echo <- isolate(hotEcho())
+            if(!is.null(echo) && dfSame(DF, echo[order(as.character(echo$Spectrum)), , drop=FALSE])){
+                req(FALSE, cancelOutput = TRUE)
+            }
+
             rhandsontable(DF, digits=12) %>% hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
-            
-            
+
+
         })
         
         
@@ -3748,11 +3810,18 @@ shinyServer(function(input, output, session) {
         
         
         
+        # Debounced view of the concentrations table for the modelling chain:
+        # while the user types in the Add Concentrations widget, every cell edit
+        # used to re-trigger concentrationTable -> holdFrame -> model refit ->
+        # plots immediately. Let edits settle briefly, then recompute once.
+        valuesSettled <- debounce(reactive(values[["DF"]]), 600)
+
         concentrationTable <- reactive({
-            
-            concentration.table <- as.data.frame(values[["DF"]], stringsAsFactors=FALSE)
+
+            DF <- valuesSettled()
+            concentration.table <- as.data.frame(DF, stringsAsFactors=FALSE)
             concentration.table[concentration.table==""] <- NA
-            valFrameCheck(concentration.table[values[["DF"]]$Include,])
+            valFrameCheck(concentration.table[DF$Include,])
 
         })
         
@@ -4356,11 +4425,30 @@ shinyServer(function(input, output, session) {
         })
         
         
-        observeEvent(input$trainslopes, ignoreInit = TRUE, {
+        # priority 96: run the normalization + intercept sweep BEFORE the
+        # best-model trainer (priority 95), so its results apply even if a
+        # model type in that sweep fails.
+        observeEvent(input$trainslopes, ignoreInit = TRUE, priority = 96, {
           programmatic(TRUE)
-          updateSelectInput(session, "normcal", selected = bestNormVars()[["Type"]])
-          updateNumericInput(session, "comptonmin", value = bestNormVars()[["Compton"]][1])
-          updateNumericInput(session, "comptonmax", value = bestNormVars()[["Compton"]][2])
+          bn <- bestNormVars()
+          updateSelectInput(session, "normcal", selected = bn[["Type"]])
+          updateNumericInput(session, "comptonmin", value = bn[["Compton"]][1])
+          updateNumericInput(session, "comptonmax", value = bn[["Compton"]][2])
+          basichold$normtype <- bn[["Type"]]
+          basichold$normmin <- bn[["Compton"]][1]
+          basichold$normmax <- bn[["Compton"]][2]
+
+          # Intercept sweep (was disconnected): pick the likely-intercept combo
+          # with the best AIC under the trained normalization and apply it.
+          best_int <- tryCatch(bestInterceptVars(),
+              error = function(e){ print(paste("TRAIN intercept sweep error:", conditionMessage(e))); NULL })
+          print(paste0("TRAIN ", input$calcurveelement, ": norm=", bn[["Type"]],
+                       " window=", bn[["Compton"]][1], "-", bn[["Compton"]][2],
+                       " intercepts=", paste(best_int, collapse=",")))
+          if(!is.null(best_int) && length(best_int) > 0){
+              lucashold$intercept <- best_int
+              updateSelectInput(session, "intercept_vars", selected = best_int)
+          }
           programmatic(FALSE)
         })
         
@@ -4451,15 +4539,20 @@ shinyServer(function(input, output, session) {
         cephlopodVector <- reactive({
             
             combos_mod.xrf <- function(a.vector){
-                
+
                 so <- seq(from=1, to=length(a.vector), by=1)
-                
-                #long <- pblapply(so, function(x) gRbase::combnPrim(x=a.vector, m=x), cl=6L)
-                and <- pblapply(long, function(x) plyr::alply(x, 2), cl=6L)
+
+                # utils::combn replaces the commented-out gRbase::combnPrim; with it
+                # gone, `long` was undefined and this errored for every element that
+                # HAS likely intercepts, silently breaking the Train intercept
+                # sweep. Plain lapply: the candidate lists are 2-3 items (<= 7
+                # combos), so forked pblapply cost more than the work.
+                long <- lapply(so, function(x) utils::combn(a.vector, m=x))
+                and <- lapply(long, function(x) plyr::alply(x, 2))
                 thanks.for.all.the.fish <- do.call(list, unlist(and, recursive=FALSE))
-                
+
                 thanks.for.all.the.fish
-                
+
             }
             combos_mod.xrf <- cmpfun(combos_mod.xrf)
 
@@ -4473,7 +4566,10 @@ shinyServer(function(input, output, session) {
         })
         
         
-        bestInterceptVars <- reactive({
+        # Plain function, not a reactive: it runs exactly once per Train press
+        # from inside the observer (reactive caching here served no purpose and
+        # a cached silent-error state could shadow a later valid computation).
+        bestInterceptVars <- function(){
 
             element <- input$calcurveelement
 
@@ -4484,31 +4580,56 @@ shinyServer(function(input, output, session) {
             ceph_cached <- cephlopodVector()
             slt_cols <- colnames(slt_cached)
 
-            spectra.line.table <- if(all(ceph_cached %in% slt_cols)){
+            # Compute intensities for candidate intercept lines the calibration
+            # does not carry (the old condition was inverted: it merged the
+            # candidates already present and never computed the missing ones,
+            # so any combo with an absent line errored downstream).
+            cand_lines <- unique(as.character(unlist(ceph_cached)))
+            missing_lines <- setdiff(cand_lines, slt_cols)
+            spectra.line.table <- if(length(missing_lines) == 0){
                 slt_cached
             } else {
-                merge(slt_cached, elementFrame(data=dataHold(), elements=ceph_cached[ceph_cached %in% slt_cols]))
+                extra <- tryCatch(elementFrame(data=dataHold(), range.table=linevalues[["DF"]],
+                                               elements=missing_lines, calculation="gaussian",
+                                               gaus_buffer=if(is.null(input$gausbuffer)) 0.02 else input$gausbuffer,
+                                               allowParallel=FALSE),
+                                  error=function(e) NULL)
+                if(is.null(extra)) slt_cached else merge(slt_cached, extra[, c("Spectrum", intersect(missing_lines, names(extra))), drop=FALSE], by="Spectrum")
             }
+
+            # Drop combos referencing lines we still could not obtain.
+            ceph_cached <- Filter(function(x) all(as.character(unlist(x)) %in% colnames(spectra.line.table)), ceph_cached)
+            if(length(ceph_cached) == 0) return(NULL)
 
             data <- dataNorm()
             concentration.table <- concentrationTable()
-            
-            
+
+
             spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% holdFrame()$Spectrum, ]
-            
-            
-            predict.intensity.list <- if(input$normcal==1){
-                pblapply(cephlopodVector(), function(x) lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element, intercept.element.lines=c(element, x)))
-            } else if(input$normcal==2){
-                pblapply(cephlopodVector(), function(x) lucas_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element, intercept.element.lines=c(element, x)))
-            } else if(input$normcal==3){
-                pblapply(cephlopodVector(), function(x) lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element, intercept.element.lines=c(element, x), norm.min=input$comptonmin, norm.max=input$comptonmax))
+
+            # Train with the normalization the norm sweep just chose (reading
+            # input$normcal here would race the client round-trip of the
+            # updateSelectInput that bestNormVars triggers).
+            bn <- bestNormVars()
+            norm_type <- bn[["Type"]]
+            norm_win <- bn[["Compton"]]
+
+            predict.intensity.list <- if(norm_type==1){
+                lapply(ceph_cached, function(x) lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element, intercept.element.lines=c(element, x)))
+            } else if(norm_type==2){
+                lapply(ceph_cached, function(x) lucas_tc_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element, intercept.element.lines=c(element, x)))
+            } else if(norm_type==3){
+                lapply(ceph_cached, function(x) lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element, intercept.element.lines=c(element, x), norm.min=norm_win[1], norm.max=norm_win[2]))
             }
-            
-            optimal_intercept_chain_xrf(element=element, intensities=predict.intensity.list, values=concentration.table, keep=vals$keeprows)
-            
-            
-        })
+
+            # Concentrations aligned row-for-row to the intensity frames (which
+            # inherit spectra.line.table's row order), then pick the winning combo.
+            conc_aligned <- concentration.table[match(spectra.line.table$Spectrum, concentration.table$Spectrum), element]
+            best_idx <- optimal_intercept_chain_xrf(element=element, intensities=predict.intensity.list, values=conc_aligned, keep=vals$keeprows)
+            if(is.na(best_idx)) NULL else as.character(unlist(ceph_cached[[best_idx]]))
+
+
+        }
         
 
         #observeEvent(input$trainslopes, {
@@ -4581,8 +4702,8 @@ shinyServer(function(input, output, session) {
         })
         
         output$open_mp_threads_ui <- renderUI({
-            req(input$multicore_behavior)
-            nThreads(open_mp=input$multicore_behavior=="OpenMP", nthreads=-1)
+            req(multicoreBehavior())
+            nThreads(open_mp=multicoreBehavior()=="OpenMP", nthreads=-1)
             
         })
         
@@ -4776,7 +4897,7 @@ shinyServer(function(input, output, session) {
             "(Ce) Cerium" = "Ce",
             "(Pr) Praeseodymeum" = "Pr",
             "(Nd) Neodymeum" = "Nd",
-            "(Pr) Promethium" = "Pr",
+            "(Pm) Promethium" = "Pm",
             "(Sm) Samarium" = "Sm",
             "(Eu) Europium" = "Eu",
             "(Gd) Gadolinium" = "Gd",
@@ -5334,12 +5455,12 @@ shinyServer(function(input, output, session) {
                 }
             }
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 rf_model <- caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -5422,12 +5543,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 rf_model <- caret::train(Concentration~.,data=data, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -5511,12 +5632,12 @@ shinyServer(function(input, output, session) {
                 }
             }
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 nn_model <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -5613,12 +5734,12 @@ shinyServer(function(input, output, session) {
             f <- as.formula(paste("Concentration ~", paste(names(predict.frame)[!names(predict.frame) %in% "Concentration"], collapse = " + ")))
 
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 nn_model <- caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -5719,12 +5840,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 nn_model <- caret::train(Concentration~.,data=data, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -5819,12 +5940,12 @@ shinyServer(function(input, output, session) {
             
             f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 nn_model <- caret::train(f,data=data, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -5966,13 +6087,13 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$bayesparameter=="GridSearch"){
-                if(input$multicore_behavior=="Single Core"){
+            if(bayesParameterMode()=="GridSearch"){
+                if(multicoreBehavior()=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
-                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                    cl <- if(input$multicore_behavior=="Serialize"){
+                } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                    cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                    } else if(input$multicore_behavior=="Fork"){
+                    } else if(multicoreBehavior()=="Fork"){
                         parallel::makeForkCluster(as.numeric(my.cores)/2)
                     }
                     clusterEvalQ(cl, library(foreach))
@@ -5980,10 +6101,10 @@ shinyServer(function(input, output, session) {
                     
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
-                } else if(input$multicore_behavior=="OpenMP"){
+                } else if(multicoreBehavior()=="OpenMP"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
-            } else if(input$bayesparameter=="Bayesian"){
+            } else if(bayesParameterMode()=="Bayesian"){
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
                 } else if(parameters$ForestMetric=="MAE"){
@@ -6135,12 +6256,12 @@ shinyServer(function(input, output, session) {
                           
 
                 
-                if(input$multicore_behavior=="Single Core"){
+                if(multicoreBehavior()=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
-                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                    cl <- if(input$multicore_behavior=="Serialize"){
+                } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                    cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                    } else if(input$multicore_behavior=="Fork"){
+                    } else if(multicoreBehavior()=="Fork"){
                         parallel::makeForkCluster(as.numeric(my.cores)/2)
                     }
                     clusterEvalQ(cl, library(foreach))
@@ -6148,7 +6269,7 @@ shinyServer(function(input, output, session) {
                     
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
-                } else if(input$multicore_behavior=="OpenMP"){
+                } else if(multicoreBehavior()=="OpenMP"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
@@ -6276,13 +6397,13 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$bayesparameter=="GridSearch"){
-                if(input$multicore_behavior=="Single Core"){
+            if(bayesParameterMode()=="GridSearch"){
+                if(multicoreBehavior()=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
-                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                    cl <- if(input$multicore_behavior=="Serialize"){
+                } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                    cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                    } else if(input$multicore_behavior=="Fork"){
+                    } else if(multicoreBehavior()=="Fork"){
                         parallel::makeForkCluster(as.numeric(my.cores)/2)
                     }
                     clusterEvalQ(cl, library(foreach))
@@ -6290,10 +6411,10 @@ shinyServer(function(input, output, session) {
                     
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
-                } else if(input$multicore_behavior=="OpenMP"){
+                } else if(multicoreBehavior()=="OpenMP"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
-            } else if(input$bayesparameter=="Bayesian"){
+            } else if(bayesParameterMode()=="Bayesian"){
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
                 } else if(parameters$ForestMetric=="MAE"){
@@ -6461,12 +6582,12 @@ shinyServer(function(input, output, session) {
                 )
 		}
                 
-                if(input$multicore_behavior=="Single Core"){
+                if(multicoreBehavior()=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
-                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                    cl <- if(input$multicore_behavior=="Serialize"){
+                } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                    cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                    } else if(input$multicore_behavior=="Fork"){
+                    } else if(multicoreBehavior()=="Fork"){
                         parallel::makeForkCluster(as.numeric(my.cores)/2)
                     }
                     clusterEvalQ(cl, library(foreach))
@@ -6474,7 +6595,7 @@ shinyServer(function(input, output, session) {
                     
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
-                } else if(input$multicore_behavior=="OpenMP"){
+                } else if(multicoreBehavior()=="OpenMP"){
                     xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
@@ -6561,13 +6682,13 @@ shinyServer(function(input, output, session) {
                 }
             }
                 
-                if(input$bayesparameter=="GridSearch"){
-                    if(input$multicore_behavior=="Single Core"){
+                if(bayesParameterMode()=="GridSearch"){
+                    if(multicoreBehavior()=="Single Core"){
                         xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
-                    } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                        cl <- if(input$multicore_behavior=="Serialize"){
+                    } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                        cl <- if(multicoreBehavior()=="Serialize"){
                             parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                        } else if(input$multicore_behavior=="Fork"){
+                        } else if(multicoreBehavior()=="Fork"){
                             parallel::makeForkCluster(as.numeric(my.cores)/2)
                         }
                         clusterEvalQ(cl, library(foreach))
@@ -6575,10 +6696,10 @@ shinyServer(function(input, output, session) {
                         
                         xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                         stopCluster(cl)
-                    } else if(input$multicore_behavior=="OpenMP"){
+                    } else if(multicoreBehavior()=="OpenMP"){
                         xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = as.data.frame(xgbGrid),  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
                     }
-                } else if(input$bayesparameter=="Bayesian"){
+                } else if(bayesParameterMode()=="Bayesian"){
                     forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                         "rmse"
                     } else if(parameters$ForestMetric=="MAE"){
@@ -6645,12 +6766,12 @@ shinyServer(function(input, output, session) {
                     lambda = OPT_Res$Best_Par["lambda"]
                     )
                     
-                    if(input$multicore_behavior=="Single Core"){
+                    if(multicoreBehavior()=="Single Core"){
                         xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
-                    } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                        cl <- if(input$multicore_behavior=="Serialize"){
+                    } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                        cl <- if(multicoreBehavior()=="Serialize"){
                             parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                        } else if(input$multicore_behavior=="Fork"){
+                        } else if(multicoreBehavior()=="Fork"){
                             parallel::makeForkCluster(as.numeric(my.cores)/2)
                         }
                         clusterEvalQ(cl, library(foreach))
@@ -6658,7 +6779,7 @@ shinyServer(function(input, output, session) {
                         
                         xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                         stopCluster(cl)
-                    } else if(input$multicore_behavior=="OpenMP"){
+                    } else if(multicoreBehavior()=="OpenMP"){
                         xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
                     }
                 }
@@ -6804,13 +6925,13 @@ shinyServer(function(input, output, session) {
                 
             
                 
-            if(input$bayesparameter=="GridSearch"){
-                if(input$multicore_behavior=="Single Core"){
+            if(bayesParameterMode()=="GridSearch"){
+                if(multicoreBehavior()=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
-                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                    cl <- if(input$multicore_behavior=="Serialize"){
+                } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                    cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                    } else if(input$multicore_behavior=="Fork"){
+                    } else if(multicoreBehavior()=="Fork"){
                         parallel::makeForkCluster(as.numeric(my.cores)/2)
                     }
                     clusterEvalQ(cl, library(foreach))
@@ -6818,10 +6939,10 @@ shinyServer(function(input, output, session) {
 
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
-                } else if(input$multicore_behavior=="OpenMP"){
+                } else if(multicoreBehavior()=="OpenMP"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
-            } else if(input$bayesparameter=="Bayesian"){
+            } else if(bayesParameterMode()=="Bayesian"){
                 predict.frame <- data
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
@@ -6974,12 +7095,12 @@ shinyServer(function(input, output, session) {
                 )
 			}
                 
-                if(input$multicore_behavior=="Single Core"){
+                if(multicoreBehavior()=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
-                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                    cl <- if(input$multicore_behavior=="Serialize"){
+                } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                    cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                    } else if(input$multicore_behavior=="Fork"){
+                    } else if(multicoreBehavior()=="Fork"){
                         parallel::makeForkCluster(as.numeric(my.cores)/2)
                     }
                     clusterEvalQ(cl, library(foreach))
@@ -6987,7 +7108,7 @@ shinyServer(function(input, output, session) {
 
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
-                } else if(input$multicore_behavior=="OpenMP"){
+                } else if(multicoreBehavior()=="OpenMP"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
@@ -7118,13 +7239,13 @@ shinyServer(function(input, output, session) {
                 
             
                 
-            if(input$bayesparameter=="GridSearch"){
-                if(input$multicore_behavior=="Single Core"){
+            if(bayesParameterMode()=="GridSearch"){
+                if(multicoreBehavior()=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
-                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                    cl <- if(input$multicore_behavior=="Serialize"){
+                } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                    cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                    } else if(input$multicore_behavior=="Fork"){
+                    } else if(multicoreBehavior()=="Fork"){
                         parallel::makeForkCluster(as.numeric(my.cores)/2)
                     }
                     clusterEvalQ(cl, library(foreach))
@@ -7132,10 +7253,10 @@ shinyServer(function(input, output, session) {
 
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
-                } else if(input$multicore_behavior=="OpenMP"){
+                } else if(multicoreBehavior()=="OpenMP"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
-            } else if(input$bayesparameter=="Bayesian"){
+            } else if(bayesParameterMode()=="Bayesian"){
                 predict.frame <- data
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
@@ -7304,12 +7425,12 @@ shinyServer(function(input, output, session) {
                 )
 			} 
                 
-                if(input$multicore_behavior=="Single Core"){
+                if(multicoreBehavior()=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
-                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                    cl <- if(input$multicore_behavior=="Serialize"){
+                } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                    cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                    } else if(input$multicore_behavior=="Fork"){
+                    } else if(multicoreBehavior()=="Fork"){
                         parallel::makeForkCluster(as.numeric(my.cores)/2)
                     }
                     clusterEvalQ(cl, library(foreach))
@@ -7317,7 +7438,7 @@ shinyServer(function(input, output, session) {
 
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
-                } else if(input$multicore_behavior=="OpenMP"){
+                } else if(multicoreBehavior()=="OpenMP"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
@@ -7406,13 +7527,13 @@ shinyServer(function(input, output, session) {
                 }
             }
                 
-            if(input$bayesparameter=="GridSearch"){
-                if(input$multicore_behavior=="Single Core"){
+            if(bayesParameterMode()=="GridSearch"){
+                if(multicoreBehavior()=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
-                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                    cl <- if(input$multicore_behavior=="Serialize"){
+                } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                    cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                    } else if(input$multicore_behavior=="Fork"){
+                    } else if(multicoreBehavior()=="Fork"){
                         parallel::makeForkCluster(as.numeric(my.cores)/2)
                     }
                     clusterEvalQ(cl, library(foreach))
@@ -7420,10 +7541,10 @@ shinyServer(function(input, output, session) {
 
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
-                } else if(input$multicore_behavior=="OpenMP"){
+                } else if(multicoreBehavior()=="OpenMP"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
                 }
-            } else if(input$bayesparameter=="Bayesian"){
+            } else if(bayesParameterMode()=="Bayesian"){
                 predict.frame <- data
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
                     "rmse"
@@ -7492,12 +7613,12 @@ shinyServer(function(input, output, session) {
                 lambda = OPT_Res$Best_Par["lambda"]
                 )
                 
-                if(input$multicore_behavior=="Single Core"){
+                if(multicoreBehavior()=="Single Core"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
-                } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                    cl <- if(input$multicore_behavior=="Serialize"){
+                } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                    cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                    } else if(input$multicore_behavior=="Fork"){
+                    } else if(multicoreBehavior()=="Fork"){
                         parallel::makeForkCluster(as.numeric(my.cores)/2)
                     }
                     clusterEvalQ(cl, library(foreach))
@@ -7505,7 +7626,7 @@ shinyServer(function(input, output, session) {
 
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
-                } else if(input$multicore_behavior=="OpenMP"){
+                } else if(multicoreBehavior()=="OpenMP"){
                     xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
@@ -7674,12 +7795,12 @@ shinyServer(function(input, output, session) {
                 }
             }
                         
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -7762,12 +7883,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 bart_model <- caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -7953,12 +8074,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 bart_model <- caret::train(Concentration~.,data=data, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -8041,12 +8162,12 @@ shinyServer(function(input, output, session) {
             
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 bart_model <- caret::train(Concentration~.,data=data, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -8154,12 +8275,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -8250,12 +8371,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -8355,12 +8476,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -8445,12 +8566,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -8535,12 +8656,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -8625,12 +8746,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -8748,12 +8869,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~.,data=data, method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -8843,12 +8964,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~., data=data, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -8947,12 +9068,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~.,data=data, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -9042,12 +9163,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -9138,12 +9259,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -9233,12 +9354,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -9565,9 +9686,17 @@ shinyServer(function(input, output, session) {
             foresthold$foresttrain <- "cv"
             xgboosthold$xgbtype <- "Linear"
             calMemory$Calibration$calList[[input$calcurveelement]] <- list(Parameters=defaultCalConditions(element=input$calcurveelement, number.of.standards=length(holdFrame()$Spectrum)), Model=NULL)
-            
-            bestCalHold[[input$calcurveelement]] <- bestCalTypeFrame()
-            calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=bestParameters(), model=bestModel(), table=calValTable(), compress=TRUE))
+
+            # tryCatch: an error while evaluating one candidate model type used to
+            # propagate out of this observer and abort the remaining Train
+            # observers in the flush (the norm/intercept sweep never ran).
+            tryCatch({
+                bestCalHold[[input$calcurveelement]] <- bestCalTypeFrame()
+                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=bestParameters(), model=bestModel(), table=calValTable(), compress=TRUE))
+            }, error = function(e){
+                print(paste("TRAIN best-model sweep failed:", conditionMessage(e)))
+                showNotification(paste("Model training failed:", conditionMessage(e)), type="error")
+            })
         })
         
         output$models <- renderDataTable({
@@ -9821,8 +9950,8 @@ shinyServer(function(input, output, session) {
         
         
         calTreeDepthSelectionpre <- reactive(label="calTreeDepthSelectionpre", {
-            req(input$bayesparameter)
-            if(input$bayesparameter=="Simple"){
+            req(bayesParameterMode())
+            if(bayesParameterMode()=="Simple"){
                 if(!"TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["TreeDepth"]), "-")))
                 } else if("TreeDepth" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -9835,8 +9964,8 @@ shinyServer(function(input, output, session) {
         })
         
         calDropTreeSelectionpre <- reactive(label="calDropTreeSelectionpre", {
-            req(input$bayesparameter)
-            if(input$bayesparameter=="Simple"){
+            req(bayesParameterMode())
+            if(bayesParameterMode()=="Simple"){
                 if(!"DropTree" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["DropTree"]), "-")))
                 } else if("DropTree" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -9849,8 +9978,8 @@ shinyServer(function(input, output, session) {
         }) 
         
         calSkipDropSelectionpre <- reactive(label="calSkipDropSelectionpre", {
-            req(input$bayesparameter)
-            if(input$bayesparameter=="Simple"){
+            req(bayesParameterMode())
+            if(bayesParameterMode()=="Simple"){
                 if(!"SkipDrop" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["SkipDrop"]), "-")))
                 } else if("SkipDrop" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -9863,9 +9992,9 @@ shinyServer(function(input, output, session) {
         })  
         
         calXGBAlphaSelectionpre <- reactive(label="calXGBAlphaSelectionpre", {
-            req(input$bayesparameter)
+            req(bayesParameterMode())
             req(input$radiocal)
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if(!"xgbAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbAlpha"]), "-")))
                 } else if("xgbAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -9877,9 +10006,9 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBGammaSelectionpre <- reactive(label="calXGBGammaSelectionpre", {
-            req(input$bayesparameter)
+            req(bayesParameterMode())
             req(input$radiocal)
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if(!"xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbGamma"]), "-")))
                 } else if("xgbGamma" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -9891,9 +10020,9 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBEtaSelectionpre <- reactive(label="calXGBEtaSelectionpre", {
-            req(input$bayesparameter)
+            req(bayesParameterMode())
             req(input$radiocal)
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
                 } else if("xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -9905,9 +10034,9 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBEtaSelectionpredraft <- reactive(label="calXGBEtaSelectionpre", {
-            req(input$bayesparameter)
+            req(bayesParameterMode())
             req(input$radiocal)
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if("Model" %in% names(calMemory$Calibration$calList[[input$calcurveelement]])){
                     if(calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==8 | calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==9){
                         c(calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$eta, calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$eta)
@@ -9929,7 +10058,7 @@ shinyServer(function(input, output, session) {
             } else {
                 c(0.01, 0.99)
             }
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if(!"xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbEta"]), "-")))
                 } else if("xgbEta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -9942,9 +10071,9 @@ shinyServer(function(input, output, session) {
         })
         
         calxgboostLambdaSelectionpre <- reactive(label="calxgboostLambdaSelectionpre", {
-            req(input$bayesparameter)
+            req(bayesParameterMode())
             req(input$radiocal)
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if(!"xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbLambda"]), "-")))
                 } else if("xgbLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -9956,9 +10085,9 @@ shinyServer(function(input, output, session) {
         })
         
         calxgboostLambdaSelectionpredraft <- reactive(label="calxgboostLambdaSelectionpre", {
-            req(input$bayesparameter)
+            req(bayesParameterMode())
             req(input$radiocal)
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if("Model" %in% names(calMemory$Calibration$calList[[input$calcurveelement]])){
                     if(calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==8 | calMemory$Calibration$calList[[input$calcurveelement]]$Parameters$CalTable$CalType==9){
                         c(calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$alpha, calMemory$Calibration$calList[[input$calcurveelement]]$Model$bestTune$alpha)
@@ -9983,9 +10112,9 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBSubSampleSelectionpre <- reactive(label="calXGBSubSampleSelectionpre", {
-            req(input$bayesparameter)
+            req(bayesParameterMode())
             req(input$radiocal)
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if(!"xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbSubSample"]), "-")))
                 } else if("xgbSubSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -9997,9 +10126,9 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBColSampleSelectionpre <- reactive(label="calXGBColSampleSelectionpre", {
-            req(input$bayesparameter)
+            req(bayesParameterMode())
             req(input$radiocal)
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if(!"xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["xgbColSample"]), "-")))
                 } else if("xgbColSample" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -10011,7 +10140,7 @@ shinyServer(function(input, output, session) {
         })
         
         calXGBMinChildSelectionpre <- reactive(label="calXGBMinChildSelectionpre", {
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if(!"xgbMinChild" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     calConditions$hold[["CalTable"]]["xgbMinChild"]
                 } else if("xgbMinChild" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -10023,7 +10152,7 @@ shinyServer(function(input, output, session) {
         })
 
         calXGBMaxDeltaStepSelectionpre <- reactive(label="calXGBMaxDeltaStepSelectionpre", {
-            if(input$bayesparameter=="Simple"){
+            if(bayesParameterMode()=="Simple"){
                 if(!"xgbMaxDeltaStep" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                     calConditions$hold[["CalTable"]]["xgbMaxDeltaStep"]
                 } else if("xgbMaxDeltaStep" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -10150,7 +10279,7 @@ shinyServer(function(input, output, session) {
             svmhold$svmlength <- calSVMLengthSelectionpre()
         })
         
-        observeEvent(input$bayesparameter, {
+        observeEvent(bayesParameterMode(), {
             basichold$normtype <- calNormSelectionpre()
             basichold$normmin <- normMinPre()
             basichold$normmax <- normMaxPre()
@@ -10412,34 +10541,48 @@ shinyServer(function(input, output, session) {
           programmatic(FALSE)
         })
         
+        # These observers receive both real user edits and the echoes of the
+        # programmatic updateSelectInput/updateNumericInput calls made when
+        # switching elements. The programmatic() flag alone cannot catch the
+        # echoes - they arrive on a later flush, after the flag was reset - so
+        # each also skips when the value matches what is already held. Without
+        # that, every element switch replayed up to six "edits", each of which
+        # invalidated the model/plot chain again.
         observeEvent(input$normcal, {
           if (programmatic()) return()
+          if (isTRUE(as.numeric(input$normcal) == as.numeric(basichold$normtype))) return()
           basichold$normtype <- input$normcal
           calConditions$hold[["CalTable"]]$NormType <- as.numeric(input$normcal)
         }, ignoreInit = TRUE)
 
         observeEvent(input$comptonmin, {
           if (programmatic()) return()
+          if (isTRUE(as.numeric(input$comptonmin) == as.numeric(basichold$normmin))) return()
           basichold$normmin <- input$comptonmin
           calConditions$hold[["CalTable"]]$Min <- as.numeric(input$comptonmin)
         }, ignoreInit = TRUE)
 
         observeEvent(input$comptonmax, {
           if (programmatic()) return()
+          if (isTRUE(as.numeric(input$comptonmax) == as.numeric(basichold$normmax))) return()
           basichold$normmax <- input$comptonmax
           calConditions$hold[["CalTable"]]$Max <- as.numeric(input$comptonmax)
         }, ignoreInit = TRUE)
-        
+
+        # Note: LineType/LineStructure are character settings ("Narrow", "gaussian");
+        # they were previously stored through as.numeric(), which coerced them to NA.
         observeEvent(input$linepreferenceelement, {
           if (programmatic()) return()
+          if (isTRUE(input$linepreferenceelement == basichold$linepreferenceelement)) return()
           basichold$linepreferenceelement <- input$linepreferenceelement
-          calConditions$hold[["CalTable"]]$LineType <- as.numeric(input$linepreferenceelement)
+          calConditions$hold[["CalTable"]]$LineType <- input$linepreferenceelement
         }, ignoreInit = TRUE)
-        
+
         observeEvent(input$linestructureelement, {
           if (programmatic()) return()
+          if (isTRUE(input$linestructureelement == basichold$linestructureelement)) return()
           basichold$linestructureelement <- input$linestructureelement
-          calConditions$hold[["CalTable"]]$LineStructure <- as.numeric(input$linestructureelement)
+          calConditions$hold[["CalTable"]]$LineStructure <- input$linestructureelement
         }, ignoreInit = TRUE)
         
         observeEvent(input$deconvolution, {
@@ -10463,6 +10606,11 @@ shinyServer(function(input, output, session) {
         })
         
         observeEvent(input$slope_vars, {
+            # Skip no-op echoes: when the slope selector re-renders on an element
+            # switch it briefly reports its old value (or NULL) before the real
+            # selection arrives; unconditionally writing those invalidated the
+            # model chain with a stale/empty slope configuration each time.
+            if (identical(input$slope_vars, isolate(lucashold$slope))) return()
             lucashold$slope <- input$slope_vars
         }, ignoreNULL = FALSE)
         
@@ -10481,6 +10629,7 @@ shinyServer(function(input, output, session) {
         })
         
         observeEvent(input$intercept_vars, {
+            if (identical(input$intercept_vars, isolate(lucashold$intercept))) return()
             lucashold$intercept <- input$intercept_vars
         }, ignoreNULL = FALSE)
         
@@ -11088,7 +11237,14 @@ shinyServer(function(input, output, session) {
         #    valFrameVal$val.frame <- valFrame()
         #})
         
-        observeEvent(modelParameters(), priority=77, {
+        # Debounced trigger: modelParameters() invalidates several times during an
+        # element switch (per-element holds sync one field at a time, then the
+        # re-rendered sidebar controls echo back). This observer is eager, so each
+        # invalidation used to force the full model chain (elementModel refit ->
+        # mclValGen) mid-cascade. Let the parameters settle, then update the cache
+        # once.
+        modelParametersSettled <- debounce(modelParameters, 300)
+        observeEvent(modelParametersSettled(), priority=77, {
             #req(input$calcurveelement, input$radiocal)
             valFrameVal$val.frame <- tryCatch(valFrame(), error=function(e) NULL)
         })
@@ -11506,14 +11662,14 @@ shinyServer(function(input, output, session) {
                     coord_cartesian(xlim = rangescalcurve$x, ylim = rangescalcurve$y, expand = TRUE), error=function(e) NULL)
                 }
             }
-            
-            
-            
+
+
+
             calcurve.plot
-            
-            
+
+
         })
-        
+
         emptyCalCurve <- reactive(label="emptyCalCurve",{
             element.name <- if(input$calcurveelement %in% spectralLines){
                 gsub("[.]", "", substr(input$calcurveelement, 1, 2))
@@ -11592,8 +11748,17 @@ shinyServer(function(input, output, session) {
         
         reac <- reactive(list(bins = input$bins, column  = input$column))
         
+        # Debounced views for the displayed plots: one element switch invalidates the
+        # plot chain several times in a row (element input, keeprows reset, stored
+        # cal settings, radiocal/normcal arriving from re-rendered sidebar controls),
+        # and each invalidation used to redraw both plots (~0.5 s each). Debouncing
+        # collapses the cascade into a single redraw once the inputs settle.
+        # Interactive consumers (zoom/click/hover ranges) keep using calCurvePlot()
+        # directly - it is cached, so reads stay cheap.
+        calCurvePlotView <- debounce(calCurvePlot, 250)
+
         output$calcurveplots <- renderPlot({
-            calCurvePlot()
+            calCurvePlotView()
         })
 
         ## Limit of Detection / Quantification. Two complementary bases:
@@ -11716,8 +11881,13 @@ shinyServer(function(input, output, session) {
             }, error=function(e) list(inst_note="not_estimable", lod_cal=NA_real_, loq_cal=NA_real_))
         })
 
+        # Debounced like the plots: the LOD estimate is the single most expensive
+        # reactive on an element switch (~0.6 s); let the input cascade settle and
+        # compute it once.
+        lodEstimateView <- debounce(lodEstimate, 400)
+
         output$lodtext <- renderUI({
-            est <- lodEstimate()
+            est <- lodEstimateView()
             unit <- if(is.null(input$plotunit)) "%" else input$plotunit
             multiplier <- if(unit=="%") 1 else 10000
             fmt <- function(x){
@@ -11848,7 +12018,7 @@ shinyServer(function(input, output, session) {
             valcurve.plot
 
         })
-        
+
         emptyValCurve <- reactive(label="emptyValCurve",{
             element.name <- if(input$calcurveelement %in% spectralLines){
                 gsub("[.]", "", substr(input$calcurveelement, 1, 2))
@@ -11920,9 +12090,11 @@ shinyServer(function(input, output, session) {
         })
         
         
+        valCurvePlotView <- debounce(valCurvePlot, 250)
+
         output$valcurveplots <- renderPlot({
-            valCurvePlot()
-            
+            valCurvePlotView()
+
         })
         
         
@@ -12088,12 +12260,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 rf_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12153,12 +12325,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 rf_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12223,12 +12395,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 nn_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12306,12 +12478,12 @@ shinyServer(function(input, output, session) {
             f <- as.formula(paste("Concentration ~", paste(names(predict.frame)[!names(predict.frame) %in% "Concentration"], collapse = " + ")))
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 nn_model <- tryCatch(caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12375,12 +12547,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 nn_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12456,12 +12628,12 @@ shinyServer(function(input, output, session) {
             
             f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 nn_model <- tryCatch(caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12549,12 +12721,12 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, tree_method=input$treemethod)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(my.cores)/2)
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12562,7 +12734,7 @@ shinyServer(function(input, output, session) {
                 
                 xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
                 stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
+            } else if(multicoreBehavior()=="OpenMP"){
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
             }
             
@@ -12649,12 +12821,12 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, tree_method=input$treemethod)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(my.cores)/2)
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12662,7 +12834,7 @@ shinyServer(function(input, output, session) {
                 
                 xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
+            } else if(multicoreBehavior()=="OpenMP"){
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
             }
             
@@ -12727,12 +12899,12 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(my.cores)/2)
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12740,7 +12912,7 @@ shinyServer(function(input, output, session) {
                 
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
+            } else if(multicoreBehavior()=="OpenMP"){
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
             }
             xgb_model
@@ -12828,12 +13000,12 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(my.cores)/2)
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12841,7 +13013,7 @@ shinyServer(function(input, output, session) {
                 
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
+            } else if(multicoreBehavior()=="OpenMP"){
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, nthread=input$open_mp_threads)
             }
             
@@ -12906,12 +13078,12 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(my.cores)/2)
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -12919,7 +13091,7 @@ shinyServer(function(input, output, session) {
                 
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
+            } else if(multicoreBehavior()=="OpenMP"){
                 xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
             }
             xgb_model
@@ -13013,12 +13185,12 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, tree_method=input$treemethod)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(my.cores)/2)
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -13026,7 +13198,7 @@ shinyServer(function(input, output, session) {
                 
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
                 stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
+            } else if(multicoreBehavior()=="OpenMP"){
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
             }
             
@@ -13114,12 +13286,12 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(my.cores)/2)
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -13127,7 +13299,7 @@ shinyServer(function(input, output, session) {
                 
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
                 stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
+            } else if(multicoreBehavior()=="OpenMP"){
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
             }
             
@@ -13193,12 +13365,12 @@ shinyServer(function(input, output, session) {
             }
                 
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(my.cores)/2)
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -13206,7 +13378,7 @@ shinyServer(function(input, output, session) {
                 
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
-            } else if(input$multicore_behavior=="OpenMP"){
+            } else if(multicoreBehavior()=="OpenMP"){
                 xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
             }
             
@@ -13330,12 +13502,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -13403,12 +13575,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 bart_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -13538,12 +13710,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -13610,12 +13782,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -13695,12 +13867,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -13772,12 +13944,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -13859,12 +14031,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -13933,12 +14105,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -14007,12 +14179,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -14081,12 +14253,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -14172,12 +14344,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -14249,12 +14421,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -14336,12 +14508,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -14414,12 +14586,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -14493,12 +14665,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -14571,12 +14743,12 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(input$multicore_behavior=="Single Core"){
+            if(multicoreBehavior()=="Single Core"){
                 svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
-            } else if(input$multicore_behavior=="Fork" | input$multicore_behavior=="Serialize"){
-                cl <- if(input$multicore_behavior=="Serialize"){
+            } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
+                cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
-                } else if(input$multicore_behavior=="Fork"){
+                } else if(multicoreBehavior()=="Fork"){
                     parallel::makeForkCluster(as.numeric(cores.to.use))
                 }
                 clusterEvalQ(cl, library(foreach))
@@ -16831,10 +17003,18 @@ shinyServer(function(input, output, session) {
             
         })
         
+        # Same deduplication as outVarStable/inVar2 on the single-instrument page.
+        outVarMultiStable <- reactiveVal(NULL)
+        observe({
+            ch <- outVarMulti()
+            if (!identical(ch, isolate(outVarMultiStable()))) outVarMultiStable(ch)
+        })
+
         output$inVar2_multi <- renderUI({
-            choices <- outVarMulti()
+            choices <- outVarMultiStable()
             req(length(choices) > 0)
-            selectInput(inputId = "calcurveelement_multi", label = h4("Element"), choices = choices)
+            selectInput(inputId = "calcurveelement_multi", label = h4("Element"), choices = choices,
+                selected = isolate(input$calcurveelement_multi))
         })
 
         inVar3SelectedMulti <- reactive({
@@ -17889,7 +18069,7 @@ observeEvent(input$actionprocess2_multi, {
             "(Ce) Cerium" = "Ce",
             "(Pr) Praeseodymeum" = "Pr",
             "(Nd) Neodymeum" = "Nd",
-            "(Pr) Promethium" = "Pr",
+            "(Pm) Promethium" = "Pm",
             "(Sm) Samarium" = "Sm",
             "(Eu) Europium" = "Eu",
             "(Gd) Gadolinium" = "Gd",
@@ -20140,10 +20320,6 @@ content = function(file){
         
       
         
-        valdata <- myValData()
-
-        
-        
         output$contents2 <- renderDataTable({
             
             
@@ -20631,19 +20807,38 @@ content = function(file){
         
         
         countList <- reactive({
-             list(Narrow_gaussian=fullInputValCounts(),
-                 Narrow_split=fullInputValCountsSplit(),
-                 Narrow_first=fullInputValCountsFirst(),
-                 Narrow_second=fullInputValCountsSecond(),
-                 Wide_gaussian=fullInputValCountsWide(),
-                 Wide_split=fullInputValCountsWideSplit(),
-                 Wide_first=fullInputValCountsWide(),
-                 Wide_second=fullInputValCountsWide(),
-                 Area_gaussian=fullInputValCountsDeconvoluted(),
-                 Area_split=fullInputValCountsDeconvoluted(),
-                 Area_first=fullInputValCountsDeconvoluted(),
-                 Area_second=fullInputValCountsDeconvoluted()
-                 )
+            # Build only the count-table variants the loaded calibration's
+            # elements actually use (each key is a full table build over the
+            # validation spectra; the Area keys additionally require the GLS
+            # deconvolution). Narrow_gaussian is always included - cloudCalPredict
+            # uses it as the element roster.
+            builders <- list(
+                Narrow_gaussian = fullInputValCounts,
+                Narrow_split    = fullInputValCountsSplit,
+                Narrow_first    = fullInputValCountsFirst,
+                Narrow_second   = fullInputValCountsSecond,
+                Wide_gaussian   = fullInputValCountsWide,
+                Wide_split      = fullInputValCountsWideSplit,
+                Wide_first      = fullInputValCountsWide,
+                Wide_second     = fullInputValCountsWide,
+                Area_gaussian   = fullInputValCountsDeconvoluted,
+                Area_split      = fullInputValCountsDeconvoluted,
+                Area_first      = fullInputValCountsDeconvoluted,
+                Area_second     = fullInputValCountsDeconvoluted
+            )
+            needed <- unique(unlist(lapply(calFileContents2()$calList, function(x) tryCatch({
+                ct <- x[[1]]$CalTable
+                lt <- as.character(ct$LineType[1])
+                ls <- as.character(ct$LineStructure[1])
+                if(!lt %in% c("Narrow", "Wide", "Area")) lt <- "Narrow"
+                if(!ls %in% c("gaussian", "split", "first", "second")) ls <- "gaussian"
+                paste0(lt, "_", ls)
+            }, error=function(e) "Narrow_gaussian"))))
+            needed <- union("Narrow_gaussian", needed)
+
+            out <- setNames(vector("list", length(builders)), names(builders))
+            for(k in intersect(needed, names(builders))) out[[k]] <- builders[[k]]()
+            out
         })
         
         #countListDeconvoluted <- reactive({
@@ -20658,7 +20853,30 @@ content = function(file){
         })
         
         
+        # Standardless FP quantification: the validation deconvolution already
+        # runs xrftools' fundamental-parameters mass estimation (mass=TRUE).
+        # Default presentation is the raw FP estimate (grams) - it deliberately
+        # does NOT sum to 100%, since elements without usable lines (C, O, ...)
+        # still hold real mass. The 'Normalize to 100%' checkbox opts into
+        # closure (fpMassClosure) for users confident the measured elements
+        # cover the sample. Works with no .quant loaded - deconvolution then
+        # uses default parameters.
+        fpQuantResults <- reactive({
+            mass <- tryCatch(myDeconvolutedValData()$Mass, error=function(e) NULL)
+            if(is.null(mass) || !"Spectrum" %in% names(mass)){
+                return(data.frame(Note="No FP estimate available - load spectra files first."))
+            }
+            if(isTRUE(input$fpnormalize)){
+                fpMassClosure(mass)
+            } else {
+                mass
+            }
+        })
+
         tableInputValQuantPre <- reactive({
+            if(isTRUE(input$quantmode == "FP (no calibration)")){
+                return(fpQuantResults())
+            }
             if(input$error=="None"){
                 suppressWarnings({
                     cloudCalPredictions()

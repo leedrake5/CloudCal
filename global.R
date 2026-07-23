@@ -280,6 +280,55 @@ remove.factors = function(df) {
 my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA)
 my.min <- function(x) ifelse( !all(is.na(x)), min(x, na.rm=T), NA)
 
+# Fast drop-in for aggregate(list(values), by=list(groups), FUN=...) on the
+# long-format spectra frames (the inner loop of every line-intensity build).
+# rowsum-based: same two-column, sorted-by-group data.frame shape; callers
+# rename the columns. ~20x faster than aggregate on 75k-row frames.
+fastAggCPS <- function(values, groups, method="sum", na.rm=FALSE){
+    # match aggregate()'s empty-input error: elementGrab's tryCatch relies on it
+    # to substitute the zero-filled fallback frame for empty ROI windows.
+    if(length(values) == 0) stop("no rows to aggregate")
+    groups <- as.character(groups)
+    if(identical(method, "sum") || identical(method, sum)){
+        tot <- rowsum(values, group=groups, na.rm=na.rm)
+        return(data.frame(Group.1=rownames(tot), x=as.numeric(tot[,1]), stringsAsFactors=FALSE))
+    }
+    if(identical(method, "mean") || identical(method, mean)){
+        if(na.rm){
+            tot <- rowsum(ifelse(is.na(values), 0, values), group=groups)
+            n <- rowsum(as.numeric(!is.na(values)), group=groups)
+        } else {
+            tot <- rowsum(values, group=groups)
+            n <- rowsum(rep(1, length(values)), group=groups)
+        }
+        return(data.frame(Group.1=rownames(tot), x=as.numeric(tot[,1])/as.numeric(n[,1]), stringsAsFactors=FALSE))
+    }
+    # unknown method: keep aggregate semantics
+    if(na.rm){
+        aggregate(list(values), by=list(groups), FUN=method, na.rm=TRUE)
+    } else {
+        aggregate(list(values), by=list(groups), FUN=method)
+    }
+}
+fastAggCPS <- cmpfun(fastAggCPS)
+
+# Content-equality for data frames that survives widget round-trips: handsontable
+# JSON serialization changes rownames/attributes/factor-ness without changing the
+# data, and identical() on those false differences re-triggers the whole reactive
+# chain (tables, models, plots) plus the Element dropdown re-render.
+dfSame <- function(a, b){
+    if (is.null(a) || is.null(b)) return(is.null(a) && is.null(b))
+    if (!is.data.frame(a) || !is.data.frame(b)) return(identical(a, b))
+    if (!identical(dim(a), dim(b)) || !identical(names(a), names(b))) return(FALSE)
+    norm <- function(d){
+        d <- as.data.frame(lapply(d, function(col) if (is.factor(col)) as.character(col) else col),
+                           stringsAsFactors = FALSE, check.names = FALSE)
+        rownames(d) <- NULL
+        d
+    }
+    isTRUE(all.equal(norm(a), norm(b), check.attributes = FALSE))
+}
+
 layOut = function(...) {
     
     require(grid)
@@ -1399,7 +1448,7 @@ elementGaussianKalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[6][1,]-buffer | data$Energy > elementLine[5][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1415,7 +1464,7 @@ elementFirstKalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[5][1,]-buffer | data$Energy > elementLine[5][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1431,7 +1480,7 @@ elementSecondKalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[6][1,]-buffer | data$Energy > elementLine[6][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1447,7 +1496,7 @@ elementSplitKalpha <- function(element, data, method="sum", buffer=0.1) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[((data$Energy >= elementLine[6][1,]-buffer & data$Energy <= elementLine[6][1,]+buffer) | (data$Energy >= elementLine[5][1,]-buffer & data$Energy <= elementLine[5][1,]+buffer)), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1530,7 +1579,12 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
     }
 
     strip_ext <- function(x){
-        mgsub::mgsub(as.character(x), c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe"), rep("", 8))
+        # mgsub over the unique names only (the shoulder-channel frame repeats
+        # ~40 names over thousands of rows and mgsub dominates the LOD runtime).
+        x <- as.character(x)
+        u <- unique(x)
+        cleaned <- mgsub::mgsub(u, c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe"), rep("", 8))
+        cleaned[match(x, u)]
     }
 
     ## Window dispatch shared by the ROI sum and the ROI-membership probe, so the
@@ -1709,7 +1763,7 @@ elementGaussianKbeta <- function(element, data, method="sum", buffer=0.02) {
     }
     hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
     colnames(hold.frame) <- c("CPS", "Spectrum")
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1738,7 +1792,7 @@ elementFirstKbeta <- function(element, data, method="sum", buffer=0.02) {
     }
     hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
     colnames(hold.frame) <- c("CPS", "Spectrum")
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1767,7 +1821,7 @@ elementSecondKbeta <- function(element, data, method="sum", buffer=0.02) {
     }
     hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
     colnames(hold.frame) <- c("CPS", "Spectrum")
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1797,7 +1851,7 @@ elementSplitKbeta <- function(element, data, method="sum", buffer=0.1) {
     }
     hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
     colnames(hold.frame) <- c("CPS", "Spectrum")
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1826,7 +1880,7 @@ elementGaussianLalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[11][1,]-buffer | data$Energy > elementLine[10][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1842,7 +1896,7 @@ elementFirstLalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[10][1,]-buffer | data$Energy > elementLine[10][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1858,7 +1912,7 @@ elementSecondLalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[11][1,]-buffer | data$Energy > elementLine[11][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1874,7 +1928,7 @@ elementSplitLalpha <- function(element, data, method="sum", buffer=0.1) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy <= elementLine[11][1,]-buffer & data$Energy >= elementLine[11][1,]+buffer | data$Energy >= elementLine[10][1,]+buffer & data$Energy <= elementLine[10][1,]-buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1904,7 +1958,7 @@ elementGaussianLbeta <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[12][1,]-buffer | data$Energy > elementLine[14][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1920,7 +1974,7 @@ elementFirstLbeta <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[12][1,]-buffer | data$Energy > elementLine[12][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1936,7 +1990,7 @@ elementSecondLbeta <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[14][1,]-buffer | data$Energy > elementLine[14][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1952,7 +2006,7 @@ elementSplitLbeta <- function(element, data, method="sum", buffer=0.1) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy <= elementLine[12][1,]-buffer & data$Energy >= elementLine[12][1,]+buffer | data$Energy >= elementLine[14][1,]+buffer & data$Energy <= elementLine[14][1,]-buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1981,7 +2035,7 @@ elementGaussianMalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[20][1,]-buffer | data$Energy > elementLine[22][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -1997,7 +2051,7 @@ elementFirstMalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[20][1,]-buffer | data$Energy > elementLine[20][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -2013,7 +2067,7 @@ elementSecondMalpha <- function(element, data, method="sum", buffer=0.02) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy < elementLine[22][1,]-buffer | data$Energy > elementLine[22][1,]+buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -2029,7 +2083,7 @@ elementSplitMalpha <- function(element, data, method="sum", buffer=0.1) {
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[!(data$Energy <= elementLine[20][1,]-buffer & data$Energy >= elementLine[20][1,]+buffer | data$Energy >= elementLine[22][1,]+buffer & data$Energy <= elementLine[22][1,]-buffer), c("CPS", "Spectrum")]
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -2097,7 +2151,7 @@ standardElementGrab <- cmpfun(standardElementGrab)
 range_gaussian_xrf <- function(range.frame, data, method="mean"){
     
     new.data <- subset(data, Energy >= range.frame$EnergyMin & Energy <= range.frame$EnergyMax, drop=TRUE)[,c("Spectrum", "CPS")]
-    newer.data <- aggregate(list(new.data$CPS), by=list(new.data$Spectrum), FUN=method, na.rm=TRUE)
+    newer.data <- fastAggCPS(new.data$CPS, new.data$Spectrum, method, na.rm=TRUE)
     colnames(newer.data) <- c("Spectrum", as.character(range.frame$Name))
     newer.data
 }
@@ -2106,7 +2160,7 @@ range_gaussian_xrf <- cmpfun(range_gaussian_xrf)
 range_split_xrf <- function(range.frame, data, method="mean", buffer=0.1){
     
     new.data <- subset(data, Energy >= range.frame$EnergyMin - buffer & Energy <= range.frame$EnergyMin + buffer & Energy <= range.frame$EnergyMax + buffer & Energy >= range.frame$EnergyMax - buffer, drop=TRUE)[,c("Spectrum", "CPS")]
-    newer.data <- aggregate(list(new.data$CPS), by=list(new.data$Spectrum), FUN=method, na.rm=TRUE)
+    newer.data <- fastAggCPS(new.data$CPS, new.data$Spectrum, method, na.rm=TRUE)
     colnames(newer.data) <- c("Spectrum", as.character(range.frame$Name))
     newer.data
 }
@@ -2196,11 +2250,80 @@ add_missing_columns <- function(df, colnames) {
   return(df)
 }
 
+# Vectorized intensity-table builder. The per-element path re-scans and
+# re-aggregates the full long-format frame once per element (~70x per table).
+# When every spectrum shares one energy grid (the usual case - one instrument,
+# one channel calibration), the window of each element line is a fixed set of
+# channels, so each table column is a masked column sum over a channels x
+# spectra matrix. The channel masks are discovered by running the EXISTING
+# per-element grab machinery over a tiny one-row-per-channel probe (same trick
+# as baseline_lod_estimate), so all window formulas, calculation variants and
+# custom-line definitions stay in one place. Element lines are ROI sums;
+# custom definition lines are ROI means (mirroring xrf_parse_single); an empty
+# window yields zeros exactly like elementGrab's error fallback. Returns NULL
+# when spectra do not share a grid - callers then use the per-element path.
+elementFrameFast <- function(data, grab_one, elements, empty_fill=0){
+    if(length(elements) == 0) return(NULL)
+    if(!all(c("Spectrum", "Energy", "CPS") %in% names(data))) return(NULL)
+
+    spec <- as.character(data$Spectrum)
+    specs <- sort(unique(spec))
+    energy <- as.numeric(data$Energy)
+    grid <- sort(unique(energy))
+    n_g <- length(grid); n_s <- length(specs)
+    if(n_g < 2 || as.double(n_g) * n_s != nrow(data)) return(NULL)
+
+    ord <- order(match(spec, specs), energy)
+    if(!isTRUE(all(energy[ord] == rep(grid, times = n_s)))) return(NULL)
+    M <- matrix(as.numeric(data$CPS)[ord], nrow = n_g, ncol = n_s)
+
+    probe <- data.frame(Energy = grid, CPS = 1,
+                        Spectrum = as.character(seq_len(n_g)), stringsAsFactors = FALSE)
+
+    cols <- vector("list", length(elements))
+    for(i in seq_along(elements)){
+        el <- elements[i]
+        hit <- tryCatch(grab_one(el, probe), error = function(e) NULL)
+        col <- rep(empty_fill, n_s)
+        if(!is.null(hit) && is.data.frame(hit) && nrow(hit) > 0 && ncol(hit) >= 2 &&
+           "Spectrum" %in% names(hit)){
+            v <- suppressWarnings(as.numeric(hit[[2]]))
+            # v > 0 keeps genuine in-window channels (probe CPS=1 -> sum/mean >= 1)
+            # and drops elementGrab's zero-filled error fallback rows.
+            idx <- suppressWarnings(as.integer(as.character(hit$Spectrum)))
+            idx <- idx[!is.na(v) & v > 0 & is.finite(idx)]
+            if(length(idx) > 0){
+                sub <- M[idx, , drop = FALSE]
+                col <- if(el %in% spectralLines){
+                    .colSums(sub, nrow(sub), n_s)
+                } else {
+                    .colMeans(sub, nrow(sub), n_s)
+                }
+            }
+        }
+        cols[[i]] <- col
+    }
+
+    frame <- data.frame(Spectrum = specs, cols, stringsAsFactors = FALSE)
+    colnames(frame) <- make.names(c("Spectrum", elements))
+
+    file_extensions <- c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe")
+    frame$Spectrum <- mgsub::mgsub(frame$Spectrum, file_extensions, rep("", length(file_extensions)))
+    frame
+}
+elementFrameFast <- cmpfun(elementFrameFast)
+
 
 elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1, buffer=0.1, allowParallel=TRUE){
-    
+
+    fast <- tryCatch(elementFrameFast(data, function(el, probe)
+        elementGrab(element.line=el, data=probe, range.table=range.table, calculation=calculation,
+                    gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer),
+        elements), error=function(e) NULL)
+    if(!is.null(fast)) return(fast)
+
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
-    
+
     spectra.line.list <- if(get_os()=="windows"){
         lapply(elements, function(x) elementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer))
     } else if(get_os()!="windows"){
@@ -2268,7 +2391,7 @@ wideElementGaussianLine <- function(element.line, data, method="sum") {
     #hold.frame <- data[data$Energy < elementLine[2, emission] && data$Energy > elementLine[1, emission], c("CPS", "Spectrum")]
     hold.frame <- data[!(data$Energy < elementLine[1, emission] | data$Energy > elementLine[2, emission]), c("CPS", "Spectrum")]
     
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, line, sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -2304,7 +2427,7 @@ wideElementGaussianLine <- function(element.line, data, method="sum") {
     #hold.frame <- data[data$Energy < elementLine[2, emission] && data$Energy > elementLine[1, emission], c("CPS", "Spectrum")]
     hold.frame <- data[!(data$Energy < elementLine[1, emission] | data$Energy > elementLine[2, emission]), c("CPS", "Spectrum")]
     
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, line, sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -2337,10 +2460,13 @@ wideElementSplitLine <- function(element.line, data, method="sum", buffer=0.1) {
         "Ma1"
     }
     
-    #hold.frame <- data[data$Energy < elementLine[2, emission] && data$Energy > elementLine[1, emission], c("CPS", "Spectrum")]
-    hold.frame <- data[!(data$Energy <= elementLine[1, emission]-buffer & data$Energy >= elementLine[1, emission]+buffer | data$Energy >= elementLine[2, emission]+buffer & data$Energy <= elementLine[2, emission]-buffer), c("CPS", "Spectrum")]
-    
-    hold.ag <- aggregate(list(hold.frame$CPS), by=list(hold.frame$Spectrum), FUN=method)
+    # Split = union of the two +/-buffer windows around the wide window's bounds,
+    # mirroring the narrow elementSplit* functions. The previous condition
+    # combined contradictory bounds with &, so it excluded nothing and summed
+    # the whole spectrum.
+    hold.frame <- data[((data$Energy >= elementLine[1, emission]-buffer & data$Energy <= elementLine[1, emission]+buffer) | (data$Energy >= elementLine[2, emission]-buffer & data$Energy <= elementLine[2, emission]+buffer)), c("CPS", "Spectrum")]
+
+    hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, line, sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
       # Replace NA values with 0
@@ -2385,7 +2511,13 @@ wideElementGrab <- function(element.line, data, range.table=NULL, calculation="g
 }
 
 wideElementFrame <- function(data, elements, range.table=NULL, calculation="gaussian", buffer=0.1, allowParallel=TRUE){
-    
+
+    fast <- tryCatch(elementFrameFast(data, function(el, probe)
+        wideElementGrab(element.line=el, data=probe, range.table=range.table,
+                        calculation=calculation, buffer=buffer),
+        elements, empty_fill=NA), error=function(e) NULL)
+    if(!is.null(fast)) return(fast)
+
     spectra.line.list <- if(get_os()=="windows"){
         lapply(elements, function(x) wideElementGrab(element.line=x, data=data, range.table=range.table, calculation=calculation, buffer=buffer))
     }else if(get_os()!="windows"){
@@ -2436,7 +2568,7 @@ element_norm <- function(data, element, min, max) {
     compton.file <- subset(data$Spectrum, !(data$Energy < input$min | data$Energy > input$max))
     compton.frame <- data.frame(is.0(compton.norm, compton.file))
     colnames(compton.frame) <- c("Compton", "Spectrum")
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    compton.frame.ag <- fastAggCPS(compton.frame$Compton, compton.frame$Spectrum, "sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     
@@ -2649,7 +2781,7 @@ linear_comp_xrf <- function(data, concentration.table, spectra.line.table, eleme
     compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
     compton.frame <- data.frame(is.0(compton.norm, compton.file))
     colnames(compton.frame) <- c("Compton", "Spectrum")
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    compton.frame.ag <- fastAggCPS(compton.frame$Compton, compton.frame$Spectrum, "sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton, stringsAsFactors=FALSE)
@@ -2682,7 +2814,7 @@ poly_comp_xrf <- function(data, concentration.table, spectra.line.table, element
     compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
     compton.frame <- data.frame(is.0(compton.norm, compton.file))
     colnames(compton.frame) <- c("Compton", "Spectrum")
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    compton.frame.ag <- fastAggCPS(compton.frame$Compton, compton.frame$Spectrum, "sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     predict.frame.comp <- data.frame(concentration, intensity/compton.frame.ag$Compton, stringsAsFactors=FALSE)
@@ -2714,7 +2846,7 @@ lucas_comp_xrf <- function(data, concentration.table, spectra.line.table, elemen
     compton.file <- subset(data$Spectrum, !(data$Energy < input$comptonmin | data$Energy > input$comptonmax))
     compton.frame <- data.frame(is.0(compton.norm, compton.file))
     colnames(compton.frame) <- c("Compton", "Spectrum")
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    compton.frame.ag <- fastAggCPS(compton.frame$Compton, compton.frame$Spectrum, "sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     
@@ -2871,6 +3003,8 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, com
         round(spectra$Energy/0.05)*0.05
     } else if(compress=="25 eV"){
         round(spectra$Energy/0.025)*0.025
+    } else {
+        spectra$Energy
     }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
@@ -2943,14 +3077,18 @@ spectra_tc_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, compr
         round(spectra$Energy/0.05)*0.05
     } else if(compress=="25 eV"){
         round(spectra$Energy/0.025)*0.025
+    } else {
+        spectra$Energy
     }
     
     norm_data$Energy <- if(compress=="100 eV"){
-        norm_data$Energy <- round(spectra$Energy, 1)
+        norm_data$Energy <- round(norm_data$Energy, 1)
     } else if(compress=="50 eV"){
         round(norm_data$Energy/0.05)*0.05
     } else if(compress=="25 eV"){
         round(norm_data$Energy/0.025)*0.025
+    } else {
+        norm_data$Energy
     }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
@@ -3026,7 +3164,7 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, nor
     compton.file <- subset(norm_data$Spectrum, !(norm_data$Energy < norm.min | norm_data$Energy > norm.max))
     compton.frame <- data.frame(is.0(compton.norm, compton.file))
     colnames(compton.frame) <- c("Compton", "Spectrum")
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    compton.frame.ag <- fastAggCPS(compton.frame$Compton, compton.frame$Spectrum, "sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     
@@ -3035,6 +3173,8 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, nor
         round(spectra$Energy/0.05)*0.05
     } else if(compress=="25 eV"){
         round(spectra$Energy/0.025)*0.025
+    } else {
+        spectra$Energy
     }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
@@ -3074,6 +3214,8 @@ spectra_simp_trans_xrf <- function(spectra, energy.min=0.2, energy.max=40, compr
         round(spectra$Energy/0.05)*0.05
     } else if(compress=="25 eV"){
         round(spectra$Energy/0.025)*0.025
+    } else {
+        spectra$Energy
     }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
@@ -3118,6 +3260,8 @@ spectra_tc_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, compres
         round(spectra$Energy/0.05)*0.05
     } else if(compress=="25 eV"){
         round(spectra$Energy/0.025)*0.025
+    } else {
+        spectra$Energy
     }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
@@ -3167,7 +3311,7 @@ spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.
     compton.file <- subset(spectra$Spectrum, !(spectra$Energy < norm.min | spectra$Energy > norm.max))
     compton.frame <- data.frame(is.0(compton.norm, compton.file))
     colnames(compton.frame) <- c("Compton", "Spectrum")
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    compton.frame.ag <- fastAggCPS(compton.frame$Compton, compton.frame$Spectrum, "sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     
@@ -3177,6 +3321,8 @@ spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.
         round(spectra$Energy/0.05)*0.05
     } else if(compress=="25 eV"){
         round(spectra$Energy/0.025)*0.025
+    } else {
+        spectra$Energy
     }
     
     spectra <- subset(spectra, !(spectra$Energy < energy.min | spectra$Energy > energy.max))
@@ -3270,7 +3416,7 @@ simple_comp_prep_xrf <- function(data, spectra.line.table, deconvolution=NULL, e
     compton.file <- subset(data$Spectrum, !(data$Energy < norm.min | data$Energy > norm.max))
     compton.frame <- data.frame(is.0(compton.norm, compton.file))
     colnames(compton.frame) <- c("Compton", "Spectrum")
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    compton.frame.ag <- fastAggCPS(compton.frame$Compton, compton.frame$Spectrum, "sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     
     compton.frame.ag[compton.frame.ag ==0 ] <- 1
@@ -3403,7 +3549,7 @@ lucas_comp_prep_xrf <- function(data, spectra.line.table, deconvolution=NULL, el
     compton.file <- subset(data$Spectrum, !(data$Energy < norm.min | data$Energy > norm.max))
     compton.frame <- data.frame(is.0(compton.norm, compton.file))
     colnames(compton.frame) <- c("Compton", "Spectrum")
-    compton.frame.ag <- aggregate(list(compton.frame$Compton), by=list(compton.frame$Spectrum), FUN="sum")
+    compton.frame.ag <- fastAggCPS(compton.frame$Compton, compton.frame$Spectrum, "sum")
     colnames(compton.frame.ag) <- c("Spectrum", "Compton")
     compton.frame.ag[compton.frame.ag ==0 ] <- 1
     
@@ -3754,17 +3900,22 @@ optimal_norm_chain_xrf <- function(data, element, spectra.line.table, values, po
 optimal_norm_chain_xrf <- cmpfun(optimal_norm_chain_xrf)
 
 
+# Returns the INDEX of the winning intercept combo (lowest AIC of
+# concentration ~ Lucas-Tooth Intensity); the caller maps it back to the combo.
+# `values` is a numeric concentration vector already aligned row-for-row with
+# the intensity frames. The previous version regressed a full-length response
+# against keep-subset predictors ("variable lengths differ") and then read the
+# winner from coefficient names a single-predictor fit does not have.
 optimal_intercept_chain_xrf <- function(element, intensities, values, keep){
-    
-    
-    chain.lm <- pbapply::pblapply(intensities, function(x) lm(values[,element]~Intensity, data=x[keep,]))
-    aic <- lapply(chain.lm, function(x) extractAIC(x, k=log(1))[2])
-    best <- chain.lm[[which.min(unlist(aic))]]
-    coef <- data.frame(best$coefficients, stringsAsFactors=FALSE)
-    best.var <- rownames(coef)[3:length(rownames(coef))]
-    
-    best.var
-    
+    n <- nrow(intensities[[1]])
+    if(length(keep) != n || any(is.na(keep))) keep <- rep(TRUE, n)
+    aic <- vapply(intensities, function(x){
+        fit <- tryCatch(lm(values[keep] ~ x$Intensity[keep], na.action=na.omit),
+                        error=function(e) NULL)
+        if(is.null(fit)) Inf else extractAIC(fit, k=log(1))[2]
+    }, numeric(1))
+    if(all(!is.finite(aic))) return(NA_integer_)
+    which.min(aic)
 }
 optimal_intercept_chain_xrf <- cmpfun(optimal_intercept_chain_xrf)
 
@@ -4613,6 +4764,8 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
         0.05
     } else if(compress=="25 eV"){
         0.025
+    } else {
+        0.1
     }
     
     if(radiocal==0){
@@ -8901,8 +9054,16 @@ calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALS
         
         if(extensions==TRUE){
             extensions <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
-            Calibration[["Spectra"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Spectra"]]$Spectrum))
-            Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Values"]]$Spectrum))
+            # mgsub over unique names only - the long-format Spectra column repeats
+            # ~40 names over 100k+ rows and mgsub is very slow per string.
+            strip_u <- function(x){
+                x <- as.character(x)
+                u <- unique(x)
+                cleaned <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=u)
+                cleaned[match(x, u)]
+            }
+            Calibration[["Spectra"]]$Spectrum <- strip_u(Calibration[["Spectra"]]$Spectrum)
+            Calibration[["Values"]]$Spectrum <- strip_u(Calibration[["Values"]]$Spectrum)
         }
         
 
@@ -9494,6 +9655,8 @@ background_error <- function(data, element.line, values=NULL, background, slope=
         0.05
     } else if(compress=="25 eV"){
         0.025
+    } else {
+        0.1
     }
     
     background_width <- length(seq(background[1], background[2], increment))
@@ -10438,10 +10601,31 @@ deconvolutionIntensityFrame <- function(deconvolution_areas, intensity_frame){
     return(deconvoluted_intensities)
 }
 
+# Close FP mass estimates to fractions summing to 1 per spectrum. NOT the
+# default presentation: the FP estimate is in grams and deliberately does not
+# sum to 100%, because elements without usable lines (C, O, ...) still hold
+# real mass. Closure is opt-in for users confident the measured elements
+# account for (effectively) the whole sample.
+fpMassClosure <- function(mass.table){
+    elements <- colnames(mass.table)[!colnames(mass.table) %in% "Spectrum"]
+    m <- as.matrix(mass.table[, elements, drop=FALSE])
+    m[!is.finite(m) | m < 0] <- 0
+    tot <- rowSums(m)
+    tot[tot == 0] <- 1
+    closed <- sweep(m, 1, tot, "/")
+    data.frame(Spectrum=mass.table$Spectrum, as.data.frame(closed, check.names=FALSE),
+               check.names=FALSE, stringsAsFactors=FALSE)
+}
+fpMassClosure <- cmpfun(fpMassClosure)
+
 totalCountsGen <- function(spectra_frame){
-    spectra_summary <- aggregate(CPS ~ Spectrum, data = spectra_frame[,c("Spectrum", "CPS")], FUN = sum)
-    colnames(spectra_summary) <- c("Spectrum", "Total")
-    return(spectra_summary)
+    # rowsum() instead of aggregate(): same sorted-by-group result, ~20x faster
+    # on the long-format spectra frame. Mirrors aggregate's na.omit behaviour.
+    cps <- spectra_frame[["CPS"]]
+    spec <- as.character(spectra_frame[["Spectrum"]])
+    keep <- !is.na(cps)
+    tot <- rowsum(cps[keep], group = spec[keep])
+    data.frame(Spectrum = rownames(tot), Total = as.numeric(tot[, 1]), stringsAsFactors = FALSE)
 }
 
 roundNumericColumns <- function(df, digits=1, multiplier=1) {

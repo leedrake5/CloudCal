@@ -864,6 +864,11 @@ uiOutput('dfl_val_load'),
 tags$hr(),
 
 fileInput('calfileinput2', 'Load Cal File', accept=".quant", multiple=FALSE),
+selectInput('quantmode', 'Quantification Mode',
+    choices=c("Calibration", "FP (no calibration)"), selected="Calibration"),
+conditionalPanel("input.quantmode == 'FP (no calibration)'",
+    checkboxInput('fpnormalize', 'Normalize FP results to 100%', value=FALSE),
+    helpText("Off: raw FP mass estimates (grams); totals stay below 100% because elements without usable lines (e.g. C, O) are not measured. On: close measured elements to 100%.")),
 uiOutput('roundingui')
 
 

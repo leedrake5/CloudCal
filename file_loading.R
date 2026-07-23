@@ -13,7 +13,7 @@ lalphaLines <- c("Si"="Si.L.alpha", "P"="P.L.alpha", "S"="S.L.alpha", "Cl"="Cl.L
 
 lbetaLines <- c("Ca"="Ca.L.beta", "Sc"="Sc.L.beta", "Ti"="Ti.L.beta", "V"="V.L.beta", "Cr"="Cr.L.beta", "Mn"="Mn.L.beta", "Fe"="Fe.L.beta", "Co"="Co.L.beta", "Ni"="Ni.L.beta", "Cu"="Cu.L.beta", "Zn"="Zn.L.beta", "Ga"="Ga.L.beta", "Ge"="Ge.L.beta", "As"="As.L.beta", "Se"="Se.L.beta", "Br"="Br.L.beta", "Kr"="Kr.L.beta", "Rb"="Rb.L.beta", "Sr"="Sr.L.beta", "Y"="Y.L.beta", "Zr"="Zr.L.beta", "Nb"="Nb.L.beta", "Mo"="Mo.L.beta", "Ru"="Ru.L.beta", "Rh"="Rh.L.beta", "Pd"="Pd.L.beta", "Ag"="Ag.L.beta", "Cd"="Cd.L.beta", "In"="In.L.beta", "Sn"="Sn.L.beta", "Sb"="Sb.L.beta", "Te"="Te.L.beta", "I"="I.L.beta", "Xe"="Xe.L.beta", "Cs"="Cs.L.beta", "Ba"="Ba.L.beta", "La"="La.L.beta", "Ce"="Ce.L.beta", "Pr"="Pr.L.beta", "Nd"="Nd.L.beta", "Pm"="Pm.L.beta", "Sm"="Sm.L.beta", "Eu"="Eu.L.beta", "Gd"="Gd.L.beta", "Tb"="Tb.L.beta", "Dy"="Dy.L.beta", "Ho"="Ho.L.beta", "Er"="Er.L.beta", "Tm"="Tm.L.beta", "Yb"="Yb.L.beta", "Lu"="Lu.L.beta", "Hf"="Hf.L.beta", "Ta"="Ta.L.beta", "W"="W.L.beta", "Re"="Re.L.beta", "Os"="Os.L.beta", "Ir"="Ir.L.beta", "Pt"="Pt.L.beta", "Au"="Au.L.beta", "Hg"="Hg.L.beta", "Tl"="Tl.L.beta", "Pb"="Pb.L.beta", "Bi"="Bi.L.beta", "Po"="Po.L.beta", "At"="At.L.beta", "Rn"="Rn.L.beta", "Fr"="Fr.L.beta", "Ra"="Ra.L.beta", "Ac"="Ac.L.beta", "Th"="Th.L.beta", "Pa"="Pa.L.beta", "U"="U.L.beta")
 
-mLines <- c("W"="W.M.line", "Re"="Re.M.line", "Os"="Os.M.line", "Re"="Re.M.line", "Ir"="Ir.M.line", "Pt"="Pt.M.line", "Au"="Au.M.line", "Hg"="Hg.M.line", "Tl"="Tl.M.line", "Pb"="Pb.M.line", "Bi"="Bi.M.line", "Th"="Th.M.line", "U"="U.M.line")
+mLines <- c("W"="W.M.line", "Re"="Re.M.line", "Os"="Os.M.line", "Ir"="Ir.M.line", "Pt"="Pt.M.line", "Au"="Au.M.line", "Hg"="Hg.M.line", "Tl"="Tl.M.line", "Pb"="Pb.M.line", "Bi"="Bi.M.line", "Th"="Th.M.line", "U"="U.M.line")
 
 spectralLines <- c(paste0(names(kalphaLines), ".K.alpha"), paste0(names(kbetaLines), ".K.beta"), paste0(names(lalphaLines), ".L.alpha"), paste0(names(lbetaLines), ".L.beta"), paste0(names(mLines), ".M.line"))
 
@@ -4033,20 +4033,16 @@ all_slopes <- function(calibration){
 }
 
 intensity_fix <- function(calibration, keep_labels=TRUE){
-    
-    slope_list <- all_slopes(calibration)[!all_slopes(calibration) %in% c("Baseline", "Total")]
+
+    slopes <- all_slopes(calibration)
+    slope_list <- slopes[!slopes %in% c("Baseline", "Total")]
     intensity_names <- names(calibration$Intensities)
-    
+
     missing_elements <- slope_list[!slope_list %in% intensity_names]
     variables <- c(intensity_names, missing_elements)
     variable_elements <- variables[variables %in% spectralLines]
     variable_custom <- variables[!variables %in% c(spectralLines, "Spectrum")]
-    
-    other_spectra_stuff <- totalCountsGen(calibration$Spectra)
-    if("Deconvoluted" %in% names(calibration)){
-        other_spectra_stuff <- merge(other_spectra_stuff, calibration$Deconvoluted$Areas$Baseline, all=T, sort=T)
-    }
-    
+
     if(length(variable_elements)>0){
         element.frame <- data.frame(elements=variable_elements, order=atomic_order_vector(variable_elements))
         organized_elements <- as.vector(element.frame[order(element.frame$order),]$elements)
@@ -4079,14 +4075,24 @@ spectrumNameSingle <- function(spectrum_name){
 }
 
 spectrumNameVector <- function(spectrum_vector){
-    # Process entire vector at once instead of element-by-element
-    mgsub::mgsub(as.character(spectrum_vector), .file_extensions, rep("", length(.file_extensions)))
+    # Long-format spectra columns repeat ~40 unique names across ~100k+ rows;
+    # mgsub's regex pass is by far the most expensive part of loading a
+    # calibration when run on the full column. Clean the unique names only and
+    # map back - identical per-string semantics.
+    x <- as.character(spectrum_vector)
+    u <- unique(x)
+    cleaned <- mgsub::mgsub(u, .file_extensions, rep("", length(.file_extensions)))
+    cleaned[match(x, u)]
 }
 
 # Helper to normalize spectrum names in a data frame column
 normalizeSpectrumColumn <- function(df, col = "Spectrum") {
     if (!is.null(df) && col %in% names(df)) {
-        df[[col]] <- make.names(spectrumNameVector(df[[col]]), unique = FALSE)
+        # Same unique-then-map trick for make.names as for spectrumNameVector.
+        x <- as.character(df[[col]])
+        u <- unique(x)
+        cleaned <- make.names(spectrumNameVector(u), unique = FALSE)
+        df[[col]] <- cleaned[match(x, u)]
     }
     df
 }
@@ -4222,6 +4228,89 @@ ensureIntensityTables <- function(Calibration, elements, allowParallel) {
     rebuildIntensityTables(Calibration, elements, allowParallel, tables = missing_tables)
 }
 
+# Verify-then-repair for the intensity tables on calibration load. Saved
+# calibrations already contain tables rebuilt at save time, so a full
+# 6-table recompute on every load is usually redundant. Per table:
+#   1. structural check - covers the element set and exactly the (possibly
+#      filtered) spectrum set;
+#   2. spot check - one element line is recomputed with the table's own builder
+#      and compared to the stored column, so a table saved under different line
+#      settings still triggers the full rebuild;
+#   3. custom (non-spectral-line) columns are recomputed cheaply, matching what
+#      the rebuild would produce for them;
+#   4. missing OtherSpectraStuff columns (Total/Baseline) are merged in.
+# Any table failing 1 or 2 is rebuilt exactly as before.
+repairIntensityTables <- function(Calibration, elements, allowParallel){
+    tables <- c("Intensities", "IntensitiesSplit", "IntensitiesFirst",
+                "IntensitiesSecond", "WideIntensities", "WideIntensitiesSplit")
+    other <- Calibration$OtherSpectraStuff
+    other_cols <- if(is.data.frame(other)) setdiff(names(other), "Spectrum") else character(0)
+    spec_set <- sort(unique(as.character(Calibration$Spectra$Spectrum)))
+    spectra <- Calibration$Spectra
+    defs <- Calibration$Definitions
+    gaus_buf <- Calibration$LineDefaults$GausBuffer
+    split_buf <- Calibration$LineDefaults$SplitBuffer
+
+    line_elements <- elements[elements %in% spectralLines]
+    custom_elements <- elements[!elements %in% spectralLines]
+    spot <- if(length(line_elements) > 0) line_elements[1] else NULL
+
+    builders <- list(
+        Intensities          = function(el) narrowLineTable(spectra, defs, el, gaus_buffer = gaus_buf, allowParallel = FALSE),
+        IntensitiesSplit     = function(el) narrowLineTableSplit(spectra, defs, el, split_buffer = split_buf, allowParallel = FALSE),
+        IntensitiesFirst     = function(el) narrowLineTableFirst(spectra, defs, el, gaus_buffer = gaus_buf, allowParallel = FALSE),
+        IntensitiesSecond    = function(el) narrowLineTableSecond(spectra, defs, el, gaus_buffer = gaus_buf, allowParallel = FALSE),
+        WideIntensities      = function(el) wideLineTable(spectra, defs, el, allowParallel = FALSE),
+        WideIntensitiesSplit = function(el) wideLineTableSplit(spectra, defs, el, split_buffer = split_buf, allowParallel = FALSE)
+    )
+
+    needs_rebuild <- character(0)
+    for(tbl in tables){
+        tab <- Calibration[[tbl]]
+        ok <- is.data.frame(tab) && "Spectrum" %in% names(tab) &&
+              all(elements %in% names(tab)) &&
+              identical(sort(unique(as.character(tab$Spectrum))), spec_set) &&
+              nrow(tab) == length(spec_set)
+        if(!ok){
+            needs_rebuild <- c(needs_rebuild, tbl)
+            next
+        }
+        tab <- tab[order(as.character(tab$Spectrum)), , drop = FALSE]
+
+        # recompute the spot line and the custom columns with this table's builder
+        probe_cols <- c(spot, custom_elements)
+        probe <- if(length(probe_cols) > 0) tryCatch(builders[[tbl]](probe_cols), error = function(e) NULL) else NULL
+        if(length(probe_cols) > 0 && (is.null(probe) || !"Spectrum" %in% names(probe))){
+            needs_rebuild <- c(needs_rebuild, tbl)
+            next
+        }
+        if(!is.null(probe)){
+            probe <- probe[order(as.character(probe$Spectrum)), , drop = FALSE]
+            if(!is.null(spot)){
+                same <- isTRUE(all.equal(as.numeric(tab[[spot]]), as.numeric(probe[[spot]]),
+                                         tolerance = 1e-6, check.attributes = FALSE))
+                if(!same){
+                    needs_rebuild <- c(needs_rebuild, tbl)
+                    next
+                }
+            }
+            for(cn in intersect(custom_elements, names(probe))){
+                tab[[cn]] <- probe[[cn]]
+            }
+        }
+
+        missing_other <- setdiff(other_cols, names(tab))
+        if(length(missing_other) > 0){
+            tab <- merge(tab, other[, c("Spectrum", missing_other), drop = FALSE], by = "Spectrum")
+        }
+        Calibration[[tbl]] <- tab
+    }
+    if(length(needs_rebuild) > 0){
+        Calibration <- rebuildIntensityTables(Calibration, elements, allowParallel, tables = needs_rebuild)
+    }
+    Calibration
+}
+
 # Helper to sort and align Values/Spectra
 sortAlignCalibration <- function(Calibration) {
     Calibration$Values <- Calibration$Values[order(Calibration$Values$Spectrum), ]
@@ -4337,7 +4426,7 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         Calibration <- sortAlignCalibration(Calibration)
         Calibration <- ensureOtherSpectraStuff(Calibration)
         if(length(elements) > 0){
-            Calibration <- rebuildIntensityTables(Calibration, elements, allowParallel)
+            Calibration <- repairIntensityTables(Calibration, elements, allowParallel)
         }
     }
 
