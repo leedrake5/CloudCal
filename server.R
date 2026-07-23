@@ -9449,13 +9449,13 @@ shinyServer(function(input, output, session) {
             #spectra.line.table <- spectra.line.table[complete.cases(concentration.table[, input$calcurveelement]),]
             #data2 <- data[data$Spectrum %in% concentration.table$Spectrum, ]
             
-            predict.intensity.simp <- linearModelData()[,!colnames(linearModelData()) %in% c("Spectrum", "Concentration")]
+            predict.intensity.simp <- linearModelData()[,!colnames(linearModelData()) %in% c("Spectrum", "Concentration"), drop=FALSE]
             
-            predict.intensity.luc <- lucasToothModelData()[,!colnames(lucasToothModelData()) %in% c("Spectrum", "Concentration")]
+            predict.intensity.luc <- lucasToothModelData()[,!colnames(lucasToothModelData()) %in% c("Spectrum", "Concentration"), drop=FALSE]
             
-            predict.intensity.forest <- forestModelData()[,!colnames(forestModelData()) %in% c("Spectrum", "Concentration")]
+            predict.intensity.forest <- forestModelData()[,!colnames(forestModelData()) %in% c("Spectrum", "Concentration"), drop=FALSE]
             
-            spectra.data <- rainforestModelData()[,!colnames(rainforestModelData()) %in% c("Spectrum", "Concentration")]
+            spectra.data <- rainforestModelData()[,!colnames(rainforestModelData()) %in% c("Spectrum", "Concentration"), drop=FALSE]
             
             lucashold$slope <- outVaralt()
             
@@ -11013,31 +11013,31 @@ shinyServer(function(input, output, session) {
             } else if(input$radiocal==2){
                 nonLinearModelSet()$data
             } else if(input$radiocal==3){
-                lucasToothModelSet()$data[,!colnames(lucasToothModelSet()$data) %in% c("Spectrum", "Concentration")]
+                lucasToothModelSet()$data[,!colnames(lucasToothModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==4){
-                forestModelSet()$data[,!colnames(forestModelSet()$data) %in% c("Spectrum", "Concentration")]
+                forestModelSet()$data[,!colnames(forestModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==5){
-                rainforestModelSet()$data[,!colnames(rainforestModelSet()$data) %in% c("Spectrum", "Concentration")]
+                rainforestModelSet()$data[,!colnames(rainforestModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==6 && input$neuralhiddenlayers==1){
-                neuralNetworkIntensityShallowModelSet()$data[,!colnames(neuralNetworkIntensityShallowModelSet()$data) %in% c("Spectrum", "Concentration")]
+                neuralNetworkIntensityShallowModelSet()$data[,!colnames(neuralNetworkIntensityShallowModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==6 && input$neuralhiddenlayers > 1){
-                neuralNetworkIntensityDeepModelSet()$data[,!colnames(neuralNetworkIntensityDeepModelSet()$data) %in% c("Spectrum", "Concentration")]
+                neuralNetworkIntensityDeepModelSet()$data[,!colnames(neuralNetworkIntensityDeepModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==7 && input$neuralhiddenlayers==1){
-                neuralNetworkSpectraShallowModelSet()$data[,!colnames(neuralNetworkSpectraShallowModelSet()$data) %in% c("Spectrum", "Concentration")]
+                neuralNetworkSpectraShallowModelSet()$data[,!colnames(neuralNetworkSpectraShallowModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==7 && input$neuralhiddenlayers > 1){
-                neuralNetworkSpectraDeepModelSet()$data[,!colnames(neuralNetworkSpectraDeepModelSet()$data) %in% c("Spectrum", "Concentration")]
+                neuralNetworkSpectraDeepModelSet()$data[,!colnames(neuralNetworkSpectraDeepModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==8){
-                xgboostIntensityModelSet()$data[,!colnames(xgboostIntensityModelSet()$data) %in% c("Spectrum", "Concentration")]
+                xgboostIntensityModelSet()$data[,!colnames(xgboostIntensityModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==9){
-                xgboostSpectraModelSet()$data[,!colnames(xgboostSpectraModelSet()$data) %in% c("Spectrum", "Concentration")]
+                xgboostSpectraModelSet()$data[,!colnames(xgboostSpectraModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==10){
-                bayesIntensityModelSet()$data[,!colnames(bayesIntensityModelSet()$data) %in% c("Spectrum", "Concentration")]
+                bayesIntensityModelSet()$data[,!colnames(bayesIntensityModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==11){
-                bayesSpectraModelSet()$data[,!colnames(bayesSpectraModelSet()$data) %in% c("Spectrum", "Concentration")]
+                bayesSpectraModelSet()$data[,!colnames(bayesSpectraModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==12){
-                svmIntensityModelSet()$data[,!colnames(svmIntensityModelSet()$data) %in% c("Spectrum", "Concentration")]
+                svmIntensityModelSet()$data[,!colnames(svmIntensityModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             } else if(input$radiocal==13){
-                svmSpectraModelSet()$data[,!colnames(svmSpectraModelSet()$data) %in% c("Spectrum", "Concentration")]
+                svmSpectraModelSet()$data[,!colnames(svmSpectraModelSet()$data) %in% c("Spectrum", "Concentration"), drop=FALSE]
             }
             predictFrameCheck(predict.intensity)
             
@@ -12209,6 +12209,8 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             predict.frame <- calCurveFrameRandomized()
+            # Exclude Spectrum from training predictors (kept for data linkage only)
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             cal.lm <- lm(Concentration~., data=predict.frame)
             cal.lm
         })
@@ -12218,6 +12220,7 @@ shinyServer(function(input, output, session) {
             
             
             predict.frame <- forestModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- forestModelSet()$parameters$CalTable
             
             rf.grid <- expand.grid(.mtry=parameters$ForestTry)
@@ -12284,6 +12287,7 @@ shinyServer(function(input, output, session) {
             
             
             data <- rainforestModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- rainforestModelSet()$parameters$CalTable
             
             rf.grid <- expand.grid(.mtry=parameters$ForestTry)
@@ -12348,6 +12352,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             predict.frame <- neuralNetworkIntensityShallowModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkIntensityShallowModelSet()$parameters$CalTable
             
             
@@ -12418,6 +12423,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             predict.frame <- neuralNetworkIntensityDeepModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkIntensityDeepModelSet()$parameters$CalTable
             
             
@@ -12501,6 +12507,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             data <- neuralNetworkSpectraShallowModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkSpectraShallowModelSet()$parameters$CalTable
             
             weightdecay.vec <- as.numeric(unlist(strsplit(as.character(parameters$NeuralWD), "-")))
@@ -12570,6 +12577,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             data <- neuralNetworkSpectraDeepModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkSpectraDeepModelSet()$parameters$CalTable
             
             hiddenunits.vec <- as.numeric(unlist(strsplit(as.character(parameters$NeuralHU), "-")))
@@ -12651,6 +12659,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             predict.frame <- xgbtreeIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgbtreeIntensityModelSet()$parameters$CalTable
             
             
@@ -12747,6 +12756,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             predict.frame <- xgbtreeIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgbtreeIntensityModelSet()$parameters$CalTable
             
             
@@ -12848,6 +12858,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             predict.frame <- xgblinearIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgblinearIntensityModelSet()$parameters$CalTable
             
             
@@ -12926,6 +12937,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             predict.frame <- xgbdartIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgbdartIntensityModelSet()$parameters$CalTable
             
             
@@ -13027,6 +13039,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             predict.frame <- xgblinearIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgblinearIntensityModelSet()$parameters$CalTable
             
             
@@ -13116,6 +13129,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             data <- xgbtreeSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgbtreeSpectraModelSet()$parameters$CalTable
             
             
@@ -13212,6 +13226,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             data <- xgbdartSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgbdartSpectraModelSet()$parameters$CalTable
             
             
@@ -13314,6 +13329,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             data <- xgblinearSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgblinearSpectraModelSet()$parameters$CalTable
             
             
@@ -13404,6 +13420,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             predict.frame <- bartMachineIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineIntensityModelSet()$parameters$CalTable
             
             xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
@@ -13458,6 +13475,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             predict.frame <- bayesLinearIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bayesLinearIntensityModelSet()$parameters$CalTable
             
             
@@ -13526,6 +13544,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             predict.frame <- bartMachineIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineIntensityModelSet()$parameters$CalTable
             
             
@@ -13611,6 +13630,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             data <- bartMachineSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineSpectraModelSet()$parameters$CalTable
             
             xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
@@ -13666,6 +13686,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             data <- bayesLinearSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bayesLinearSpectraModelSet()$parameters$CalTable
             
             
@@ -13734,6 +13755,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             data <- bayesNeuralNetSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bayesNeuralNetSpectraModelSet()$parameters$CalTable
             
             
@@ -13818,6 +13840,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmLinearIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmLinearIntensityModelSet()$parameters$CalTable
             
             
@@ -13891,6 +13914,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmPolyIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmPolyIntensityModelSet()$parameters$CalTable
             
             
@@ -13968,6 +13992,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmRadialIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmRadialIntensityModelSet()$parameters$CalTable
             
             
@@ -14055,6 +14080,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmBoundrangeIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmBoundrangeIntensityModelSet()$parameters$CalTable
             
             
@@ -14129,6 +14155,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmExponentialIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmExponentialIntensityModelSet()$parameters$CalTable
             
             
@@ -14203,6 +14230,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             predict.frame <- svmSpectrumIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmSpectrumIntensityModelSet()$parameters$CalTable
             
             
@@ -14295,6 +14323,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             data <- svmLinearSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmLinearSpectraModelSet()$parameters$CalTable
             
             
@@ -14368,6 +14397,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             data <- svmPolySpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmPolySpectraModelSet()$parameters$CalTable
             
             
@@ -14445,6 +14475,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             data <- svmRadialSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmRadialSpectraModelSet()$parameters$CalTable
             
             
@@ -14532,6 +14563,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             data <- svmBoundrangeSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmBoundrangeSpectraModelSet()$parameters$CalTable
             
             
@@ -14610,6 +14642,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             data <- svmExponentialSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmExponentialSpectraModelSet()$parameters$CalTable
             
             
@@ -14689,6 +14722,7 @@ shinyServer(function(input, output, session) {
             
             req(input$radiocal, input$calcurveelement)
             data <- svmSpectrumSpectraModelSet()$data[randomizeData(),]
+            data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmSpectrumSpectraModelSet()$parameters$CalTable
             
             
@@ -14830,10 +14864,24 @@ shinyServer(function(input, output, session) {
             val.frame <- tryCatch(mclValGen(model=elementModelRandom(), data=predictIntensity()[ vals$keeprows, , drop = FALSE], predict.frame=predictFrame()[ vals$keeprows, , drop = FALSE], dependent.transformation=basichold$deptransformation), error=function(e) NULL)
             
             val.frame <- if(is.null(val.frame)){
-                data.frame(Concentration=predictFrame()$Concentration[ vals$keeprows, , drop = FALSE], Intensity=rep(0, length(predictFrame()$Concentration))[ vals$keeprows, , drop = FALSE], Prediction=rep(0, length(predictFrame()$Concentration))[ vals$keeprows, , drop = FALSE], stringsAsFactors=FALSE)
+                # Fallback when the model cannot produce predictions yet (e.g.
+                # visiting Cross Validation before Run Model). Concentration is a
+                # plain vector, so subset it with 1-D indexing - the previous
+                # matrix-style `[keep, , drop=FALSE]` threw "incorrect number of
+                # dimensions" and blanked the tab with an error.
+                tryCatch({
+                    conc <- predictFrame()$Concentration
+                    keep <- vals$keeprows
+                    if(is.list(keep)) keep <- unlist(keep, use.names = FALSE)
+                    keep <- suppressWarnings(as.logical(keep))
+                    if(length(keep) != length(conc) || any(is.na(keep))) keep <- rep(TRUE, length(conc))
+                    conc <- conc[keep]
+                    data.frame(Concentration=conc, Intensity=rep(0, length(conc)), Prediction=rep(0, length(conc)), stringsAsFactors=FALSE)
+                }, error=function(e) data.frame(Concentration=numeric(0), Intensity=numeric(0), Prediction=numeric(0), stringsAsFactors=FALSE))
             } else if(!is.null(val.frame)){
                 val.frame
             }
+            if(nrow(val.frame) == 0) return(val.frame)
             val.frame[!(randomizeData()), , drop = FALSE]
         })
         
@@ -14845,7 +14893,7 @@ shinyServer(function(input, output, session) {
             predict.frame.cal <- predict.frame[(randomizeData()), , drop = FALSE]
             predict.frame <- predict.frame[!(randomizeData()), , drop = FALSE]
             predict.frame <- subset(predict.frame, predict.frame$Concentration > my.min(predict.frame.cal[,"Concentration"]) & predict.frame$Concentration  < my.max(predict.frame.cal[,"Concentration"]))
-            predict.intensity <- predict.frame[,!colnames(predict.frame) %in% c("Spectrum", "Concentration")]
+            predict.intensity <- predict.frame[,!colnames(predict.frame) %in% c("Spectrum", "Concentration"), drop=FALSE]
             
             element.model <-  elementModelRandom()
             
@@ -15029,8 +15077,8 @@ shinyServer(function(input, output, session) {
             predict.intensity <- predictIntensity()[ vals$keeprows, , drop = FALSE]
             predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
             
-            predict.intensity <- predict.intensity[(randomizeData()), ]
-            predict.frame <- predict.frame[(randomizeData()), ]
+            predict.intensity <- predict.intensity[(randomizeData()), , drop = FALSE]
+            predict.frame <- predict.frame[(randomizeData()), , drop = FALSE]
             element.model <-  elementModelRandom()
             
             

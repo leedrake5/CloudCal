@@ -6473,7 +6473,13 @@ predictIntensityLucPreGen <- function(spectra, hold.frame, deconvolution = NULL,
     
     predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
 
-    predict.intensity.forest[,c("Intensity", slopes)]
+    # drop=FALSE: with a single slope line (or an unsynced empty slope hold) the
+    # old vector-drop lost the column names, so downstream lookups of $Intensity
+    # found nothing and the cross-validation frames collapsed. Also keep only
+    # slope columns that exist - a stale hold naming an absent line otherwise
+    # errors the whole model chain.
+    keep_slopes <- slopes[slopes %in% colnames(predict.intensity.forest)]
+    predict.intensity.forest[, unique(c("Intensity", keep_slopes)), drop=FALSE]
     
 }
 
