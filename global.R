@@ -5485,7 +5485,9 @@ xgbTypeUI <- function(radiocal, selection){
     } else if(radiocal==11){
         selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
     } else if(radiocal==12){
-        #selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Exponential", "Radial", "Radial Cost", "Radial Sigma", "Boundrange String", "Spectrum String"), selected="Linear")
+        # Exponential / Boundrange String / Spectrum String are kernlab STRING
+        # kernels (text input only) - not applicable to numeric XRF data, so
+        # they are deliberately not offered.
         selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
     } else if(radiocal==13){
         selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")

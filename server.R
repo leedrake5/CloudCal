@@ -7875,7 +7875,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, allowParallel=TRUE)
+                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
                 stopCluster(cl)
             }
             bart_model
@@ -8154,7 +8154,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                bart_model <- caret::train(Concentration~.,data=data, method="bayesglm", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid)
+                bart_model <- caret::train(Concentration~.,data=data, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
                 stopCluster(cl)
             }
             bart_model
@@ -8833,6 +8833,13 @@ shinyServer(function(input, output, session) {
             
         })
         
+        # SVM kernel dispatch. The five numeric kernels (Linear, Polynomial,
+        # Radial, Radial Cost, Radial Sigma) are offered in the UI and verified
+        # working (tests/model_check.R sweeps them). The remaining branches -
+        # Exponential (svmExpoString), Boundrange String and Spectrum String -
+        # are kernlab STRING kernels: they operate on text sequences and cannot
+        # accept numeric intensity/spectra frames, so they are intentionally
+        # absent from the UI choices and kept here only for completeness.
         svmIntensityModelSet <- reactive(label="svmIntensityModelSet", {
             if(xgboosthold$xgbtype=="Linear"){
                 svmLinearIntensityModelSet()
@@ -13607,7 +13614,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
                 stopCluster(cl)
             }
             bart_model
@@ -13818,7 +13825,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
                 stopCluster(cl)
             }
             bart_model
