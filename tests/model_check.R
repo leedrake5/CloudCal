@@ -30,7 +30,7 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 QUANT <- if (length(args) >= 1) args[1] else
-    "/Users/lee/Dropbox/Documents/CloudCal Evaluation/Test Quants/farWest50kV.quant"
+    stop("Usage: Rscript tests/model_check.R [quant] [classic_el] [intercept_el] [ml_el]\n  [quant] is required: path to a CloudCal .quant calibration file.", call. = FALSE)
 CLASSIC_EL <- if (length(args) >= 2) args[2] else "Y.K.alpha"
 INTERCEPT_EL <- if (length(args) >= 3) args[3] else "Rb.K.alpha"
 ML_EL <- if (length(args) >= 4) args[4] else "Dy.K.alpha"

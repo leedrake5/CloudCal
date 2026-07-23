@@ -9079,18 +9079,43 @@ mclPred <- function(object, newdata, dependent.transformation, ymin=0, ymax=1, c
         }
     } else if(confidence==TRUE){
         if(finalModel==TRUE){
+            # interval="confidence" is only meaningful for lm/glm finalModels.
+            # SVM/glmnet/pls/earth/cubist finalModels reject newdata=/interval=
+            # (predict.glmnet needs a matrix, pls returns an ncomp array, etc.),
+            # so for them fall back to caret point predictions via predict.train.
+            lm.interval <- inherits(object$finalModel, c("lm", "glm"))
             if(dependent.transformation=="None"){
-                tryCatch(predict(object=object$finalModel, newdata=newdata,
-                na.action=na.pass, interval="confidence"), error=function(e) NA)
+                if(lm.interval){
+                    tryCatch(predict(object=object$finalModel, newdata=newdata,
+                    na.action=na.pass, interval="confidence"), error=function(e) NA)
+                } else {
+                    tryCatch(predict(object=object, newdata=newdata,
+                    na.action=na.pass), error=function(e) NA)
+                }
             } else if(dependent.transformation=="Log"){
-                tryCatch(exp(predict(object=object$finalModel, newdata=newdata,
-                na.action=na.pass, interval="confidence")), error=function(e) NA)
+                if(lm.interval){
+                    tryCatch(exp(predict(object=object$finalModel, newdata=newdata,
+                    na.action=na.pass, interval="confidence")), error=function(e) NA)
+                } else {
+                    tryCatch(exp(predict(object=object, newdata=newdata,
+                    na.action=na.pass)), error=function(e) NA)
+                }
             } else if(dependent.transformation=="e"){
-                tryCatch(log(predict(object=object$finalModel, newdata=newdata,
-                na.action=na.pass, interval="confidence")), error=function(e) NA)
+                if(lm.interval){
+                    tryCatch(log(predict(object=object$finalModel, newdata=newdata,
+                    na.action=na.pass, interval="confidence")), error=function(e) NA)
+                } else {
+                    tryCatch(log(predict(object=object, newdata=newdata,
+                    na.action=na.pass)), error=function(e) NA)
+                }
             } else if(dependent.transformation=="Scale"){
-                tryCatch(scaleDecode(predict(object=object$finalModel, newdata=newdata,
-                na.action=na.pass, interval="confidence"), y_min=y_min, y_max=y_max), error=function(e) NA)
+                if(lm.interval){
+                    tryCatch(scaleDecode(predict(object=object$finalModel, newdata=newdata,
+                    na.action=na.pass, interval="confidence"), y_min=y_min, y_max=y_max), error=function(e) NA)
+                } else {
+                    tryCatch(scaleDecode(predict(object=object, newdata=newdata,
+                    na.action=na.pass), y_min=y_min, y_max=y_max), error=function(e) NA)
+                }
             }
         } else if(finalModel==FALSE){
             if(dependent.transformation=="None"){

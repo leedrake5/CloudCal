@@ -9016,12 +9016,14 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
 
@@ -9046,7 +9048,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                pls_model <- caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=pls.grid, na.action=na.omit)
+                pls_model <- caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9056,7 +9058,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                pls_model <- caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=pls.grid, na.action=na.omit)
+                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9111,12 +9113,14 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
 
@@ -9141,7 +9145,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                pls_model <- caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=pls.grid, na.action=na.omit)
+                pls_model <- caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9151,7 +9155,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                pls_model <- caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=pls.grid, na.action=na.omit)
+                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9208,7 +9212,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
+                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9218,7 +9222,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
+                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9275,7 +9279,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
+                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9285,7 +9289,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
+                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9340,12 +9344,14 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
 
@@ -9370,7 +9376,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                cubist_model <- caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=cubist.grid, na.action=na.omit)
+                cubist_model <- caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9380,7 +9386,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                cubist_model <- caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=cubist.grid, na.action=na.omit)
+                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9436,12 +9442,14 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
 
@@ -9466,7 +9474,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                cubist_model <- caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=cubist.grid, na.action=na.omit)
+                cubist_model <- caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9476,7 +9484,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                cubist_model <- caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=cubist.grid, na.action=na.omit)
+                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9533,7 +9541,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
+                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9543,7 +9551,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
+                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9600,7 +9608,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
+                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9610,7 +9618,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
+                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9644,13 +9652,13 @@ shinyServer(function(input, output, session) {
 
             set.seed(input$randomize)
 
-            glmnetalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetAlpha), "-")))
-            glmnetlambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetLambda), "-")))
+            glmnetalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetAlpha), "(?<![eE])-", perl=TRUE)))
+            glmnetlambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetLambda), "(?<![eE])-", perl=TRUE)))
             glmnetlambda.vec[glmnetlambda.vec <= 0] <- 1e-6
 
             glmnet.grid <- expand.grid(
             alpha = unique(seq(glmnetalpha.vec[1], glmnetalpha.vec[2], length.out=3)),
-            lambda = 10^seq(log10(glmnetlambda.vec[1]), log10(glmnetlambda.vec[2]), length.out=5))
+            lambda = unique(10^seq(log10(glmnetlambda.vec[1]), log10(glmnetlambda.vec[2]), length.out=5)))
 
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
@@ -9666,12 +9674,14 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
 
@@ -9696,7 +9706,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                glmnet_model <- caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=glmnet.grid, na.action=na.omit)
+                glmnet_model <- caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9706,7 +9716,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                glmnet_model <- caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=glmnet.grid, na.action=na.omit)
+                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9741,13 +9751,13 @@ shinyServer(function(input, output, session) {
 
             set.seed(input$randomize)
 
-            glmnetalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetAlpha), "-")))
-            glmnetlambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetLambda), "-")))
+            glmnetalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetAlpha), "(?<![eE])-", perl=TRUE)))
+            glmnetlambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetLambda), "(?<![eE])-", perl=TRUE)))
             glmnetlambda.vec[glmnetlambda.vec <= 0] <- 1e-6
 
             glmnet.grid <- expand.grid(
             alpha = unique(seq(glmnetalpha.vec[1], glmnetalpha.vec[2], length.out=3)),
-            lambda = 10^seq(log10(glmnetlambda.vec[1]), log10(glmnetlambda.vec[2]), length.out=5))
+            lambda = unique(10^seq(log10(glmnetlambda.vec[1]), log10(glmnetlambda.vec[2]), length.out=5)))
 
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
                 defaultSummary
@@ -9763,12 +9773,14 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
 
@@ -9793,7 +9805,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                glmnet_model <- caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=glmnet.grid, na.action=na.omit)
+                glmnet_model <- caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9803,7 +9815,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                glmnet_model <- caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=glmnet.grid, na.action=na.omit)
+                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9820,13 +9832,13 @@ shinyServer(function(input, output, session) {
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- glmnetIntensityModelSet()$parameters$CalTable
 
-            glmnetalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetAlpha), "-")))
-            glmnetlambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetLambda), "-")))
+            glmnetalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetAlpha), "(?<![eE])-", perl=TRUE)))
+            glmnetlambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetLambda), "(?<![eE])-", perl=TRUE)))
             glmnetlambda.vec[glmnetlambda.vec <= 0] <- 1e-6
 
             glmnet.grid <- expand.grid(
             alpha = unique(seq(glmnetalpha.vec[1], glmnetalpha.vec[2], length.out=3)),
-            lambda = 10^seq(log10(glmnetlambda.vec[1]), log10(glmnetlambda.vec[2]), length.out=5))
+            lambda = unique(10^seq(log10(glmnetlambda.vec[1]), log10(glmnetlambda.vec[2]), length.out=5)))
 
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
@@ -9861,7 +9873,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
+                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9871,7 +9883,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
+                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9888,13 +9900,13 @@ shinyServer(function(input, output, session) {
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- glmnetSpectraModelSet()$parameters$CalTable
 
-            glmnetalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetAlpha), "-")))
-            glmnetlambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetLambda), "-")))
+            glmnetalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetAlpha), "(?<![eE])-", perl=TRUE)))
+            glmnetlambda.vec <- as.numeric(unlist(strsplit(as.character(parameters$glmnetLambda), "(?<![eE])-", perl=TRUE)))
             glmnetlambda.vec[glmnetlambda.vec <= 0] <- 1e-6
 
             glmnet.grid <- expand.grid(
             alpha = unique(seq(glmnetalpha.vec[1], glmnetalpha.vec[2], length.out=3)),
-            lambda = 10^seq(log10(glmnetlambda.vec[1]), log10(glmnetlambda.vec[2]), length.out=5))
+            lambda = unique(10^seq(log10(glmnetlambda.vec[1]), log10(glmnetlambda.vec[2]), length.out=5)))
 
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
                 caret::trainControl(
@@ -9929,7 +9941,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
+                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9939,7 +9951,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
+                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9994,12 +10006,14 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
 
@@ -10017,7 +10031,7 @@ shinyServer(function(input, output, session) {
             # backend a previous model registered (stopCluster leaves it pointing
             # at dead workers, and train would error with "invalid connection")
             tune_control$allowParallel <- FALSE
-            mars_model <- caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=mars.grid, na.action=na.omit)
+            mars_model <- caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit)
             mars_model
 
         })
@@ -10070,12 +10084,14 @@ shinyServer(function(input, output, session) {
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             } else if(parameters$ForestTC=="repeatedcv"){
                 caret::trainControl(
                 method = parameters$ForestTC,
                 number = parameters$ForestNumber,
                 repeats=parameters$CVRepeats,
+                summaryFunction=metricModel,
                 verboseIter = TRUE)
             }
 
@@ -10093,7 +10109,7 @@ shinyServer(function(input, output, session) {
             # backend a previous model registered (stopCluster leaves it pointing
             # at dead workers, and train would error with "invalid connection")
             tune_control$allowParallel <- FALSE
-            mars_model <- caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=mars.grid, na.action=na.omit)
+            mars_model <- caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit)
             mars_model
 
         })
@@ -10140,7 +10156,7 @@ shinyServer(function(input, output, session) {
             # backend a previous model registered (stopCluster leaves it pointing
             # at dead workers, and train would error with "invalid connection")
             tune_control$allowParallel <- FALSE
-            mars_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=mars.grid, na.action=na.omit), error=function(e) NULL)
+            mars_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit), error=function(e) NULL)
             mars_model
 
         })
@@ -10187,7 +10203,7 @@ shinyServer(function(input, output, session) {
             # backend a previous model registered (stopCluster leaves it pointing
             # at dead workers, and train would error with "invalid connection")
             tune_control$allowParallel <- FALSE
-            mars_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=mars.grid, na.action=na.omit), error=function(e) NULL)
+            mars_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit), error=function(e) NULL)
             mars_model
 
         })
@@ -10416,7 +10432,7 @@ shinyServer(function(input, output, session) {
 
             cal.lm.svm.spectra <- svmSpectraModel()
             svm.spectra.predict <- tryCatch(predict(cal.lm.svm.spectra, newdata=predict.frame.svm.spectra), error=function(e) rep(0, length(predict.frame.svm.spectra$Concentration)))
-            svm.spectra.sum <- tryCatch(summary(lm(predict.frame.bayes.spectra$Concentration~svm.spectra.predict, na.action=na.exclude)), error=function(e) NULL)
+            svm.spectra.sum <- tryCatch(summary(lm(predict.frame.svm.spectra$Concentration~svm.spectra.predict, na.action=na.exclude)), error=function(e) NULL)
             svm.spectra.r2 <- tryCatch(as.numeric(max(cal.lm.svm.spectra[["results"]]$Rsquared)), error=function(e) 0)
             svm.spectra.r2[!is.finite(svm.spectra.r2)] <- 0
             svm.spectra.slope <- tryCatch(as.numeric(svm.spectra.sum$coef[2]), error=function(e) 0)
@@ -10432,7 +10448,7 @@ shinyServer(function(input, output, session) {
             Code=c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13),
             stringsAsFactors=FALSE)
             
-            for(i in 1:9){
+            for(i in 1:nrow(model.frame)){
                 if(model.frame$valSlope[i] < 0.9 | model.frame$valSlope[i] > 1.1){
                     model.frame$Score[i] <- model.frame$Score[i]*0
                     model.frame$Rank[i] <- model.frame$Rank[i]*10
@@ -11101,17 +11117,17 @@ shinyServer(function(input, output, session) {
 
         calGlmnetAlphaSelectionpre <- reactive(label="calGlmnetAlphaSelectionpre", {
             if(!"glmnetAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["glmnetAlpha"]), "-")))
+                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["glmnetAlpha"]), "(?<![eE])-", perl=TRUE)))
             } else if("glmnetAlpha" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$glmnetAlpha[1]), "-")))
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$glmnetAlpha[1]), "(?<![eE])-", perl=TRUE)))
             }
         })
 
         calGlmnetLambdaSelectionpre <- reactive(label="calGlmnetLambdaSelectionpre", {
             if(!"glmnetLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["glmnetLambda"]), "-")))
+                as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["glmnetLambda"]), "(?<![eE])-", perl=TRUE)))
             } else if("glmnetLambda" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
-                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$glmnetLambda[1]), "-")))
+                as.numeric(unlist(strsplit(as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$glmnetLambda[1]), "(?<![eE])-", perl=TRUE)))
             }
         })
 

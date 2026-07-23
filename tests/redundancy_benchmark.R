@@ -20,7 +20,7 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 QUANT <- if (length(args) >= 1) args[1] else
-    "/Users/lee/Dropbox/Documents/CloudCal Evaluation/Test Quants/farWest50kV.quant"
+    stop("Usage: Rscript tests/redundancy_benchmark.R [quant] [n_elements] [seed]\n  [quant] is required: path to a CloudCal .quant calibration file.", call. = FALSE)
 N_EL <- if (length(args) >= 2) as.integer(args[2]) else 6
 SEED <- if (length(args) >= 3) as.integer(args[3]) else 42
 
