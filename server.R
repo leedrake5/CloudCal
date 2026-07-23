@@ -1086,7 +1086,14 @@ shinyServer(function(input, output, session) {
         sigma_param  <- isolate(input$deconvolutiondefaultsigma)
         smooth_param <- isolate(input$deconvolutionsmoothiter)
         snip_param   <- isolate(input$deconvolutionsnipiter)
-        req(width_param, alpha_param, sigma_param, smooth_param, snip_param)
+        # Default any deconvolution parameter whose renderUI control has not
+        # rendered yet (fresh session, headless run) - matches the defaults used
+        # when loading a calibration without stored parameters.
+        if(is.null(width_param))  width_param  <- 5
+        if(is.null(alpha_param))  alpha_param  <- 2.5
+        if(is.null(sigma_param))  sigma_param  <- 0.07
+        if(is.null(smooth_param)) smooth_param <- 20
+        if(is.null(snip_param))   snip_param   <- 20
 
         # New physics options (phase b2): instrument mode + optional beam/anode/detector overrides.
         # isolate() so editing them does not re-run deconvolution until Deconvolute is pressed.
@@ -2388,7 +2395,11 @@ shinyServer(function(input, output, session) {
         
         observe({
             if (!is.null(input$hotline)) {
-                DF <- hot_to_r(input$hotline)
+                DF <- tryCatch(hot_to_r(input$hotline), error=function(e){
+                    showNotification(paste("Could not read the pasted/edited line table:", conditionMessage(e),
+                        "- reverting to the previous values."), type="error", duration=8)
+                    isolate(linevalues[["DF"]])
+                })
             } else {
                 DF <- lineTableInput()
             }
@@ -2397,6 +2408,26 @@ shinyServer(function(input, output, session) {
             # (e.g. every visit to the Counts page). dfSame (not identical) so
             # round-trip artifacts (rownames/attributes) don't count as changes.
             if (!dfSame(DF, isolate(linevalues[["DF"]]))) linevalues[["DF"]] <- DF
+        })
+
+        # Warn (once per distinct set) about custom line definitions whose energy
+        # window lies entirely above the loaded spectra - those lines yield no
+        # counts and are skipped by the extractors rather than crashing the app.
+        outOfRangeWarned <- reactiveVal(character(0))
+        observe({
+            df <- linevalues[["DF"]]
+            data_max <- tryCatch(suppressWarnings(max(as.numeric(dataHold()$Energy), na.rm=TRUE)), error=function(e) NULL)
+            if(is.null(df) || is.null(data_max) || !is.finite(data_max)) return()
+            cc <- df[stats::complete.cases(df), , drop=FALSE]
+            if(nrow(cc) == 0) return()
+            bad <- unique(as.character(cc$Name[nzchar(as.character(cc$Name)) &
+                                               suppressWarnings(as.numeric(cc$EnergyMin)) > data_max]))
+            if(length(bad) > 0 && !identical(sort(bad), sort(isolate(outOfRangeWarned())))){
+                outOfRangeWarned(bad)
+                showNotification(paste0("Line definition(s) beyond the spectrum energy range (max ",
+                    round(data_max, 2), " keV): ", paste(bad, collapse=", "),
+                    ". They yield no counts and are skipped."), type="warning", duration=12)
+            }
         })
         
         eventReactive(input$linecommit,{
@@ -2415,7 +2446,8 @@ shinyServer(function(input, output, session) {
             
             
             
-            rhandsontable(DF) %>% hot_col(1:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
+            rhandsontable(DF) %>% hot_col(1:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer")) %>%
+                hot_cols(fixedColumnsLeft = 1)
             
             
         })
@@ -2838,10 +2870,15 @@ shinyServer(function(input, output, session) {
 
         
         observeEvent(input$linecommit, priority = 2, {
-            
+
             calMemory$Calibration$LineDefaults <- isolate(list(GausBuffer=bufferGaus(), SplitBuffer=bufferSplit()))
-            calMemory$Calibration$Deconvoluted <- isolate(dataHoldDeconvolution())
-            
+            # tryCatch: a deconvolution failure (e.g. its parameter controls have
+            # not rendered yet) previously aborted this observer wholesale, so a
+            # commit built NO intensity tables at all. Keep whatever deconvolution
+            # we already have and continue with the table builds.
+            calMemory$Calibration$Deconvoluted <- isolate(tryCatch(dataHoldDeconvolution(),
+                error=function(e) calMemory$Calibration$Deconvoluted))
+
             calMemory$Calibration$Intensities <- if(input$filetype=="CSV"){
                 isolate(spectraData())
             } else if(input$filetype=="JSON"){
@@ -3519,16 +3556,32 @@ shinyServer(function(input, output, session) {
         })
         
         
+        # Zeroed concentration-template columns for the requested element lines.
+        # Lines just committed in the Definitions table may not exist yet as
+        # Intensities columns (or may be out-of-range placeholders) - create
+        # those as zero columns instead of erroring on the column select.
+        zeroLineTemplate <- function(spectra.line.table, elements){
+            elements <- unique(as.character(elements))
+            avail <- intersect(elements, colnames(spectra.line.table))
+            empty <- if(length(avail) > 0){
+                spectra.line.table[, avail, drop=FALSE] * 0.0000
+            } else {
+                data.frame(row.names=seq_len(nrow(spectra.line.table)))
+            }
+            for(m in setdiff(elements, avail)) empty[[m]] <- 0
+            empty[, elements, drop=FALSE]
+        }
+
         hotableInputBlank <- reactive({
-            
+
             elements <- elementallinestouse()
-            
-            
-            
-            
+
+
+
+
             spectra.line.table <- calMemory$Calibration$Intensities
-            
-            empty.line.table <- spectra.line.table[,elements] * 0.0000
+
+            empty.line.table <- zeroLineTemplate(spectra.line.table, elements)
             
             #empty.line.table$Spectrum <- spectra.line.table$Spectrum
             
@@ -3554,7 +3607,7 @@ shinyServer(function(input, output, session) {
             spectra.line.table <- calMemory$Calibration$Intensities
             value.frame <- calMemory$Calibration$Values
 
-            empty.line.table <- spectra.line.table[,elements] * 0.0000
+            empty.line.table <- zeroLineTemplate(spectra.line.table, elements)
             
             #empty.line.table$Spectrum <- spectra.line.table$Spectrum
             
@@ -3648,7 +3701,14 @@ shinyServer(function(input, output, session) {
 
         observe({
             if (!is.null(input$hot)) {
-                DF <- hot_to_r(input$hot)
+                # Pasted blocks (e.g. from Excel) can arrive in shapes hot_to_r
+                # cannot parse; keep the last good table and warn instead of
+                # crashing the widget.
+                DF <- tryCatch(hot_to_r(input$hot), error=function(e){
+                    showNotification(paste("Could not read the pasted/edited table:", conditionMessage(e),
+                        "- reverting to the previous values."), type="error", duration=8)
+                    isolate(values[["DF"]])
+                })
                 hotEcho(DF)
             } else {
                 if (isTRUE(input$linecommit > 0))
@@ -3689,7 +3749,11 @@ shinyServer(function(input, output, session) {
                 req(FALSE, cancelOutput = TRUE)
             }
 
-            rhandsontable(DF, digits=12) %>% hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
+            # fixedColumnsLeft keeps the Spectrum names visible while scrolling
+            # across wide concentration tables.
+            rhandsontable(DF, digits=12) %>%
+                hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer")) %>%
+                hot_cols(fixedColumnsLeft = 1)
 
 
         })
@@ -3819,6 +3883,11 @@ shinyServer(function(input, output, session) {
         concentrationTable <- reactive({
 
             DF <- valuesSettled()
+            # Until the debounce timer first fires (session start, headless use)
+            # the settled view is NULL while the live table already has content -
+            # fall back so the model chain is usable immediately.
+            if(is.null(DF)) DF <- values[["DF"]]
+            req(is.data.frame(DF), nrow(DF) > 0)
             concentration.table <- as.data.frame(DF, stringsAsFactors=FALSE)
             concentration.table[concentration.table==""] <- NA
             valFrameCheck(concentration.table[DF$Include,])
@@ -12165,15 +12234,22 @@ shinyServer(function(input, output, session) {
         
         
         randomizeData <- reactive(label="randomizeData",{
-            
+
             cal.frame <- holdFrame()[complete.cases(holdFrame()[,"Concentration"]),]
-            cal.frame <- cal.frame[ vals$keeprows, , drop = FALSE]
+            # Normalize the standards mask like the plot reactives do: a NULL /
+            # stale / wrong-length keeprows otherwise empties the frame and the
+            # whole Cross Validation tab silently collapses to zero rows.
+            keep <- vals$keeprows
+            if(is.list(keep)) keep <- unlist(keep, use.names = FALSE)
+            keep <- suppressWarnings(as.logical(keep))
+            if(length(keep) != nrow(cal.frame) || any(is.na(keep))) keep <- rep(TRUE, nrow(cal.frame))
+            cal.frame <- cal.frame[ keep, , drop = FALSE]
             total.number <- length(cal.frame[,1])
             sample.number <- total.number-round(input$percentrandom*total.number, 0)
-            
+
             hold <- cal.frame[sample(nrow(cal.frame), sample.number),]
             cal.frame$Spectrum %in% hold$Spectrum
-            
+
         })
         
         
@@ -20341,6 +20417,31 @@ content = function(file){
 
         })
         
+        # Metadata for the validation spectra (PDZ Record-1 and CSV headers carry
+        # tube/detector/LiveTime information usable for FP physics).
+        myValMetaData <- reactive({
+            if(identical(input$valfiletype, "PDZ")){
+                tryCatch(readPDZMetadataProcess(inFile=input$loadvaldata), error=function(e) NULL)
+            } else if(identical(input$valfiletype, "CSV")){
+                tryCatch(fullSpectraMetadataProcess(inFile=input$loadvaldata), error=function(e) NULL)
+            } else NULL
+        })
+
+        # Standalone full-FP deconvolution for the "FP (no calibration)" mode:
+        # instrument physics recognized from the loaded files' metadata plus
+        # per-spectrum LiveTime. Kept separate from myDeconvolutedValData so the
+        # calibrated prediction path continues to mirror the calibration's own
+        # deconvolution settings (train/predict symmetry).
+        myValDataFullFP <- reactive({
+            spectra <- myValData()
+            md <- myValMetaData()
+            lt <- tryCatch(deconvolution_livetime_lookup(md), error=function(e) NULL)
+            phys <- physicsFromValMetadata(md)
+            tryCatch(spectra_gls_deconvolute(spectra, cores=decon_cores, mass="full",
+                                             livetime=lt, physics=phys),
+                     error=function(e) NULL)
+        })
+
         myDeconvolutedValData <- reactive({
             spectra <- myValData()
             
@@ -20910,7 +21011,12 @@ content = function(file){
         # cover the sample. Works with no .quant loaded - deconvolution then
         # uses default parameters.
         fpQuantResults <- reactive({
-            mass <- tryCatch(myDeconvolutedValData()$Mass, error=function(e) NULL)
+            # Prefer the full-FP estimate (metadata physics + LiveTime): with the
+            # total held at 1 its mass fractions are comparable to certified
+            # values, whereas relative-mode closures are dominated by phantom
+            # elements. Fall back to the shared relative-mode Mass if full-FP fails.
+            mass <- tryCatch(myValDataFullFP()$Mass, error=function(e) NULL)
+            if(is.null(mass)) mass <- tryCatch(myDeconvolutedValData()$Mass, error=function(e) NULL)
             if(is.null(mass) || !"Spectrum" %in% names(mass)){
                 return(data.frame(Note="No FP estimate available - load spectra files first."))
             }

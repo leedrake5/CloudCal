@@ -2178,28 +2178,37 @@ range_subset_xrf <- cmpfun(range_subset_xrf)
 
 
 xrf_parse <- function(range.table, data, calculation="gaussian", buffer=0.1){
-    
+
     choice.lines <- range.table[complete.cases(range.table),]
-    
-    choice.list <- split(choice.lines, f=choice.lines$Name)
-    names(choice.list) <- choice.lines[,"Name"]
-    
-    index <- choice.lines[,"Name"]
-    
-    selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data, calculation=calculation, buffer=buffer))
-    
-    Reduce(function(...) merge(..., all=T), selected.list)
+
+    # split() orders groups by name; take the index from the split result so
+    # names and rows stay aligned (re-stamping original-order names permuted them).
+    choice.list <- split(choice.lines, f=as.character(choice.lines$Name))
+    index <- names(choice.list)
+
+    # A definition whose energy window lies outside the spectrum (e.g. a
+    # placeholder ROI above the beam energy) yields no rows and used to error
+    # out the whole parse. Skip those lines and report them via the "dropped"
+    # attribute so the UI can warn instead of crashing.
+    selected.list <- lapply(index, function(x) tryCatch(
+        range_subset_xrf(range.frame=choice.list[[x]], data=data, calculation=calculation, buffer=buffer),
+        error=function(e) NULL))
+    dropped <- index[vapply(selected.list, is.null, logical(1))]
+    selected.list <- Filter(Negate(is.null), selected.list)
+    if(length(selected.list) == 0) return(NULL)
+
+    out <- Reduce(function(...) merge(..., all=T), selected.list)
+    attr(out, "dropped_lines") <- as.character(dropped)
+    out
 }
 xrf_parse <- cmpfun(xrf_parse)
 
 xrf_parse_single <- function(range.table, data, element, calculation="gaussian", buffer=0.1){
     
     choice.lines <- range.table[range.table$Name %in% element,]
-    
-    choice.list <- split(choice.lines, f=choice.lines$Name)
-    names(choice.list) <- choice.lines[,"Name"]
-    
-    index <- choice.lines[,"Name"]
+
+    choice.list <- split(choice.lines, f=as.character(choice.lines$Name))
+    index <- names(choice.list)
     
     selected.list <- lapply(index, function(x) range_subset_xrf(range.frame=choice.list[[x]], data=data, calculation=calculation, buffer=buffer))
     
@@ -2224,15 +2233,17 @@ elementGrabPre <- function(element.line, data, range.table=NULL, calculation="ga
 elementGrabPre <- cmpfun(elementGrabPre)
 
 elementGrab <- function(element.line, data, range.table=NULL, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1, buffer=0.1){
-    
+
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=0)
     colnames(error_frame) <- c("Spectrum", element.line)
-    
-    tryCatch(
+
+    res <- tryCatch(
         elementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)
         , error=function(e) error_frame)
-    
-    
+    # NULL (e.g. a definition entirely outside the spectrum energy range) gets
+    # the same zero-filled fallback as an error, so table assembly never sees NULL.
+    if(is.null(res)) error_frame else res
+
 }
 
 elementGrabError <- function(data, element.line){
@@ -2501,13 +2512,13 @@ wideElementGrabPre <- function(element.line, data, range.table=NULL, calculation
 wideElementGrabPre <- cmpfun(wideElementGrabPre)
 
 wideElementGrab <- function(element.line, data, range.table=NULL, calculation="gaussian", buffer=0.1){
-    
+
     error_frame <- data.frame(Spectrum=unique(data$Spectrum), Hold=NA)
     colnames(error_frame) <- c("Spectrum", element.line)
-    
-    tryCatch(wideElementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation, buffer=buffer), error=function(e) error_frame)
-    
-    
+
+    res <- tryCatch(wideElementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation, buffer=buffer), error=function(e) error_frame)
+    if(is.null(res)) error_frame else res
+
 }
 
 wideElementFrame <- function(data, elements, range.table=NULL, calculation="gaussian", buffer=0.1, allowParallel=TRUE){
@@ -10606,6 +10617,35 @@ deconvolutionIntensityFrame <- function(deconvolution_areas, intensity_frame){
     
     return(deconvoluted_intensities)
 }
+
+# Instrument physics bundle from spectra metadata (PDZ Record-1 / CSV headers),
+# with handheld-XRF fallbacks. Used for standalone full-FP quantification so the
+# self-absorption / secondary-fluorescence solve sees the real tube and detector
+# instead of legacy defaults.
+physicsFromValMetadata <- function(metadata, default_kv=40, default_anode="Rh", default_detector="SDD"){
+    kv <- default_kv; anode <- default_anode; det <- default_detector
+    if(is.data.frame(metadata) && nrow(metadata) > 0){
+        kv_m <- suppressWarnings(as.numeric(metadata$TubeVoltage))
+        kv_m <- kv_m[is.finite(kv_m) & kv_m > 0]
+        if(length(kv_m) > 0) kv <- max(kv_m)
+        an_m <- as.character(metadata$TubeAnode)
+        an_m <- an_m[!is.na(an_m) & nzchar(an_m)]
+        if(length(an_m) > 0) anode <- an_m[1]
+        dt_m <- as.character(metadata$DetectorType)
+        dt_m <- dt_m[!is.na(dt_m) & nzchar(dt_m)]
+        if(length(dt_m) > 0) det <- dt_m[1]
+    }
+    phys <- tryCatch(instrument_deconv_defaults(mode="handheld", kv=kv, anode=anode, detector_type=det),
+                     error=function(e) list())
+    if(is.data.frame(metadata) && nrow(metadata) > 0){
+        inc <- suppressWarnings(as.numeric(metadata$IncidenceAngle[1]))
+        tko <- suppressWarnings(as.numeric(metadata$TakeoffAngle[1]))
+        if(is.finite(inc)) phys$incidence_deg <- inc
+        if(is.finite(tko)) phys$takeoff_deg <- tko
+    }
+    phys
+}
+physicsFromValMetadata <- cmpfun(physicsFromValMetadata)
 
 # Close FP mass estimates to fractions summing to 1 per spectrum. NOT the
 # default presentation: the FP estimate is in grams and deliberately does not
