@@ -96,6 +96,8 @@ CloudCal automatically detects multi-beam CSV files from:
 
 ## Calibration Models
 
+A detailed guide to every model type — how each one learns, when to use it, and what every stored parameter means — is in **[MODELS.md](MODELS.md)**.
+
 ### Traditional Models
 | Model | Description | Best For |
 |-------|-------------|----------|
@@ -114,6 +116,14 @@ CloudCal automatically detects multi-beam CSV files from:
 | **Bayesian (Intensities)** | Bayesian regression on intensities | Prior parameters |
 | **Bayesian (Spectra)** | Bayesian regression on spectra | Prior parameters |
 | **BART** | Bayesian Additive Regression Trees | Beta, nu parameters |
+
+### Chemometric Models
+| Model | Description | Configuration Options |
+|-------|-------------|----------------------|
+| **PLS** (Intensities / Spectra) | Partial least squares on latent components | Number of components |
+| **Cubist** (Intensities / Spectra) | Rule-based committees with linear leaf models | Committees, neighbors |
+| **Elastic Net** (Intensities / Spectra) | Sparse penalized linear regression (glmnet) | Alpha (ridge–lasso mix), lambda |
+| **MARS** (Intensities / Spectra) | Piecewise-linear adaptive splines (earth) | Terms (nprune), interaction degree |
 
 ---
 

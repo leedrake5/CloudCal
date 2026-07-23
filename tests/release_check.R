@@ -5,12 +5,17 @@
 #   2. Verify the intensity-table builders (fast path == per-element path)
 #   3. Drive a session: review cal curves per element, commit line edits
 #      (including an out-of-range definition), and survive
-#   4. Build a brand-new calibration from the raw spectra and fit a model
+#   4. Build a brand-new calibration from the raw spectra and fit a model,
+#      then re-fit it under each normalization and a scaled-concentration
+#      transform (the full customization grid lives in tests/model_check.R)
 #   5. Predict the calibration's own standards and compare to stored values
 #   6. Standardless FP estimate sanity (raw grams + closure)
+#   7. Example-file zoo: every recognized import format reads, carries
+#      metadata (live time, detector, eV/ch where present), and the MCA
+#      spectra deconvolute with the physics defaults inferred from the file
 #
 # Usage:
-#   Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir]
+#   Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir]
 # Defaults target the Far West 50 kV obsidian set.
 # Exit status is nonzero if any check fails.
 
@@ -21,6 +26,8 @@ SPECTRA_DIR <- if (length(args) >= 2) args[2] else
     "/Users/lee/Dropbox/Documents/CloudCal Evaluation/Far West Obsidian/50 kv 30a Cu100 Ti25 Al300"
 FP_QUANT <- if (length(args) >= 3) args[3] else
     "/Users/lee/Dropbox/Documents/CloudCal Evaluation/Test Quants/steel_template.quant"
+EXAMPLES_DIR <- if (length(args) >= 4) args[4] else
+    "/Users/lee/Dropbox/Documents/CloudCal Evaluation/Example Files"
 
 APP_DIR <- normalizePath(file.path(dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE)[1])), ".."))
 if (!file.exists(file.path(APP_DIR, "global.R"))) APP_DIR <- getwd()
@@ -199,6 +206,23 @@ try(testServer(app, {
         sec4$model_fit <- is.finite(r2)
         sec4$model_sane <- is.finite(r2) && r2 > 0.3
         sec4$element <- el; sec4$r2 <- r2
+
+        # customization smoke on the scratch model: each normalization plus a
+        # scaled-concentration fit (full option grid: tests/model_check.R)
+        emax <- max(dh$Energy, na.rm = TRUE)
+        roi_win <- round(c(0.38, 0.48) * emax, 2)   # backscatter region: always has counts
+        fit_ok <- function() !is.null(tryCatch(linearModel(), error = function(e) NULL))
+        basichold$normtype <- 1; session$setInputs(normcal = 1)
+        sec4$norm_time <- fit_ok()
+        basichold$normtype <- 3
+        basichold$normmin <- roi_win[1]; basichold$normmax <- roi_win[2]
+        session$setInputs(normcal = 3, comptonmin = roi_win[1], comptonmax = roi_win[2])
+        sec4$norm_roi <- fit_ok()
+        basichold$normtype <- 2
+        session$setInputs(normcal = 2, comptonmin = 0, comptonmax = 0)
+        basichold$deptransformation <- "Scale"
+        sec4$dep_scale <- fit_ok()
+        basichold$deptransformation <- "None"
     }
 }), silent = TRUE)
 if (is.null(sec4$element)) sec4$element <- "?"
@@ -208,6 +232,9 @@ check("commit builds intensity table from scratch", isTRUE(sec4$intensities_buil
 check("linear model fits on injected concentrations", isTRUE(sec4$model_fit))
 check(sprintf("scratch model is sane (%s r2=%s)", sec4$element, signif(sec4$r2, 3)),
     isTRUE(sec4$model_sane))
+check("scratch linear fits with Time normalization", isTRUE(sec4$norm_time))
+check("scratch linear fits with ROI normalization", isTRUE(sec4$norm_roi))
+check("scratch linear fits with scaled concentrations", isTRUE(sec4$dep_scale))
 
 ## ------------------------------------------------------------------
 message("\n-- 5. Self-prediction against stored values --")
@@ -305,6 +332,90 @@ if (file.exists(FP_QUANT)) {
         tots <- rowSums(as.matrix(closed[, !colnames(closed) %in% "Spectrum"]), na.rm = TRUE)
         is.data.frame(dec$Mass) && all(abs(tots - 1) < 1e-8)
     })
+}
+
+## ------------------------------------------------------------------
+message("\n-- 7. Example-file zoo (import formats + inferred deconvolution defaults) --")
+if (dir.exists(EXAMPLES_DIR)) {
+    zoo <- list.files(EXAMPLES_DIR, full.names = TRUE)
+    ext <- tolower(tools::file_ext(zoo))
+    is_pmca_noext <- vapply(zoo[ext == ""], function(f)
+        isTRUE(grepl("PMCA SPECTRUM", tryCatch(readLines(f, n = 1, warn = FALSE), error = function(e) ""))), logical(1))
+    read_ok <- function(sp) is.data.frame(sp) && nrow(sp) > 0 &&
+        all(c("Energy", "CPS", "Spectrum") %in% names(sp)) && any(is.finite(sp$CPS))
+
+    pdzs <- zoo[ext == "pdz"]
+    check(sprintf("all %d example PDZs read", length(pdzs)), {
+        inF <- data.frame(name = basename(pdzs), datapath = pdzs, stringsAsFactors = FALSE)
+        sp <- tryCatch(readPDZProcess(inFile = inF, gainshiftvalue = 0, advanced = FALSE,
+                                      pdzprep = TRUE, use_native_calibration = TRUE), error = function(e) NULL)
+        # dual-beam PDZs legitimately yield one spectrum per beam (_1/_2), so
+        # require at least one spectrum per file rather than exactly one
+        read_ok(sp) && length(unique(sp$Spectrum)) >= length(pdzs)
+    })
+
+    # per-spectrum handheld CSV exports (skip the big aggregate niton/vanta files)
+    csvs <- zoo[ext == "csv" & !grepl("niton|vanta", basename(zoo), ignore.case = TRUE)]
+    check(sprintf("all %d per-spectrum CSVs read + metadata", length(csvs)), {
+        all(vapply(csvs, function(f){
+            sp <- tryCatch(csvFrame(filepath = f, filename = basename(f)), error = function(e) NULL)
+            md <- tryCatch(csvFrameMetadata(filepath = f, filename = basename(f)), error = function(e) NULL)
+            read_ok(sp) && is.data.frame(md)
+        }, logical(1)))
+    })
+
+    aggs <- zoo[grepl("niton|vanta", basename(zoo), ignore.case = TRUE) & ext == "csv"]
+    check(sprintf("aggregate CSVs (Niton/Vanta: %d) read", length(aggs)), {
+        all(vapply(aggs, function(f){
+            beams <- tryCatch(get_instrument_and_beams(f), error = function(e) NULL)
+            if (is.null(beams)) return(FALSE)
+            sp <- tryCatch(importCSVFrame(f, chosen_beam = beams$beams[1]), error = function(e) NULL)
+            read_ok(sp)
+        }, logical(1)))
+    })
+
+    mcas <- c(zoo[ext == "mca"], names(is_pmca_noext)[is_pmca_noext])
+    zoo_decon <- list()
+    check(sprintf("MCA/PMCA files (%d) read + metadata live time", length(mcas)), {
+        all(vapply(mcas, function(f){
+            sp <- tryCatch(readMCAData(filepath = f, filename = basename(f)), error = function(e) NULL)
+            md <- tryCatch(mcaFrameMetadata(f, basename(f)), error = function(e) NULL)
+            if (read_ok(sp)) zoo_decon[[basename(f)]] <<- list(sp = sp, md = md)
+            # LiveTime must be positive: LIVE_TIME when valid, REAL_TIME fallback
+            # when the export logged 0 (100% dead time, e.g. the CdTe example)
+            read_ok(sp) && is.data.frame(md) && is.finite(md$LiveTime[1]) && md$LiveTime[1] > 0
+        }, logical(1)))
+    })
+
+    txts <- zoo[ext == "txt"]
+    check(sprintf("TXT files (%d) read + metadata", length(txts)), {
+        all(vapply(txts, function(f){
+            sp <- tryCatch(readTXTData(filepath = f, filename = basename(f)), error = function(e) NULL)
+            md <- tryCatch(txtFrameMetadata(f, basename(f)), error = function(e) NULL)
+            read_ok(sp) && is.data.frame(md)
+        }, logical(1)))
+    })
+
+    check("MCA spectra deconvolute with file-inferred physics defaults", {
+        length(zoo_decon) > 0 && all(vapply(zoo_decon, function(z){
+            inf <- tryCatch(deconvolution_infer_from_metadata(z$md), error = function(e) NULL)
+            phys <- tryCatch(instrument_deconv_defaults(
+                mode = if (!is.null(inf$mode)) inf$mode else "legacy",
+                kv = inf$kv, detector_type = inf$detector, environment = "air_pp"),
+                error = function(e) list())
+            lt <- tryCatch(deconvolution_livetime_lookup(z$md), error = function(e) NULL)
+            dec <- tryCatch(spectra_gls_deconvolute(z$sp, cores = 1, physics = phys,
+                                                    mass = "off", livetime = lt),
+                            error = function(e) NULL)
+            is.list(dec) && "Spectra" %in% names(dec)
+        }, logical(1)))
+    })
+
+    leftover <- setdiff(zoo, c(pdzs, csvs, aggs, mcas, txts))
+    if (length(leftover)) message("    (not exercised: ",
+        paste(basename(leftover), collapse = ", "), ")")
+} else {
+    message("    (examples dir not found: ", EXAMPLES_DIR, " - skipping zoo)")
 }
 
 ## ------------------------------------------------------------------

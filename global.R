@@ -265,6 +265,13 @@ my.cores <- if(parallel::detectCores()>=3){
 # small, honest cost. my.cores = detectCores()-2 (a string); a <=2-core machine is already serial.
 decon_cores <- if(get_os() == "windows") 1L else as.numeric(my.cores)
 
+# Several model packages ship their own OpenMP runtime (xgboost bundles libomp;
+# data.table and earth link the system one). On macOS the duplicate-runtime
+# check can abort the whole R session (OMP Error #13) the first time two of
+# them meet in one process - e.g. training a MARS model after an XGBoost one.
+# This standard override lets the runtimes coexist.
+if(get_os() != "windows") Sys.setenv(KMP_DUPLICATE_LIB_OK = "TRUE")
+
 source('file_loading.R')
 #tryCatch(source('file_loading.R'), error=function(e) source("https://raw.githubusercontent.com/leedrake5/CloudCal/line_calculation/file_loading.R"))
 
@@ -4605,6 +4612,8 @@ deconvolutionMassUI <- function(selection="off"){
 
 
 deconvolutionUI <- function(radiocal=3, selection=NULL){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     
     selection <- if(is.null(selection)){
         "None"
@@ -4644,8 +4653,97 @@ deconvolutionUI <- function(radiocal=3, selection=NULL){
     
 }
 
+# ---------------------------------------------------------------------------
+# Chemometric calibration types (14-21): PLS, Cubist, glmnet, MARS - each on
+# Intensities (like cal type 12) or Spectra (like cal type 13). The generic
+# UI/data plumbing is shared with the SVM pair via chemRadiocalAlias(); only
+# the model-specific tuning controls below are new.
+chemIntensityTypes <- c(14, 16, 18, 20)
+chemSpectraTypes   <- c(15, 17, 19, 21)
+chemRadiocalAlias <- function(radiocal){
+    r <- suppressWarnings(as.numeric(radiocal[1]))
+    if(is.finite(r) && r %in% chemIntensityTypes) return(12)
+    if(is.finite(r) && r %in% chemSpectraTypes) return(13)
+    radiocal
+}
+
+# Parse a "lo-hi" tuning-range string (the CalTable convention) to c(lo, hi);
+# tolerant of numeric vectors, single values, and missing/NA input.
+chemRange <- function(v, default){
+    if(is.null(v) || (length(v) == 1 && is.na(v))) return(default)
+    if(is.character(v)) v <- suppressWarnings(as.numeric(unlist(strsplit(as.character(v[1]), "-"))))
+    v <- suppressWarnings(as.numeric(v)); v <- v[is.finite(v)]
+    if(length(v) == 0) return(default)
+    if(length(v) == 1) v <- c(v, v)
+    sort(v[1:2])
+}
+
+plsNCompUI <- function(radiocal=3, selection=NULL){
+    selection <- chemRange(selection, c(1, 12))
+    if(radiocal %in% c(14, 15)){
+        sliderInput('plsncomp', label="PLS Components", min=1, max=30, value=selection, step=1)
+    } else {
+        NULL
+    }
+}
+
+cubistCommitteesUI <- function(radiocal=3, selection=NULL){
+    selection <- chemRange(selection, c(1, 10))
+    if(radiocal %in% c(16, 17)){
+        sliderInput('cubistcommittees', label="Cubist Committees", min=1, max=50, value=selection, step=1)
+    } else {
+        NULL
+    }
+}
+
+cubistNeighborsUI <- function(radiocal=3, selection=NULL){
+    selection <- chemRange(selection, c(0, 5))
+    if(radiocal %in% c(16, 17)){
+        sliderInput('cubistneighbors', label="Cubist Neighbors", min=0, max=9, value=selection, step=1)
+    } else {
+        NULL
+    }
+}
+
+glmnetAlphaUI <- function(radiocal=3, selection=NULL){
+    selection <- chemRange(selection, c(0, 1))
+    if(radiocal %in% c(18, 19)){
+        sliderInput('glmnetalpha', label="Elastic-Net Alpha (0 ridge - 1 lasso)", min=0, max=1, value=selection, step=0.05)
+    } else {
+        NULL
+    }
+}
+
+glmnetLambdaUI <- function(radiocal=3, selection=NULL){
+    selection <- chemRange(selection, c(0.001, 1))
+    if(radiocal %in% c(18, 19)){
+        sliderInput('glmnetlambda', label="Elastic-Net Lambda", min=0.0001, max=10, value=selection, step=0.0001)
+    } else {
+        NULL
+    }
+}
+
+marsPruneUI <- function(radiocal=3, selection=NULL){
+    selection <- chemRange(selection, c(2, 12))
+    if(radiocal %in% c(20, 21)){
+        sliderInput('marsprune', label="MARS Terms (nprune)", min=2, max=30, value=selection, step=1)
+    } else {
+        NULL
+    }
+}
+
+marsDegreeUI <- function(radiocal=3, selection=NULL){
+    selection <- chemRange(selection, c(1, 2))
+    if(radiocal %in% c(20, 21)){
+        sliderInput('marsdegree', label="MARS Interaction Degree", min=1, max=3, value=selection, step=1)
+    } else {
+        NULL
+    }
+}
+
 compressUI <- function(radiocal=3, selection=NULL){
-    
+
+    radiocal <- chemRadiocalAlias(radiocal)
     selection <- if(is.null(selection)){
         "100 eV"
     } else if(!is.null(selection)){
@@ -4684,6 +4782,8 @@ compressUI <- function(radiocal=3, selection=NULL){
 }
 
 transformationUI <- function(radiocal=3, selection=NULL){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     
     selection <- if(is.null(selection)){
         "None"
@@ -4723,6 +4823,8 @@ transformationUI <- function(radiocal=3, selection=NULL){
 }
 
 dependentTransformationUI <- function(radiocal=3, selection=NULL){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     
     selection <- if(is.null(selection)){
         "None"
@@ -4762,6 +4864,8 @@ dependentTransformationUI <- function(radiocal=3, selection=NULL){
 }
 
 energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     
     selection <- if(is.null(selection)){
         c(0.7, 37)
@@ -4811,6 +4915,8 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
 }
 
 lineTypeUI <- function(radiocal=3, selection="Narrow"){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     
     
     if(radiocal==0){
@@ -4846,6 +4952,8 @@ lineTypeUI <- function(radiocal=3, selection="Narrow"){
 }
 
 lineStructureUI <- function(radiocal=3, selection="gaussian"){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     
     if(radiocal==0){
         selectInput("linestructure", "Line Calculation", choices=c("gaussian", "split"), selected=selection)
@@ -4881,6 +4989,8 @@ lineStructureUI <- function(radiocal=3, selection="gaussian"){
 }
 
 interceptUI <- function(radiocal=3, selection=NULL, elements){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     
 
     if(radiocal==0){
@@ -4915,6 +5025,8 @@ interceptUI <- function(radiocal=3, selection=NULL, elements){
 }
 
 slopeUI <- function(radiocal=3, selection=NULL, elements){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     
     elements.mod <- elements
 
@@ -5047,6 +5159,8 @@ model = NULL) {
 }
 
 forestMetricUI <- function(radiocal, selection){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     if(radiocal==0){
         selectInput("forestmetric", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "Mean Absolute Error"="MAE", "Log Absolute Error"="logMAE", "Symmetric Mean Absolute Percentage Error"="SMAPE"), selected=selection)
     } else if(radiocal==1){
@@ -5079,6 +5193,8 @@ forestMetricUI <- function(radiocal, selection){
 }
 
 forestTrainUI <- function(radiocal, selection){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     if(radiocal==0){
         selectInput("foresttrain", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=selection)
     } else if(radiocal==1){
@@ -5111,6 +5227,8 @@ forestTrainUI <- function(radiocal, selection){
 }
 
 forestNumberUI <- function(radiocal, selection){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     if(radiocal==0){
         sliderInput("forestnumber", label="Iterations", min=5, max=2000, value=selection)
     } else if(radiocal==1){
@@ -5144,6 +5262,8 @@ forestNumberUI <- function(radiocal, selection){
 }
 
 cvRepeatsUI <- function(radiocal, foresttrain, selection){
+
+    radiocal <- chemRadiocalAlias(radiocal)
     if(radiocal==0){
         sliderInput("cvrepeats", label="Repeats", min=5, max=500, value=selection)
     } else if(radiocal==1){
@@ -6311,12 +6431,31 @@ predictIntensitySimpPreGen <- function(spectra, hold.frame, deconvolution = NULL
 }
 
 scaleTransform <- function(values, y_min, y_max){
-    
+
     y_min <- my.min(values)
     y_max <- my.max(values)
     y_train_scale <- ((values-y_min)/(y_max-y_min))
 
     return(y_train_scale)
+}
+
+applyDependentTransformation <- function(values, dependent.transformation, y_min=0, y_max=1){
+    # Forward transform of the Concentration column for the model frames. The
+    # inverse lives in mclValGen/xgbValGen/mclPred and must mirror this.
+    # Unrecognized/NA selections fall back to "None" (same guard as mclValGen).
+    if(is.null(dependent.transformation) || length(dependent.transformation) != 1 ||
+       is.na(dependent.transformation) || !dependent.transformation %in% c("None", "Log", "e", "Scale")){
+        dependent.transformation <- "None"
+    }
+    if(dependent.transformation=="Log"){
+        log(values)
+    } else if(dependent.transformation=="e"){
+        exp(values)
+    } else if(dependent.transformation=="Scale"){
+        scaleTransform(values=values, y_min=y_min, y_max=y_max)
+    } else {
+        values
+    }
 }
 
 scaleDecode <- function(values, y_min, y_max){
@@ -6343,13 +6482,7 @@ predictFrameSimpGen <- function(spectra, hold.frame, deconvolution=NULL, depende
     )
     predict.frame.simp <- predict.frame.simp[complete.cases(predict.frame.simp$Concentration),]
 
-    predict.frame.simp$Concentration <- if(dependent.transformation=="None"){
-        predict.frame.simp$Concentration
-    } else if(dependent.transformation=="Log"){
-        log(predict.frame.simp$Concentration)
-    } else if(dependent.transformation=="Scale"){
-        scaleTransform(values=predict.frame.simp$Concentration, y_min=y_min, y_max=y_max)
-    }
+    predict.frame.simp$Concentration <- applyDependentTransformation(predict.frame.simp$Concentration, dependent.transformation, y_min=y_min, y_max=y_max)
 
     result <- predictFrameCheck(predict.frame.simp)
     set.seed(seed)
@@ -6393,7 +6526,7 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, deconvolution=NULL
         if(data.type=="Spectra"){
             lucas_simp_prep_xrf(spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
         } else if(data.type=="Net"){
-            lucas_simp_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=input$calcurveelement, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
+            lucas_simp_prep_xrf_net(spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element.lines.to.use, intercept.element.lines=intercepts)
         }
     } else if(norm.type==2){
         if(data.type=="Spectra"){
@@ -6427,13 +6560,7 @@ predictFrameXGBoostGen <- function(spectra, hold.frame, deconvolution=NULL, slop
     )
     predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
 
-    predict.frame.forest$Concentration <- if(dependent.transformation=="None"){
-        predict.frame.forest$Concentration
-    } else if(dependent.transformation=="Log"){
-        log(predict.frame.forest$Concentration)
-    } else if(dependent.transformation=="Scale"){
-        scaleTransform(values=predict.frame.forest$Concentration, y_min=y_min, y_max=y_max)
-    }
+    predict.frame.forest$Concentration <- applyDependentTransformation(predict.frame.forest$Concentration, dependent.transformation, y_min=y_min, y_max=y_max)
 
     # Return data frame (matrix conversion done elsewhere for XGBoost when needed)
     return(predictFrameCheck(predict.frame.forest))
@@ -6460,13 +6587,7 @@ predictFrameForestGen <- function(seed=1, spectra, hold.frame, deconvolution=NUL
     )
     predict.frame.forest <- predict.frame.forest[complete.cases(predict.frame.forest$Concentration),]
     
-    predict.frame.forest$Concentration <- if(dependent.transformation=="None"){
-        predict.frame.forest$Concentration
-    } else if(dependent.transformation=="Log"){
-        log(predict.frame.forest$Concentration)
-    } else if(dependent.transformation=="Scale"){
-        scaleTransform(values=predict.frame.forest$Concentration, y_min=y_min, y_max=y_max)
-    }
+    predict.frame.forest$Concentration <- applyDependentTransformation(predict.frame.forest$Concentration, dependent.transformation, y_min=y_min, y_max=y_max)
     
     result <- predictFrameCheck(predict.frame.forest)
     set.seed(seed)
@@ -6511,13 +6632,7 @@ predictFrameLucGen <- function(seed=1, spectra, hold.frame, element, intercepts=
     )
     predict.frame.luc <- predict.frame.luc[complete.cases(predict.frame.luc),]
     
-    predict.frame.luc$Concentration <- if(dependent.transformation=="None"){
-        predict.frame.luc$Concentration
-    } else if(dependent.transformation=="Log"){
-        log(predict.frame.luc$Concentration)
-    } else if(dependent.transformation=="Scale"){
-        scaleTransform(values=predict.frame.luc$Concentration, y_min=y_min, y_max=y_max)
-    }
+    predict.frame.luc$Concentration <- applyDependentTransformation(predict.frame.luc$Concentration, dependent.transformation, y_min=y_min, y_max=y_max)
     
     result <- predictFrameCheck(predict.frame.luc)
     #set.seed(seed)
@@ -6567,13 +6682,7 @@ xgboostDataGen <- function(spectra, compress="100 eV", transformation="None", de
     spectra.data <- merge(spectra.data, hold.frame[,c("Spectrum", "Concentration")], by="Spectrum")
     spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
     
-    spectra.data$Concentration <- if(dependent.transformation=="None"){
-        spectra.data$Concentration
-    } else if(dependent.transformation=="Log"){
-        log(spectra.data$Concentration)
-    } else if(dependent.transformation=="Scale"){
-        scaleTransform(values=spectra.data$Concentration, y_min=y_min, y_max=y_max)
-    }
+    spectra.data$Concentration <- applyDependentTransformation(spectra.data$Concentration, dependent.transformation, y_min=y_min, y_max=y_max)
     
     return(as.matrix(predictFrameCheck(spectra.data)))
 }
@@ -6592,13 +6701,7 @@ rainforestDataGen <- function(seed=1, spectra, compress="100 eV", transformation
     spectra.data <- merge(spectra.data, hold.frame[,c("Spectrum", "Concentration")], by="Spectrum")
     spectra.data <- spectra.data[complete.cases(spectra.data$Concentration),]
     
-    spectra.data$Concentration <- if(dependent.transformation=="None"){
-        spectra.data$Concentration
-    } else if(dependent.transformation=="Log"){
-        log(spectra.data$Concentration)
-    } else if(dependent.transformation=="Scale"){
-        scaleTransform(values=spectra.data$Concentration, y_min=y_min, y_max=y_max)
-    }
+    spectra.data$Concentration <- applyDependentTransformation(spectra.data$Concentration, dependent.transformation, y_min=y_min, y_max=y_max)
     
     result <- predictFrameCheck(spectra.data)
     set.seed(seed)
@@ -6640,6 +6743,10 @@ predictFrame <- function(cal.type, spectra){
     } else if(input$radiocal==12){
         predictFrameForest()
     } else if(input$radiocal==13){
+        rainforestData()
+    } else if(input$radiocal %in% chemIntensityTypes){
+        predictFrameForest()
+    } else if(input$radiocal %in% chemSpectraTypes){
         rainforestData()
     }
 }
@@ -6924,6 +7031,8 @@ modelSummaryPre <- function(element.model, element.name){
         "Caret"
     } else if(element.model[[1]][["CalTable"]]$CalType[1]==13){
         "Caret"
+    } else if(element.model[[1]][["CalTable"]]$CalType[1] %in% c(chemIntensityTypes, chemSpectraTypes)){
+        "Caret"
     }
     
     r2 <- if(model.class=="Regression"){
@@ -7103,8 +7212,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     12
                 }  else if(the.cal[[element]][[1]]$CalTable$CalType[1]==13){
                     13
+                } else if(the.cal[[element]][[1]]$CalTable$CalType[1] %in% chemIntensityTypes){
+                    # chem intensity models predict exactly like the SVM
+                    # intensity path (all-slope caret model on line intensities)
+                    12
+                } else if(the.cal[[element]][[1]]$CalTable$CalType[1] %in% chemSpectraTypes){
+                    13
                 }
-    
+
         }
         cal_type <- cmpfun(cal_type)
 
@@ -8858,7 +8973,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
 
         
 
-        predicted.data.table <- round(predicted.frame[,-1]*multiplier, rounding)
+        # drop=FALSE: with a single predicted element the old vector-drop lost
+        # the element name and the output column came back as "predicted.data.table"
+        predicted.data.table <- round(predicted.frame[,-1, drop=FALSE]*multiplier, rounding)
 
         #predicted.values <- t(predicted.values)
         data.frame(Spectrum=predicted.frame$Spectrum, predicted.data.table, stringsAsFactors=FALSE)
@@ -9174,6 +9291,10 @@ modelPackPre <- function(parameters, model, table, compress=TRUE){
             strip_glm(model)
         } else if(parameters$CalTable$CalType==13){
             strip_glm(model)
+        } else if(parameters$CalTable$CalType %in% c(chemIntensityTypes, chemSpectraTypes)){
+            # pls/Cubist/glmnet/earth caret objects are already small; keep them
+            # whole rather than risk strip_glm removing slots their predict needs
+            model
         }
     } else if(compress==FALSE){
         model

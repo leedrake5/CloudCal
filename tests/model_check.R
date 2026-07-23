@@ -6,10 +6,22 @@
 #   1 Linear, 2 Non-Linear, 3 Lucas-Tooth        -> classic element (+ intercept)
 #   4 Forest, 5 Rainforest, 6 NN Intensities, 7 NN Spectra,
 #   8 XGBoost Intensities, 9 XGBoost Spectra, 10 Bayes Intensities,
-#   11 Bayes Spectra, 12 SVM Intensities, 13 SVM Spectra  -> ML element, all slopes
+#   11 Bayes Spectra, 12 SVM Intensities, 13 SVM Spectra,
+#   14/15 PLS, 16/17 Cubist, 18/19 Elastic Net (glmnet), 20/21 MARS (earth)
+#     (chemometric additions; Intensities/Spectra pairs) -> ML element, all slopes
 #
 # For each type: build the model frame, fit, predict the training standards and
 # require finite predictions correlated with the known concentrations.
+#
+# After the per-model pass, customization sweeps re-fit representative models
+# under every user-selectable data option:
+#   - normalization (Time / Total Counts / ROI, incl. Baseline/Net ROI when the
+#     quant carries a Deconvoluted slot) for the three intensity frame builders
+#     and the spectra frame builder
+#   - concentration transformation (Log / e / Scale) on intensity + spectra paths
+#   - spectra transformation x compression (None/Log/e/Velocity x 100/50/25 eV)
+#     on Rainforest, with NN / XGBoost / SVM spectra spot checks
+# This is the slow, intermittent, "smoke out user customizations" pass.
 #
 # Usage:
 #   Rscript tests/model_check.R [quant] [classic_el] [intercept_el] [ml_el]
@@ -30,6 +42,10 @@ setwd(APP_DIR)
 message("CloudCal model-pipeline check")
 message("  quant: ", QUANT)
 
+# macOS: xgboost's libomp intermittently asserts (OMP Error #13) when other
+# OpenMP-linked model packages (earth/pls) share the process. Single-threaded
+# OMP sidesteps it; these tiny fits don't need the threads.
+Sys.setenv(OMP_NUM_THREADS = "1", KMP_DUPLICATE_LIB_OK = "TRUE")
 suppressMessages(suppressWarnings(source("global.R")))
 suppressMessages(library(shiny))
 
@@ -65,12 +81,22 @@ MODELS <- list(
     list(id = 10, name = "Bayes Intensities",   el = ML_EL, fit = "bayesIntensityModel"),
     list(id = 11, name = "Bayes Spectra",       el = ML_EL, fit = "bayesSpectraModel"),
     list(id = 12, name = "SVM Intensities",     el = ML_EL, fit = "svmIntensityModel"),
-    list(id = 13, name = "SVM Spectra",         el = ML_EL, fit = "svmSpectraModel")
+    list(id = 13, name = "SVM Spectra",         el = ML_EL, fit = "svmSpectraModel"),
+    list(id = 14, name = "PLS Intensities",     el = ML_EL, fit = "plsIntensityModel"),
+    list(id = 15, name = "PLS Spectra",         el = ML_EL, fit = "plsSpectraModel"),
+    list(id = 16, name = "Cubist Intensities",  el = ML_EL, fit = "cubistIntensityModel"),
+    list(id = 17, name = "Cubist Spectra",      el = ML_EL, fit = "cubistSpectraModel"),
+    list(id = 18, name = "ElasticNet Intens",   el = ML_EL, fit = "glmnetIntensityModel"),
+    list(id = 19, name = "ElasticNet Spectra",  el = ML_EL, fit = "glmnetSpectraModel"),
+    list(id = 20, name = "MARS Intensities",    el = ML_EL, fit = "marsIntensityModel"),
+    list(id = 21, name = "MARS Spectra",        el = ML_EL, fit = "marsSpectraModel")
 )
 SETNAMES <- c("linearModelSet", "nonLinearModelSet", "lucasToothModelSet", "forestModelSet",
     "rainforestModelSet", "neuralNetworkIntensityShallowModelSet", "neuralNetworkSpectraShallowModelSet",
     "xgboostIntensityModelSet", "xgboostSpectraModelSet", "bayesIntensityModelSet",
-    "bayesSpectraModelSet", "svmIntensityModelSet", "svmSpectraModelSet")
+    "bayesSpectraModelSet", "svmIntensityModelSet", "svmSpectraModelSet",
+    "plsIntensityModelSet", "plsSpectraModelSet", "cubistIntensityModelSet", "cubistSpectraModelSet",
+    "glmnetIntensityModelSet", "glmnetSpectraModelSet", "marsIntensityModelSet", "marsSpectraModelSet")
 
 env <- new.env()
 env$out <- list()
@@ -119,6 +145,10 @@ try(testServer(app, {
         barthold$bartk <- "2-2"; barthold$bartbeta <- "2-2"; barthold$bartnu <- "3-3"
         svmhold$svmc <- "1-1"; svmhold$svmdegree <- "1-1"; svmhold$svmscale <- "0.1-0.1"
         svmhold$svmsigma <- "0.1-0.1"; svmhold$svmlength <- "1-1"
+        plshold$plsncomp <- "1-3"; cubisthold$cubistcommittees <- "1-2"
+        cubisthold$cubistneighbors <- "0-0"; glmnethold$glmnetalpha <- "0.5-0.5"
+        glmnethold$glmnetlambda <- "0.01-0.1"; marshold$marsprune <- "2-4"
+        marshold$marsdegree <- "1-1"
     }
 
     for (i in seq_along(MODELS)) {
@@ -196,6 +226,186 @@ try(testServer(app, {
         }
         xgboosthold$xgbtype <- "Linear"
     }
+
+    # Chem metadata round trip: pack a fitted PLS model the way the save
+    # button does, re-derive its tuning range through the .quant import path
+    # (bestTune wins), and predict from the packed model.
+    rt <- list(name = "Chem CalTable round-trip", ok = FALSE, note = "")
+    tryCatch({
+        session$setInputs(calcurveelement = ML_EL, radiocal = 14, normcal = 2,
+                          comptonmin = 0, comptonmax = 0, comptontype = "Raw")
+        # line slopes only (no Total/Baseline): the Apply page reconstructs
+        # predictors from calVariableElements(), which carries just the lines
+        minimal_holds(ML_EL, slopes = lines_avail, intercepts = NULL)
+        vals$keeprows <- rep(TRUE, nrow(cal$Values))
+        mset <- plsIntensityModelSet()
+        fit <- plsIntensityModel()
+        packed <- modelPack(parameters = mset$parameters, model = fit, table = NULL, compress = TRUE)
+        stopifnot(packed$Parameters$CalTable$CalType[1] == 14,
+                  "plsNComp" %in% colnames(packed$Parameters$CalTable))
+        restored <- importCalConditions(element = ML_EL,
+            calList = setNames(list(packed), ML_EL), number.of.standards = sum(vals$keeprows))
+        bt <- fit$bestTune$ncomp
+        stopifnot("plsNComp" %in% colnames(restored$CalTable),
+                  identical(as.character(restored$CalTable$plsNComp[1]), paste0(bt, "-", bt)))
+        X <- mset$data[, !colnames(mset$data) %in% c("Spectrum", "Concentration"), drop = FALSE]
+        p <- as.numeric(predict(packed$Model, newdata = X))
+        stopifnot(length(p) == nrow(mset$data), any(is.finite(p)))
+        rt$ok <- TRUE
+        rt$note <- sprintf("ncomp=%s restored from bestTune; packed model predicts", bt)
+    }, error = function(e){ rt$note <<- paste0("ERROR: ", conditionMessage(e)) })
+    env$out[[rt$name]] <- rt
+    message(sprintf("    %-34s %s", rt$name, rt$note))
+
+    # Apply-page inference with a chem model: install the packed PLS model in
+    # the calList and predict the calibration spectra through cloudCalPredict
+    # (exercises the cal_type 14 -> SVM-intensity alias + mclPred).
+    ap <- list(name = "Chem cloudCalPredict apply", ok = FALSE, note = "")
+    tryCatch({
+        cal2 <- cal
+        cal2$calList[[ML_EL]] <- packed
+        pred <- suppressWarnings(cloudCalPredict(Calibration = cal2, elements.cal = ML_EL,
+            elements = ML_EL, variables = lines_avail, valdata = cal$Spectra,
+            deconvoluted_valdata = cal$Deconvoluted, rounding = 6, multiplier = 1, cores = 2))
+        stopifnot(is.data.frame(pred), ML_EL %in% colnames(pred))
+        a <- suppressWarnings(as.numeric(pred[[ML_EL]]))
+        b <- suppressWarnings(as.numeric(cal$Values[[ML_EL]][
+            match(as.character(pred$Spectrum), as.character(cal$Values$Spectrum))]))
+        okp <- is.finite(a) & is.finite(b)
+        stopifnot(sum(okp) >= 10)
+        r <- if (sd(a[okp]) > 0) suppressWarnings(cor(a[okp], b[okp])) else NA_real_
+        ap$ok <- TRUE
+        ap$note <- sprintf("n=%d r=%s", sum(okp), if (is.finite(r)) sprintf("%.2f", r) else "const")
+    }, error = function(e){ ap$note <<- paste0("ERROR: ", conditionMessage(e)) })
+    env$out[[ap$name]] <- ap
+    message(sprintf("    %-34s %s", ap$name, ap$note))
+
+    # ------------------------------------------------------------------
+    # Customization sweeps: users can combine any normalization with any
+    # model type, and (for spectra models) any transformation x compression.
+    # Each combo rebuilds the model frame from scratch and fits.
+    # ------------------------------------------------------------------
+    emax <- max(cal$Spectra$Energy, na.rm = TRUE)
+    roi_win <- round(c(0.38, 0.48) * emax, 2)   # backscatter/Compton region: always has counts
+
+    run_combo <- function(nm, el, rc, setname, fitname, setup = function(){}){
+        res <- list(name = nm, ok = FALSE, note = "")
+        t0 <- Sys.time()
+        tryCatch({
+            session$setInputs(calcurveelement = el, radiocal = rc, normcal = 2,
+                              comptonmin = 0, comptonmax = 0, comptontype = "Raw")
+            if (rc <= 3) minimal_holds(el, slopes = el, intercepts = INTERCEPT_EL)
+            else         minimal_holds(el, slopes = all_slopes_on, intercepts = NULL)
+            if (rc %in% c(10, 11)) foresthold$foresttrain <- "none"
+            vals$keeprows <- rep(TRUE, nrow(cal$Values))
+            setup()
+            mset <- get(setname)()
+            dat <- mset$data
+            stopifnot(is.data.frame(dat), nrow(dat) >= 10, "Concentration" %in% names(dat),
+                      all(is.finite(dat$Concentration)))
+            fit <- get(fitname)()
+            stopifnot(!is.null(fit))
+            res$ok <- TRUE
+            res$note <- sprintf("n=%d cols=%d (%.1fs)", nrow(dat), ncol(dat),
+                                as.numeric(Sys.time() - t0, units = "secs"))
+        }, error = function(e){
+            res$note <<- paste0("ERROR: ", conditionMessage(e),
+                                sprintf(" (%.1fs)", as.numeric(Sys.time() - t0, units = "secs")))
+        })
+        env$out[[nm]] <- res
+        message(sprintf("    %-34s %s", nm, res$note))
+    }
+
+    # -- intensity-model normalizations (Total Counts was exercised above) --
+    message("  -- sweep: intensity normalizations --")
+    for (mm in list(list(rc = 1, set = "linearModelSet",     fit = "linearModel",     lab = "Linear"),
+                    list(rc = 3, set = "lucasToothModelSet", fit = "lucasToothModel", lab = "Lucas-Tooth"),
+                    list(rc = 4, set = "forestModelSet",     fit = "forestModel",     lab = "Forest"))) {
+        el <- if (mm$rc <= 3) CLASSIC_EL else ML_EL
+        run_combo(paste0(mm$lab, " norm=Time"), el, mm$rc, mm$set, mm$fit, function(){
+            basichold$normtype <- 1; session$setInputs(normcal = 1)
+        })
+        run_combo(paste0(mm$lab, " norm=ROI"), el, mm$rc, mm$set, mm$fit, function(){
+            basichold$normtype <- 3
+            basichold$normmin <- roi_win[1]; basichold$normmax <- roi_win[2]
+            session$setInputs(normcal = 3, comptonmin = roi_win[1], comptonmax = roi_win[2])
+        })
+    }
+    if (!is.null(cal$Deconvoluted)) {
+        for (ctype in c("Baseline", "Net")) {
+            run_combo(paste0("Linear norm=ROI ", ctype), CLASSIC_EL, 1,
+                      "linearModelSet", "linearModel", function(){
+                basichold$normtype <- 3
+                basichold$normmin <- roi_win[1]; basichold$normmax <- roi_win[2]
+                session$setInputs(normcal = 3, comptonmin = roi_win[1],
+                                  comptonmax = roi_win[2], comptontype = ctype)
+            })
+        }
+    } else message("    (skipping ROI Baseline/Net - quant has no Deconvoluted slot)")
+
+    # -- concentration (dependent) transformations --
+    # Log needs strictly positive values; e needs values small enough that
+    # exp() stays finite. Pick a suitable element rather than silently skip.
+    message("  -- sweep: concentration transformations --")
+    dep_ok <- vapply(names(cal$calList), function(e){
+        if (!e %in% colnames(cal$Values)) return(FALSE)
+        v <- suppressWarnings(as.numeric(cal$Values[[e]])); v <- v[is.finite(v)]
+        length(v) >= 10 && all(v > 0) && max(v) <= 500
+    }, logical(1))
+    DEP_EL <- if (isTRUE(dep_ok[CLASSIC_EL])) CLASSIC_EL else names(dep_ok)[dep_ok][1]
+    if (is.null(DEP_EL) || is.na(DEP_EL)) {
+        message("    (skipping - no element with all-positive, exp-safe concentrations)")
+    } else {
+        if (!identical(DEP_EL, CLASSIC_EL))
+            message("    NOTE: using ", DEP_EL, " for concentration transformations")
+        for (dt in c("Log", "e", "Scale")) {
+            run_combo(paste0("Linear dep=", dt), DEP_EL, 1,
+                      "linearModelSet", "linearModel",
+                      function(){ basichold$deptransformation <- dt })
+            run_combo(paste0("Rainforest dep=", dt), DEP_EL, 5,
+                      "rainforestModelSet", "rainforestModel",
+                      function(){ basichold$deptransformation <- dt })
+        }
+    }
+
+    # -- spectra transformation x compression (Rainforest carries the grid; the
+    #    other spectra models share rainforestDataGen, spot-checked below) --
+    message("  -- sweep: spectra transformation x compression --")
+    for (tr in c("None", "Log", "e", "Velocity")) {
+        for (cp in c("100 eV", "50 eV", "25 eV")) {
+            if (tr == "None" && cp == "100 eV") next   # default, covered above
+            run_combo(sprintf("Rainforest %s/%s", tr, gsub(" ", "", cp)), ML_EL, 5,
+                      "rainforestModelSet", "rainforestModel", function(){
+                basichold$transformation <- tr; basichold$compress <- cp
+            })
+        }
+    }
+
+    # -- spectra-model normalizations --
+    message("  -- sweep: spectra normalizations --")
+    run_combo("Rainforest norm=Time", ML_EL, 5, "rainforestModelSet", "rainforestModel",
+              function(){ basichold$normtype <- 1; session$setInputs(normcal = 1) })
+    run_combo("Rainforest norm=ROI", ML_EL, 5, "rainforestModelSet", "rainforestModel",
+              function(){
+        basichold$normtype <- 3
+        basichold$normmin <- roi_win[1]; basichold$normmax <- roi_win[2]
+        session$setInputs(normcal = 3, comptonmin = roi_win[1], comptonmax = roi_win[2])
+    })
+
+    # -- cross-model spectra spot checks under non-default transforms --
+    # (50 eV for the NN keeps nnet under its default MaxNWts weight cap.)
+    message("  -- sweep: spectra-model spot checks --")
+    run_combo("NN Spectra Log/50eV", ML_EL, 7,
+              "neuralNetworkSpectraShallowModelSet", "neuralNetworkSpectraModel",
+              function(){ basichold$transformation <- "Log"; basichold$compress <- "50 eV" })
+    run_combo("XGB Spectra Velocity/25eV", ML_EL, 9,
+              "xgboostSpectraModelSet", "xgboostSpectraModel",
+              function(){ basichold$transformation <- "Velocity"; basichold$compress <- "25 eV" })
+    run_combo("SVM Spectra e/50eV Radial", ML_EL, 13,
+              "svmSpectraModelSet", "svmSpectraModel", function(){
+        basichold$transformation <- "e"; basichold$compress <- "50 eV"
+        xgboosthold$xgbtype <- "Radial"
+    })
 }), silent = TRUE)
 
 message("")

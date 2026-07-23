@@ -220,6 +220,9 @@ mcaFrameMetadata <- function(filepath, filename=NULL){
     getnum <- function(key){ ln <- grep(key, lines, value=TRUE, ignore.case=TRUE)[1]
         if(is.na(ln)) return(NA_real_); suppressWarnings(as.numeric(sub(".*-\\s*", "", ln))) }
     lt  <- getnum("^LIVE_TIME")
+    # Amptek writes LIVE_TIME 0 at 100% dead time; the readers divide counts by
+    # REAL_TIME in that case, so report the time the CPS was actually built with.
+    if(!is.finite(lt) || lt <= 0) lt <- getnum("^REAL_TIME")
     det <- if(grepl("cdte", fn, ignore.case=TRUE)) "CdTe"
            else if(grepl("hpge|_ge_|\\bge\\b", fn, ignore.case=TRUE)) "HPGe" else "SDD"
     evch <- NA_real_
@@ -1285,10 +1288,12 @@ readPMCAData4096 <- function(filepath, filename=NULL, full=NULL, use_native_cali
     }
     
     time <- remove_na(as.numeric(strsplit(full[find_row_with_string(full, "LIVE_TIME"),], " ")[[1]]))
-    if(time==0){
+    if(length(time)==0 || !is.finite(time[1]) || time[1]==0){
         time <- remove_na(as.numeric(strsplit(full[find_row_with_string(full, "REAL_TIME"),], " ")[[1]]))
     }
-    
+    # Both times zero/absent (aborted acquisition): keep raw counts rather than Inf CPS.
+    time <- time[is.finite(time)][1]; if(is.na(time) || time <= 0) time <- 1
+
     cps <- as.numeric(full[(find_row_with_string(full, "<<DATA>>")+1):(find_row_with_string(full, "<<END>>")-1), 1])/time
     newdata <- as.data.frame(seq(1, length(cps), 1), stringsAsFactors=FALSE)
     colnames(newdata) <- "channels"
@@ -1403,10 +1408,12 @@ readPMCAData2048 <- function(filepath, filename=NULL, full=NULL, use_native_cali
     }
     
     time <- remove_na(as.numeric(strsplit(full[find_row_with_string(full, "LIVE_TIME"),], " ")[[1]]))
-    if(time==0){
+    if(length(time)==0 || !is.finite(time[1]) || time[1]==0){
         time <- remove_na(as.numeric(strsplit(full[find_row_with_string(full, "REAL_TIME"),], " ")[[1]]))
     }
-    
+    # Both times zero/absent (aborted acquisition): keep raw counts rather than Inf CPS.
+    time <- time[is.finite(time)][1]; if(is.na(time) || time <= 0) time <- 1
+
     cps <- as.numeric(full[(find_row_with_string(full, "<<DATA>>")+1):(find_row_with_string(full, "<<END>>")-1), 1])/time
     newdata <- as.data.frame(seq(1, length(cps), 1), stringsAsFactors=FALSE)
     colnames(newdata) <- "channels"
@@ -2165,7 +2172,7 @@ wideLineTableSplit <- function(spectra, definition.table, elements, split_buffer
 }
 
 ###Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, plsncomp=NULL, cubistcommittees=NULL, cubistneighbors=NULL, glmnetalpha=NULL, glmnetlambda=NULL, marsprune=NULL, marsdegree=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -2472,9 +2479,51 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
     } else if(!is.null(svmlength)){
         svmlength
     }
-    
-    
-    
+
+    # Chemometric additions (cal types 14-21): PLS, Cubist, glmnet, MARS.
+    # Range strings follow the "lo-hi" convention of the other tuning columns.
+    plsncomp <- if(is.null(plsncomp)){
+        "1-12"
+    } else if(!is.null(plsncomp)){
+        plsncomp
+    }
+
+    cubistcommittees <- if(is.null(cubistcommittees)){
+        "1-10"
+    } else if(!is.null(cubistcommittees)){
+        cubistcommittees
+    }
+
+    cubistneighbors <- if(is.null(cubistneighbors)){
+        "0-5"
+    } else if(!is.null(cubistneighbors)){
+        cubistneighbors
+    }
+
+    glmnetalpha <- if(is.null(glmnetalpha)){
+        "0-1"
+    } else if(!is.null(glmnetalpha)){
+        glmnetalpha
+    }
+
+    glmnetlambda <- if(is.null(glmnetlambda)){
+        "0.001-1"
+    } else if(!is.null(glmnetlambda)){
+        glmnetlambda
+    }
+
+    marsprune <- if(is.null(marsprune)){
+        "2-12"
+    } else if(!is.null(marsprune)){
+        marsprune
+    }
+
+    marsdegree <- if(is.null(marsdegree)){
+        "1-2"
+    } else if(!is.null(marsdegree)){
+        marsdegree
+    }
+
     cal.table <- data.frame(
                 CalType=cal.type,
                 LineType=line.type,
@@ -2527,13 +2576,20 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
                 svmScale=svmscale,
                 svmSigma=svmsigma,
                 svmLength=svmlength,
+                plsNComp=plsncomp,
+                cubistCommittees=cubistcommittees,
+                cubistNeighbors=cubistneighbors,
+                glmnetAlpha=glmnetalpha,
+                glmnetLambda=glmnetlambda,
+                marsPrune=marsprune,
+                marsDegree=marsdegree,
                 stringsAsFactors=FALSE)
-                    
+
         return(cal.table)
 }
 
 
-calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
+calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbtype=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, plsncomp=NULL, cubistcommittees=NULL, cubistneighbors=NULL, glmnetalpha=NULL, glmnetlambda=NULL, marsprune=NULL, marsdegree=NULL, use.standards=TRUE, slopes=NULL, intercept=NULL, scale=NULL){
     
     cal.table <- data.frame(
                 CalType=cal.type,
@@ -2587,8 +2643,15 @@ calConditionsList <- function(cal.type=NULL, line.type=NULL, line.structure=NULL
                 svmScale=svmscale,
                 svmSigma=svmsigma,
                 svmLength=svmlength,
+                plsNComp=plsncomp,
+                cubistCommittees=cubistcommittees,
+                cubistNeighbors=cubistneighbors,
+                glmnetAlpha=glmnetalpha,
+                glmnetLambda=glmnetlambda,
+                marsPrune=marsprune,
+                marsDegree=marsdegree,
                 stringsAsFactors=FALSE)
-                
+
                 cal.mode.list <- list(
                     CalTable=cal.table,
                     Slope=slopes,
@@ -2663,6 +2726,13 @@ deleteCalConditions <- function(element, number.of.standards){
     svmscale <- as.character("2-2")
     svmsigma <- as.character("2-2")
     svmlength <- as.character("2-2")
+    plsncomp <- as.character("1-12")
+    cubistcommittees <- as.character("1-10")
+    cubistneighbors <- as.character("0-5")
+    glmnetalpha <- as.character("0-1")
+    glmnetlambda <- as.character("0.001-1")
+    marsprune <- as.character("2-12")
+    marsdegree <- as.character("1-2")
 
     cal.table <- data.frame(
     CalType=cal.condition,
@@ -2711,6 +2781,13 @@ deleteCalConditions <- function(element, number.of.standards){
     svmScale=svmscale,
     svmSigma=svmsigma,
     svmLength=svmlength,
+    plsNComp=plsncomp,
+    cubistCommittees=cubistcommittees,
+    cubistNeighbors=cubistneighbors,
+    glmnetAlpha=glmnetalpha,
+    glmnetLambda=glmnetlambda,
+    marsPrune=marsprune,
+    marsDegree=marsdegree,
     Delete=TRUE,
     stringsAsFactors=FALSE)
     
@@ -2785,7 +2862,14 @@ defaultCalConditions <- function(element, number.of.standards){
     svmscale <- as.character("2-2")
     svmsigma <- as.character("2-2")
     svmlength <- as.character("2-2")
-    
+    plsncomp <- as.character("1-12")
+    cubistcommittees <- as.character("1-10")
+    cubistneighbors <- as.character("0-5")
+    glmnetalpha <- as.character("0-1")
+    glmnetlambda <- as.character("0.001-1")
+    marsprune <- as.character("2-12")
+    marsdegree <- as.character("1-2")
+
     cal.table <- data.frame(
         CalType=cal.condition,
         LineType=line.type,
@@ -2838,6 +2922,13 @@ defaultCalConditions <- function(element, number.of.standards){
         svmScale=svmscale,
         svmSigma=svmsigma,
         svmLength=svmlength,
+        plsNComp=plsncomp,
+        cubistCommittees=cubistcommittees,
+        cubistNeighbors=cubistneighbors,
+        glmnetAlpha=glmnetalpha,
+        glmnetLambda=glmnetlambda,
+        marsPrune=marsprune,
+        marsDegree=marsdegree,
         stringsAsFactors=FALSE)
     
     slope.corrections <- element
@@ -3315,6 +3406,35 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         default.cal.conditions$StandardsUsed
     }
     
+
+    # Chemometric tuning columns (cal types 14-21): prefer the trained model's
+    # bestTune (like the SVM columns above), then the stored column, then the
+    # canonical defaults (pre-chem .quants have none of these columns).
+    chem_defaults <- c(plsNComp="1-12", cubistCommittees="1-10", cubistNeighbors="0-5",
+                       glmnetAlpha="0-1", glmnetLambda="0.001-1", marsPrune="2-12", marsDegree="1-2")
+    chem_import <- function(col, tune_name, chem_types){
+        stored <- if(col %in% colnames(imported.cal.conditions$CalTable)){
+            as.character(imported.cal.conditions$CalTable[[col]][1])
+        } else {
+            NULL
+        }
+        if(is.null(stored) || length(stored) == 0 || is.na(stored)) stored <- chem_defaults[[col]]
+        bt <- tryCatch(calList[[element]][[2]]$bestTune, error=function(e) NULL)
+        if(cal.condition %in% chem_types && !is.null(bt) && tune_name %in% names(bt)){
+            v <- as.numeric(bt[[tune_name]])
+            if(is.finite(v)) paste0(v, "-", v) else stored
+        } else {
+            stored
+        }
+    }
+    plsncomp <- chem_import("plsNComp", "ncomp", c(14, 15))
+    cubistcommittees <- chem_import("cubistCommittees", "committees", c(16, 17))
+    cubistneighbors <- chem_import("cubistNeighbors", "neighbors", c(16, 17))
+    glmnetalpha <- chem_import("glmnetAlpha", "alpha", c(18, 19))
+    glmnetlambda <- chem_import("glmnetLambda", "lambda", c(18, 19))
+    marsprune <- chem_import("marsPrune", "nprune", c(20, 21))
+    marsdegree <- chem_import("marsDegree", "degree", c(20, 21))
+
     cal.table <- data.frame(
         CalType=cal.condition,
         LineType=line.condition,
@@ -3367,6 +3487,13 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         svmScale=svmscale,
         svmSigma=svmsigma,
         svmLength=svmlength,
+        plsNComp=plsncomp,
+        cubistCommittees=cubistcommittees,
+        cubistNeighbors=cubistneighbors,
+        glmnetAlpha=glmnetalpha,
+        glmnetLambda=glmnetlambda,
+        marsPrune=marsprune,
+        marsDegree=marsdegree,
         stringsAsFactors=FALSE)
         
         cal.mode.list <- list(CalTable=cal.table, Slope=slope.corrections, Intercept=intercept.corrections, StandardsUsed=standards.used)
@@ -3848,6 +3975,34 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     } else if(!"Scale" %in% names(imported.cal.conditions)){
         default.cal.conditions$Scale
     }
+    # Chemometric tuning columns (cal types 14-21): prefer the trained model's
+    # bestTune (like the SVM columns above), then the stored column, then the
+    # canonical defaults (pre-chem .quants have none of these columns).
+    chem_defaults <- c(plsNComp="1-12", cubistCommittees="1-10", cubistNeighbors="0-5",
+                       glmnetAlpha="0-1", glmnetLambda="0.001-1", marsPrune="2-12", marsDegree="1-2")
+    chem_import <- function(col, tune_name, chem_types){
+        stored <- if(col %in% colnames(imported.cal.conditions$CalTable)){
+            as.character(imported.cal.conditions$CalTable[[col]][1])
+        } else {
+            NULL
+        }
+        if(is.null(stored) || length(stored) == 0 || is.na(stored)) stored <- chem_defaults[[col]]
+        bt <- tryCatch(calList[[element]][[2]]$bestTune, error=function(e) NULL)
+        if(cal.condition %in% chem_types && !is.null(bt) && tune_name %in% names(bt)){
+            v <- as.numeric(bt[[tune_name]])
+            if(is.finite(v)) paste0(v, "-", v) else stored
+        } else {
+            stored
+        }
+    }
+    plsncomp <- chem_import("plsNComp", "ncomp", c(14, 15))
+    cubistcommittees <- chem_import("cubistCommittees", "committees", c(16, 17))
+    cubistneighbors <- chem_import("cubistNeighbors", "neighbors", c(16, 17))
+    glmnetalpha <- chem_import("glmnetAlpha", "alpha", c(18, 19))
+    glmnetlambda <- chem_import("glmnetLambda", "lambda", c(18, 19))
+    marsprune <- chem_import("marsPrune", "nprune", c(20, 21))
+    marsdegree <- chem_import("marsDegree", "degree", c(20, 21))
+
     cal.table <- data.frame(
     CalType=cal.condition,
     LineType=line.condition,
@@ -3900,6 +4055,13 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     svmScale=svmscale,
     svmSigma=svmsigma,
     svmLength=svmlength,
+    plsNComp=plsncomp,
+    cubistCommittees=cubistcommittees,
+    cubistNeighbors=cubistneighbors,
+    glmnetAlpha=glmnetalpha,
+    glmnetLambda=glmnetlambda,
+    marsPrune=marsprune,
+    marsDegree=marsdegree,
     stringsAsFactors=FALSE)
     
     if(temp==TRUE){
