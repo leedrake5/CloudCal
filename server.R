@@ -18252,19 +18252,51 @@ shinyServer(function(input, output, session) {
         })
         
         normMaxSelectionMulti <- reactive({
-            
+
             calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable$Max
-            
+
         })
-        
-        
-        
-        
-        
+
+        # Restore ported chem-family hyperparameters from a saved multi .quant. Each stored
+        # as a "lo-hi" string in the per-element CalTable; chemRange() (global.R) parses it
+        # back to c(lo,hi) for the range slider, falling back to the core default when absent.
+        chemCalTableMulti <- function(col){
+            calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable[[col]]
+        }
+        plsNCompSelectionMulti         <- reactive({ chemRange(chemCalTableMulti("plsncomp"), c(1, 12)) })
+        cubistCommitteesSelectionMulti <- reactive({ chemRange(chemCalTableMulti("cubistcommittees"), c(1, 10)) })
+        cubistNeighborsSelectionMulti  <- reactive({ chemRange(chemCalTableMulti("cubistneighbors"), c(0, 5)) })
+        glmnetAlphaSelectionMulti      <- reactive({ chemRange(chemCalTableMulti("glmnetalpha"), c(0, 1)) })
+        glmnetLambdaSelectionMulti     <- reactive({ chemRange(chemCalTableMulti("glmnetlambda"), c(0.001, 1)) })
+        marsPruneSelectionMulti        <- reactive({ chemRange(chemCalTableMulti("marsprune"), c(2, 12)) })
+        marsDegreeSelectionMulti       <- reactive({ chemRange(chemCalTableMulti("marsdegree"), c(1, 2)) })
+        xgbTypeSelectionMulti            <- reactive({ v <- chemCalTableMulti("xgbtype"); if(is.null(v) || length(v)==0 || is.na(v)) "Linear" else as.character(v) })
+        svmCSelectionMulti               <- reactive({ chemRange(chemCalTableMulti("svmc"), c(1, 3)) })
+        svmDegreeSelectionMulti          <- reactive({ chemRange(chemCalTableMulti("svmdegree"), c(1, 2)) })
+        svmScaleSelectionMulti           <- reactive({ chemRange(chemCalTableMulti("svmscale"), c(1, 2)) })
+        svmSigmaSelectionMulti           <- reactive({ chemRange(chemCalTableMulti("svmsigma"), c(1, 2)) })
+        neuralHiddenLayersSelectionMulti <- reactive({ v <- suppressWarnings(as.numeric(chemCalTableMulti("neuralhiddenlayers"))); if(length(v)==0 || !is.finite(v)) 1 else v })
+        neuralHiddenUnitsSelectionMulti  <- reactive({ chemRange(chemCalTableMulti("neuralhiddenunits"), c(1, 3)) })
+        neuralWeightDecaySelectionMulti  <- reactive({ chemRange(chemCalTableMulti("neuralweightdecay"), c(0.1, 0.3)) })
+        neuralMaxIterationsSelectionMulti<- reactive({ v <- suppressWarnings(as.numeric(chemCalTableMulti("neuralmaxiterations"))); if(length(v)==0 || !is.finite(v)) 100 else v })
+        xgbNRoundsSelectionMulti         <- reactive({ v <- suppressWarnings(as.numeric(chemCalTableMulti("xgbnrounds"))); if(length(v)==0 || !is.finite(v)) 100 else v })
+        xgbDepthSelectionMulti           <- reactive({ chemRange(chemCalTableMulti("xgbdepth"), c(2, 6)) })
+        xgbEtaSelectionMulti             <- reactive({ chemRange(chemCalTableMulti("xgbeta"), c(0.1, 0.3)) })
+        xgbLambdaSelectionMulti          <- reactive({ chemRange(chemCalTableMulti("xgblambda"), c(0, 1)) })
+        xgbAlphaSelectionMulti           <- reactive({ chemRange(chemCalTableMulti("xgbalpha"), c(0, 1)) })
+        bartKSelectionMulti              <- reactive({ chemRange(chemCalTableMulti("bartk"), c(2, 3)) })
+        brnnNeuronsSelectionMulti        <- reactive({ chemRange(chemCalTableMulti("brnnneurons"), c(1, 3)) })
+
+
         output$calTypeInput_multi <- renderUI({
             
             selectInput("radiocal_multi", label = "Calibration Curve",
-            choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3, "Forest" = 4, "Rainforest" = 5),
+            choices = list("Linear" = 1, "Non-Linear" = 2, "Lucas-Tooth" = 3, "Forest" = 4, "Rainforest" = 5,
+            "Neural Network Intensities" = 6, "Neural Network Spectra" = 7,
+            "XGBoost Intensities" = 8, "XGBoost Spectra" = 9, "Bayes Intensities" = 10, "Bayes Spectra" = 11,
+            "Support Vector Intensities" = 12, "Support Vector Spectra" = 13,
+            "PLS Intensities" = 14, "PLS Spectra" = 15, "Cubist Intensities" = 16, "Cubist Spectra" = 17,
+            "Elastic Net Intensities" = 18, "Elastic Net Spectra" = 19, "MARS Intensities" = 20, "MARS Spectra" = 21),
             selected = calTypeSelectionMulti())
             
             
@@ -18281,52 +18313,36 @@ shinyServer(function(input, output, session) {
         })
         
         output$forestmetricui_multi <- renderUI({
-            
-            if(input$radiocal_multi==1){
+
+            # Metric / train-control / #folds are generic caret trainControl settings read by
+            # EVERY ported family (not just rf) -> render for all caret families (cal types >=4).
+            if(input$radiocal_multi %in% c(1,2,3)){
                 NULL
-            } else if(input$radiocal_multi==2){
-                NULL
-            } else if(input$radiocal_multi==3){
-                NULL
-            } else if(input$radiocal_multi==4){
-                selectInput("forestmetric_multi", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelectionMulti())
-            } else if(input$radiocal_multi==5){
+            } else {
                 selectInput("forestmetric_multi", label="Metric", choices=c("Root Mean Square Error"="RMSE", "R2"="Rsquared", "ROC Curve"="ROC", "Logarithmic Loss"="logLoss"), selected=forestMetricSelectionMulti())
             }
-            
+
         })
-        
-        
+
+
         output$foresttrainui_multi <- renderUI({
-            
-            if(input$radiocal_multi==1){
+
+            if(input$radiocal_multi %in% c(1,2,3)){
                 NULL
-            } else if(input$radiocal_multi==2){
-                NULL
-            } else if(input$radiocal_multi==3){
-                NULL
-            } else if(input$radiocal_multi==4){
-                selectInput("foresttrain_multi", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelectionMulti())
-            }  else if(input$radiocal_multi==5){
+            } else {
                 selectInput("foresttrain_multi", label="Train Control", choices=c("k-fold Cross Validation"="cv", "Bootstrap"="boot", "0.632 Bootstrap"="boot632", "Optimism Bootstrap"="optimism_boot", "Repeated k-fold Cross Validation"="repeatedcv", "Leave One Out Cross Validation"="LOOCV", "Out of Bag Estimation"="oob"), selected=forestTrainSelectionMulti())
             }
-            
+
         })
-        
+
         output$forestnumberui_multi <- renderUI({
-            
-            if(input$radiocal_multi==1){
+
+            if(input$radiocal_multi %in% c(1,2,3)){
                 NULL
-            } else if(input$radiocal_multi==2){
-                NULL
-            } else if(input$radiocal_multi==3){
-                NULL
-            } else if(input$radiocal_multi==4){
-                sliderInput("forestnumber_multi", label="Iterations", min=5, max=1000, value=forestNumberSelectionMulti())
-            }  else if(input$radiocal_multi==5){
+            } else {
                 sliderInput("forestnumber_multi", label="Iterations", min=5, max=1000, value=forestNumberSelectionMulti())
             }
-            
+
         })
         
         
@@ -18355,12 +18371,138 @@ shinyServer(function(input, output, session) {
         })
         
         output$comptonMaxInput_multi <- renderUI({
-            
+
             numericInput('comptonmax_multi', label=h6("Max"), step=0.001, value=normMaxSelectionMulti(), min=0, max=50, width='30%')
-            
+
         })
-        
-        
+
+        # Ported chem-family hyperparameter widgets (range sliders). Each renders only for its
+        # cal type(s); the model builders read input$<param>_multi (a c(lo,hi) numeric) directly.
+        output$plsNCompUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(14,15)){
+                sliderInput('plsncomp_multi', label="PLS Components", min=1, max=30, value=plsNCompSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$cubistCommitteesUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(16,17)){
+                sliderInput('cubistcommittees_multi', label="Cubist Committees", min=1, max=50, value=cubistCommitteesSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$cubistNeighborsUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(16,17)){
+                sliderInput('cubistneighbors_multi', label="Cubist Neighbors", min=0, max=9, value=cubistNeighborsSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$glmnetAlphaUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(18,19)){
+                sliderInput('glmnetalpha_multi', label="Elastic-Net Alpha (0 ridge - 1 lasso)", min=0, max=1, value=glmnetAlphaSelectionMulti(), step=0.05)
+            } else { NULL }
+        })
+        output$glmnetLambdaUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(18,19)){
+                sliderInput('glmnetlambda_multi', label="Elastic-Net Lambda", min=0.0001, max=10, value=glmnetLambdaSelectionMulti(), step=0.0001)
+            } else { NULL }
+        })
+        output$marsPruneUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(20,21)){
+                sliderInput('marsprune_multi', label="MARS Terms (nprune)", min=2, max=30, value=marsPruneSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$marsDegreeUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(20,21)){
+                sliderInput('marsdegree_multi', label="MARS Interaction Degree", min=1, max=3, value=marsDegreeSelectionMulti(), step=1)
+            } else { NULL }
+        })
+
+        # Shared model sub-type selector (xgbtype_multi): XGBoost / Bayes / SVM kernels.
+        output$xgbTypeUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(8,9)){
+                selectInput("xgbtype_multi", label="XGBoost Type", choices=c("Tree","Dart","Linear"), selected=xgbTypeSelectionMulti())
+            } else if(input$radiocal_multi %in% c(10,11)){
+                selectInput("xgbtype_multi", label="Bayesian Model Type", choices=c("Tree","Linear","Neural Net"), selected=xgbTypeSelectionMulti())
+            } else if(input$radiocal_multi %in% c(12,13)){
+                selectInput("xgbtype_multi", label="Support Vector Machine", choices=c("Linear","Polynomial","Radial","Radial Cost","Radial Sigma"), selected=xgbTypeSelectionMulti())
+            } else { NULL }
+        })
+        # SVM (12/13) hyperparameters
+        output$svmCUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(12,13)){
+                sliderInput('svmc_multi', label="Cost", min=1, max=5, value=svmCSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$svmDegreeUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(12,13) && identical(input$xgbtype_multi, "Polynomial")){
+                sliderInput('svmdegree_multi', label="Degree", min=1, max=5, value=svmDegreeSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$svmScaleUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(12,13) && identical(input$xgbtype_multi, "Polynomial")){
+                sliderInput('svmscale_multi', label="Scale", min=1, max=5, value=svmScaleSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$svmSigmaUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(12,13) && isTRUE(input$xgbtype_multi %in% c("Radial","Radial Cost","Radial Sigma"))){
+                sliderInput('svmsigma_multi', label="Sigma", min=1, max=5, value=svmSigmaSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        # Neural Network (6/7) hyperparameters
+        output$neuralHiddenLayersUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(6,7)){
+                sliderInput('neuralhiddenlayers_multi', label="Hidden Layers", min=1, max=3, value=neuralHiddenLayersSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$neuralHiddenUnitsUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(6,7)){
+                sliderInput('neuralhiddenunits_multi', label="Hidden Units", min=1, max=10, value=neuralHiddenUnitsSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$neuralWeightDecayUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(6,7)){
+                sliderInput('neuralweightdecay_multi', label="Weight Decay", min=0.1, max=0.7, value=neuralWeightDecaySelectionMulti(), step=0.1)
+            } else { NULL }
+        })
+        output$neuralMaxIterationsUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(6,7)){
+                sliderInput('neuralmaxiterations_multi', label="Max Iterations", min=50, max=2000, value=neuralMaxIterationsSelectionMulti(), step=50)
+            } else { NULL }
+        })
+        # XGBoost (8/9) + Bayes (10/11) hyperparameters (sub-type dependent via xgbtype_multi)
+        output$xgbNRoundsUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(8,9) || (input$radiocal_multi %in% c(10,11) && isTRUE(input$xgbtype_multi=="Tree"))){
+                sliderInput('xgbnrounds_multi', label="Boosting Rounds / Trees", min=10, max=500, value=xgbNRoundsSelectionMulti(), step=10)
+            } else { NULL }
+        })
+        output$xgbDepthUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(8,9) && isTRUE(input$xgbtype_multi %in% c("Tree","Dart"))){
+                sliderInput('xgbdepth_multi', label="Max Tree Depth", min=1, max=10, value=xgbDepthSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$xgbEtaUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(8,9)){
+                sliderInput('xgbeta_multi', label="Learning Rate (eta)", min=0.01, max=0.6, value=xgbEtaSelectionMulti(), step=0.01)
+            } else { NULL }
+        })
+        output$xgbLambdaUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(8,9) && isTRUE(input$xgbtype_multi=="Linear")){
+                sliderInput('xgblambda_multi', label="L2 Regularization (lambda)", min=0, max=2, value=xgbLambdaSelectionMulti(), step=0.1)
+            } else { NULL }
+        })
+        output$xgbAlphaUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(8,9) && isTRUE(input$xgbtype_multi=="Linear")){
+                sliderInput('xgbalpha_multi', label="L1 Regularization (alpha)", min=0, max=2, value=xgbAlphaSelectionMulti(), step=0.1)
+            } else { NULL }
+        })
+        output$bartKUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(10,11) && isTRUE(input$xgbtype_multi=="Tree")){
+                sliderInput('bartk_multi', label="BART k (prior)", min=1, max=5, value=bartKSelectionMulti(), step=1)
+            } else { NULL }
+        })
+        output$brnnNeuronsUi_multi <- renderUI({
+            if(input$radiocal_multi %in% c(10,11) && isTRUE(input$xgbtype_multi=="Neural Net")){
+                sliderInput('brnnneurons_multi', label="BRNN Neurons", min=1, max=5, value=brnnNeuronsSelectionMulti(), step=1)
+            } else { NULL }
+        })
+
 
 observeEvent(input$actionprocess2_multi, {
 
@@ -18378,8 +18520,12 @@ observeEvent(input$actionprocess2_multi, {
                 3
             } else if(input$radiocal_multi==5){
                 5
+            } else if(input$radiocal_multi %in% multiIntensityTypes){
+                3     # ported *Intensity families -> slope (by-Element) importance path
+            } else if(input$radiocal_multi %in% multiSpectraTypes){
+                5     # ported *Spectra families -> rainforest (by-Energy) importance path
             }
-            
+
         })
         
         
@@ -18874,46 +19020,23 @@ observeEvent(input$actionprocess2_multi, {
         })
         
         
-        neuralNetworkIntensitShallowyModelMulti <- reactive({
-            
-            #randomForest(Concentration~., data=predictFrameForest()[vals$keeprows,, drop=FALSE], na.action=na.omit, ntree=1000, nPerm=100)
-            
-            weightdecay.vec <- as.numeric(unlist(strsplit(as.character(input$neuralweightdecay_multi), "-")))
-            hiddenunits.vec <- as.numeric(unlist(strsplit(as.character(input$neuralhiddenunits_multi), "-")))
-            
-            nn.grid <- expand.grid(
-            .decay = seq(weightdecay.vec[1], weightdecay.vec[2], 0.1),
-            .size = seq(hiddenunits.vec[1], hiddenunits.vec[2], 1))
-            
-            metricModel <- if(input$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
-                defaultSummary
-            } else if(parameters$ForestMetric=="MAE"){
-                maeSummary
-            } else if(parameters$ForestMetric=="logMAE"){
-                logmaeSummary
-            } else if(parameters$ForestMetric=="SMAPE"){
-                smapeSummary
-            }
-            
-            tune_control <- if(parameters$ForestTC!="repeatedcv"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                summaryFunction=metricModel)
-            } else if(parameters$ForestTC=="repeatedcv"){
-                caret::trainControl(
-                method = parameters$ForestTC,
-                number = parameters$ForestNumber,
-                repeats=parameters$CVRepeats,
-                summaryFunction=metricModel)
-            }
-            
-            cor.mod <- if(length(quantNames())>as.numeric(my.cores)){
-                as.numeric(my.cores)
-            } else if(length(quantNames())<=as.numeric(my.cores)){
-                length(quantNames())
-            }
-            
+        # (removed dead stub neuralNetworkIntensitShallowyModelMulti - it trained rf and read
+        #  nonexistent single-instrument vars; superseded by neuralModelMulti below.)
+
+        # ===================================================================
+        # Ported chem model families (cal types 14-21): PLS / Cubist / glmnet / MARS.
+        # Each mirrors rainforestModelMulti's cluster wrapper (one instrument per lapply
+        # step, resampling parallelised across cores) but swaps method="rf" for the
+        # family's caret method + a per-instrument tuneGrid capped at that instrument's
+        # data rank. Intensities variants read predictFrameForestMulti(); Spectra variants
+        # read rainforestDataMulti() (frame chosen by the intensity/spectra type group).
+        # Verbose-per-family by design (see verbose-modular-scaffolding): no shared helper.
+        # ===================================================================
+
+        plsModelMulti <- reactive({
+            frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
+            v <- suppressWarnings(as.numeric(input$plsncomp_multi)); if(length(v) < 2) v <- c(1, 12)
+
             cl <- if(get_os()=="windows"){
                 parallel::makePSOCKcluster(as.numeric(my.cores))
             } else if(get_os()!="windows"){
@@ -18921,25 +19044,268 @@ observeEvent(input$actionprocess2_multi, {
             }
             clusterEvalQ(cl, library(foreach))
             registerDoParallel(cl)
-            cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="rf", type="Regression",
-            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
-            prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE, trim=TRUE))
+            cal.lm <- lapply(quantNames(), function(x){
+                data <- frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE]
+                ncomp.max <- max(1, min(v[2], nrow(data) - 2, ncol(data) - 2))
+                pls.grid <- expand.grid(ncomp = seq(min(max(1, v[1]), ncomp.max), ncomp.max, 1))
+                caret::train(Concentration~., data=data, method="pls",
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                tuneGrid=pls.grid, metric=input$forestmetric_multi, na.action=na.omit)
+            })
             stopCluster(cl)
             registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             names(cal.lm) <- quantNames()
             cal.lm
-            
-            
         })
-        
-        
 
+        cubistModelMulti <- reactive({
+            frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
+            cvec <- round(suppressWarnings(as.numeric(input$cubistcommittees_multi))); if(length(cvec) < 2) cvec <- c(1, 10)
+            nvec <- round(suppressWarnings(as.numeric(input$cubistneighbors_multi))); if(length(nvec) < 2) nvec <- c(0, 5)
+            cubist.grid <- expand.grid(
+            committees = unique(round(seq(cvec[1], cvec[2], length.out=min(4, cvec[2] - cvec[1] + 1)))),
+            neighbors  = unique(round(seq(nvec[1], nvec[2], length.out=min(3, nvec[2] - nvec[1] + 1)))))
+
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            clusterEvalQ(cl, library(foreach))
+            registerDoParallel(cl)
+            cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~.,
+            data=frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="cubist",
+            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+            tuneGrid=cubist.grid, metric=input$forestmetric_multi, na.action=na.omit))
+            stopCluster(cl)
+            registerDoSEQ()
+            names(cal.lm) <- quantNames()
+            cal.lm
+        })
+
+        glmnetModelMulti <- reactive({
+            frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
+            avec <- suppressWarnings(as.numeric(input$glmnetalpha_multi)); if(length(avec) < 2) avec <- c(0, 1)
+            lvec <- suppressWarnings(as.numeric(input$glmnetlambda_multi)); if(length(lvec) < 2) lvec <- c(0.001, 1)
+            lvec[lvec <= 0] <- 1e-6
+            glmnet.grid <- expand.grid(
+            alpha  = unique(seq(avec[1], avec[2], length.out=3)),
+            lambda = unique(10^seq(log10(lvec[1]), log10(lvec[2]), length.out=5)))
+
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            clusterEvalQ(cl, library(foreach))
+            registerDoParallel(cl)
+            cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~.,
+            data=frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="glmnet",
+            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+            tuneGrid=glmnet.grid, metric=input$forestmetric_multi, na.action=na.omit))
+            stopCluster(cl)
+            registerDoSEQ()
+            names(cal.lm) <- quantNames()
+            cal.lm
+        })
+
+        marsModelMulti <- reactive({
+            # MARS trains SINGLE-CORE (no cluster): caret's earth submodel loop is unreliable
+            # in forked/PSOCK workers (all-NA resamples / deadlock) - mirrors core server.R:10068.
+            frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
+            pvec <- round(suppressWarnings(as.numeric(input$marsprune_multi))); if(length(pvec) < 2) pvec <- c(2, 12)
+            dvec <- round(suppressWarnings(as.numeric(input$marsdegree_multi))); if(length(dvec) < 2) dvec <- c(1, 2)
+            mars.grid <- expand.grid(
+            nprune = unique(round(seq(max(2, pvec[1]), max(2, pvec[2]), length.out=min(5, abs(pvec[2] - pvec[1]) + 1)))),
+            degree = seq(dvec[1], dvec[2], 1))
+            tune_control <- trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi)
+            tune_control$allowParallel <- FALSE
+            registerDoSEQ()   # ensure no stale doParallel backend from a prior model
+            cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~.,
+            data=frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="earth",
+            trControl=tune_control, tuneGrid=mars.grid, metric=input$forestmetric_multi, na.action=na.omit))
+            names(cal.lm) <- quantNames()
+            cal.lm
+        })
+
+        # ===================================================================
+        # Ported SVM (12/13) and Neural Network (6/7) families. SVM sub-dispatches on the shared
+        # input$xgbtype_multi kernel selector (Linear/Polynomial/Radial/Radial Cost/Radial Sigma);
+        # Neural sub-dispatches on input$neuralhiddenlayers_multi (1 -> shallow nnet, 2/3 -> deep
+        # neuralnet). Same cluster wrapper + frame-by-type-group as the chem builders.
+        # ===================================================================
+
+        svmModelMulti <- reactive({
+            frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
+            xt <- input$xgbtype_multi
+            cvec <- suppressWarnings(as.numeric(input$svmc_multi)); if(length(cvec) < 2) cvec <- c(1, 3)
+            svm.method <- switch(xt, "Linear"="svmLinear", "Polynomial"="svmPoly", "Radial"="svmRadial",
+            "Radial Cost"="svmRadialCost", "Radial Sigma"="svmRadialSigma", "svmRadial")
+            svm.grid <- if(xt=="Polynomial"){
+                dvec <- suppressWarnings(as.numeric(input$svmdegree_multi)); if(length(dvec) < 2) dvec <- c(1, 2)
+                svec <- suppressWarnings(as.numeric(input$svmscale_multi)); if(length(svec) < 2) svec <- c(1, 2)
+                expand.grid(C=seq(cvec[1], cvec[2], 1), scale=seq(svec[1], svec[2], 1), degree=seq(dvec[1], dvec[2], 1))
+            } else if(xt=="Radial Cost"){
+                expand.grid(C=seq(cvec[1], cvec[2], 1))
+            } else if(xt=="Radial" || xt=="Radial Sigma"){
+                sigvec <- suppressWarnings(as.numeric(input$svmsigma_multi)); if(length(sigvec) < 2) sigvec <- c(1, 2)
+                expand.grid(C=seq(cvec[1], cvec[2], 1), sigma=seq(sigvec[1], sigvec[2], 1))
+            } else {
+                expand.grid(C=seq(cvec[1], cvec[2], 1))
+            }
+
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            clusterEvalQ(cl, library(foreach))
+            registerDoParallel(cl)
+            cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~.,
+            data=frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method=svm.method,
+            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+            tuneGrid=svm.grid, metric=input$forestmetric_multi, na.action=na.omit))
+            stopCluster(cl)
+            registerDoSEQ()
+            names(cal.lm) <- quantNames()
+            cal.lm
+        })
+
+        neuralModelMulti <- reactive({
+            frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
+            hl <- suppressWarnings(as.numeric(input$neuralhiddenlayers_multi)); if(!is.finite(hl)) hl <- 1
+            huvec <- suppressWarnings(as.numeric(input$neuralhiddenunits_multi)); if(length(huvec) < 2) huvec <- c(1, 3)
+
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            clusterEvalQ(cl, library(foreach))
+            registerDoParallel(cl)
+            cal.lm <- if(hl == 1){
+                # Shallow: single-hidden-layer nnet (regression -> linout=TRUE)
+                wdvec <- suppressWarnings(as.numeric(input$neuralweightdecay_multi)); if(length(wdvec) < 2) wdvec <- c(0.1, 0.3)
+                maxit <- suppressWarnings(as.numeric(input$neuralmaxiterations_multi)); if(!is.finite(maxit)) maxit <- 100
+                nn.grid <- expand.grid(.decay = seq(wdvec[1], wdvec[2], 0.1), .size = seq(huvec[1], huvec[2], 1))
+                lapply(quantNames(), function(x) caret::train(Concentration~.,
+                data=frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="nnet", linout=TRUE,
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                tuneGrid=nn.grid, maxit=maxit, trace=FALSE, metric=input$forestmetric_multi, na.action=na.omit))
+            } else {
+                # Deep: 2-3 hidden layers via neuralnet
+                nn.grid <- if(hl == 2){
+                    expand.grid(.layer1 = seq(huvec[1], huvec[2], 1), .layer2 = seq(huvec[1], huvec[2], 1), .layer3 = c(0))
+                } else {
+                    expand.grid(.layer1 = seq(huvec[1], huvec[2], 1), .layer2 = seq(huvec[1], huvec[2], 1), .layer3 = seq(huvec[1], huvec[2], 1))
+                }
+                lapply(quantNames(), function(x){
+                    data <- frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE]
+                    f <- as.formula(paste("Concentration ~", paste(setdiff(names(data), "Concentration"), collapse=" + ")))
+                    caret::train(f, data=data, method="neuralnet", rep=1,
+                    trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                    tuneGrid=nn.grid, linear.output=TRUE, metric=input$forestmetric_multi, na.action=na.omit)
+                })
+            }
+            stopCluster(cl)
+            registerDoSEQ()
+            names(cal.lm) <- quantNames()
+            cal.lm
+        })
+
+        # ===================================================================
+        # Ported XGBoost (8/9) and Bayes (10/11) families. Both sub-dispatch on the shared
+        # input$xgbtype_multi selector. XGBoost uses the caret wrappers xgbTree/xgbLinear/xgbDART
+        # (NOT the core's native xgb.train engine - keeps predict-compatible with the multi val
+        # path). Bayes: Tree->bartMachine, Linear->bayesglm (no tuneGrid), Neural Net->brnn.
+        # Primary hyperparameters are exposed (rounds/depth/eta, lambda/alpha, bart k, brnn neurons);
+        # secondary xgb knobs (gamma/subsample/colsample/min_child/rate_drop/skip_drop) + bart
+        # alpha/beta/nu use sensible fixed defaults rather than the core's Bayesian generate_grid.
+        # ===================================================================
+
+        xgboostModelMulti <- reactive({
+            frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
+            xt <- input$xgbtype_multi
+            nr <- round(suppressWarnings(as.numeric(input$xgbnrounds_multi))); if(length(nr)==0 || !is.finite(nr)) nr <- 100
+            dvec <- round(suppressWarnings(as.numeric(input$xgbdepth_multi))); if(length(dvec) < 2) dvec <- c(2, 6)
+            evec <- suppressWarnings(as.numeric(input$xgbeta_multi)); if(length(evec) < 2) evec <- c(0.1, 0.3)
+            xgb.method <- switch(xt, "Tree"="xgbTree", "Dart"="xgbDART", "Linear"="xgbLinear", "xgbTree")
+            xgb.grid <- if(xt=="Linear"){
+                lvec <- suppressWarnings(as.numeric(input$xgblambda_multi)); if(length(lvec) < 2) lvec <- c(0, 1)
+                avec <- suppressWarnings(as.numeric(input$xgbalpha_multi)); if(length(avec) < 2) avec <- c(0, 1)
+                expand.grid(nrounds=nr, lambda=unique(seq(lvec[1], lvec[2], length.out=2)),
+                alpha=unique(seq(avec[1], avec[2], length.out=2)), eta=unique(seq(evec[1], evec[2], length.out=2)))
+            } else if(xt=="Dart"){
+                expand.grid(nrounds=nr, max_depth=unique(round(seq(dvec[1], dvec[2], length.out=2))),
+                eta=unique(seq(evec[1], evec[2], length.out=2)), gamma=0, subsample=0.8, colsample_bytree=0.8,
+                rate_drop=0.1, skip_drop=0.5, min_child_weight=1)
+            } else {
+                expand.grid(nrounds=nr, max_depth=unique(round(seq(dvec[1], dvec[2], length.out=2))),
+                eta=unique(seq(evec[1], evec[2], length.out=2)), gamma=0, colsample_bytree=0.8, min_child_weight=1, subsample=0.8)
+            }
+
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            clusterEvalQ(cl, library(foreach))
+            registerDoParallel(cl)
+            cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~.,
+            data=frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method=xgb.method,
+            trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+            tuneGrid=xgb.grid, metric=input$forestmetric_multi, na.action=na.omit))
+            stopCluster(cl)
+            registerDoSEQ()
+            names(cal.lm) <- quantNames()
+            cal.lm
+        })
+
+        bayesModelMulti <- reactive({
+            frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
+            xt <- input$xgbtype_multi
+
+            cl <- if(get_os()=="windows"){
+                parallel::makePSOCKcluster(as.numeric(my.cores))
+            } else if(get_os()!="windows"){
+                parallel::makeForkCluster(as.numeric(my.cores))
+            }
+            clusterEvalQ(cl, library(foreach))
+            registerDoParallel(cl)
+            cal.lm <- if(xt=="Linear"){
+                # bayesglm - no tuning grid
+                lapply(quantNames(), function(x) caret::train(Concentration~.,
+                data=frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="bayesglm",
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                metric=input$forestmetric_multi, na.action=na.omit))
+            } else if(xt=="Neural Net"){
+                nvec <- round(suppressWarnings(as.numeric(input$brnnneurons_multi))); if(length(nvec) < 2) nvec <- c(1, 3)
+                brnn.grid <- expand.grid(neurons = seq(max(1, nvec[1]), max(1, nvec[2]), 1))
+                lapply(quantNames(), function(x) caret::train(Concentration~.,
+                data=frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="brnn",
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                tuneGrid=brnn.grid, metric=input$forestmetric_multi, na.action=na.omit))
+            } else {
+                # bartMachine (Tree). num_trees from xgbnrounds_multi; k tuned; alpha/beta/nu fixed defaults.
+                nt <- round(suppressWarnings(as.numeric(input$xgbnrounds_multi))); if(length(nt)==0 || !is.finite(nt)) nt <- 50
+                kvec <- suppressWarnings(as.numeric(input$bartk_multi)); if(length(kvec) < 2) kvec <- c(2, 3)
+                bart.grid <- expand.grid(num_trees=nt, k=unique(seq(kvec[1], kvec[2], length.out=2)), alpha=0.95, beta=2, nu=3)
+                lapply(quantNames(), function(x) caret::train(Concentration~.,
+                data=frm[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="bartMachine",
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                tuneGrid=bart.grid, metric=input$forestmetric_multi, na.action=na.omit, serialize=TRUE))
+            }
+            stopCluster(cl)
+            registerDoSEQ()
+            names(cal.lm) <- quantNames()
+            cal.lm
+        })
 
 
         predictFramePreMultiMulti <- reactive({
-            
 
-            
+
+
             concentration <- lapply(holdFrameMulti(), function(x) as.vector(x[,"Concentration"]))
             names(concentration) <- quantNames()
             
@@ -18972,13 +19338,17 @@ observeEvent(input$actionprocess2_multi, {
                 predictFrameForestMulti()
             } else if(input$radiocal_multi==5){
                 rainforestDataMulti()
+            } else if(input$radiocal_multi %in% multiIntensityTypes){
+                predictFrameForestMulti()     # ported *Intensity families reuse the forest frame
+            } else if(input$radiocal_multi %in% multiSpectraTypes){
+                rainforestDataMulti()          # ported *Spectra families reuse the rainforest frame
             }
-            
+
         })
-        
+
         predictIntensityMulti <- reactive({
-            
-            
+
+
             if (input$radiocal_multi==1){
                 predictIntensitySimpMulti()
             } else if(input$radiocal_multi==2){
@@ -18988,6 +19358,10 @@ observeEvent(input$actionprocess2_multi, {
             } else if(input$radiocal_multi==4){
                 predictIntensityForestMulti()
             } else if(input$radiocal_multi==5){
+                rainforestIntensityMulti()
+            } else if(input$radiocal_multi %in% multiIntensityTypes){
+                predictIntensityForestMulti()
+            } else if(input$radiocal_multi %in% multiSpectraTypes){
                 rainforestIntensityMulti()
             }
 
@@ -19065,8 +19439,11 @@ observeEvent(input$actionprocess2_multi, {
         
         
         slopeImportanceMulti <- reactive({
-            
-            forest.imp <- lapply(quantNames(), function(x) varImp(forestModelMulti()[[x]], scale=FALSE)$importance)
+
+            # Use the ACTIVE model per instrument (was hardcoded forestModelMulti, which
+            # spuriously trained a forest for non-forest families); varImp wrapped so a
+            # model type without a varImp method degrades to an empty bar instead of erroring.
+            forest.imp <- lapply(quantNames(), function(x) tryCatch(varImp(elementModelMulti()[[x]], scale=FALSE)$importance, error=function(e) data.frame(Overall=numeric(0))))
             names(forest.imp) <- quantNames()
             
             for(i in 1:length(quantNames())){
@@ -19460,8 +19837,24 @@ observeEvent(input$actionprocess2_multi, {
                 forestModelMulti()
             } else if(input$radiocal_multi==5){
                 rainforestModelMulti()
+            } else if(input$radiocal_multi %in% c(6,7)){
+                neuralModelMulti()
+            } else if(input$radiocal_multi %in% c(8,9)){
+                xgboostModelMulti()
+            } else if(input$radiocal_multi %in% c(10,11)){
+                bayesModelMulti()
+            } else if(input$radiocal_multi %in% c(12,13)){
+                svmModelMulti()
+            } else if(input$radiocal_multi %in% c(14,15)){
+                plsModelMulti()
+            } else if(input$radiocal_multi %in% c(16,17)){
+                cubistModelMulti()
+            } else if(input$radiocal_multi %in% c(18,19)){
+                glmnetModelMulti()
+            } else if(input$radiocal_multi %in% c(20,21)){
+                marsModelMulti()
             }
-            
+
             names(cal.lm) <- quantNames()
 
             
@@ -19550,15 +19943,15 @@ observeEvent(input$actionprocess2_multi, {
             
         
             
-            if (input$radiocal_multi==4){
+            if (input$radiocal_multi==4 || input$radiocal_multi %in% multiIntensityTypes){
 
-                
+
                 cal.est.conc.pred.luc <- pblapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]]), cl=my.cores)
                 names(cal.est.conc.pred.luc) <- quantNames()
                 cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
                 names(cal.est.conc.luc) <- quantNames()
 
-                
+
                 val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
                 Concentration=predict.frame[[x]][,"Concentration"],
@@ -19574,15 +19967,15 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             
-            if (input$radiocal_multi==5){
+            if (input$radiocal_multi==5 || input$radiocal_multi %in% multiSpectraTypes){
 
-                
+
                 cal.est.conc.pred.luc <- pblapply(quantNames(),function(x) predict(object=element.model[[x]], newdata=predict.intensity[[x]]), cl=my.cores)
                 names(cal.est.conc.pred.luc) <- quantNames()
                 cal.est.conc.luc <- lapply(cal.est.conc.pred.luc, function(x) as.vector(x))
                 names(cal.est.conc.luc) <- quantNames()
-                
-                
+
+
                 val.frame <- pblapply(quantNames(),function(x)
                 data.frame(
                 Concentration=na.omit(predict.frame[[x]][,"Concentration"]),
@@ -19696,7 +20089,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             
-            if(input$radiocal_multi==4){
+            if(input$radiocal_multi==4 || input$radiocal_multi %in% multiIntensityTypes){
                 calcurve.plot <- ggplot(data=val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
@@ -19706,11 +20099,11 @@ observeEvent(input$actionprocess2_multi, {
                 scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
-                
+
             }
-            
-            
-            if(input$radiocal_multi==5){
+
+
+            if(input$radiocal_multi==5 || input$radiocal_multi %in% multiSpectraTypes){
                 calcurve.plot <- ggplot(data=val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
@@ -19720,7 +20113,7 @@ observeEvent(input$actionprocess2_multi, {
                 scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurve_multi$x, ylim = rangescalcurve_multi$y, expand = TRUE)
-                
+
             }
             
             
@@ -20046,12 +20439,177 @@ observeEvent(input$actionprocess2_multi, {
                 prox=TRUE, allowParallel=TRUE, metric=input$forestmetric_multi,  na.action=na.omit, importance=TRUE, trim=TRUE))
                 stopCluster
             }
-            
+
+            # --- Cross-validation re-train for the ported chem families ---
+            # predict.list[[x]] is already the mask-applied training split (predictFrameRandomMulti),
+            # so train on it directly (no re-index) and na.omit any residual NA rows.
+            if (input$radiocal_multi %in% c(14,15)){
+                v <- suppressWarnings(as.numeric(input$plsncomp_multi)); if(length(v) < 2) v <- c(1, 12)
+                cl <- if(get_os()=="windows"){ parallel::makePSOCKcluster(as.numeric(my.cores)) } else { parallel::makeForkCluster(as.numeric(my.cores)) }
+                clusterEvalQ(cl, library(foreach)); registerDoParallel(cl)
+                cal.lm <- lapply(quantNames(),function(x){
+                    data <- predict.list[[x]]
+                    ncomp.max <- max(1, min(v[2], nrow(data) - 2, ncol(data) - 2))
+                    caret::train(Concentration~., data=data, method="pls",
+                    trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                    tuneGrid=expand.grid(ncomp = seq(min(max(1, v[1]), ncomp.max), ncomp.max, 1)), metric=input$forestmetric_multi, na.action=na.omit)
+                })
+                stopCluster(cl); registerDoSEQ()
+            }
+
+            if (input$radiocal_multi %in% c(16,17)){
+                cvec <- round(suppressWarnings(as.numeric(input$cubistcommittees_multi))); if(length(cvec) < 2) cvec <- c(1, 10)
+                nvec <- round(suppressWarnings(as.numeric(input$cubistneighbors_multi))); if(length(nvec) < 2) nvec <- c(0, 5)
+                cubist.grid <- expand.grid(
+                committees = unique(round(seq(cvec[1], cvec[2], length.out=min(4, cvec[2] - cvec[1] + 1)))),
+                neighbors  = unique(round(seq(nvec[1], nvec[2], length.out=min(3, nvec[2] - nvec[1] + 1)))))
+                cl <- if(get_os()=="windows"){ parallel::makePSOCKcluster(as.numeric(my.cores)) } else { parallel::makeForkCluster(as.numeric(my.cores)) }
+                clusterEvalQ(cl, library(foreach)); registerDoParallel(cl)
+                cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]], method="cubist",
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                tuneGrid=cubist.grid, metric=input$forestmetric_multi, na.action=na.omit))
+                stopCluster(cl); registerDoSEQ()
+            }
+
+            if (input$radiocal_multi %in% c(18,19)){
+                avec <- suppressWarnings(as.numeric(input$glmnetalpha_multi)); if(length(avec) < 2) avec <- c(0, 1)
+                lvec <- suppressWarnings(as.numeric(input$glmnetlambda_multi)); if(length(lvec) < 2) lvec <- c(0.001, 1)
+                lvec[lvec <= 0] <- 1e-6
+                glmnet.grid <- expand.grid(
+                alpha  = unique(seq(avec[1], avec[2], length.out=3)),
+                lambda = unique(10^seq(log10(lvec[1]), log10(lvec[2]), length.out=5)))
+                cl <- if(get_os()=="windows"){ parallel::makePSOCKcluster(as.numeric(my.cores)) } else { parallel::makeForkCluster(as.numeric(my.cores)) }
+                clusterEvalQ(cl, library(foreach)); registerDoParallel(cl)
+                cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]], method="glmnet",
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                tuneGrid=glmnet.grid, metric=input$forestmetric_multi, na.action=na.omit))
+                stopCluster(cl); registerDoSEQ()
+            }
+
+            if (input$radiocal_multi %in% c(20,21)){
+                pvec <- round(suppressWarnings(as.numeric(input$marsprune_multi))); if(length(pvec) < 2) pvec <- c(2, 12)
+                dvec <- round(suppressWarnings(as.numeric(input$marsdegree_multi))); if(length(dvec) < 2) dvec <- c(1, 2)
+                mars.grid <- expand.grid(
+                nprune = unique(round(seq(max(2, pvec[1]), max(2, pvec[2]), length.out=min(5, abs(pvec[2] - pvec[1]) + 1)))),
+                degree = seq(dvec[1], dvec[2], 1))
+                tune_control <- trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi)
+                tune_control$allowParallel <- FALSE
+                registerDoSEQ()
+                cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]], method="earth",
+                trControl=tune_control, tuneGrid=mars.grid, metric=input$forestmetric_multi, na.action=na.omit))
+            }
+
+            if (input$radiocal_multi %in% c(12,13)){
+                xt <- input$xgbtype_multi
+                cvec <- suppressWarnings(as.numeric(input$svmc_multi)); if(length(cvec) < 2) cvec <- c(1, 3)
+                svm.method <- switch(xt, "Linear"="svmLinear", "Polynomial"="svmPoly", "Radial"="svmRadial",
+                "Radial Cost"="svmRadialCost", "Radial Sigma"="svmRadialSigma", "svmRadial")
+                svm.grid <- if(xt=="Polynomial"){
+                    dvec <- suppressWarnings(as.numeric(input$svmdegree_multi)); if(length(dvec) < 2) dvec <- c(1, 2)
+                    svec <- suppressWarnings(as.numeric(input$svmscale_multi)); if(length(svec) < 2) svec <- c(1, 2)
+                    expand.grid(C=seq(cvec[1], cvec[2], 1), scale=seq(svec[1], svec[2], 1), degree=seq(dvec[1], dvec[2], 1))
+                } else if(xt=="Radial Cost"){
+                    expand.grid(C=seq(cvec[1], cvec[2], 1))
+                } else if(xt=="Radial" || xt=="Radial Sigma"){
+                    sigvec <- suppressWarnings(as.numeric(input$svmsigma_multi)); if(length(sigvec) < 2) sigvec <- c(1, 2)
+                    expand.grid(C=seq(cvec[1], cvec[2], 1), sigma=seq(sigvec[1], sigvec[2], 1))
+                } else {
+                    expand.grid(C=seq(cvec[1], cvec[2], 1))
+                }
+                cl <- if(get_os()=="windows"){ parallel::makePSOCKcluster(as.numeric(my.cores)) } else { parallel::makeForkCluster(as.numeric(my.cores)) }
+                clusterEvalQ(cl, library(foreach)); registerDoParallel(cl)
+                cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]], method=svm.method,
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                tuneGrid=svm.grid, metric=input$forestmetric_multi, na.action=na.omit))
+                stopCluster(cl); registerDoSEQ()
+            }
+
+            if (input$radiocal_multi %in% c(6,7)){
+                hl <- suppressWarnings(as.numeric(input$neuralhiddenlayers_multi)); if(!is.finite(hl)) hl <- 1
+                huvec <- suppressWarnings(as.numeric(input$neuralhiddenunits_multi)); if(length(huvec) < 2) huvec <- c(1, 3)
+                cl <- if(get_os()=="windows"){ parallel::makePSOCKcluster(as.numeric(my.cores)) } else { parallel::makeForkCluster(as.numeric(my.cores)) }
+                clusterEvalQ(cl, library(foreach)); registerDoParallel(cl)
+                cal.lm <- if(hl == 1){
+                    wdvec <- suppressWarnings(as.numeric(input$neuralweightdecay_multi)); if(length(wdvec) < 2) wdvec <- c(0.1, 0.3)
+                    maxit <- suppressWarnings(as.numeric(input$neuralmaxiterations_multi)); if(!is.finite(maxit)) maxit <- 100
+                    nn.grid <- expand.grid(.decay = seq(wdvec[1], wdvec[2], 0.1), .size = seq(huvec[1], huvec[2], 1))
+                    lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]], method="nnet", linout=TRUE,
+                    trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                    tuneGrid=nn.grid, maxit=maxit, trace=FALSE, metric=input$forestmetric_multi, na.action=na.omit))
+                } else {
+                    nn.grid <- if(hl == 2){
+                        expand.grid(.layer1 = seq(huvec[1], huvec[2], 1), .layer2 = seq(huvec[1], huvec[2], 1), .layer3 = c(0))
+                    } else {
+                        expand.grid(.layer1 = seq(huvec[1], huvec[2], 1), .layer2 = seq(huvec[1], huvec[2], 1), .layer3 = seq(huvec[1], huvec[2], 1))
+                    }
+                    lapply(quantNames(),function(x){
+                        data <- predict.list[[x]]
+                        f <- as.formula(paste("Concentration ~", paste(setdiff(names(data), "Concentration"), collapse=" + ")))
+                        caret::train(f, data=data, method="neuralnet", rep=1,
+                        trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                        tuneGrid=nn.grid, linear.output=TRUE, metric=input$forestmetric_multi, na.action=na.omit)
+                    })
+                }
+                stopCluster(cl); registerDoSEQ()
+            }
+
+            if (input$radiocal_multi %in% c(8,9)){
+                xt <- input$xgbtype_multi
+                nr <- round(suppressWarnings(as.numeric(input$xgbnrounds_multi))); if(length(nr)==0 || !is.finite(nr)) nr <- 100
+                dvec <- round(suppressWarnings(as.numeric(input$xgbdepth_multi))); if(length(dvec) < 2) dvec <- c(2, 6)
+                evec <- suppressWarnings(as.numeric(input$xgbeta_multi)); if(length(evec) < 2) evec <- c(0.1, 0.3)
+                xgb.method <- switch(xt, "Tree"="xgbTree", "Dart"="xgbDART", "Linear"="xgbLinear", "xgbTree")
+                xgb.grid <- if(xt=="Linear"){
+                    lvec <- suppressWarnings(as.numeric(input$xgblambda_multi)); if(length(lvec) < 2) lvec <- c(0, 1)
+                    avec <- suppressWarnings(as.numeric(input$xgbalpha_multi)); if(length(avec) < 2) avec <- c(0, 1)
+                    expand.grid(nrounds=nr, lambda=unique(seq(lvec[1], lvec[2], length.out=2)),
+                    alpha=unique(seq(avec[1], avec[2], length.out=2)), eta=unique(seq(evec[1], evec[2], length.out=2)))
+                } else if(xt=="Dart"){
+                    expand.grid(nrounds=nr, max_depth=unique(round(seq(dvec[1], dvec[2], length.out=2))),
+                    eta=unique(seq(evec[1], evec[2], length.out=2)), gamma=0, subsample=0.8, colsample_bytree=0.8,
+                    rate_drop=0.1, skip_drop=0.5, min_child_weight=1)
+                } else {
+                    expand.grid(nrounds=nr, max_depth=unique(round(seq(dvec[1], dvec[2], length.out=2))),
+                    eta=unique(seq(evec[1], evec[2], length.out=2)), gamma=0, colsample_bytree=0.8, min_child_weight=1, subsample=0.8)
+                }
+                cl <- if(get_os()=="windows"){ parallel::makePSOCKcluster(as.numeric(my.cores)) } else { parallel::makeForkCluster(as.numeric(my.cores)) }
+                clusterEvalQ(cl, library(foreach)); registerDoParallel(cl)
+                cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]], method=xgb.method,
+                trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                tuneGrid=xgb.grid, metric=input$forestmetric_multi, na.action=na.omit))
+                stopCluster(cl); registerDoSEQ()
+            }
+
+            if (input$radiocal_multi %in% c(10,11)){
+                xt <- input$xgbtype_multi
+                cl <- if(get_os()=="windows"){ parallel::makePSOCKcluster(as.numeric(my.cores)) } else { parallel::makeForkCluster(as.numeric(my.cores)) }
+                clusterEvalQ(cl, library(foreach)); registerDoParallel(cl)
+                cal.lm <- if(xt=="Linear"){
+                    lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]], method="bayesglm",
+                    trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                    metric=input$forestmetric_multi, na.action=na.omit))
+                } else if(xt=="Neural Net"){
+                    nvec <- round(suppressWarnings(as.numeric(input$brnnneurons_multi))); if(length(nvec) < 2) nvec <- c(1, 3)
+                    brnn.grid <- expand.grid(neurons = seq(max(1, nvec[1]), max(1, nvec[2]), 1))
+                    lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]], method="brnn",
+                    trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                    tuneGrid=brnn.grid, metric=input$forestmetric_multi, na.action=na.omit))
+                } else {
+                    nt <- round(suppressWarnings(as.numeric(input$xgbnrounds_multi))); if(length(nt)==0 || !is.finite(nt)) nt <- 50
+                    kvec <- suppressWarnings(as.numeric(input$bartk_multi)); if(length(kvec) < 2) kvec <- c(2, 3)
+                    bart.grid <- expand.grid(num_trees=nt, k=unique(seq(kvec[1], kvec[2], length.out=2)), alpha=0.95, beta=2, nu=3)
+                    lapply(quantNames(),function(x) caret::train(Concentration~., data=predict.list[[x]], method="bartMachine",
+                    trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi),
+                    tuneGrid=bart.grid, metric=input$forestmetric_multi, na.action=na.omit, serialize=TRUE))
+                }
+                stopCluster(cl); registerDoSEQ()
+            }
+
             names(cal.lm) <- quantNames()
-            
-            
+
+
             cal.lm
-            
+
         })
         
         
@@ -20432,9 +20990,9 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             
-            if(input$radiocal_multi==4){
+            if(input$radiocal_multi==4 || input$radiocal_multi %in% multiIntensityTypes){
                 val.frame <- valFrameRandomizedRevMulti()
-                
+
                 calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
@@ -20444,11 +21002,11 @@ observeEvent(input$actionprocess2_multi, {
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
                 coord_cartesian(xlim = rangescalcurverandom_multi$x, ylim = rangescalcurverandom_multi$y, expand = TRUE)
             }
-            
-            
-            if(input$radiocal_multi==5){
+
+
+            if(input$radiocal_multi==5 || input$radiocal_multi %in% multiSpectraTypes){
                 val.frame <- valFrameRandomizedRevMulti()
-                
+
                 calcurve.plot <- ggplot(data=val.frame, aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~., val.frame)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
@@ -20986,33 +21544,69 @@ observeEvent(input$createcalelement_multi, {
     norm.min <- print(input$comptonmin_multi)
     norm.max <- print(input$comptonmax_multi)
     
-    forestmetric <- if(input$radiocal_multi==4 | input$radiocal_multi==5){
-        as.character(input$forestmetric_multi)
-    } else if(input$radiocal_multi!=4 | input$radiocal_multi!=5){
+    # Metric / train-control / #folds apply to every caret family (cal types >=4), not just rf.
+    forestmetric <- if(input$radiocal_multi %in% c(1,2,3)){
         as.character("RMSE")
+    } else {
+        as.character(input$forestmetric_multi)
     }
-    
-    foresttrain <- if(input$radiocal_multi==4 | input$radiocal_multi==5){
-        as.character(input$foresttrain_multi)
-    } else if(input$radiocal_multi!=4 | input$radiocal_multi!=5){
+
+    foresttrain <- if(input$radiocal_multi %in% c(1,2,3)){
         as.character("cv")
+    } else {
+        as.character(input$foresttrain_multi)
     }
-    
-    forestnumber <- if(input$radiocal_multi==4 | input$radiocal_multi==5){
-        as.numeric(input$forestnumber_multi)
-    } else if(input$radiocal!=4 | input$radiocal!=5){
+
+    forestnumber <- if(input$radiocal_multi %in% c(1,2,3)){
         as.numeric(10)
+    } else {
+        as.numeric(input$forestnumber_multi)
     }
-    
+
+    # ntree is rf-specific (Forest/Rainforest only).
     foresttrees <- if(input$radiocal_multi==4 | input$radiocal_multi==5){
         as.numeric(input$foresttrees_multi)
-    } else if(input$radiocal_multi!=4 | input$radiocal_multi!=5){
+    } else {
         as.numeric(15)
     }
 
-    
-    cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber, foresttrees)
-    colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees")
+    # Ported chem-family tuning ranges, stored as "lo-hi" strings; active family only, else
+    # the core default. Read back by the *SelectionMulti reactives via chemRange().
+    lohi <- function(v, dflt="") if(is.null(v) || length(v) < 2 || anyNA(suppressWarnings(as.numeric(v)))) dflt else paste0(v[1], "-", v[2])
+    plsncomp         <- if(input$radiocal_multi %in% c(14,15)) lohi(input$plsncomp_multi, "1-12") else "1-12"
+    cubistcommittees <- if(input$radiocal_multi %in% c(16,17)) lohi(input$cubistcommittees_multi, "1-10") else "1-10"
+    cubistneighbors  <- if(input$radiocal_multi %in% c(16,17)) lohi(input$cubistneighbors_multi, "0-5") else "0-5"
+    glmnetalpha      <- if(input$radiocal_multi %in% c(18,19)) lohi(input$glmnetalpha_multi, "0-1") else "0-1"
+    glmnetlambda     <- if(input$radiocal_multi %in% c(18,19)) lohi(input$glmnetlambda_multi, "0.001-1") else "0.001-1"
+    marsprune        <- if(input$radiocal_multi %in% c(20,21)) lohi(input$marsprune_multi, "2-12") else "2-12"
+    marsdegree       <- if(input$radiocal_multi %in% c(20,21)) lohi(input$marsdegree_multi, "1-2") else "1-2"
+    # SVM (12/13) + Neural (6/7) tuning; sub-widgets can be absent (kernel/layer dependent) -> default.
+    xgbtype            <- if(input$radiocal_multi %in% c(8,9,10,11,12,13) && !is.null(input$xgbtype_multi)) as.character(input$xgbtype_multi) else "Linear"
+    svmc               <- if(input$radiocal_multi %in% c(12,13)) lohi(input$svmc_multi, "1-3") else "1-3"
+    svmdegree          <- if(input$radiocal_multi %in% c(12,13)) lohi(input$svmdegree_multi, "1-2") else "1-2"
+    svmscale           <- if(input$radiocal_multi %in% c(12,13)) lohi(input$svmscale_multi, "1-2") else "1-2"
+    svmsigma           <- if(input$radiocal_multi %in% c(12,13)) lohi(input$svmsigma_multi, "1-2") else "1-2"
+    neuralhiddenlayers <- if(input$radiocal_multi %in% c(6,7) && is.finite(suppressWarnings(as.numeric(input$neuralhiddenlayers_multi)))) as.numeric(input$neuralhiddenlayers_multi) else 1
+    neuralhiddenunits  <- if(input$radiocal_multi %in% c(6,7)) lohi(input$neuralhiddenunits_multi, "1-3") else "1-3"
+    neuralweightdecay  <- if(input$radiocal_multi %in% c(6,7)) lohi(input$neuralweightdecay_multi, "0.1-0.3") else "0.1-0.3"
+    neuralmaxiterations<- if(input$radiocal_multi %in% c(6,7) && is.finite(suppressWarnings(as.numeric(input$neuralmaxiterations_multi)))) as.numeric(input$neuralmaxiterations_multi) else 100
+    xgbnrounds         <- if(input$radiocal_multi %in% c(8,9,10,11) && is.finite(suppressWarnings(as.numeric(input$xgbnrounds_multi)))) as.numeric(input$xgbnrounds_multi) else 100
+    xgbdepth           <- if(input$radiocal_multi %in% c(8,9)) lohi(input$xgbdepth_multi, "2-6") else "2-6"
+    xgbeta             <- if(input$radiocal_multi %in% c(8,9)) lohi(input$xgbeta_multi, "0.1-0.3") else "0.1-0.3"
+    xgblambda          <- if(input$radiocal_multi %in% c(8,9)) lohi(input$xgblambda_multi, "0-1") else "0-1"
+    xgbalpha           <- if(input$radiocal_multi %in% c(8,9)) lohi(input$xgbalpha_multi, "0-1") else "0-1"
+    bartk              <- if(input$radiocal_multi %in% c(10,11)) lohi(input$bartk_multi, "2-3") else "2-3"
+    brnnneurons        <- if(input$radiocal_multi %in% c(10,11)) lohi(input$brnnneurons_multi, "1-3") else "1-3"
+
+
+    cal.table <- data.frame(cal.condition, norm.condition, norm.min, norm.max, forestmetric, foresttrain, forestnumber, foresttrees,
+    plsncomp, cubistcommittees, cubistneighbors, glmnetalpha, glmnetlambda, marsprune, marsdegree,
+    xgbtype, svmc, svmdegree, svmscale, svmsigma, neuralhiddenlayers, neuralhiddenunits, neuralweightdecay, neuralmaxiterations,
+    xgbnrounds, xgbdepth, xgbeta, xgblambda, xgbalpha, bartk, brnnneurons, stringsAsFactors=FALSE)
+    colnames(cal.table) <- c("CalType", "NormType", "Min", "Max", "ForestMetric", "ForestTC", "ForestNumber", "ForestTrees",
+    "plsncomp", "cubistcommittees", "cubistneighbors", "glmnetalpha", "glmnetlambda", "marsprune", "marsdegree",
+    "xgbtype", "svmc", "svmdegree", "svmscale", "svmsigma", "neuralhiddenlayers", "neuralhiddenunits", "neuralweightdecay", "neuralmaxiterations",
+    "xgbnrounds", "xgbdepth", "xgbeta", "xgblambda", "xgbalpha", "bartk", "brnnneurons")
     
     slope.corrections <- input$slope_vars_multi
     intercept.corrections <- input$intercept_vars_multi

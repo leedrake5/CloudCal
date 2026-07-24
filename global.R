@@ -4660,6 +4660,16 @@ deconvolutionUI <- function(radiocal=3, selection=NULL){
 # the model-specific tuning controls below are new.
 chemIntensityTypes <- c(14, 16, 18, 20)
 chemSpectraTypes   <- c(15, 17, 19, 21)
+
+# Multi-instrument type groups: every ML/chem family ported into the Multi path
+# (cal types 6-21) trains on the shared per-instrument INTENSITY frame
+# (predictFrameForestMulti) or SPECTRA frame (rainforestDataMulti). The dispatch
+# sites inside observeEvent(actionprocess2_multi) branch on these groups instead of
+# enumerating each type. Odd/even split mirrors the core Intensities/Spectra pairs:
+#   6 Neural, 8 XGBoost, 10 Bayes, 12 SVM, 14 PLS, 16 Cubist, 18 glmnet, 20 MARS (Intensities)
+#   7/9/11/13/15/17/19/21 = their Spectra twins.
+multiIntensityTypes <- c(6, 8, 10, 12, 14, 16, 18, 20)
+multiSpectraTypes   <- c(7, 9, 11, 13, 15, 17, 19, 21)
 chemRadiocalAlias <- function(radiocal){
     r <- suppressWarnings(as.numeric(radiocal[1]))
     if(is.finite(r) && r %in% chemIntensityTypes) return(12)
