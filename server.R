@@ -862,7 +862,18 @@ shinyServer(function(input, output, session) {
         # "peaks" when Channel/Energy anchors are present, otherwise "auto".
         observeEvent(input$calfileinput, {
             cf <- calFileContents()
-            if(is.null(cf) || is.null(cf$EnergyCal)) return()
+            if(is.null(cf)) return()
+
+            # Restore the saved row-shuffle/training seed BEFORE anything reads it,
+            # so the reloaded model frames reproduce the exact seeded standard order
+            # the saved StandardsUsed mask was toggled against (and the same
+            # CV/bagging draws). Older bundles lack RandomizeSeed and keep the
+            # default slider value.
+            if(!is.null(cf$RandomizeSeed) && length(cf$RandomizeSeed)==1 && is.finite(as.numeric(cf$RandomizeSeed))){
+                updateSliderInput(session, "randomize", value = as.numeric(cf$RandomizeSeed))
+            }
+
+            if(is.null(cf$EnergyCal)) return()
             ec <- cf$EnergyCal
 
             mode <- if(!is.null(ec$Mode) && ec$Mode[1] %in% c("auto", "evch", "peaks")){
@@ -3834,7 +3845,7 @@ shinyServer(function(input, output, session) {
         keepRowsFrame <- reactive({
             
             spectra.stuff <- values[["DF"]]
-            rows <- vals$keeprows
+            rows <- alignKeep(vals$keeprows, spectra.stuff)
             
             the.frame <- data.frame(Spectrum=spectra.stuff$Spectrum, Standards=rows)
             the.frame
@@ -4320,12 +4331,22 @@ shinyServer(function(input, output, session) {
         calFileStandards <- reactive({
             if(is.null(input$calcurveelement)) return(NULL)
 
-            # Number of standards, derived from the loaded calibration itself so we
-            # never depend on dataCount()/req(input$file1). When a cal is loaded
-            # without importing new spectra, input$file1 is NULL and dataCount()
-            # halts -- which silently aborted this reactive and left vals$keeprows
-            # NULL, producing 0-row models and all-zero predictions.
-            n_standards <- tryCatch(nrow(calMemory$Calibration$Values), error=function(e) NA_integer_)
+            # Number of standards. Prefer the per-element MODEL FRAME row count
+            # (holdFrame = standards with valid intensity AND finite concentration
+            # AND Include) because that is the frame the StandardsUsed mask is
+            # toggled/consumed against. Sizing to nrow(Values) instead mis-fit
+            # ragged/per-element calibrations: a length-nrow(Values) mask
+            # over-indexed the shorter model frame (phantom NA rows on consume)
+            # and the xor point-toggle recycled onto the wrong standards.
+            # Everything below falls back to calibration-derived counts (never
+            # dataCount()/req(input$file1), which halt when a cal is loaded without
+            # new spectra and would leave vals$keeprows NULL -> 0-row models);
+            # holdFrame()'s own req() is swallowed by tryCatch (shiny.silent.error
+            # inherits from error) so a not-ready frame just uses the fallback.
+            n_standards <- tryCatch({ hn <- nrow(holdFrame()); if(is.finite(hn) && hn >= 1) hn else NA_integer_ }, error=function(e) NA_integer_)
+            if(is.null(n_standards) || is.na(n_standards) || n_standards < 1){
+                n_standards <- tryCatch(nrow(calMemory$Calibration$Values), error=function(e) NA_integer_)
+            }
             if(is.null(n_standards) || is.na(n_standards) || n_standards < 1){
                 n_standards <- tryCatch(length(unique(calMemory$Calibration$Spectra$Spectrum)), error=function(e) NA_integer_)
             }
@@ -4336,19 +4357,41 @@ shinyServer(function(input, output, session) {
             has_su <- !is.null(calSettings$calList) &&
                       "StandardsUsed" %in% names(calSettings$calList[[input$calcurveelement]][[1]])
 
+            # Spectrum ids for the full standard set. Keying the mask by Spectrum
+            # (rather than row position) lets a selection survive row reorder / a
+            # same-count membership change; alignKeep() projects it onto each frame
+            # at consume. NULL when unavailable or non-unique -> mask stays unnamed
+            # and is used positionally (legacy behavior).
+            standard.spectra <- tryCatch({
+                s <- as.character(calMemory$Calibration$Values$Spectrum)
+                if(length(s) >= 1 && !anyDuplicated(s)) s else NULL
+            }, error=function(e) NULL)
+            allKeep <- if(!is.null(standard.spectra)){
+                s <- rep(TRUE, length(standard.spectra)); names(s) <- standard.spectra; s
+            } else rep(TRUE, n_standards)
+
             if(has_su){
                 # Coerce a stored StandardsUsed (may be character/list/numeric/factor)
-                # to a clean logical mask, then require it to match the standard count;
-                # otherwise keep all standards rather than mis-subsetting on a stale or
-                # malformed mask. This also feeds `!keeprows` and the xor() toggles.
+                # to a clean logical mask. A mask saved AFTER the Spectrum-keying
+                # change carries Spectrum names -> keep them (length need not match
+                # n_standards; alignKeep projects by identity). A legacy unnamed mask
+                # that fits the model frame is used positionally; anything stale or
+                # malformed falls back to all-standards-ON (named when possible).
                 su <- calSettings$calList[[input$calcurveelement]][[1]]$StandardsUsed
+                nm <- names(su)
                 if(is.list(su)) su <- unlist(su, use.names = FALSE)
                 su <- suppressWarnings(as.logical(su))
                 su[is.na(su)] <- TRUE
-                if(length(su) != n_standards) su <- rep(TRUE, n_standards)
-                su
+                if(!is.null(nm) && length(nm) == length(su)){
+                    names(su) <- nm
+                    su
+                } else if(length(su) == n_standards){
+                    su
+                } else {
+                    allKeep
+                }
             } else {
-                rep(TRUE, n_standards)
+                allKeep
             }
         })
         
@@ -4716,7 +4759,7 @@ shinyServer(function(input, output, session) {
             # Concentrations aligned row-for-row to the intensity frames (which
             # inherit spectra.line.table's row order), then pick the winning combo.
             conc_aligned <- concentration.table[match(spectra.line.table$Spectrum, concentration.table$Spectrum), element]
-            best_idx <- optimal_intercept_chain_xrf(element=element, intensities=predict.intensity.list, values=conc_aligned, keep=vals$keeprows)
+            best_idx <- optimal_intercept_chain_xrf(element=element, intensities=predict.intensity.list, values=conc_aligned, keep=alignKeep(vals$keeprows, spectra.line.table))
             if(is.na(best_idx)) NULL else as.character(unlist(ceph_cached[[best_idx]]))
 
 
@@ -5423,7 +5466,7 @@ shinyServer(function(input, output, session) {
         linearModel <- reactive(label="nonLinearModel", {
             set.seed(input$randomize)
 
-            predict.frame <- linearModelSet()$data[linearModelSet()$parameters$StandardsUsed,]
+            predict.frame <- linearModelSet()$data[alignKeep(linearModelSet()$parameters$StandardsUsed, linearModelSet()$data),]
 
             l.model <- lm(Concentration~Intensity, data=predict.frame, na.action=na.omit)
 
@@ -5444,7 +5487,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            predict.frame <- nonLinearModelSet()$data[nonLinearModelSet()$parameters$StandardsUsed,]
+            predict.frame <- nonLinearModelSet()$data[alignKeep(nonLinearModelSet()$parameters$StandardsUsed, nonLinearModelSet()$data),]
             
             nl.model <- lm(Concentration~Intensity + I(Intensity^2), data=predict.frame, na.action=na.omit)
             
@@ -5468,7 +5511,7 @@ shinyServer(function(input, output, session) {
 
             set.seed(input$randomize)
 
-            predict.frame <- lucasToothModelSet()$data[lucasToothModelSet()$parameters$StandardsUsed,]
+            predict.frame <- lucasToothModelSet()$data[alignKeep(lucasToothModelSet()$parameters$StandardsUsed, lucasToothModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
 
@@ -5507,7 +5550,7 @@ shinyServer(function(input, output, session) {
         })
         forestModel <- reactive(label="forestModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- forestModelSet()$data[forestModelSet()$parameters$StandardsUsed,]
+            predict.frame <- forestModelSet()$data[alignKeep(forestModelSet()$parameters$StandardsUsed, forestModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- forestModelSet()$parameters$CalTable
@@ -5595,7 +5638,7 @@ shinyServer(function(input, output, session) {
         })
         rainforestModel <- reactive(label="rainforestModel", {
             req(input$radiocal, input$calcurveelement)
-            data <- rainforestModelSet()$data[rainforestModelSet()$parameters$StandardsUsed,]
+            data <- rainforestModelSet()$data[alignKeep(rainforestModelSet()$parameters$StandardsUsed, rainforestModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- rainforestModelSet()$parameters$CalTable
@@ -5682,7 +5725,7 @@ shinyServer(function(input, output, session) {
 
             set.seed(input$randomize)
 
-            predict.frame <- neuralNetworkIntensityShallowModelSet()$data[neuralNetworkIntensityShallowModelSet()$parameters$StandardsUsed,]
+            predict.frame <- neuralNetworkIntensityShallowModelSet()$data[alignKeep(neuralNetworkIntensityShallowModelSet()$parameters$StandardsUsed, neuralNetworkIntensityShallowModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkIntensityShallowModelSet()$parameters$CalTable
@@ -5771,7 +5814,7 @@ shinyServer(function(input, output, session) {
 
             set.seed(input$randomize)
 
-            predict.frame <- neuralNetworkIntensityDeepModelSet()$data[neuralNetworkIntensityDeepModelSet()$parameters$StandardsUsed,]
+            predict.frame <- neuralNetworkIntensityDeepModelSet()$data[alignKeep(neuralNetworkIntensityDeepModelSet()$parameters$StandardsUsed, neuralNetworkIntensityDeepModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkIntensityDeepModelSet()$parameters$CalTable
@@ -5892,7 +5935,7 @@ shinyServer(function(input, output, session) {
 
             set.seed(input$randomize)
 
-            data <- neuralNetworkSpectraShallowModelSet()$data[neuralNetworkSpectraShallowModelSet()$parameters$StandardsUsed,]
+            data <- neuralNetworkSpectraShallowModelSet()$data[alignKeep(neuralNetworkSpectraShallowModelSet()$parameters$StandardsUsed, neuralNetworkSpectraShallowModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkSpectraShallowModelSet()$parameters$CalTable
@@ -5979,7 +6022,7 @@ shinyServer(function(input, output, session) {
         neuralNetworkSpectraDeep <- reactive(label="neuralNetworkSpectraDeep", {
             req(input$radiocal, input$calcurveelement)
 
-            data <- neuralNetworkSpectraDeepModelSet()$data[neuralNetworkSpectraDeepModelSet()$parameters$StandardsUsed,]
+            data <- neuralNetworkSpectraDeepModelSet()$data[alignKeep(neuralNetworkSpectraDeepModelSet()$parameters$StandardsUsed, neuralNetworkSpectraDeepModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkSpectraDeepModelSet()$parameters$CalTable
@@ -6106,7 +6149,7 @@ shinyServer(function(input, output, session) {
         xgbtreeIntensityModel <- reactive(label="xgtreeIntensityModel", {
             req(input$radiocal, input$calcurveelement)
 
-            predict.frame <- xgbtreeIntensityModelSet()$data[xgbtreeIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- xgbtreeIntensityModelSet()$data[alignKeep(xgbtreeIntensityModelSet()$parameters$StandardsUsed, xgbtreeIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgbtreeIntensityModelSet()$parameters$CalTable
@@ -6413,7 +6456,7 @@ shinyServer(function(input, output, session) {
         xgbdartIntensityModel <- reactive(label="xgbdartIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             
-            predict.frame <- xgbdartIntensityModelSet()$data[xgbdartIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- xgbdartIntensityModelSet()$data[alignKeep(xgbdartIntensityModelSet()$parameters$StandardsUsed, xgbdartIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgbdartIntensityModelSet()$parameters$CalTable
@@ -6732,7 +6775,7 @@ shinyServer(function(input, output, session) {
         xgblinearIntensityModel <- reactive(label="xglinearIntensityModel", {
             req(input$radiocal, input$calcurveelement)
             
-            predict.frame <- xgblinearIntensityModelSet()$data[xgblinearIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- xgblinearIntensityModelSet()$data[alignKeep(xgblinearIntensityModelSet()$parameters$StandardsUsed, xgblinearIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgblinearIntensityModelSet()$parameters$CalTable
@@ -6950,7 +6993,7 @@ shinyServer(function(input, output, session) {
         xgbtreeSpectraModel <- reactive(label="xgbtreeSpectraModel", {
             req(input$radiocal, input$calcurveelement)
 
-            data <- xgbtreeSpectraModelSet()$data[xgbtreeSpectraModelSet()$parameters$StandardsUsed,]
+            data <- xgbtreeSpectraModelSet()$data[alignKeep(xgbtreeSpectraModelSet()$parameters$StandardsUsed, xgbtreeSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgbtreeSpectraModelSet()$parameters$CalTable
@@ -7260,7 +7303,7 @@ shinyServer(function(input, output, session) {
         xgbdartSpectraModel <- reactive(label="xgbdartSpectraModel", {
             req(input$radiocal, input$calcurveelement)
 
-            data <- xgbdartSpectraModelSet()$data[xgbdartSpectraModelSet()$parameters$StandardsUsed,]
+            data <- xgbdartSpectraModelSet()$data[alignKeep(xgbdartSpectraModelSet()$parameters$StandardsUsed, xgbdartSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgbdartSpectraModelSet()$parameters$CalTable
@@ -7582,7 +7625,7 @@ shinyServer(function(input, output, session) {
         xgblinearSpectraModel <- reactive(label="xgblinearSpectraModel", {
             req(input$radiocal, input$calcurveelement)
 
-            data <- xgblinearSpectraModelSet()$data[xgblinearSpectraModelSet()$parameters$StandardsUsed,]
+            data <- xgblinearSpectraModelSet()$data[alignKeep(xgblinearSpectraModelSet()$parameters$StandardsUsed, xgblinearSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgblinearSpectraModelSet()$parameters$CalTable
@@ -7793,7 +7836,7 @@ shinyServer(function(input, output, session) {
         })
         bartMachineIntensityModel <- reactive(label="bartMachineIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- bartMachineIntensityModelSet()$data[bartMachineIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- bartMachineIntensityModelSet()$data[alignKeep(bartMachineIntensityModelSet()$parameters$StandardsUsed, bartMachineIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineIntensityModelSet()$parameters$CalTable
@@ -7864,7 +7907,7 @@ shinyServer(function(input, output, session) {
         })
         bayesLinearIntensityModel <- reactive(label="bayesLinearIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- bayesLinearIntensityModelSet()$data[bayesLinearIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- bayesLinearIntensityModelSet()$data[alignKeep(bayesLinearIntensityModelSet()$parameters$StandardsUsed, bayesLinearIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bayesLinearIntensityModelSet()$parameters$CalTable
@@ -7947,7 +7990,7 @@ shinyServer(function(input, output, session) {
         })
         bayesNeuralNetIntensityModel <- reactive(label="bayesNeuralNetIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- bartMachineIntensityModelSet()$data[bartMachineIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- bartMachineIntensityModelSet()$data[alignKeep(bartMachineIntensityModelSet()$parameters$StandardsUsed, bartMachineIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineIntensityModelSet()$parameters$CalTable
@@ -8068,7 +8111,7 @@ shinyServer(function(input, output, session) {
         })
         bartMachineSpectraModel <- reactive(label="bartMachineSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            data <- bartMachineSpectraModelSet()$data[bartMachineSpectraModelSet()$parameters$StandardsUsed,]
+            data <- bartMachineSpectraModelSet()$data[alignKeep(bartMachineSpectraModelSet()$parameters$StandardsUsed, bartMachineSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineSpectraModelSet()$parameters$CalTable
@@ -8143,7 +8186,7 @@ shinyServer(function(input, output, session) {
         })
         bayesLinearSpectraModel <- reactive(label="bayesLinearSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            data <- bayesLinearSpectraModelSet()$data[bayesLinearSpectraModelSet()$parameters$StandardsUsed,]
+            data <- bayesLinearSpectraModelSet()$data[alignKeep(bayesLinearSpectraModelSet()$parameters$StandardsUsed, bayesLinearSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bayesLinearSpectraModelSet()$parameters$CalTable
@@ -8229,7 +8272,7 @@ shinyServer(function(input, output, session) {
         })
         bayesNeuralNetSpectraModel <- reactive(label="bayesNeuralNetSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            data <- bayesNeuralNetSpectraModelSet()$data[bayesNeuralNetSpectraModelSet()$parameters$StandardsUsed,]
+            data <- bayesNeuralNetSpectraModelSet()$data[alignKeep(bayesNeuralNetSpectraModelSet()$parameters$StandardsUsed, bayesNeuralNetSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bayesNeuralNetSpectraModelSet()$parameters$CalTable
@@ -8341,7 +8384,7 @@ shinyServer(function(input, output, session) {
         })
         svmLinearIntensityModel <- reactive(label="svmLinearIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- svmLinearIntensityModelSet()$data[svmLinearIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- svmLinearIntensityModelSet()$data[alignKeep(svmLinearIntensityModelSet()$parameters$StandardsUsed, svmLinearIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmLinearIntensityModelSet()$parameters$CalTable
@@ -8433,7 +8476,7 @@ shinyServer(function(input, output, session) {
         })
         svmPolyIntensityModel <- reactive(label="svmPolyIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- svmPolyIntensityModelSet()$data[svmPolyIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- svmPolyIntensityModelSet()$data[alignKeep(svmPolyIntensityModelSet()$parameters$StandardsUsed, svmPolyIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmPolyIntensityModelSet()$parameters$CalTable
@@ -8529,7 +8572,7 @@ shinyServer(function(input, output, session) {
         })
         svmRadialIntensityModel <- reactive(label="svmRadialIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- svmRadialIntensityModelSet()$data[svmRadialIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- svmRadialIntensityModelSet()$data[alignKeep(svmRadialIntensityModelSet()$parameters$StandardsUsed, svmRadialIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmRadialIntensityModelSet()$parameters$CalTable
@@ -8665,7 +8708,7 @@ shinyServer(function(input, output, session) {
         })
         svmLinearSpectraModel <- reactive(label="svmLinearSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            data <- svmLinearSpectraModelSet()$data[svmLinearSpectraModelSet()$parameters$StandardsUsed,]
+            data <- svmLinearSpectraModelSet()$data[alignKeep(svmLinearSpectraModelSet()$parameters$StandardsUsed, svmLinearSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmLinearSpectraModelSet()$parameters$CalTable
@@ -8757,7 +8800,7 @@ shinyServer(function(input, output, session) {
         })
         svmPolySpectraModel <- reactive(label="svmPolyIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            data <- svmPolySpectraModelSet()$data[svmPolySpectraModelSet()$parameters$StandardsUsed,]
+            data <- svmPolySpectraModelSet()$data[alignKeep(svmPolySpectraModelSet()$parameters$StandardsUsed, svmPolySpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmPolySpectraModelSet()$parameters$CalTable
@@ -8852,7 +8895,7 @@ shinyServer(function(input, output, session) {
         })
         svmRadialSpectraModel <- reactive(label="svmRadialSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            data <- svmRadialSpectraModelSet()$data[svmRadialSpectraModelSet()$parameters$StandardsUsed,]
+            data <- svmRadialSpectraModelSet()$data[alignKeep(svmRadialSpectraModelSet()$parameters$StandardsUsed, svmRadialSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmRadialSpectraModelSet()$parameters$CalTable
@@ -8987,7 +9030,7 @@ shinyServer(function(input, output, session) {
         })
         plsIntensityModel <- reactive(label="plsIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- plsIntensityModelSet()$data[plsIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- plsIntensityModelSet()$data[alignKeep(plsIntensityModelSet()$parameters$StandardsUsed, plsIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- plsIntensityModelSet()$parameters$CalTable
@@ -9084,7 +9127,7 @@ shinyServer(function(input, output, session) {
         })
         plsSpectraModel <- reactive(label="plsSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- plsSpectraModelSet()$data[plsSpectraModelSet()$parameters$StandardsUsed,]
+            predict.frame <- plsSpectraModelSet()$data[alignKeep(plsSpectraModelSet()$parameters$StandardsUsed, plsSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- plsSpectraModelSet()$parameters$CalTable
@@ -9315,7 +9358,7 @@ shinyServer(function(input, output, session) {
         })
         cubistIntensityModel <- reactive(label="cubistIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- cubistIntensityModelSet()$data[cubistIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- cubistIntensityModelSet()$data[alignKeep(cubistIntensityModelSet()$parameters$StandardsUsed, cubistIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- cubistIntensityModelSet()$parameters$CalTable
@@ -9413,7 +9456,7 @@ shinyServer(function(input, output, session) {
         })
         cubistSpectraModel <- reactive(label="cubistSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- cubistSpectraModelSet()$data[cubistSpectraModelSet()$parameters$StandardsUsed,]
+            predict.frame <- cubistSpectraModelSet()$data[alignKeep(cubistSpectraModelSet()$parameters$StandardsUsed, cubistSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- cubistSpectraModelSet()$parameters$CalTable
@@ -9644,7 +9687,7 @@ shinyServer(function(input, output, session) {
         })
         glmnetIntensityModel <- reactive(label="glmnetIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- glmnetIntensityModelSet()$data[glmnetIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- glmnetIntensityModelSet()$data[alignKeep(glmnetIntensityModelSet()$parameters$StandardsUsed, glmnetIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- glmnetIntensityModelSet()$parameters$CalTable
@@ -9743,7 +9786,7 @@ shinyServer(function(input, output, session) {
         })
         glmnetSpectraModel <- reactive(label="glmnetSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- glmnetSpectraModelSet()$data[glmnetSpectraModelSet()$parameters$StandardsUsed,]
+            predict.frame <- glmnetSpectraModelSet()$data[alignKeep(glmnetSpectraModelSet()$parameters$StandardsUsed, glmnetSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- glmnetSpectraModelSet()$parameters$CalTable
@@ -9977,7 +10020,7 @@ shinyServer(function(input, output, session) {
         })
         marsIntensityModel <- reactive(label="marsIntensityModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- marsIntensityModelSet()$data[marsIntensityModelSet()$parameters$StandardsUsed,]
+            predict.frame <- marsIntensityModelSet()$data[alignKeep(marsIntensityModelSet()$parameters$StandardsUsed, marsIntensityModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- marsIntensityModelSet()$parameters$CalTable
@@ -10055,7 +10098,7 @@ shinyServer(function(input, output, session) {
         })
         marsSpectraModel <- reactive(label="marsSpectraModel", {
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- marsSpectraModelSet()$data[marsSpectraModelSet()$parameters$StandardsUsed,]
+            predict.frame <- marsSpectraModelSet()$data[alignKeep(marsSpectraModelSet()$parameters$StandardsUsed, marsSpectraModelSet()$data),]
             # Exclude Spectrum from training predictors (kept for data linkage only)
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- marsSpectraModelSet()$parameters$CalTable
@@ -10320,19 +10363,19 @@ shinyServer(function(input, output, session) {
             
             lucashold$slope <- outVaralt()
             
-            predict.frame.lin <- linearModelSet()$data[vals$keeprows,]
-            predict.frame.nonlin <- nonLinearModelSet()$data[vals$keeprows,]
-            predict.frame.luc <- lucasToothModelSet()$data[vals$keeprows,]
-            predict.frame.forest <- forestModelSet()$data[vals$keeprows,]
-            predict.frame.rainforest <- rainforestModelSet()$data[vals$keeprows,]
-            predict.frame.neural.shallow.intens <- neuralNetworkIntensityShallowModelSet()$data[vals$keeprows,]
-            predict.frame.neural.shallow.spectra <- neuralNetworkSpectraShallowModelSet()$data[vals$keeprows,]
-            predict.frame.xgboost.intens <- xgboostIntensityModelSet()$data[vals$keeprows,]
-            predict.frame.xgboost.spectra <- xgboostSpectraModelSet()$data[vals$keeprows,]
-            predict.frame.bayes.intens <- bayesIntensityModelSet()$data[vals$keeprows,]
-            predict.frame.bayes.spectra <- bayesSpectraModelSet()$data[vals$keeprows,]
-            predict.frame.svm.intens <- svmIntensityModelSet()$data[vals$keeprows,]
-            predict.frame.svm.spectra <- svmSpectraModelSet()$data[vals$keeprows,]
+            predict.frame.lin <- linearModelSet()$data[alignKeep(vals$keeprows, linearModelSet()$data),]
+            predict.frame.nonlin <- nonLinearModelSet()$data[alignKeep(vals$keeprows, nonLinearModelSet()$data),]
+            predict.frame.luc <- lucasToothModelSet()$data[alignKeep(vals$keeprows, lucasToothModelSet()$data),]
+            predict.frame.forest <- forestModelSet()$data[alignKeep(vals$keeprows, forestModelSet()$data),]
+            predict.frame.rainforest <- rainforestModelSet()$data[alignKeep(vals$keeprows, rainforestModelSet()$data),]
+            predict.frame.neural.shallow.intens <- neuralNetworkIntensityShallowModelSet()$data[alignKeep(vals$keeprows, neuralNetworkIntensityShallowModelSet()$data),]
+            predict.frame.neural.shallow.spectra <- neuralNetworkSpectraShallowModelSet()$data[alignKeep(vals$keeprows, neuralNetworkSpectraShallowModelSet()$data),]
+            predict.frame.xgboost.intens <- xgboostIntensityModelSet()$data[alignKeep(vals$keeprows, xgboostIntensityModelSet()$data),]
+            predict.frame.xgboost.spectra <- xgboostSpectraModelSet()$data[alignKeep(vals$keeprows, xgboostSpectraModelSet()$data),]
+            predict.frame.bayes.intens <- bayesIntensityModelSet()$data[alignKeep(vals$keeprows, bayesIntensityModelSet()$data),]
+            predict.frame.bayes.spectra <- bayesSpectraModelSet()$data[alignKeep(vals$keeprows, bayesSpectraModelSet()$data),]
+            predict.frame.svm.intens <- svmIntensityModelSet()$data[alignKeep(vals$keeprows, svmIntensityModelSet()$data),]
+            predict.frame.svm.spectra <- svmSpectraModelSet()$data[alignKeep(vals$keeprows, svmSpectraModelSet()$data),]
             
             cal.lm.simp <- linearModel()
             lm.predict <- tryCatch(predict(cal.lm.simp, newdata=predict.frame.lin), error=function(e) rep(0, length(predict.frame.lin$Concentration)))
@@ -12108,8 +12151,8 @@ shinyServer(function(input, output, session) {
         
         predictFrameName <- reactive({
             
-            predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
-            spectra.line.table <- spectraLineTable()[ vals$keeprows, , drop = FALSE]
+            predict.frame <- predictFrame()[ alignKeep(vals$keeprows, predictFrame()), , drop = FALSE]
+            spectra.line.table <- spectraLineTable()[ alignKeep(vals$keeprows, spectraLineTable()), , drop = FALSE]
             
             predict.frame.name <- data.frame(spectra.line.table$Spectrum, predict.frame)
             colnames(predict.frame.name) <- c("Spectrum", names(predict.frame))
@@ -12310,12 +12353,11 @@ shinyServer(function(input, output, session) {
             # a given frame; any of those makes `!keep` error out ("invalid argument
             # type") and kills the plot. Coerce to a clean logical and fall back to
             # "keep all standards" per-frame when the mask is malformed or stale.
-            keep_raw <- vals$keeprows
-            if(is.list(keep_raw)) keep_raw <- unlist(keep_raw, use.names = FALSE)
-            keep_raw <- suppressWarnings(as.logical(keep_raw))
             keep_for <- function(df){
                 if(is.null(df)) return(NULL)
-                k <- keep_raw
+                k <- alignKeep(vals$keeprows, df)
+                if(is.list(k)) k <- unlist(k, use.names = FALSE)
+                k <- suppressWarnings(as.logical(k))
                 if(length(k) != nrow(df) || any(is.na(k))) k <- rep(TRUE, nrow(df))
                 k
             }
@@ -12773,7 +12815,8 @@ shinyServer(function(input, output, session) {
                 if(is.null(ld) || !all(c("Concentration", "Intensity", "Spectrum") %in% names(ld))){
                     return(list(inst_note="not_estimable", lod_cal=NA_real_, loq_cal=NA_real_))
                 }
-                keep <- if(length(vals$keeprows)==nrow(ld)) vals$keeprows else rep(TRUE, nrow(ld))
+                keep <- alignKeep(vals$keeprows, ld)
+                if(length(keep) != nrow(ld) || any(is.na(keep))) keep <- rep(TRUE, nrow(ld))
                 kept <- ld[keep, , drop=FALSE]
                 kept <- kept[is.finite(kept$Concentration) & is.finite(kept$Intensity), , drop=FALSE]
                 cal_fit <- tryCatch(lm(Concentration ~ Intensity, data=kept), error=function(e) NULL)
@@ -12947,7 +12990,7 @@ shinyServer(function(input, output, session) {
             # the current value frame; any of those makes `!keep` error out ("invalid
             # argument type") and kills the plot. Coerce to a clean logical and fall
             # back to "keep all standards" when the mask is malformed or stale.
-            keep <- vals$keeprows
+            keep <- alignKeep(vals$keeprows, val.frame)
             if(is.list(keep)) keep <- unlist(keep, use.names = FALSE)
             keep <- suppressWarnings(as.logical(keep))
             if(length(keep) != nrow(val.frame) || any(is.na(keep))){
@@ -13157,7 +13200,7 @@ shinyServer(function(input, output, session) {
             # Normalize the standards mask like the plot reactives do: a NULL /
             # stale / wrong-length keeprows otherwise empties the frame and the
             # whole Cross Validation tab silently collapses to zero rows.
-            keep <- vals$keeprows
+            keep <- alignKeep(vals$keeprows, cal.frame)
             if(is.list(keep)) keep <- unlist(keep, use.names = FALSE)
             keep <- suppressWarnings(as.logical(keep))
             if(length(keep) != nrow(cal.frame) || any(is.na(keep))) keep <- rep(TRUE, nrow(cal.frame))
@@ -13175,8 +13218,8 @@ shinyServer(function(input, output, session) {
         calCurveFrameRandomized <- reactive(label="calCurveFrameRandomized",{
             
             predict.frame <- predictFrame()
-            predict.frame <- predict.frame[ vals$keeprows, , drop = FALSE]
-            
+            predict.frame <- predict.frame[ alignKeep(vals$keeprows, predict.frame), , drop = FALSE]
+
             predict.frame[randomizeData(),]
             
         })
@@ -15889,7 +15932,8 @@ shinyServer(function(input, output, session) {
         valFrameRandomized <- reactive(label="valFrame",{
             req(input$calcurveelement, input$radiocal)
             
-            val.frame <- tryCatch(mclValGen(model=elementModelRandom(), data=predictIntensity()[ vals$keeprows, , drop = FALSE], predict.frame=predictFrame()[ vals$keeprows, , drop = FALSE], dependent.transformation=basichold$deptransformation), error=function(e) NULL)
+            keep <- alignKeep(vals$keeprows, predictFrame())
+            val.frame <- tryCatch(mclValGen(model=elementModelRandom(), data=predictIntensity()[ keep, , drop = FALSE], predict.frame=predictFrame()[ keep, , drop = FALSE], dependent.transformation=basichold$deptransformation), error=function(e) NULL)
             
             val.frame <- if(is.null(val.frame)){
                 # Fallback when the model cannot produce predictions yet (e.g.
@@ -15899,7 +15943,7 @@ shinyServer(function(input, output, session) {
                 # dimensions" and blanked the tab with an error.
                 tryCatch({
                     conc <- predictFrame()$Concentration
-                    keep <- vals$keeprows
+                    keep <- alignKeep(vals$keeprows, predictFrame())
                     if(is.list(keep)) keep <- unlist(keep, use.names = FALSE)
                     keep <- suppressWarnings(as.logical(keep))
                     if(length(keep) != length(conc) || any(is.na(keep))) keep <- rep(TRUE, length(conc))
@@ -15916,8 +15960,9 @@ shinyServer(function(input, output, session) {
         
         valFrameRandomizedold <- reactive(label="valFrameRandomized",{
             
-            predict.intensity <- predictIntensity()[ vals$keeprows, , drop = FALSE]
-            predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
+            keep <- alignKeep(vals$keeprows, predictFrame())
+            predict.intensity <- predictIntensity()[ keep, , drop = FALSE]
+            predict.frame <- predictFrame()[ keep, , drop = FALSE]
             predict.frame.cal <- predict.frame[(randomizeData()), , drop = FALSE]
             predict.frame <- predict.frame[!(randomizeData()), , drop = FALSE]
             predict.frame <- subset(predict.frame, predict.frame$Concentration > my.min(predict.frame.cal[,"Concentration"]) & predict.frame$Concentration  < my.max(predict.frame.cal[,"Concentration"]))
@@ -16102,8 +16147,9 @@ shinyServer(function(input, output, session) {
         
         valFrameRandomizedRev <- reactive(label="valFrameRandomizedRev",{
             
-            predict.intensity <- predictIntensity()[ vals$keeprows, , drop = FALSE]
-            predict.frame <- predictFrame()[ vals$keeprows, , drop = FALSE]
+            keep <- alignKeep(vals$keeprows, predictFrame())
+            predict.intensity <- predictIntensity()[ keep, , drop = FALSE]
+            predict.frame <- predictFrame()[ keep, , drop = FALSE]
             
             predict.intensity <- predict.intensity[(randomizeData()), , drop = FALSE]
             predict.frame <- predict.frame[(randomizeData()), , drop = FALSE]
@@ -16284,7 +16330,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, predictFrame()[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, predictFrame()[ alignKeep(vals$keeprows, predictFrame()), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", fullrange = TRUE) +
                     geom_point() +
                     geom_point(data = calCurveFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16309,7 +16355,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn_poly(lm((Concentration*multiplier)~Intensity + I(Intensity^2), data=predictFrame()[ vals$keeprows, , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn_poly(lm((Concentration*multiplier)~Intensity + I(Intensity^2), data=predictFrame()[ alignKeep(vals$keeprows, predictFrame()), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", formula=y~poly(x,2), fullrange = TRUE) +
                     geom_point() +
                     geom_point(data = calCurveFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16814,7 +16860,7 @@ shinyServer(function(input, output, session) {
 
             randomized <- randomizeData()
 
-            point.table <- point.table[ vals$keeprows, , drop = FALSE]
+            point.table <- point.table[ alignKeep(vals$keeprows, point.table), , drop = FALSE]
             point.table <- point.table[randomized,]
 
             # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
@@ -16870,7 +16916,7 @@ shinyServer(function(input, output, session) {
             pr <- panel_ranges(calCurvePlot())
             res <- nearPoints_safe(predict.frame, input$plot_cal_click, xvar="Intensity", yvar="Concentration", allRows = TRUE, x_range=pr$x, y_range=pr$y, ymul=mult)
 
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
 
 
@@ -16890,7 +16936,7 @@ shinyServer(function(input, output, session) {
             pr <- panel_ranges(calCurvePlot())
             res <- brushedPoints_safe(predict.frame, input$plot_cal_brush, xvar="Intensity", yvar="Concentration", allRows = TRUE, x_range=pr$x, y_range=pr$y, ymul=mult)
 
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
 
         # Reset all points
@@ -16905,7 +16951,7 @@ shinyServer(function(input, output, session) {
             } else if(calType()==5) {
                 calValFrame()
             }
-            vals$keeprows <- rep(TRUE, nrow(predict.frame))
+            if(is.null(names(vals$keeprows))) vals$keeprows <- rep(TRUE, nrow(predict.frame)) else vals$keeprows[] <- TRUE
         })
         
         # Reset all points on element change
@@ -16977,7 +17023,7 @@ shinyServer(function(input, output, session) {
 
             randomized <- randomizeData()
 
-            point.table <- point.table[ vals$keeprows, , drop = FALSE]
+            point.table <- point.table[ alignKeep(vals$keeprows, point.table), , drop = FALSE]
             point.table <- point.table[!(randomized),]
 
             # point.table now includes Spectrum from valFrame - no merge needed
@@ -17023,8 +17069,8 @@ shinyServer(function(input, output, session) {
             mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
             pr <- panel_ranges(valCurvePlot())
             res <- nearPoints_safe(predict.frame, input$plot_val_click, xvar="Prediction", yvar="Concentration", allRows = TRUE, x_range=pr$x, y_range=pr$y, xmul=mult, ymul=mult)
-            
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17035,15 +17081,15 @@ shinyServer(function(input, output, session) {
             mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
             pr <- panel_ranges(valCurvePlot())
             res <- brushedPoints_safe(predict.frame, input$plot_val_brush, xvar="Prediction", yvar="Concentration", allRows = TRUE, x_range=pr$x, y_range=pr$y, xmul=mult, ymul=mult)
-            
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         # Reset all points
         observeEvent(input$exclude_reset, {
             predict.frame <- calValFrame()
             
-            vals$keeprows <- rep(TRUE, nrow(predict.frame))
+            if(is.null(names(vals$keeprows))) vals$keeprows <- rep(TRUE, nrow(predict.frame)) else vals$keeprows[] <- TRUE
         })
         
         
@@ -17051,6 +17097,7 @@ shinyServer(function(input, output, session) {
             
             
             model <- elementModelGen()
+            sp_src <- tryCatch(predictFrameName(), error=function(e) NULL)
 
             
             model.frame <- as.data.frame(augment(model))
@@ -17061,7 +17108,10 @@ shinyServer(function(input, output, session) {
             
             model.frame$seq.cooksd <- seq_along(model.frame$.cooksd)
             
-            #model.frame$Spectrum <- predictFrameName()$Spectrum
+# Attach Spectrum (guarded on matching row count: augment() may drop NA rows)
+            # so the diagnostic mask aligns by identity and the click-toggle flips
+            # the right standard; falls back to positional when it can't attach.
+            if(!is.null(sp_src) && !is.null(sp_src$Spectrum) && nrow(model.frame) == nrow(sp_src)) model.frame$Spectrum <- sp_src$Spectrum
             
             
             
@@ -17074,6 +17124,7 @@ shinyServer(function(input, output, session) {
             
             
             model <- lm(Concentration~Prediction, data=as.data.frame(calValTable()))
+            sp_src <- tryCatch(calValTable(), error=function(e) NULL)
             
             model.frame <- as.data.frame(augment(model))
             
@@ -17083,7 +17134,10 @@ shinyServer(function(input, output, session) {
             
             model.frame$seq.cooksd <- seq_along(model.frame$.cooksd)
             
-            #model.frame$Spectrum <- predictFrameName()$Spectrum
+# Attach Spectrum (guarded on matching row count: augment() may drop NA rows)
+            # so the diagnostic mask aligns by identity and the click-toggle flips
+            # the right standard; falls back to positional when it can't attach.
+            if(!is.null(sp_src) && !is.null(sp_src$Spectrum) && nrow(model.frame) == nrow(sp_src)) model.frame$Spectrum <- sp_src$Spectrum
             
             
             
@@ -17136,7 +17190,7 @@ shinyServer(function(input, output, session) {
             
             model <- modelFrame()
             
-            p1 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(.fitted, .resid)) +
+            p1 <- ggplot(model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(.fitted, .resid)) +
             stat_smooth(method="loess") +
             geom_hline(yintercept=0, col="red", linetype="dashed") +
             scale_x_continuous("Fitted values", breaks=scales::pretty_breaks()) +
@@ -17144,7 +17198,7 @@ shinyServer(function(input, output, session) {
             ggtitle("Residual vs Fitted Plot") +
             theme_light(base_size = 15) +
             geom_point() +
-            geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.fitted, .resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
+            geom_point(data=model[ alignKeep(vals$keeprows, model, invert=TRUE), , drop = FALSE], aes(.fitted, .resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
             p1
             
@@ -17161,13 +17215,13 @@ shinyServer(function(input, output, session) {
             
             model <- modelFrame()
             
-            p2 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(qq, .std.resid))+geom_point(na.rm = TRUE) +
+            p2 <- ggplot(model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(qq, .std.resid))+geom_point(na.rm = TRUE) +
             geom_abline() +
             scale_x_continuous("Theoretical Quantiles", breaks=scales::pretty_breaks()) +
             scale_y_continuous("Standardized Residuals", breaks=scales::pretty_breaks()) +
             ggtitle("Normal Q-Q") +
             theme_light(base_size = 15) +
-            geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(qq, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
+            geom_point(data=model[ alignKeep(vals$keeprows, model, invert=TRUE), , drop = FALSE], aes(qq, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
             
             p2
@@ -17186,14 +17240,14 @@ shinyServer(function(input, output, session) {
             model <- modelFrame()
             
             
-            p3 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(.fitted, sqrt.std.resid)) +
+            p3 <- ggplot(model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(.fitted, sqrt.std.resid)) +
             stat_smooth(method="loess", na.rm = TRUE) +
             scale_x_continuous("Fitted Value", breaks=scales::pretty_breaks()) +
             scale_y_continuous(expression(sqrt("|Standardized residuals|")), breaks=scales::pretty_breaks()) +
             ggtitle("Scale-Location") +
             theme_light(base_size = 15) +
             geom_point(na.rm=TRUE) +
-            geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.fitted, sqrt.std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
+            geom_point(data=model[ alignKeep(vals$keeprows, model, invert=TRUE), , drop = FALSE], aes(.fitted, sqrt.std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
             
             p3
@@ -17236,9 +17290,9 @@ shinyServer(function(input, output, session) {
             model <- modelFrame()
             
             
-            p5<-ggplot(model[ vals$keeprows, , drop = FALSE], aes(.hat, .std.resid))+
+            p5<-ggplot(model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(.hat, .std.resid))+
             geom_point(aes(size=.cooksd), na.rm=TRUE) +
-            geom_point(data=model[ !vals$keeprows, , drop = FALSE], aes(.hat, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            geom_point(data=model[ alignKeep(vals$keeprows, model, invert=TRUE), , drop = FALSE], aes(.hat, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25) +
             stat_smooth(method="loess", na.rm=TRUE) +
             scale_x_continuous("Leverage", breaks=scales::pretty_breaks()) +
             scale_y_continuous("Standardized Residuals", breaks=scales::pretty_breaks()) +
@@ -17263,7 +17317,7 @@ shinyServer(function(input, output, session) {
             model <- modelFrame()
             
             
-            p6 <- ggplot(model[ vals$keeprows, , drop = FALSE], aes(.hat, .cooksd)) +
+            p6 <- ggplot(model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(.hat, .cooksd)) +
             stat_smooth(method="loess", na.rm=TRUE) +
             scale_x_continuous("Leverage", breaks=scales::pretty_breaks()) +
             scale_y_continuous("Cook's Distance", breaks=scales::pretty_breaks()) +
@@ -17271,7 +17325,7 @@ shinyServer(function(input, output, session) {
             geom_abline(slope=seq(0,3,0.5), color="gray", linetype="dashed") +
             theme_light(base_size = 15) +
             geom_point(na.rm=TRUE) +
-            geom_point(data=model[ vals$keeprows, , drop = FALSE], aes(.hat, .cooksd), shape = 21, fill = "red", color = "black", alpha = 0.25)
+            geom_point(data=model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(.hat, .cooksd), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
             p6
             
@@ -17347,9 +17401,10 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- nearPoints_safe(predict.frame, input$plot_residualsfitted_click, xvar = ".fitted", yvar = ".resid", allRows = TRUE)
+            pr <- panel_ranges(diagResidualsFitted())
+            res <- nearPoints_safe(predict.frame, input$plot_residualsfitted_click, xvar = ".fitted", yvar = ".resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17358,9 +17413,10 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- brushedPoints_safe(predict.frame, input$plot_residualsfitted_brush, xvar = ".fitted", yvar = ".resid", allRows = TRUE)
+            pr <- panel_ranges(diagResidualsFitted())
+            res <- brushedPoints_safe(predict.frame, input$plot_residualsfitted_brush, xvar = ".fitted", yvar = ".resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17408,9 +17464,10 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- nearPoints_safe(predict.frame, input$plot_qq_click, xvar = "qq", yvar = ".std.resid", allRows = TRUE)
+            pr <- panel_ranges(diagQQ())
+            res <- nearPoints_safe(predict.frame, input$plot_qq_click, xvar = "qq", yvar = ".std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17419,9 +17476,10 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- brushedPoints_safe(predict.frame, input$plot_qq_brush, xvar = "qq", yvar = ".std.resid", allRows = TRUE)
+            pr <- panel_ranges(diagQQ())
+            res <- brushedPoints_safe(predict.frame, input$plot_qq_brush, xvar = "qq", yvar = ".std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17469,9 +17527,10 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- nearPoints_safe(predict.frame, input$plot_scalelocation_click, xvar = ".fitted", yvar = "sqrt.std.resid", allRows = TRUE)
+            pr <- panel_ranges(diagScaleLocation())
+            res <- nearPoints_safe(predict.frame, input$plot_scalelocation_click, xvar = ".fitted", yvar = "sqrt.std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17480,9 +17539,10 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- brushedPoints_safe(predict.frame, input$plot_scalelocation_brush, xvar = ".fitted", yvar = "sqrt.std.resid", allRows = TRUE)
+            pr <- panel_ranges(diagScaleLocation())
+            res <- brushedPoints_safe(predict.frame, input$plot_scalelocation_brush, xvar = ".fitted", yvar = "sqrt.std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17530,9 +17590,10 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- nearPoints_safe(predict.frame, input$plot_residualleverage_click, xvar = ".hat", yvar = ".std.resid", allRows = TRUE)
+            pr <- panel_ranges(diagResidualLeverage())
+            res <- nearPoints_safe(predict.frame, input$plot_residualleverage_click, xvar = ".hat", yvar = ".std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17541,9 +17602,10 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- brushedPoints_safe(predict.frame, input$plot_residualleverage_brush, xvar = ".hat", yvar = ".std.resid", allRows = TRUE)
+            pr <- panel_ranges(diagResidualLeverage())
+            res <- brushedPoints_safe(predict.frame, input$plot_residualleverage_brush, xvar = ".hat", yvar = ".std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17591,9 +17653,10 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- nearPoints_safe(predict.frame, input$plot_cooksleverage_click, xvar = ".hat", yvar = ".cooksd", allRows = TRUE)
+            pr <- panel_ranges(diagCooksLeverage())
+            res <- nearPoints_safe(predict.frame, input$plot_cooksleverage_click, xvar = ".hat", yvar = ".cooksd", allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17602,9 +17665,10 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            res <- brushedPoints_safe(predict.frame, input$plot_cooksleverage_brush, xvar = ".hat", yvar = ".cooksd", allRows = TRUE)
+            pr <- panel_ranges(diagCooksLeverage())
+            res <- brushedPoints_safe(predict.frame, input$plot_cooksleverage_brush, xvar = ".hat", yvar = ".cooksd", allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
-            vals$keeprows <- xor(vals$keeprows, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -17614,7 +17678,7 @@ shinyServer(function(input, output, session) {
             
             predict.frame <- modelFrame()
             
-            vals$keeprows <- rep(TRUE, nrow(predict.frame))
+            if(is.null(names(vals$keeprows))) vals$keeprows <- rep(TRUE, nrow(predict.frame)) else vals$keeprows[] <- TRUE
         })
         
         
@@ -17756,11 +17820,17 @@ shinyServer(function(input, output, session) {
                 }
             }
             
+            # Persist the row-shuffle / training seed. The model builders shuffle
+            # standard order via set.seed(input$randomize) (predictFrame*Gen), and
+            # the positional StandardsUsed mask is toggled/consumed against that
+            # shuffled order. Saving the seed lets a reload reproduce the identical
+            # standard order (so the mask realigns) and the same CV/bagging draws.
+            new.cal$RandomizeSeed <- if(is.null(input$randomize) || length(input$randomize)!=1 || is.na(as.numeric(input$randomize))) 1 else as.numeric(input$randomize)
             new.cal
         })
-        
-        
-        
+
+
+
         #observeEvent(input$createcal, {
         
         #CalibrationPlots$diagPlots <<- diagPlotList
@@ -18329,12 +18399,28 @@ observeEvent(input$actionprocess2_multi, {
         calFileStandardsMulti <- reactive({
             
             calstandardmulticheck <- function(cal, vals, element){
-                if(is.null(cal[[element]][[1]][["StandardsUsed"]])){
-                    as.vector(rep(TRUE, length(vals[element])))
-                } else if(!is.null(cal[[element]][[1]][["StandardsUsed"]])){
-                   cal[[element]][[1]][["StandardsUsed"]]
+                # Per-instrument mask, keyed by Spectrum so the selection survives
+                # reorder / same-count membership change (alignKeepMulti projects it
+                # by (Instrument,Spectrum) on the combined frame; alignKeep per
+                # instrument). Fixes the old `length(vals[element])`==1 count bug and
+                # the as.vector() name-strip. Legacy unnamed masks fall back to
+                # positional. `vals` is quantValues()[[x]] (has a Spectrum column).
+                sp <- tryCatch({
+                    s <- as.character(vals$Spectrum)
+                    if(length(s) >= 1 && !anyDuplicated(s)) s else NULL
+                }, error=function(e) NULL)
+                n_all <- if(!is.null(sp)) length(sp) else tryCatch(nrow(vals), error=function(e) 0)
+                all_keep <- if(!is.null(sp)){ v <- rep(TRUE, length(sp)); names(v) <- sp; v } else rep(TRUE, n_all)
+                stored <- cal[[element]][[1]][["StandardsUsed"]]
+                if(is.null(stored)){
+                    all_keep
+                } else {
+                    nm <- names(stored)
+                    su <- suppressWarnings(as.logical(stored)); su[is.na(su)] <- TRUE
+                    if(!is.null(nm) && length(nm) == length(su)){ names(su) <- nm; su }
+                    else if(length(su) == n_all){ su }
+                    else { all_keep }
                 }
-                
             }
             calstandardmulticheck <- cmpfun(calstandardmulticheck)
 
@@ -18550,7 +18636,7 @@ observeEvent(input$actionprocess2_multi, {
         
         simpleLinearModelMulti <- reactive({
             
-            cal.lm <- lapply(quantNames(),function(x) lm(Concentration~Intensity, data=predictFrameSimpMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], , na.action=na.omit))
+            cal.lm <- lapply(quantNames(),function(x) lm(Concentration~Intensity, data=predictFrameSimpMulti()[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], , na.action=na.omit))
             names(cal.lm) <- quantNames()
             cal.lm
 
@@ -18559,7 +18645,7 @@ observeEvent(input$actionprocess2_multi, {
         
         nonLinearModelMulti <- reactive({
             
-            cal.lm <- lapply(quantNames(), function(x) lm(Concentration~Intensity + I(Intensity^2), data=predictFrameSimpMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], na.action=na.omit))
+            cal.lm <- lapply(quantNames(), function(x) lm(Concentration~Intensity + I(Intensity^2), data=predictFrameSimpMulti()[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], na.action=na.omit))
             names(cal.lm) <- quantNames()
             cal.lm
 
@@ -18642,7 +18728,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             clusterEvalQ(cl, library(foreach))
             registerDoParallel(cl)
-            cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
+            cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
             prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE, trim=TRUE))
             stopCluster(cl)
@@ -18694,7 +18780,7 @@ observeEvent(input$actionprocess2_multi, {
         
         lucasToothModelMulti <- reactive({
             
-            cal.lm <- lapply(quantNames(), function(x) lm(Concentration~., data=predictFrameLucMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], na.action=na.omit))
+            cal.lm <- lapply(quantNames(), function(x) lm(Concentration~., data=predictFrameLucMulti()[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], na.action=na.omit))
             names(cal.lm) <- quantNames()
             cal.lm
             
@@ -18776,7 +18862,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             clusterEvalQ(cl, library(foreach))
             registerDoParallel(cl)
-            cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=rainforestDataMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
+            cal.lm <- lapply(quantNames(),function(x) caret::train(Concentration~., data=rainforestDataMulti()[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
             prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE, trim=TRUE))
             stopCluster(cl)
@@ -18835,7 +18921,7 @@ observeEvent(input$actionprocess2_multi, {
             }
             clusterEvalQ(cl, library(foreach))
             registerDoParallel(cl)
-            cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][vals_multi$keeprows[[x]],, drop=FALSE], method="rf", type="Regression",
+            cal.lm <- lapply(quantNames(), function(x) caret::train(Concentration~., data=predictFrameForestMulti()[[x]][alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]),, drop=FALSE], method="rf", type="Regression",
             trControl=trainControl(method=input$foresttrain_multi, number=input$forestnumber_multi), ntree=input$foresttrees_multi,
             prox=TRUE,allowParallel=TRUE, metric=input$forestmetric_multi, na.action=na.omit, importance=TRUE, trim=TRUE))
             stopCluster(cl)
@@ -19345,8 +19431,15 @@ observeEvent(input$actionprocess2_multi, {
 
             
             cal.frame <- predictFrameMulti()
+            hf <- holdFrameMulti()
 
-            cal.frame <- lapply(quantNames(),function(x) data.frame(cal.frame[[x]], Instrument=x))
+            # Add Spectrum (from the row-aligned holdFrameMulti sibling) alongside
+            # Instrument so the flattened mask/toggle can key by (Instrument,Spectrum).
+            cal.frame <- lapply(quantNames(),function(x){
+                d <- data.frame(cal.frame[[x]], Instrument=x)
+                if(!is.null(hf[[x]]) && nrow(d) == nrow(hf[[x]])) d$Spectrum <- as.character(hf[[x]]$Spectrum)
+                d
+            })
             names(cal.frame) <- quantNames()
 
             as.data.frame(data.table::rbindlist(cal.frame, use.names=TRUE, fill=TRUE))
@@ -19505,7 +19598,12 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            val.frame <- lapply(quantNames(),function(x) data.frame(val.frame[[x]], Instrument=x))
+            hf <- holdFrameMulti()
+            val.frame <- lapply(quantNames(),function(x){
+                d <- data.frame(val.frame[[x]], Instrument=x)
+                if(!is.null(hf[[x]]) && nrow(d) == nrow(hf[[x]])) d$Spectrum <- as.character(hf[[x]]$Spectrum)
+                d
+            })
             names(val.frame) <- quantNames()
             as.data.frame(data.table::rbindlist(val.frame, use.names=TRUE, fill=TRUE))
 
@@ -19559,11 +19657,11 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if(input$radiocal_multi==1){
-                calcurve.plot <- ggplot(data=predict.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=predict.frame[ alignKeepMulti(vals_multi$keeprows, predict.frame), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light(base_size = 15) +
                 #annotate("text", label=lm_eqn(lm(Concentration~Intensity, predict.frame[ unlist(unlist(vals_multi$keeprows), use.names=FALSE), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(data = predict.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(data = predict.frame[ alignKeepMulti(vals_multi$keeprows, predict.frame, invert=TRUE), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 stat_smooth(method="lm", fullrange = TRUE, aes(fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
@@ -19572,11 +19670,11 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             if(input$radiocal_multi==2){
-                calcurve.plot <- ggplot(data=predict.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=predict.frame[ alignKeepMulti(vals_multi$keeprows, predict.frame), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light(base_size = 15) +
-                #annotate("text", label=lm_eqn_poly(lm(Concentration~Intensity + I(Intensity^2), predict.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                #annotate("text", label=lm_eqn_poly(lm(Concentration~Intensity + I(Intensity^2), predict.frame[ alignKeepMulti(vals_multi$keeprows, predict.frame), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(data = predict.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(data = predict.frame[ alignKeepMulti(vals_multi$keeprows, predict.frame, invert=TRUE), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 stat_smooth(method="lm", formula=y~poly(x,2), aes(fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
@@ -19585,11 +19683,11 @@ observeEvent(input$actionprocess2_multi, {
             }
             
             if(input$radiocal_multi==3){
-                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light(base_size = 15) +
-                #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(aes(Intensity, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame, invert=TRUE), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 geom_smooth(aes(x=Intensity, y=Concentration, ymin = Lower, ymax = Upper, fill=Instrument), alpha=0.1) +
                 scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
@@ -19599,11 +19697,11 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if(input$radiocal_multi==4){
-                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light(base_size = 15) +
-                #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(aes(Intensity, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame, invert=TRUE), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 geom_smooth(alpha=0.1) +
                 scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
@@ -19613,11 +19711,11 @@ observeEvent(input$actionprocess2_multi, {
             
             
             if(input$radiocal_multi==5){
-                calcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
+                calcurve.plot <- ggplot(data=val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE], aes(Intensity, Concentration, colour=Instrument, shape=Instrument)) +
                 theme_light(base_size = 15) +
-                #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                #annotate("text", label=lm_eqn(lm(Concentration~., val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                 geom_point() +
-                geom_point(aes(Intensity, Concentration), data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+                geom_point(aes(Intensity, Concentration), data = val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame, invert=TRUE), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
                 geom_smooth(alpha=0.1) +
                 scale_x_continuous(paste(element.name, norma), breaks=scales::pretty_breaks()) +
                 scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
@@ -19705,13 +19803,13 @@ observeEvent(input$actionprocess2_multi, {
             val.frame <- valFrameMulti()
             
             
-            valcurve.plot <- ggplot(data=val.frame[ unlist(vals_multi$keeprows), , drop = FALSE], aes(Prediction, Concentration, colour=Instrument, shape=Instrument)) +
+            valcurve.plot <- ggplot(data=val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE], aes(Prediction, Concentration, colour=Instrument, shape=Instrument)) +
             theme_light(base_size = 15) +
-            #annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[ unlist(vals_multi$keeprows), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+            #annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
             geom_abline(intercept=0, slope=1, lty=2) +
             stat_smooth(method="lm", aes(fill=Instrument), alpha=0.1) +
             geom_point() +
-            geom_point(aes(Prediction, Concentration),  data = val.frame[!unlist(vals_multi$keeprows), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            geom_point(aes(Prediction, Concentration),  data = val.frame[ alignKeepMulti(vals_multi$keeprows, val.frame, invert=TRUE), , drop = FALSE], shape = 21, fill = "red", color = "black", alpha = 0.25) +
             scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
             scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks()) +
             coord_cartesian(xlim = rangesvalcurve_multi$x, ylim = rangesvalcurve_multi$y, expand = TRUE)
@@ -19802,7 +19900,7 @@ observeEvent(input$actionprocess2_multi, {
         randomizeDataMulti <- reactive({
             
             cal.frame <- holdFrameMulti()[[input$defaultcal]]
-            cal.frame <- cal.frame[ vals_multi$keeprows[[input$defaultcal]], , drop = FALSE]
+            cal.frame <- cal.frame[ alignKeep(vals_multi$keeprows[[input$defaultcal]], cal.frame), , drop = FALSE]
             total.number <- length(cal.frame[,1])
             sample.number <- total.number-round(input$percentrandom_multi*total.number, 0)
             
@@ -19816,7 +19914,7 @@ observeEvent(input$actionprocess2_multi, {
         standardNamesRandomized <- reactive({
             
             cal.frame <- spectraLineTableMulti()[[input$defaultcal]]
-            cal.frame <- cal.frame[ vals_multi$keeprows[[input$defaultcal]], , drop = FALSE]
+            cal.frame <- cal.frame[ alignKeep(vals_multi$keeprows[[input$defaultcal]], cal.frame), , drop = FALSE]
             total.number <- length(cal.frame[,1])
             sample.number <- total.number-round(input$percentrandom_multi*total.number, 0)
             
@@ -19834,7 +19932,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][ vals_multi$keeprows[[x]], ]))
+            predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][ alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]), ]))
             names(predict.frame) <- quantNames()
             
             predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][!randomizeDataMulti(),]))
@@ -19855,7 +19953,7 @@ observeEvent(input$actionprocess2_multi, {
 
             
             
-            predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][ vals_multi$keeprows[[x]], ]))
+            predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][ alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]), ]))
             names(predict.frame) <- quantNames()
             
             predict.frame <- lapply(quantNames(),function(x) as.data.frame(predict.frame[[x]][randomizeDataMulti(),]))
@@ -19966,11 +20064,11 @@ observeEvent(input$actionprocess2_multi, {
 
 
             
-            predict.intensity <- lapply(quantNames(),function(x) data.frame(predictIntensityMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            predict.intensity <- lapply(quantNames(),function(x) data.frame(predictIntensityMulti()[[x]][ alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]), , drop = FALSE]))
             names(predict.intensity) <- quantNames()
 
             
-            predict.frame <- lapply(quantNames(),function(x) data.frame(predictFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            predict.frame <- lapply(quantNames(),function(x) data.frame(predictFrameMulti()[[x]][ alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]), , drop = FALSE]))
             names(predict.frame) <- quantNames()
 
             
@@ -20119,11 +20217,11 @@ observeEvent(input$actionprocess2_multi, {
 
             
             
-            predict.intensity <- lapply(quantNames(),function(x) data.frame(predictIntensityMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            predict.intensity <- lapply(quantNames(),function(x) data.frame(predictIntensityMulti()[[x]][ alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]), , drop = FALSE]))
             names(predict.intensity) <- quantNames()
 
             
-            predict.frame <- lapply(quantNames(),function(x) data.frame(predictFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            predict.frame <- lapply(quantNames(),function(x) data.frame(predictFrameMulti()[[x]][ alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]), , drop = FALSE]))
             names(predict.frame) <- quantNames()
 
             
@@ -20373,7 +20471,7 @@ observeEvent(input$actionprocess2_multi, {
             standard.table <- valFrameRandomizedMulti()
             
             cal.frame <- spectraLineTableMulti()[[input$defaultcal]]
-            cal.frame <- cal.frame[ vals_multi$keeprows[[input$defaultcal]], , drop = FALSE]
+            cal.frame <- cal.frame[ alignKeep(vals_multi$keeprows[[input$defaultcal]], cal.frame), , drop = FALSE]
             total.number <- length(cal.frame[,1])
             sample.number <- total.number-round(input$percentrandom_multi*total.number, 0)
             
@@ -20381,7 +20479,7 @@ observeEvent(input$actionprocess2_multi, {
             concentration.table.rev <- predictFrameRandomMulti()
             
             
-            predict.frame <- lapply(quantNames(),function(x) data.frame(holdFrameMulti()[[x]][ vals_multi$keeprows[[x]], , drop = FALSE]))
+            predict.frame <- lapply(quantNames(),function(x) data.frame(holdFrameMulti()[[x]][ alignKeep(vals_multi$keeprows[[x]], holdFrameMulti()[[x]]), , drop = FALSE]))
             names(predict.frame) <- quantNames()
             
             
@@ -20648,9 +20746,9 @@ observeEvent(input$actionprocess2_multi, {
             
             res <- nearPoints_safe(predict.frame, input$plot_cal_click_multi, xvar="Intensity", yvar="Concentration", allRows = TRUE)
             
-            temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
+            # point selection handled by keepToggleMulti (Instrument+Spectrum keyed)
             
-            vals_multi$keeprows <- relist(flesh=temprows, skeleton=vals_multi$keeprows)
+            vals_multi$keeprows <- keepToggleMulti(vals_multi$keeprows, predict.frame, res$selected_)
         })
         
         
@@ -20669,9 +20767,9 @@ observeEvent(input$actionprocess2_multi, {
             }
             res <- brushedPoints_safe(predict.frame, input$plot_cal_brush_multi, xvar="Intensity", yvar="Concentration", allRows = TRUE)
             
-            temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
+            # point selection handled by keepToggleMulti (Instrument+Spectrum keyed)
             
-            vals_multi$keeprows <- relist(flesh=temprows, skeleton=vals_multi$keeprows)        })
+            vals_multi$keeprows <- keepToggleMulti(vals_multi$keeprows, predict.frame, res$selected_)        })
         
         
         
@@ -20797,9 +20895,9 @@ observeEvent(input$actionprocess2_multi, {
             
             res <- nearPoints_safe(predict.frame, input$plot_val_click_multi, xvar="Prediction", yvar="Concentration", allRows = TRUE)
             
-            temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
+            # point selection handled by keepToggleMulti (Instrument+Spectrum keyed)
             
-            vals_multi$keeprows <- relist(flesh=temprows, skeleton=vals_multi$keeprows)        })
+            vals_multi$keeprows <- keepToggleMulti(vals_multi$keeprows, predict.frame, res$selected_)        })
         
         
         
@@ -20809,9 +20907,9 @@ observeEvent(input$actionprocess2_multi, {
             
             res <- brushedPoints_safe(predict.frame, input$plot_val_brush_multi, xvar="Prediction", yvar="Concentration", allRows = TRUE)
             
-            temprows <- xor(unlist(vals_multi$keeprows), res$selected_)
+            # point selection handled by keepToggleMulti (Instrument+Spectrum keyed)
             
-            vals_multi$keeprows <- relist(flesh=temprows, skeleton=vals_multi$keeprows)        })
+            vals_multi$keeprows <- keepToggleMulti(vals_multi$keeprows, predict.frame, res$selected_)        })
         
         
         
@@ -20947,7 +21045,7 @@ observeEvent(input$createcalelement_multi, {
 observeEvent(input$createcalelement_multi, {
     
     lapply(quantNames(), function(x)
-           calListMulti[[x]][["calList"]][[input$calcurveelement_multi]][["CalTable"]][["StandardsUsed"]] <<- isolate(as.vector(vals_multi$keeprows[[x]])))
+           calListMulti[[x]][["calList"]][[input$calcurveelement_multi]][["CalTable"]][["StandardsUsed"]] <<- isolate(vals_multi$keeprows[[x]]))
       
     
     

@@ -5158,6 +5158,89 @@ model = NULL) {
     out
 }
 
+# Project the StandardsUsed on/off mask onto a data frame's rows.
+#
+# The mask (vals$keeprows / a stored StandardsUsed) is the user's standard
+# selection. R's df[logical, ] indexes by POSITION and ignores names, so a
+# mask keyed by Spectrum only aligns if we look it up by identity here. When
+# the mask carries Spectrum names (the format saved after this change) we
+# project it onto frame$Spectrum, so the selection survives row reorder / a
+# same-count membership change; standards absent from the saved mask default
+# to ON. An unnamed (legacy) mask falls through to today's positional
+# behavior unchanged. `invert=TRUE` returns the complement (for the
+# `!keeprows` excluded-point layers).
+alignKeep <- function(mask, frame, invert = FALSE){
+    if(is.null(mask)) return(mask)
+    keep <- if(!is.null(names(mask)) && !is.null(frame) && !is.null(frame$Spectrum)){
+        m <- mask[as.character(frame$Spectrum)]
+        m[is.na(m)] <- TRUE
+        unname(m)
+    } else {
+        mask
+    }
+    if(invert) !keep else keep
+}
+
+# Toggle the StandardsUsed selection for the points a user clicked/brushed.
+# `sel` is a logical aligned positionally to `frame`'s rows. When the mask is
+# Spectrum-named and the frame carries Spectrum, flip the clicked standards BY
+# IDENTITY (survives reorder). Legacy unnamed masks whose length matches use the
+# old positional xor. Anything else (named mask on a frame without Spectrum, or
+# a length mismatch) is a no-op rather than a recycling corruption.
+keepToggle <- function(keep, frame, sel){
+    if(!is.null(names(keep)) && !is.null(frame) && !is.null(frame$Spectrum)){
+        sp <- as.character(frame$Spectrum[sel])
+        if(length(sp)) keep[sp] <- !keep[sp]
+        keep
+    } else if(is.null(names(keep)) && length(keep) == length(sel)){
+        xor(keep, sel)
+    } else {
+        keep
+    }
+}
+
+# Multi-instrument variants. The multi mask is a NESTED list
+# `keeprows[[instrument]]`, each a Spectrum-named logical. The combined/flattened
+# frame carries BOTH Instrument and Spectrum -- the key is the PAIR, because the
+# same Spectrum recurs across instruments (the same standards measured on each
+# device). alignKeepMulti projects the nested mask onto a combined frame by
+# (Instrument, Spectrum); keepToggleMulti flips clicked rows the same way. Both
+# fall back to the legacy unlist()/xor()/relist() positional behavior when the
+# per-instrument masks are unnamed or the frame lacks the keys, so pre-existing
+# multi .quants are unaffected.
+masksNamed <- function(nested) !is.null(nested) && length(nested) > 0 &&
+    all(vapply(nested, function(m) !is.null(names(m)), logical(1)))
+
+alignKeepMulti <- function(nested_mask, frame, invert = FALSE){
+    if(is.null(frame) || is.null(frame$Instrument) || is.null(frame$Spectrum) || !masksNamed(nested_mask)){
+        keep <- unlist(nested_mask, use.names = FALSE)
+    } else {
+        inst <- as.character(frame$Instrument); sp <- as.character(frame$Spectrum)
+        keep <- vapply(seq_along(inst), function(k){
+            m <- nested_mask[[ inst[k] ]]
+            if(is.null(m)) return(TRUE)
+            v <- m[ sp[k] ]
+            if(is.na(v)) TRUE else unname(v)
+        }, logical(1))
+    }
+    if(invert) !keep else keep
+}
+
+keepToggleMulti <- function(nested_mask, frame, sel){
+    if(masksNamed(nested_mask) && !is.null(frame) && !is.null(frame$Instrument) && !is.null(frame$Spectrum)){
+        inst <- as.character(frame$Instrument)[sel]
+        sp   <- as.character(frame$Spectrum)[sel]
+        for(k in seq_along(inst)){
+            m <- nested_mask[[ inst[k] ]]
+            if(!is.null(m) && sp[k] %in% names(m)) nested_mask[[ inst[k] ]][[ sp[k] ]] <- !m[[ sp[k] ]]
+        }
+        nested_mask
+    } else {
+        flat <- unlist(nested_mask, use.names = FALSE)
+        if(length(flat) == length(sel)) utils::relist(xor(flat, sel), skeleton = nested_mask) else nested_mask
+    }
+}
+
 forestMetricUI <- function(radiocal, selection){
 
     radiocal <- chemRadiocalAlias(radiocal)

@@ -3966,9 +3966,13 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     # character/list/numeric, which breaks `!keep` subsetting and xor() toggles in
     # the calibration-curve UI. Coerce here, the single import chokepoint, so every
     # downstream consumer (vals$keeprows, model fitting) gets a clean logical.
+    # Preserve any Spectrum names (masks saved after the Spectrum-keying change) so
+    # alignKeep() can project the selection by identity rather than position.
+    su.names <- names(standards.used)
     if(is.list(standards.used)) standards.used <- unlist(standards.used, use.names = FALSE)
     standards.used <- suppressWarnings(as.logical(standards.used))
     standards.used[is.na(standards.used)] <- TRUE
+    if(!is.null(su.names) && length(su.names) == length(standards.used)) names(standards.used) <- su.names
 
     scale <- if("Scale" %in% names(imported.cal.conditions)){
         imported.cal.conditions$Scale
