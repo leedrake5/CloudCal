@@ -4661,8 +4661,17 @@ shinyServer(function(input, output, session) {
         
         output$comptonType <- renderUI({
             req(input$radiocal)
-            selectInput('comptontype', label=h6("ROI Type"), choices=c("Raw", "Baseline", "Net"), selected=comptonTypeSelection())
-            
+            sel <- comptonTypeSelection()
+            # "SNIP" is the display label for the stored value "Baseline" (backward-compatible). arPLS is
+            # always available; E1 only when advanced physics are on (off-legacy) or a loaded cal already
+            # carries an E1 baseline, or it is the currently-stored selection. Net kept for compatibility.
+            off_legacy <- (!is.null(input$deconvolutionmode) && nzchar(input$deconvolutionmode) && input$deconvolutionmode != "legacy") ||
+                          !is.null(tryCatch(calMemory$Calibration$Deconvoluted$E1, error=function(e) NULL))
+            ch <- c("Raw"="Raw", "SNIP"="Baseline", "arPLS"="arPLS")
+            if(isTRUE(off_legacy) || identical(as.character(sel), "E1")) ch <- c(ch, "E1"="E1")
+            ch <- c(ch, "Net"="Net")
+            selectInput('comptontype', label=h6("ROI Type"), choices=ch, selected=sel)
+
         })
         
         
@@ -12822,11 +12831,8 @@ shinyServer(function(input, output, session) {
                 cal_fit <- tryCatch(lm(Concentration ~ Intensity, data=kept), error=function(e) NULL)
                 slope <- if(!is.null(cal_fit)) as.numeric(coef(cal_fit)[2]) else NA_real_
                 comptontype <- if(is.null(input$comptontype)) "Raw" else input$comptontype
-                norm.src <- switch(comptontype,
-                    "Raw"      = calMemory$Calibration$Spectra,
-                    "Baseline" = calMemory$Calibration$Deconvoluted$Baseline,
-                    "Net"      = calMemory$Calibration$Deconvoluted$Spectra,
-                    calMemory$Calibration$Spectra)
+                norm.src <- deconvolution_norm_source(calMemory$Calibration$Spectra,
+                    calMemory$Calibration$Deconvoluted, comptontype)
                 inst <- baseline_lod_estimate(
                     element.line    = input$calcurveelement,
                     baseline        = calMemory$Calibration$Deconvoluted$Baseline,

@@ -3044,15 +3044,35 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, com
 spectra_simp_prep_xrf <- cmpfun(spectra_simp_prep_xrf)
 
 
+# Resolve which frame supplies the ROI-normalization DIVISOR for a given compton.type / ROI Type. Central
+# so every prep + predict site shares one mapping. Tokens: "Raw" -> the raw spectra; "Baseline" (the stored
+# token behind the "SNIP" UI label) and "SNIP" -> deconvolution$Baseline (the SNIP baseline); "arPLS" ->
+# deconvolution$arPLS; "E1" -> deconvolution$E1; "Net" -> deconvolution$Spectra (fitted peaks). If a
+# requested MODELLED baseline is absent (e.g. an old calibration deconvoluted before arPLS/E1 existed, or a
+# legacy-mode run with no E1), fall back to the SNIP baseline, then raw -- so normalization never returns NULL.
+deconvolution_norm_source <- function(raw, deconvolution, compton.type){
+    ct <- as.character(compton.type)[1]; if(is.na(ct) || !nzchar(ct)) ct <- "Raw"
+    src <- switch(ct,
+        "Raw"      = raw,
+        "Baseline" = deconvolution$Baseline,
+        "SNIP"     = deconvolution$Baseline,
+        "arPLS"    = deconvolution$arPLS,
+        "E1"       = deconvolution$E1,
+        "Net"      = deconvolution$Spectra,
+        raw)
+    if(is.null(src)){
+        if(ct %in% c("arPLS","E1","Net","Baseline","SNIP") && !is.null(deconvolution$Baseline)){
+            warning("compton.type '", ct, "' is unavailable in this deconvolution; falling back to the SNIP baseline.")
+            src <- deconvolution$Baseline
+        } else src <- raw
+    }
+    src
+}
+
+
 spectra_tc_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, compress="100 eV", transformation="None", compton.type="Raw", deconvolution=NULL){
     
-    norm_data <- if(compton.type=="Raw"){
-        spectra
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    norm_data <- deconvolution_norm_source(spectra, deconvolution, compton.type)
     
     spectra$CPS[spectra$CPS<0] <- 0.0000000000001
     
@@ -3140,13 +3160,7 @@ spectra_comp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, nor
     
     spectra$CPS[spectra$CPS<0] <- 0.0000000000001
 
-    norm_data <- if(compton.type=="Raw"){
-        spectra
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    norm_data <- deconvolution_norm_source(spectra, deconvolution, compton.type)
     
     energy.min <- if(is.null(energy.min)){
         0.7
@@ -3393,13 +3407,7 @@ general_prep_xrf <- cmpfun(general_prep_xrf)
 
 simple_tc_prep_xrf <- function(data,spectra.line.table, element.line, deconvolution=NULL, compton.type="Raw") {
     
-    data <- if(compton.type=="Raw"){
-        data
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    data <- deconvolution_norm_source(data, deconvolution, compton.type)
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3418,13 +3426,7 @@ simple_tc_prep_xrf <- cmpfun(simple_tc_prep_xrf)
 
 simple_comp_prep_xrf <- function(data, spectra.line.table, deconvolution=NULL, element.line, norm.min, norm.max, compton.type="Raw") {
     
-    data <- if(compton.type=="Raw"){
-        data
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    data <- deconvolution_norm_source(data, deconvolution, compton.type)
     
     
     intensity <- spectra.line.table[,element.line]
@@ -3505,13 +3507,7 @@ lucas_simp_prep_xrf <- cmpfun(lucas_simp_prep_xrf)
 
 lucas_tc_prep_xrf <- function(data, spectra.line.table, deconvolution=NULL, element.line, slope.element.lines, intercept.element.lines=NULL, compton.type="Raw") {
     
-    data <- if(compton.type=="Raw"){
-        data
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    data <- deconvolution_norm_source(data, deconvolution, compton.type)
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3551,13 +3547,7 @@ lucas_tc_prep_xrf <- cmpfun(lucas_tc_prep_xrf)
 
 lucas_comp_prep_xrf <- function(data, spectra.line.table, deconvolution=NULL, element.line, slope.element.lines, intercept.element.lines=NULL, norm.min, norm.max, compton.type="Raw") {
     
-    data <- if(compton.type=="Raw"){
-        data
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    data <- deconvolution_norm_source(data, deconvolution, compton.type)
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3624,13 +3614,7 @@ general_prep_xrf_net <- cmpfun(general_prep_xrf_net)
 
 simple_tc_prep_xrf_net <- function(data,spectra.line.table, deconvolution=NULL, element.line, compton.type="Raw") {
     
-    data <- if(compton.type=="Raw"){
-        data
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    data <- deconvolution_norm_source(data, deconvolution, compton.type)
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3649,13 +3633,7 @@ simple_tc_prep_xrf_net <- cmpfun(simple_tc_prep_xrf_net)
 
 simple_comp_prep_xrf_net <- function(data, spectra.line.table, deconvolution=NULL, element.line, norm.min, norm.max, compton.type="Raw") {
     
-    data <- if(compton.type=="Raw"){
-        data
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    data <- deconvolution_norm_source(data, deconvolution, compton.type)
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3721,13 +3699,7 @@ lucas_simp_prep_xrf_net <- cmpfun(lucas_simp_prep_xrf_net)
 
 lucas_tc_prep_xrf_net <- function(data, spectra.line.table, deconvolution=NULL, element.line, slope.element.lines, intercept.element.lines, compton.type="Raw") {
     
-    data <- if(compton.type=="Raw"){
-        data
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    data <- deconvolution_norm_source(data, deconvolution, compton.type)
     
     intensity <- spectra.line.table[,element.line]
     
@@ -3772,13 +3744,7 @@ lucas_tc_prep_xrf_net <- cmpfun(lucas_tc_prep_xrf_net)
 
 lucas_comp_prep_xrf_net <- function(data, spectra.line.table, deconvolution=NULL, element.line, slope.element.lines, intercept.element.lines, norm.min, norm.max, compton.type="Raw") {
     
-    data <- if(compton.type=="Raw"){
-        data
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    data <- deconvolution_norm_source(data, deconvolution, compton.type)
     
     intensity <- spectra.line.table[,element.line]
     
@@ -6482,13 +6448,7 @@ spectrumSelect <- function(spectra, hold.frame){
 
 predictIntensitySimpPreGen <- function(spectra, hold.frame, deconvolution = NULL, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw"){
 
-    data <- if(compton.type=="Raw"){
-        spectra
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    data <- deconvolution_norm_source(spectra, deconvolution, compton.type)
     # Keep `data` aligned with the active calibration set. dataNormCal() already
     # does this for Raw upstream; deconvolution$Baseline / $Spectra come from
     # calMemory and aren't refiltered when the user deselects standards, so do
@@ -6593,13 +6553,7 @@ predictIntensitySimp <- function(predict.frame){
 
 predictIntensityForestPreGen <- function(spectra, hold.frame, deconvolution=NULL, element, intercepts=NULL, slopes=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw"){
 
-    data <- if(compton.type=="Raw"){
-        spectra
-    } else if(compton.type=="Baseline"){
-        deconvolution$Baseline
-    } else if(compton.type=="Net"){
-        deconvolution$Spectra
-    }
+    data <- deconvolution_norm_source(spectra, deconvolution, compton.type)
     # See predictIntensitySimpPreGen: deconvolution slots aren't refiltered when
     # the user deselects calibration standards, so align `data` with
     # hold.frame$Spectrum here to match what dataNormCal() does for Raw.
@@ -10052,9 +10006,27 @@ spectra_frame_deconvolution_convert <- function(a_tibble){
 }
 
 spectra_frame_baseline_convert <- function(a_tibble){
-    
+
     spectra_frame <- data.frame(Spectrum=a_tibble$.path, Energy=a_tibble$.spectra[[1]]$energy_kev, CPS=a_tibble$.spectra[[1]]$baseline)
     return(spectra_frame)
+}
+
+# Extract the E1 physics-informed baseline (the fitted background + scatter continuum) from an
+# ALREADY-RUN deconvolution fit -- no re-fitting. Replicates xrf_fit_baseline()'s body directly on the
+# exploded .deconvolution_* columns (xrf_add_deconvolution_fun splits the deconvolution_fit into separate
+# columns, so there is no classed object to pass). baseline = sum of the non-element templates
+# (background_*, scatter_*, pileup_/sum_) on the fit's energy grid. Returns Spectrum/Energy/CPS like
+# spectra_frame_baseline_convert, or NULL if the fit components/response are unavailable.
+spectra_frame_fit_baseline_convert <- function(a_tibble, name, include = c("background","scatter","pileup")){
+    comp <- tryCatch(a_tibble$.deconvolution_components[[1]], error=function(e) NULL)
+    resp <- tryCatch(a_tibble$.deconvolution_response[[1]],   error=function(e) NULL)
+    if(is.null(comp) || is.null(resp) || is.null(comp$element) || is.null(comp$response_fit)) return(NULL)
+    energy <- resp$energy_kev
+    pats <- c(background="^background_", scatter="^scatter_", pileup="^(pileup_|sum_)")
+    pat  <- paste(pats[include], collapse="|")
+    sel  <- grepl(pat, comp$element)
+    baseline <- if(any(sel)) rowSums(matrix(comp$response_fit[sel], nrow=length(energy))) else rep(0, length(energy))
+    data.frame(Spectrum=name, Energy=energy, CPS=baseline, stringsAsFactors=FALSE)
 }
 
 intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
@@ -10677,7 +10649,21 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
         baseline_spectra <- spectra_frame_baseline_convert(deconvoluted_spectra_tibble)
         deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
         deconvoluted_peaks <- intensity_frame_deconvolution_convert(deconvoluted_spectra_tibble$.deconvolution_peaks[[1]], name=spectrum_name)
-        return(list(Spectra=deconvoluted_spectra, Areas=deconvoluted_peaks, Baseline=baseline_spectra))
+        # arPLS baseline: a modern Whittaker-smoother alternative to SNIP, physics-free so always computed.
+        # Run on a SEPARATE pipe off smoothed_tibble (xrf_add_baseline_arpls writes .spectra$baseline, which
+        # the legacy fit reads as .spectra$smooth - .spectra$baseline) so it never clobbers the SNIP baseline.
+        arpls_spectra <- tryCatch({
+            if(exists("xrf_add_baseline_arpls")){
+                spectra_frame_baseline_convert(xrf_add_baseline_arpls(smoothed_tibble, .values = .spectra$smooth))
+            } else NULL
+        }, error=function(e) NULL)
+        # E1 baseline: the fitted background + scatter continuum, extracted from the fit that already ran
+        # (only meaningful when use_e1 fired -- raw-cps response with a fitted background/scatter).
+        e1_spectra <- if(isTRUE(use_e1))
+            tryCatch(spectra_frame_fit_baseline_convert(deconvoluted_spectra_tibble, name=spectrum_name),
+                     error=function(e) NULL) else NULL
+        return(list(Spectra=deconvoluted_spectra, Areas=deconvoluted_peaks, Baseline=baseline_spectra,
+                    arPLS=arpls_spectra, E1=e1_spectra))
     } else if(!is.data.frame(spectra_frame)){
         NULL
     }
@@ -10745,15 +10731,52 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     }
 
     # Per-spectrum LiveTime lookup (Poisson weights for the E1 scatter-background fit; falls back to the batch
-    # median when a spectrum's name isn't matched). Named vector -> by name; unnamed -> median.
+    # median when a spectrum's name isn't matched). Accepts three forms:
+    #   * a named numeric vector  (names = Spectrum ids, values = seconds) -- matched per spectrum;
+    #   * a data.frame            (a full metadata frame, or a 2-col Spectrum/LiveTime frame) -- converted
+    #                             here via deconvolution_livetime_lookup(), so a command-line caller can pass
+    #                             metadata directly (livetime = metadata) instead of hand-building the vector;
+    #   * a bare/unnamed numeric  -> batch median for all;   NULL -> no live time (unweighted fit).
+    lt_from_df <- is.data.frame(livetime)
+    if(lt_from_df) livetime <- deconvolution_livetime_lookup(livetime)
+    if(lt_from_df && is.null(livetime))
+        warning("spectra_gls_deconvolute: the `livetime` data.frame has no usable 'LiveTime'/'Spectrum' ",
+                "columns; proceeding with no live time (unweighted fit, col-max LOD fallback).")
     lt_num <- if(!is.null(livetime)) suppressWarnings(as.numeric(livetime)) else numeric(0)
     lt_named <- if(!is.null(names(livetime))) setNames(lt_num, names(livetime)) else NULL
     lt_med <- suppressWarnings(stats::median(lt_num[is.finite(lt_num)]))
+    # Loudly flag the silent-median trap: a live time was supplied but its names do NOT match this batch's
+    # Spectrum ids (the classic command-line mismatch -- extension / make.names differences), so every spectrum
+    # would quietly inherit the batch median instead of its own -- changing the E1 Poisson weights and the
+    # full-FP count-space LOD, i.e. numbers that silently drift from the app's result.
+    if(!is.null(livetime) && length(lt_num) > 0){
+        batch_ids <- unique(as.character(spectra_frame$Spectrum))
+        matched <- if(!is.null(lt_named)) length(intersect(names(lt_named), batch_ids)) else 0L
+        unnamed_scalar <- is.null(lt_named) && length(lt_num) == 1L   # deliberate "same live time for all"
+        if(matched == 0L && !unnamed_scalar){
+            warning("spectra_gls_deconvolute: `livetime` was supplied but ",
+                    if(is.null(lt_named)) "is unnamed" else "none of its names match",
+                    " the ", length(batch_ids), " spectra in this batch",
+                    if(!is.null(lt_named)) paste0(" (e.g. livetime name '", names(lt_named)[1],
+                                                  "' vs spectrum '", batch_ids[1], "')") else "",
+                    " -- every spectrum will use the batch-median live time (",
+                    if(is.finite(lt_med)) paste0(round(lt_med, 3), "s") else "NA",
+                    "). Name the vector by Spectrum id, or pass the metadata frame (deconvolution_livetime_lookup).")
+        } else if(matched < length(batch_ids)){
+            message("spectra_gls_deconvolute: `livetime` matched ", matched, " of ", length(batch_ids),
+                    " spectra by name; the other ", length(batch_ids) - matched,
+                    " will use the batch-median live time.")
+        }
+    }
     lt_lookup <- function(nm){ v <- if(!is.null(lt_named) && nm %in% names(lt_named)) lt_named[[nm]] else NA_real_
         if(!is.finite(v)) v <- lt_med; if(is.finite(v)) v else NULL }
 
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
 
+    # On error, return the message AS DATA (a classed character) rather than
+    # NULL + warning(): a warning() raised inside an mclapply fork does not
+    # propagate to the parent, so the real reason was being lost. A returned
+    # value survives serialization back from the worker.
     safe_deconvolute <- function(x){
         tryCatch(
             do.call(deconvolute_complete, c(list(
@@ -10767,45 +10790,80 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
                 use_qr=use_qr,
                 abundance_prior=abundance_prior,
                 livetime=lt_lookup(as.character(unique(x$Spectrum))[1])), physics_call)),
-            error = function(e){
-                warning("Skipping spectrum '", unique(x$Spectrum), "': ", e$message)
-                NULL
-            }
+            error = function(e)
+                structure(conditionMessage(e), class = "decon_error",
+                          spectrum = as.character(unique(x$Spectrum))[1])
         )
     }
+    # A spectrum "failed" if it is NULL (fork died without returning) or a
+    # captured decon_error.
+    is_decon_fail <- function(z) is.null(z) || inherits(z, "decon_error")
 
     if(cores==1){
         new_spectra_list <- pblapply(spectra_list, safe_deconvolute)
     } else if(cores >= 2){
         new_spectra_list <- pbmclapply(spectra_list, safe_deconvolute, mc.cores = cores)
+        # mclapply masks the real error when a forked worker dies ("scheduled
+        # cores ... did not deliver results" -> NULL). If EVERY spectrum failed
+        # under forking, retry serially in-process: safe_deconvolute's tryCatch
+        # then captures the true error (and it may simply succeed if the failure
+        # was fork-specific, e.g. a non-fork-safe handle).
+        if(all(vapply(new_spectra_list, is_decon_fail, logical(1)))){
+            warning("All spectra failed under multicore deconvolution (cores=", cores,
+                    "); retrying serially to surface the underlying error.")
+            new_spectra_list <- pblapply(spectra_list, safe_deconvolute)
+        }
     }
 
-    # Remove failed (NULL) entries
-    failed <- sapply(new_spectra_list, is.null)
+    # Remove failed entries, reporting the ACTUAL reason(s) collected above.
+    failed <- vapply(new_spectra_list, is_decon_fail, logical(1))
+    decon_reasons <- NULL
     if(any(failed)){
-        warning(sum(failed), " of ", length(new_spectra_list), " spectra failed deconvolution and were skipped: ",
-                paste(names(new_spectra_list)[failed], collapse=", "))
+        msgs <- vapply(new_spectra_list[failed], function(z)
+            if(inherits(z, "decon_error")) as.character(z)
+            else "worker did not return a result (fork crash or fatal, non-R error)",
+            character(1))
+        rt <- sort(table(msgs), decreasing = TRUE)      # dedup identical reasons
+        decon_reasons <- paste(sprintf("%s (x%d)", names(rt), as.integer(rt)), collapse = "; ")
+        warning(sum(failed), " of ", length(new_spectra_list),
+                " spectra failed deconvolution and were skipped: ",
+                paste(names(new_spectra_list)[failed], collapse=", "),
+                ". Reason(s): ", decon_reasons)
     }
     new_spectra_list <- new_spectra_list[!failed]
 
     if(length(new_spectra_list) == 0){
-        stop("No spectra could be deconvoluted. Check that Spectra data frame has valid numeric Energy and CPS columns.")
+        stop("No spectra could be deconvoluted. Underlying error(s): ",
+             if(!is.null(decon_reasons)) decon_reasons else "unknown (workers failed without returning)",
+             ". Check numeric Energy/CPS and the deconvolution parameters (width/default_sigma/iter/physics) for this data.")
     }
 
     only_spectra_list <- list()
     only_areas_list <- list()
     only_background_list <- list()
+    only_arpls_list <- list()                        # per-spectrum arPLS baselines (may be NULL)
+    only_e1_list <- list()                           # per-spectrum E1 fitted baselines (NULL in legacy)
     for(i in seq_along(new_spectra_list)){
         only_spectra_list[[i]] <- new_spectra_list[[i]]$Spectra
         only_areas_list[[i]] <- new_spectra_list[[i]]$Areas
-        if(baseline==TRUE){only_background_list[[i]] <- new_spectra_list[[i]]$Baseline}
+        if(baseline==TRUE){
+            only_background_list[[i]] <- new_spectra_list[[i]]$Baseline
+            only_arpls_list[[i]] <- new_spectra_list[[i]]$arPLS
+            only_e1_list[[i]]    <- new_spectra_list[[i]]$E1
+        }
     }
     new_spectra_frame <- as.data.frame(rbindlist(only_spectra_list))
     new_area_frame <- as.data.frame(rbindlist(only_areas_list))
     new_baseline_frame <- NULL                       # per-channel SNIP baseline (Spectrum/Energy/CPS); feeds the LOD filter
+    new_arpls_frame <- NULL                          # per-channel arPLS baseline (physics-free, always built)
+    new_e1_frame <- NULL                             # per-channel E1 fitted baseline (only when off-legacy)
     if(baseline==TRUE){
         new_baseline_frame <- as.data.frame(rbindlist(only_background_list))
         new_area_frame$Baseline <- aggregate(CPS ~ Spectrum, data = new_baseline_frame[,c("Spectrum", "CPS")], FUN = sum)$CPS
+        arpls_ok <- Filter(Negate(is.null), only_arpls_list)         # drop spectra where it couldn't be built
+        if(length(arpls_ok)) new_arpls_frame <- as.data.frame(rbindlist(arpls_ok))
+        e1_ok <- Filter(Negate(is.null), only_e1_list)
+        if(length(e1_ok)) new_e1_frame <- as.data.frame(rbindlist(e1_ok))
     }
     # FP mass estimate ($Mass). `mass_mode` (resolved at the top) selects fidelity: "off" = none;
     # "relative" = fast A/S (sensitivity once per batch); "full" = per-spectrum fundamental parameters
@@ -10819,7 +10877,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     if(baseline==FALSE){
         return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame))
     } else if(baseline==TRUE){
-        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame, Baseline=new_baseline_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter, ParamVersion=2, Physics=physics, MassFidelity=mass_mode)))
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame, Baseline=new_baseline_frame, arPLS=new_arpls_frame, E1=new_e1_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter, ParamVersion=2, Physics=physics, MassFidelity=mass_mode)))
     }
     
 }
