@@ -231,6 +231,9 @@ tags$hr()
 
 tabPanel("Notes",
 uiOutput('notesui')),
+
+tabPanel("Metadata",
+dataTableOutput('metadataTable')),
 #tabPanel("Debug", dataTableOutput('anomtest'))
 )
 

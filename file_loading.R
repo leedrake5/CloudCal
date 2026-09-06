@@ -217,8 +217,13 @@ mcaFrameMetadata <- function(filepath, filename=NULL){
     if(is.null(filename)) filename <- basename(filepath)
     fn <- make.names(gsub("[.]mca$", "", filename, ignore.case=TRUE))
     lines <- tryCatch(suppressWarnings(readLines(filepath, warn=FALSE, encoding="latin1")), error=function(e) character(0))
+    # Tolerate any KEY/VALUE separator ("LIVE_TIME - 100", "LIVE_TIME: 100", "LIVE_TIME 100"):
+    # take the LAST numeric token on the matched line. Previously only a dash separator parsed, so a
+    # space/colon-separated live time silently read NA -> no per-spectrum LiveTime -> E1 never fired.
     getnum <- function(key){ ln <- grep(key, lines, value=TRUE, ignore.case=TRUE)[1]
-        if(is.na(ln)) return(NA_real_); suppressWarnings(as.numeric(sub(".*-\\s*", "", ln))) }
+        if(is.na(ln)) return(NA_real_)
+        m <- regmatches(ln, gregexpr("[-+]?[0-9]*\\.?[0-9]+(?:[eE][-+]?[0-9]+)?", ln))[[1]]
+        if(length(m)) suppressWarnings(as.numeric(m[length(m)])) else NA_real_ }
     lt  <- getnum("^LIVE_TIME")
     # Amptek writes LIVE_TIME 0 at 100% dead time; the readers divide counts by
     # REAL_TIME in that case, so report the time the CPS was actually built with.

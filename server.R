@@ -1032,6 +1032,30 @@ shinyServer(function(input, output, session) {
         output$spectraframestuff <- renderDataTable({
             myData()
         })
+
+        # --- Metadata tab (Spectrum page) -------------------------------------------------------
+        # Per-spectrum metadata the deconvolution reads (myMetaData(), or a loaded cal's stored
+        # SpectraMetadata), augmented with the scatter geometry when the deconvolution auto-inferred it
+        # from the anode Rayleigh/Compton split -- so the angle/broadening actually used are recorded here.
+        output$metadataTable <- renderDataTable({
+            md <- tryCatch(myMetaData(), error=function(e) NULL)
+            if(is.null(md)) md <- tryCatch(calMemory$Calibration$SpectraMetadata, error=function(e) NULL)
+            if(is.null(md) || !is.data.frame(md))
+                return(data.frame(Message="No metadata parsed for the current source (load spectra or a cal file)."))
+            # Inferred scatter geometry lives in the deconvolution's Parameters$Physics$.scatter_geometry
+            # (batch-level: one value per run). Prefer the live deconvolution, fall back to the committed one.
+            phys <- tryCatch(dataHoldDeconvolution()$Parameters$Physics, error=function(e) NULL)
+            if(is.null(phys)) phys <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$Physics, error=function(e) NULL)
+            sg <- tryCatch(phys$.scatter_geometry, error=function(e) NULL)
+            if(!is.null(sg) && isTRUE(sg$inferred)){
+                md$ScatterAngle_deg   <- round(as.numeric(sg$scatter_angle_deg), 2)
+                md$ComptonBroadening  <- round(as.numeric(sg$compton_broadening), 3)
+                if(!is.null(sg$e_rayleigh)) md$Rayleigh_keV <- round(as.numeric(sg$e_rayleigh), 3)
+                if(!is.null(sg$e_compton)) md$Compton_keV  <- round(as.numeric(sg$e_compton), 3)
+                md$GeometrySource     <- "inferred (Rayleigh/Compton)"
+            }
+            md
+        })
         
         
         
@@ -1183,7 +1207,21 @@ shinyServer(function(input, output, session) {
         deconvolution_data
 
         })
-        
+
+        # Gate the Spectrum-page "Compton Type" selector's E1 option on whether the LIVE deconvolution
+        # actually computed an E1 baseline (scatter-background fit -> needs a tube + LiveTime). Without a
+        # real E1, picking it silently falls back to the SNIP baseline (SNIP==E1). Mirrors the cal-side
+        # ROI Type gate. isolate(input$compton_type) so updating the selector does not re-trigger this.
+        observe({
+            decon <- tryCatch(dataHoldDeconvolution(), error=function(e) NULL)
+            e1_available <- !is.null(tryCatch(decon$E1, error=function(e) NULL))
+            cur <- isolate(input$compton_type)
+            ch <- c("Raw"="Raw", "SNIP"="Baseline", "arPLS"="arPLS")
+            if(isTRUE(e1_available) || identical(as.character(cur), "E1")) ch <- c(ch, "E1"="E1")
+            keep <- if(!is.null(cur) && cur %in% ch) cur else "Raw"
+            updateSelectInput(session, "compton_type", choices=ch, selected=keep)
+        })
+
         dataHoldDeconvolutionSpectra <- reactive({
 
             tryCatch(dataHoldDeconvolution()$Spectra, error=function(e) NULL)
@@ -4663,12 +4701,16 @@ shinyServer(function(input, output, session) {
             req(input$radiocal)
             sel <- comptonTypeSelection()
             # "SNIP" is the display label for the stored value "Baseline" (backward-compatible). arPLS is
-            # always available; E1 only when advanced physics are on (off-legacy) or a loaded cal already
-            # carries an E1 baseline, or it is the currently-stored selection. Net kept for compatibility.
-            off_legacy <- (!is.null(input$deconvolutionmode) && nzchar(input$deconvolutionmode) && input$deconvolutionmode != "legacy") ||
-                          !is.null(tryCatch(calMemory$Calibration$Deconvoluted$E1, error=function(e) NULL))
+            # physics-free so always computed and always offered. E1 is offered ONLY when the loaded
+            # deconvolution actually CARRIES a computed E1 baseline: E1 needs the scatter-background fit
+            # (a tube (anode+kV) + per-spectrum LiveTime), which a non-legacy MODE alone does NOT guarantee
+            # -- $Mass and $arPLS populate without it. Offering E1 on mode-alone let a user pick E1 and get
+            # the SNIP baseline via the never-return-NULL fallback (SNIP==E1, byte-identical). Gate on real
+            # E1 presence instead. Keep it if it is the STORED selection so a saved cal's normalization
+            # choice is never silently switched out from under it (that cal already resolves E1->SNIP).
+            e1_available <- !is.null(tryCatch(calMemory$Calibration$Deconvoluted$E1, error=function(e) NULL))
             ch <- c("Raw"="Raw", "SNIP"="Baseline", "arPLS"="arPLS")
-            if(isTRUE(off_legacy) || identical(as.character(sel), "E1")) ch <- c(ch, "E1"="E1")
+            if(isTRUE(e1_available) || identical(as.character(sel), "E1")) ch <- c(ch, "E1"="E1")
             ch <- c(ch, "Net"="Net")
             selectInput('comptontype', label=h6("ROI Type"), choices=ch, selected=sel)
 
