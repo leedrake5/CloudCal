@@ -281,6 +281,163 @@ try(testServer(app, {
     message(sprintf("    %-34s %s", ap$name, ap$note))
 
     # ------------------------------------------------------------------
+    # Classic Lucas-Tooth (1961) cross-product mode: the LTCross/LTWeight
+    # checkbox path. Covers frame construction under each normalization,
+    # the 1961 weighting, alias-dropping, CalTable round-trip, and apply
+    # parity through cloudCalPredict. The additive default is asserted
+    # first so the legacy path stays pinned.
+    # ------------------------------------------------------------------
+    message("  -- classic Lucas-Tooth (1961) --")
+    lt_case <- function(nm, fun){
+        res <- list(name = nm, ok = FALSE, note = "")
+        t0 <- Sys.time()
+        tryCatch({
+            note <- fun()
+            res$ok <- TRUE
+            res$note <- sprintf("%s (%.1fs)", if (is.character(note)) note else "ok",
+                                as.numeric(Sys.time() - t0, units = "secs"))
+        }, error = function(e){
+            res$note <<- paste0("ERROR: ", conditionMessage(e),
+                                sprintf(" (%.1fs)", as.numeric(Sys.time() - t0, units = "secs")))
+        })
+        env$out[[nm]] <- res
+        message(sprintf("    %-34s %s", nm, res$note))
+    }
+    lt_setup <- function(slopes, ltcross = "Classic", ltweight = "1961", normtype = 1,
+                         intercepts = NULL, ctype = "Raw"){
+        session$setInputs(calcurveelement = CLASSIC_EL, radiocal = 3, normcal = normtype,
+                          comptonmin = roi_win_lt[1], comptonmax = roi_win_lt[2], comptontype = ctype)
+        minimal_holds(CLASSIC_EL, slopes = slopes, intercepts = intercepts)
+        basichold$normtype <- normtype
+        basichold$normmin <- roi_win_lt[1]; basichold$normmax <- roi_win_lt[2]
+        lucashold$ltcross <- ltcross; lucashold$ltweight <- ltweight
+        vals$keeprows <- rep(TRUE, nrow(cal$Values))
+    }
+    emax_lt <- max(cal$Spectra$Energy, na.rm = TRUE)
+    roi_win_lt <- round(c(0.38, 0.48) * emax_lt, 2)
+
+    lt_case("LT additive default pinned", function(){
+        lt_setup(slopes = CLASSIC_EL, ltcross = "Additive", normtype = 2, intercepts = INTERCEPT_EL)
+        dat <- lucasToothModelSet()$data
+        stopifnot(!any(grepl("^Slope_|^Intercept_", colnames(dat))))
+        fit <- lucasToothModel()
+        stopifnot(is.null(fit$weights),
+                  identical(as.character(lucasToothModelSet()$parameters$CalTable$LTCross), "Additive"))
+        sprintf("cols=%s", paste(colnames(dat), collapse = ","))
+    })
+
+    lt_case("LT classic self-slope (I^2)", function(){
+        lt_setup(slopes = CLASSIC_EL, normtype = 1)
+        dat <- lucasToothModelSet()$data
+        sc <- paste0("Slope_", CLASSIC_EL)
+        stopifnot(sc %in% colnames(dat),
+                  isTRUE(all.equal(dat[[sc]], dat$Intensity^2)))
+        fit <- lucasToothModel()
+        preds <- as.numeric(predict(fit, newdata = dat))
+        okp <- is.finite(preds) & is.finite(dat$Concentration)
+        stopifnot(sum(okp) >= 10, !is.null(fit$weights))
+        sprintf("r=%.2f", suppressWarnings(cor(preds[okp], dat$Concentration[okp])))
+    })
+
+    lt_case("LT classic multi-slope + no intercept cols", function(){
+        other <- setdiff(lines_avail, CLASSIC_EL)[1]
+        lt_setup(slopes = c(CLASSIC_EL, other), normtype = 1, intercepts = INTERCEPT_EL)
+        dat <- lucasToothModelSet()$data
+        stopifnot(paste0("Slope_", other) %in% colnames(dat),
+                  !any(grepl("^Intercept_", colnames(dat))))
+        raw <- cal$Intensities[[CLASSIC_EL]][match(as.character(dat$Spectrum),
+                                                   as.character(cal$Intensities$Spectrum))]
+        stopifnot(isTRUE(all.equal(dat$Intensity, as.numeric(raw))))  # un-warped under Time norm
+        stopifnot(!is.null(lucasToothModel()))
+        sprintf("cols=%d", ncol(dat))
+    })
+
+    for (nt in c(2, 3)) lt_case(sprintf("LT classic normtype=%d", nt), local({nt_ <- nt; function(){
+        lt_setup(slopes = CLASSIC_EL, normtype = nt_)
+        dat <- lucasToothModelSet()$data
+        raw <- cal$Intensities[[CLASSIC_EL]][match(as.character(dat$Spectrum),
+                                                   as.character(cal$Intensities$Spectrum))]
+        stopifnot(!isTRUE(all.equal(dat$Intensity, as.numeric(raw))))  # Intensity IS normalized
+        stopifnot(!is.null(lucasToothModel()))
+        "normalized ok"
+    }}))
+
+    if (!is.null(cal$Deconvoluted)) lt_case("LT classic ROI Baseline", function(){
+        lt_setup(slopes = CLASSIC_EL, normtype = 3, ctype = "Baseline")
+        stopifnot(!is.null(lucasToothModel()))
+        "ok"
+    }) else message("    (skipping LT classic ROI Baseline - no Deconvoluted slot)")
+
+    lt_case("LT classic weighting off", function(){
+        lt_setup(slopes = CLASSIC_EL, ltweight = "None", normtype = 1)
+        fit <- lucasToothModel()
+        stopifnot(is.null(fit$weights),
+                  identical(as.character(lucasToothModelSet()$parameters$CalTable$LTWeight), "None"))
+        "OLS ok"
+    })
+
+    if ("Total" %in% colnames(cal$Intensities)) lt_case("LT classic alias drop", function(){
+        # Under Total Counts, Slope_Total = I*(Total/Total) = I duplicates Intensity;
+        # the fit must drop it and keep a full-rank coefficient vector.
+        lt_setup(slopes = c(CLASSIC_EL, "Total"), normtype = 2)
+        fit <- lucasToothModel()
+        stopifnot(!any(is.na(coef(fit))), !"Slope_Total" %in% names(coef(fit)))
+        "aliased term dropped"
+    }) else message("    (skipping LT classic alias drop - no Total column)")
+
+    lt_case("LT classic CalTable round-trip", function(){
+        lt_setup(slopes = CLASSIC_EL, normtype = 1)
+        packed <- modelPack(parameters = lucasToothModelSet()$parameters,
+                            model = lucasToothModel(), table = NULL, compress = TRUE)
+        stopifnot(identical(as.character(packed$Parameters$CalTable$LTCross), "Classic"),
+                  identical(as.character(packed$Parameters$CalTable$LTWeight), "1961"))
+        restored <- importCalConditions(element = CLASSIC_EL,
+            calList = setNames(list(packed), CLASSIC_EL), number.of.standards = sum(vals$keeprows))
+        stopifnot(identical(as.character(restored$CalTable$LTCross), "Classic"),
+                  identical(as.character(restored$CalTable$LTWeight), "1961"))
+        legacy <- packed
+        legacy$Parameters$CalTable$LTCross <- NULL
+        legacy$Parameters$CalTable$LTWeight <- NULL
+        restored2 <- importCalConditions(element = CLASSIC_EL,
+            calList = setNames(list(legacy), CLASSIC_EL), number.of.standards = sum(vals$keeprows))
+        stopifnot(identical(as.character(restored2$CalTable$LTCross), "Additive"),
+                  identical(as.character(restored2$CalTable$LTWeight), "1961"))
+        env$lt_packed <- packed
+        "fields survive; legacy defaults restored"
+    })
+
+    lt_case("LT classic apply parity", function(){
+        stopifnot(!is.null(env$lt_packed))
+        lt_setup(slopes = CLASSIC_EL, normtype = 1)
+        direct <- as.numeric(predict(lucasToothModel(),
+            newdata = lucasToothModelSet()$data))
+        names(direct) <- as.character(lucasToothModelSet()$data$Spectrum)
+        cal2 <- cal
+        cal2$calList[[CLASSIC_EL]] <- env$lt_packed
+        pred <- suppressWarnings(cloudCalPredict(Calibration = cal2, elements.cal = CLASSIC_EL,
+            elements = CLASSIC_EL, variables = lines_avail, valdata = cal$Spectra,
+            deconvoluted_valdata = cal$Deconvoluted, rounding = 6, multiplier = 1, cores = 2))
+        a <- suppressWarnings(as.numeric(pred[[CLASSIC_EL]]))
+        b <- direct[match(as.character(pred$Spectrum), names(direct))]
+        okp <- is.finite(a) & is.finite(b)
+        stopifnot(sum(okp) >= 10, suppressWarnings(cor(a[okp], b[okp])) > 0.999)
+        sprintf("n=%d r=%.4f", sum(okp), suppressWarnings(cor(a[okp], b[okp])))
+    })
+
+    lt_case("LT classic stripped weighted CI", function(){
+        lt_setup(slopes = CLASSIC_EL, normtype = 1)
+        fit <- lucasToothModel()
+        X <- lucasToothModelSet()$data
+        st <- strip::strip(fit, keep = c("predict", "summary"))
+        ci <- suppressWarnings(predict(st, newdata = X, interval = "confidence"))
+        stopifnot(all(is.finite(ci)))
+        "finite lwr/upr"
+    })
+
+    # restore additive defaults so the sweeps below run the legacy path
+    lucashold$ltcross <- "Additive"; lucashold$ltweight <- "1961"
+
+    # ------------------------------------------------------------------
     # Customization sweeps: users can combine any normalization with any
     # model type, and (for spectra models) any transformation x compression.
     # Each combo rebuilds the model frame from scratch and fits.

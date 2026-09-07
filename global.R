@@ -3790,6 +3790,113 @@ lucas_comp_prep_xrf_net <- function(data, spectra.line.table, deconvolution=NULL
 lucas_comp_prep_xrf_net <- cmpfun(lucas_comp_prep_xrf_net)
 
 
+lt_is_classic <- function(lt.cross){
+    lt.cross <- tryCatch(as.character(lt.cross)[1], error=function(e) NA_character_)
+    length(lt.cross)==1 && !is.na(lt.cross) && lt.cross=="Classic"
+}
+
+lt_cross_of <- function(element.cal){
+    lt_is_classic(tryCatch(element.cal[["Parameters"]]$CalTable$LTCross[1], error=function(e) NA_character_))
+}
+
+lucas_classic_prep_xrf <- function(data=NULL, spectra.line.table, deconvolution=NULL, element.line, slope.element.lines, norm.type=1, norm.min=NULL, norm.max=NULL, compton.type="Raw", data.type="Spectra", spectrum.ids=NULL){
+
+    # Classic Lucas-Tooth & Price (1961), eq. 1: P = a + I*(k0 + sum_x k_x*I_x).
+    # Emits the expanded regression columns - Intensity (the k0 term) and one
+    # Slope_<line> product column per corrector; selecting the analyte itself
+    # gives the paper's quadratic self term. Every column shares one divisor so
+    # the products stay on a consistent scale.
+
+    if(is.null(spectrum.ids) && "Spectrum" %in% colnames(spectra.line.table)){
+        spectrum.ids <- spectra.line.table[["Spectrum"]]
+    }
+
+    divisor <- rep(1, nrow(spectra.line.table))
+    if(data.type=="Net"){
+        if(norm.type==2){
+            divisor <- rowSums(spectra.line.table[, !colnames(spectra.line.table) %in% c("Spectrum", "Concentration"), drop=FALSE], na.rm=TRUE)
+        }
+        # norm.type 3 on net counts has no spectrum to window; divisor stays 1,
+        # matching the legacy _net preps.
+    } else if(norm.type %in% c(2, 3)){
+        src <- deconvolution_norm_source(data, deconvolution, compton.type)
+        if(!is.null(spectrum.ids) && "Spectrum" %in% colnames(src)){
+            src <- src[src$Spectrum %in% spectrum.ids, ]
+        }
+        if(norm.type==3){
+            src <- src[!(src$Energy < norm.min | src$Energy > norm.max), , drop=FALSE]
+        }
+        agg <- fastAggCPS(src$CPS, src$Spectrum, "sum")
+        colnames(agg) <- c("Spectrum", "Div")
+        divisor <- if(!is.null(spectrum.ids)){
+            agg$Div[match(spectrum.ids, agg$Spectrum)]
+        } else {
+            agg$Div
+        }
+    }
+    divisor[!is.finite(divisor) | divisor==0] <- 1
+
+    intensity <- spectra.line.table[, element.line]/divisor
+
+    slope.lines <- unique(as.character(slope.element.lines))
+    slope.lines <- slope.lines[!slope.lines %in% c("None", "NoneNull")]
+    slope.lines <- slope.lines[slope.lines %in% colnames(spectra.line.table)]
+
+    predict.frame.classic <- data.frame(Intensity=intensity, stringsAsFactors=FALSE)
+    for(slope.line in slope.lines){
+        predict.frame.classic[[paste0("Slope_", slope.line)]] <- intensity*(spectra.line.table[, slope.line]/divisor)
+    }
+
+    predict.frame.classic
+}
+lucas_classic_prep_xrf <- cmpfun(lucas_classic_prep_xrf)
+
+lucasToothFit <- function(predict.frame, lt.cross="Additive", lt.weight="None"){
+
+    predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop=FALSE]
+    notes <- character(0)
+
+    if(!lt_is_classic(lt.cross)){
+        return(list(Model=lm(Concentration~., data=predict.frame, na.action=na.omit), Notes=notes))
+    }
+
+    fit.weights <- NULL
+    if(identical(as.character(lt.weight)[1], "1961")){
+        # The 1961 paper solves the equation divided through by the analyte
+        # intensity (their J matrix); weights of 1/I^2 reproduce that fit exactly
+        # while keeping the model in concentration space, and condition the
+        # cross-product design so the shared factor I cannot alias the terms.
+        abs.intensity <- abs(predict.frame$Intensity)
+        weight.floor <- max(max(abs.intensity, na.rm=TRUE)*1e-9, .Machine$double.eps)
+        fit.weights <- 1/pmax(abs.intensity, weight.floor)^2
+    }
+
+    n.rows <- sum(complete.cases(predict.frame))
+    n.coef <- ncol(predict.frame)
+    if(n.rows <= n.coef){
+        notes <- c(notes, sprintf("Classic Lucas-Tooth: %d coefficients but only %d standards - the fit is underdetermined; drop slope lines or add standards.", n.coef, n.rows))
+    }
+
+    lc.model <- if(is.null(fit.weights)){
+        lm(Concentration~., data=predict.frame, na.action=na.omit)
+    } else {
+        lm(Concentration~., data=predict.frame, weights=fit.weights, na.action=na.omit)
+    }
+
+    aliased <- intersect(names(coef(lc.model))[is.na(coef(lc.model))], colnames(predict.frame))
+    if(length(aliased) > 0){
+        predict.frame <- predict.frame[, !colnames(predict.frame) %in% aliased, drop=FALSE]
+        lc.model <- if(is.null(fit.weights)){
+            lm(Concentration~., data=predict.frame, na.action=na.omit)
+        } else {
+            lm(Concentration~., data=predict.frame, weights=fit.weights, na.action=na.omit)
+        }
+        notes <- c(notes, paste0("Classic Lucas-Tooth: dropped collinear term(s): ", paste(aliased, collapse=", ")))
+    }
+
+    list(Model=lc.model, Notes=notes)
+}
+
 
 blank.data.frame <- data.frame(rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), rep(0, length(standard)), stringsAsFactors=FALSE)
 colnames(blank.data.frame) <- standard
@@ -6650,8 +6757,14 @@ predictIntensityForest <- function(predict.frame){
     predict.frame[,!(colnames(predict.frame) %in% "Concentration")]
 }
 
-predictIntensityLucPreGen <- function(spectra, hold.frame, deconvolution = NULL, element, intercepts=NULL, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw"){
-    
+predictIntensityLucPreGen <- function(spectra, hold.frame, deconvolution = NULL, element, intercepts=NULL, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw", lt.cross="Additive"){
+
+    if(lt_is_classic(lt.cross)){
+        # Classic 1961 mode: cross-product slope columns; intercept lines have no
+        # role in the paper's equation and are deliberately not forwarded.
+        return(lucas_classic_prep_xrf(data=spectra, spectra.line.table=hold.frame, deconvolution=deconvolution, element.line=element, slope.element.lines=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, compton.type=compton.type, data.type=data.type, spectrum.ids=hold.frame$Spectrum))
+    }
+
     predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
 
     # drop=FALSE: with a single slope line (or an unsynced empty slope hold) the
@@ -6664,11 +6777,11 @@ predictIntensityLucPreGen <- function(spectra, hold.frame, deconvolution = NULL,
     
 }
 
-predictFrameLucGen <- function(seed=1, spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", deconvolution = NULL, norm.type, norm.min=NULL, norm.max=NULL, compton.type="Raw", data.type="Spectra", y_min=0, y_max=1){
+predictFrameLucGen <- function(seed=1, spectra, hold.frame, element, intercepts=NULL, slopes, dependent.transformation="None", deconvolution = NULL, norm.type, norm.min=NULL, norm.max=NULL, compton.type="Raw", data.type="Spectra", y_min=0, y_max=1, lt.cross="Additive"){
 
     spectra.line.table <- hold.frame
 
-    predict.intensity.luc <- predictIntensityLucPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, intercepts=intercepts, slopes=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
+    predict.intensity.luc <- predictIntensityLucPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, intercepts=intercepts, slopes=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type, lt.cross=lt.cross)
 
     # Include Spectrum for proper data linkage (preserves standard identity)
     predict.frame.luc <- data.frame(
@@ -7352,14 +7465,30 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==1){
                  mclPred(
                     object=the.cal[[x]][["Model"]],
-                    newdata=lucas_simp_prep_xrf(
+                    newdata=if(lt_cross_of(the.cal[[x]])){
+                        lucas_classic_prep_xrf(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
+                                ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            norm.type=1,
+                            data.type="Spectra",
+                            spectrum.ids=count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]$Spectrum
+                            )
+                    } else {
+                        lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                        )
+                    },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7368,7 +7497,22 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][["Model"]],
-                    newdata=lucas_tc_prep_xrf(
+                    newdata=if(lt_cross_of(the.cal[[x]])){
+                        lucas_classic_prep_xrf(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
+                                ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            norm.type=2,
+                            data.type="Spectra",
+                            spectrum.ids=count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]$Spectrum
+                            )
+                    } else {
+                        lucas_tc_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
@@ -7378,7 +7522,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                        )
+                    },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -7387,7 +7532,24 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==3){
                 mclPred(
                     object=the.cal[[x]][["Model"]],
-                    newdata=lucas_comp_prep_xrf(
+                    newdata=if(lt_cross_of(the.cal[[x]])){
+                        lucas_classic_prep_xrf(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
+                                ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            norm.type=3,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1],
+                            data.type="Spectra",
+                            spectrum.ids=count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]$Spectrum
+                            )
+                    } else {
+                        lucas_comp_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
@@ -7399,7 +7561,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                            ),
+                            )
+                    },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -8002,14 +8165,30 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==1){
                  mclPred(
                     object=the.cal[[x]][["Model"]],
-                    newdata=lucas_simp_prep_xrf(
+                    newdata=if(lt_cross_of(the.cal[[x]])){
+                        lucas_classic_prep_xrf(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
+                                ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            norm.type=1,
+                            data.type="Spectra",
+                            spectrum.ids=count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]$Spectrum
+                            )
+                    } else {
+                        lucas_simp_prep_xrf(
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                        )
+                    },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -8018,7 +8197,25 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][["Model"]],
-                    newdata=lucas_tc_prep_xrf(
+                    newdata=if(lt_cross_of(the.cal[[x]])){
+                        # Classic passes the raw val spectra and lets the stored
+                        # ComptonType pick the divisor slot, rather than the legacy
+                        # quirk of handing the whole deconvolution list to `data`.
+                        lucas_classic_prep_xrf(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]][,variables]
+                                ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            norm.type=2,
+                            data.type="Spectra",
+                            spectrum.ids=count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]$Spectrum
+                            )
+                    } else {
+                        lucas_tc_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]][,variables]
@@ -8028,7 +8225,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             element.line=x,
                             slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                             intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                            ),
+                            )
+                    },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -8037,7 +8235,27 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==3){
                 mclPred(
                     object=the.cal[[x]][["Model"]],
-                    newdata=lucas_comp_prep_xrf(
+                    newdata=if(lt_cross_of(the.cal[[x]])){
+                        # Classic passes the raw val spectra and lets the stored
+                        # ComptonType pick the divisor slot, rather than the legacy
+                        # quirk of handing the whole deconvolution list to `data`.
+                        lucas_classic_prep_xrf(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
+                                ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            norm.type=3,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1],
+                            data.type="Spectra",
+                            spectrum.ids=count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]$Spectrum
+                            )
+                    } else {
+                        lucas_comp_prep_xrf(
                         data=deconvoluted_valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
@@ -8049,7 +8267,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                            ),
+                            )
+                    },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -8651,14 +8870,30 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][["Model"]],
-                    newdata=lucas_simp_prep_xrf_net(
+                    newdata=if(lt_cross_of(the.cal[[x]])){
+                        lucas_classic_prep_xrf(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                                count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                                ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            norm.type=1,
+                            data.type="Net",
+                            spectrum.ids=count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]$Spectrum
+                            )
+                    } else {
+                        lucas_simp_prep_xrf_net(
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                        ),
+                        )
+                    },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -8667,7 +8902,22 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==2){
                 mclPred(
                     object=the.cal[[x]][["Model"]],
-                    newdata=lucas_tc_prep_xrf_net(
+                    newdata=if(lt_cross_of(the.cal[[x]])){
+                        lucas_classic_prep_xrf(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                                count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                                ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            norm.type=2,
+                            data.type="Net",
+                            spectrum.ids=count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]$Spectrum
+                            )
+                    } else {
+                        lucas_tc_prep_xrf_net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
@@ -8677,7 +8927,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             element.line=x,
                             slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                             intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
-                            ),
+                            )
+                    },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,
@@ -8686,7 +8937,24 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==3){
                 mclPred(
                     object=the.cal[[x]][["Model"]],
-                    newdata=lucas_comp_prep_xrf_net(
+                    newdata=if(lt_cross_of(the.cal[[x]])){
+                        lucas_classic_prep_xrf(
+                            data=valdata,
+                            spectra.line.table=as.data.frame(
+                                count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                                ),
+                            deconvolution = deconvoluted_valdata,
+                            compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
+                            element.line=x,
+                            slope.element.lines=the.cal[[x]][[1]][2]$Slope,
+                            norm.type=3,
+                            norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
+                            norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1],
+                            data.type="Net",
+                            spectrum.ids=count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]$Spectrum
+                            )
+                    } else {
+                        lucas_comp_prep_xrf_net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
                             count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
@@ -8698,7 +8966,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             intercept.element.lines=the.cal[[x]][[1]][3]$Intercept,
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
-                            ),
+                            )
+                    },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
                         ymin=the.cal[[x]][[1]][1]$Scale$Min,
                         ymax=the.cal[[x]][[1]][1]$Scale$Max,

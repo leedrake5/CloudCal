@@ -256,6 +256,8 @@ Where:
 
 This extends simple linear regression (y = mx + b) by accounting for matrix effects where one element's fluorescence influences another's measured intensity.
 
+By default the Lucas-Tooth model fits the correction lines additively (`Concentration ~ Intensity + I_1 + I_2 + ...`). Checking **Cross-product matrix correction (Lucas-Tooth 1961)** on the calCurves page fits the equation above literally — each selected slope line enters as an I<sub>i</sub>·I<sub>n</sub> cross-product, and the companion **1961 intensity weighting** checkbox reproduces the paper's original relative-error least-squares fit. See MODELS.md §3 for details.
+
 ### Why Calibrate?
 1. **Estimate concentrations** from X-ray spectra
 2. **Account for matrix variation** in different sample types

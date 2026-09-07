@@ -23,3 +23,5 @@ DECONVOLUTION_INTEGRATION_PLAN.md
 DECONVOLUTION_EXPLAINED.md
 PYMCA_FIDELITY_PLAN.md
 Rplots.pdf
+/.localagent
+.localagent/code_graph.json

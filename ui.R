@@ -445,6 +445,10 @@ selectInput('linestructureelement', "Choose Line Calculation", choices=c("gaussi
 
 uiOutput('calTypeInput'),
 
+uiOutput('ltCrossUI'),
+
+uiOutput('ltWeightUI'),
+
 uiOutput('xgbtypeui'),
 
 uiOutput('bayesparameterui'),

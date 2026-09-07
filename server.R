@@ -4480,10 +4480,27 @@ shinyServer(function(input, output, session) {
                 }
             }
         })
-        
-        
-        
-        
+
+        # Classic Lucas-Tooth fields. Old .quants load raw calLists that predate the
+        # LTCross/LTWeight columns, so these must self-default rather than lean on
+        # calConditions$hold (which is seeded from the same old entry).
+        calLTCrossSelectionPre <- reactive({
+            req(input$calcurveelement)
+            ct <- tryCatch(calSettings$calList[[input$calcurveelement]][[1]]$CalTable, error=function(e) NULL)
+            lt <- if(!is.null(ct) && "LTCross" %in% colnames(ct)) as.character(ct$LTCross[1]) else NA_character_
+            if(length(lt)!=1 || is.na(lt) || !lt %in% c("Additive", "Classic")) "Additive" else lt
+        })
+
+        calLTWeightSelectionPre <- reactive({
+            req(input$calcurveelement)
+            ct <- tryCatch(calSettings$calList[[input$calcurveelement]][[1]]$CalTable, error=function(e) NULL)
+            lt <- if(!is.null(ct) && "LTWeight" %in% colnames(ct)) as.character(ct$LTWeight[1]) else NA_character_
+            if(length(lt)!=1 || is.na(lt) || !lt %in% c("None", "1961")) "1961" else lt
+        })
+
+
+
+
         ########Machine Learning: Normalization
         
         normMinPre <- reactive({
@@ -4834,10 +4851,37 @@ shinyServer(function(input, output, session) {
         output$inVar3 <- renderUI({
             req(input$radiocal)
 
-            if(input$radiocal %in% c(3, 4, 6, 8, 10, 12)){
+            # The classic 1961 equation has no additive intercept-line terms, so the
+            # selector is hidden while the cross-product mode is on (the stored
+            # selection survives in lucashold$intercept for when it is unchecked).
+            if(input$radiocal==3 && lt_is_classic(lucasLTCross())){
+                NULL
+            } else if(input$radiocal %in% c(3, 4, 6, 8, 10, 12)){
                 choices <- outVaralt2()
                 req(length(choices) > 0)
                 selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices = choices, selected = isolate(inVar3Selected()), multiple=TRUE)
+            } else {
+                NULL
+            }
+        })
+
+        output$ltCrossUI <- renderUI({
+            req(input$radiocal, input$calcurveelement)
+            if(input$radiocal==3){
+                # Element switches re-render this (calcurveelement dependency) so the
+                # box reflects the stored per-element LTCross rather than a stale hold.
+                checkboxInput("ltcross", "Cross-product matrix correction (Lucas-Tooth 1961)",
+                    value = lt_is_classic(calLTCrossSelectionPre()))
+            } else {
+                NULL
+            }
+        })
+
+        output$ltWeightUI <- renderUI({
+            req(input$radiocal, input$calcurveelement)
+            if(input$radiocal==3 && lt_is_classic(lucasLTCross())){
+                checkboxInput("ltweight", "1961 intensity weighting (relative-error fit)",
+                    value = isolate(identical(lucasLTWeight(), "1961")))
             } else {
                 NULL
             }
@@ -5547,10 +5591,10 @@ shinyServer(function(input, output, session) {
         })
         
         lucasToothParameters <- reactive(label="lucasToothParameters", {
-            list(CalTable=calConditionsTable(cal.type=3, line.type=basichold$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation()), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=3, line.type=basichold$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, lt.cross=lucasLTCross(), lt.weight=lucasLTWeight(), dependent.transformation=dependentTransformation()), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         lucasToothModelData <- reactive(label="lucasToothModelData", {
-            predictFrameLucGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=lucasToothParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=lucasToothParameters()$Intercept, slopes=lucasToothParameters()$Slope, norm.type=lucasToothParameters()$CalTable$NormType, norm.min=lucasToothParameters()$CalTable$Min, norm.max=lucasToothParameters()$CalTable$Max, compton.type=lucasToothParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
+            predictFrameLucGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=lucasToothParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=lucasToothParameters()$Intercept, slopes=lucasToothParameters()$Slope, norm.type=lucasToothParameters()$CalTable$NormType, norm.min=lucasToothParameters()$CalTable$Min, norm.max=lucasToothParameters()$CalTable$Max, compton.type=lucasToothParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax(), lt.cross=lucasToothParameters()$CalTable$LTCross)
         })
         output$holdframetest <- renderDataTable({
             lucasToothModelData()
@@ -5563,13 +5607,14 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
 
             predict.frame <- lucasToothModelSet()$data[alignKeep(lucasToothModelSet()$parameters$StandardsUsed, lucasToothModelSet()$data),]
-            # Exclude Spectrum from training predictors (kept for data linkage only)
-            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
 
-            lc.model <- lm(Concentration~., data=predict.frame, na.action=na.omit)
-            
-            lc.model
-            
+            lc.fit <- lucasToothFit(predict.frame, lt.cross=lucasToothModelSet()$parameters$CalTable$LTCross, lt.weight=lucasToothModelSet()$parameters$CalTable$LTWeight)
+            for(lc.note in lc.fit$Notes){
+                tryCatch(showNotification(lc.note, type="warning", duration=10), error=function(e) message(lc.note))
+            }
+
+            lc.fit$Model
+
         })
         
         output$parallelmethodui <- renderUI({
@@ -11264,6 +11309,8 @@ shinyServer(function(input, output, session) {
             basichold$energyrange <- calEnergyRangePre()
             lucashold$intercept <- calInterceptSelectionPre()
             lucashold$slope <- calSlopeSelectionPre()
+            lucashold$ltcross <- calLTCrossSelectionPre()
+            lucashold$ltweight <- calLTWeightSelectionPre()
             foresthold$foresttry <- calForestTrySelectionpre()
             foresthold$forestmetric <- calForestMetricSelectionpre()
             foresthold$foresttrain <- calForestTCSelectionpre()
@@ -11315,6 +11362,8 @@ shinyServer(function(input, output, session) {
             basichold$energyrange <- calEnergyRangePre()
             lucashold$intercept <- calInterceptSelectionPre()
             lucashold$slope <- calSlopeSelectionPre()
+            lucashold$ltcross <- calLTCrossSelectionPre()
+            lucashold$ltweight <- calLTWeightSelectionPre()
             foresthold$foresttry <- calForestTrySelectionpre()
             foresthold$forestmetric <- calForestMetricSelectionpre()
             foresthold$foresttrain <- calForestTCSelectionpre()
@@ -11405,7 +11454,15 @@ shinyServer(function(input, output, session) {
         lucasIntercept <- reactive(label="lucasIntercept", {
             lucashold$intercept
         })
-        
+
+        lucasLTCross <- reactive(label="lucasLTCross", {
+            if(is.null(lucashold$ltcross)) "Additive" else lucashold$ltcross
+        })
+
+        lucasLTWeight <- reactive(label="lucasLTWeight", {
+            if(is.null(lucashold$ltweight)) "1961" else lucashold$ltweight
+        })
+
         forestTrySelection <- reactive(label="forestTrySelection", {
             foresthold$foresttry
         })
@@ -11664,7 +11721,19 @@ shinyServer(function(input, output, session) {
             if (identical(input$intercept_vars, isolate(lucashold$intercept))) return()
             lucashold$intercept <- input$intercept_vars
         }, ignoreNULL = FALSE)
-        
+
+        observeEvent(input$ltcross, {
+            new_ltcross <- if(isTRUE(input$ltcross)) "Classic" else "Additive"
+            if (identical(new_ltcross, isolate(lucashold$ltcross))) return()
+            lucashold$ltcross <- new_ltcross
+        })
+
+        observeEvent(input$ltweight, {
+            new_ltweight <- if(isTRUE(input$ltweight)) "1961" else "None"
+            if (identical(new_ltweight, isolate(lucashold$ltweight))) return()
+            lucashold$ltweight <- new_ltweight
+        })
+
         observeEvent(input$foresttry, {
             foresthold$foresttry <- input$foresttry
         })
@@ -13292,12 +13361,12 @@ shinyServer(function(input, output, session) {
         
         lucasToothModelRandom <- reactive(label="lucasToothModelRandom",{
             set.seed(input$randomize)
-            
+
             predict.frame <- calCurveFrameRandomized()
-            # Exclude Spectrum from training predictors (kept for data linkage only)
-            predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
-            cal.lm <- lm(Concentration~., data=predict.frame)
-            cal.lm
+            # lucasToothFit drops the Spectrum linkage column and, in classic 1961
+            # mode, recomputes the 1/I^2 weights from this randomized subset.
+            lc.fit <- lucasToothFit(predict.frame, lt.cross=lucasToothModelSet()$parameters$CalTable$LTCross, lt.weight=lucasToothModelSet()$parameters$CalTable$LTWeight)
+            lc.fit$Model
         })
         
         forestModelRandom <- reactive(label="forestModelRandom",{

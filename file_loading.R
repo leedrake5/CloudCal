@@ -2177,7 +2177,7 @@ wideLineTableSplit <- function(spectra, definition.table, elements, split_buffer
 }
 
 ###Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, plsncomp=NULL, cubistcommittees=NULL, cubistneighbors=NULL, glmnetalpha=NULL, glmnetlambda=NULL, marsprune=NULL, marsdegree=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, lt.cross=NULL, lt.weight=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, plsncomp=NULL, cubistcommittees=NULL, cubistneighbors=NULL, glmnetalpha=NULL, glmnetlambda=NULL, marsprune=NULL, marsdegree=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -2292,13 +2292,25 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
     } else if(!is.null(compton.type)){
         compton.type
     }
-    
+
+    lt.cross <- if(is.null(lt.cross)){
+        "Additive"
+    } else if(!is.null(lt.cross)){
+        as.character(lt.cross)
+    }
+
+    lt.weight <- if(is.null(lt.weight)){
+        "1961"
+    } else if(!is.null(lt.weight)){
+        as.character(lt.weight)
+    }
+
     foresttry <- if(is.null(foresttry)){
         5
     } else if(!is.null(foresttry)){
         foresttry
     }
-    
+
     forestmetric <- if(is.null(forestmetric)){
         "MAE"
     } else if(!is.null(forestmetric)){
@@ -2548,6 +2560,8 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
                 Min=norm.min,
                 Max=norm.max,
                 ComptonType=compton.type,
+                LTCross=lt.cross,
+                LTWeight=lt.weight,
                 DepTrans=dependent.transformation,
                 ForestTry=foresttry,
                 ForestMetric=forestmetric,
@@ -2738,6 +2752,8 @@ deleteCalConditions <- function(element, number.of.standards){
     glmnetlambda <- as.character("0.001-1")
     marsprune <- as.character("2-12")
     marsdegree <- as.character("1-2")
+    lt.cross <- as.character("Additive")
+    lt.weight <- as.character("1961")
 
     cal.table <- data.frame(
     CalType=cal.condition,
@@ -2753,6 +2769,8 @@ deleteCalConditions <- function(element, number.of.standards){
     Min=norm.min,
     Max=norm.max,
     ComptonType=compton.type,
+    LTCross=lt.cross,
+    LTWeight=lt.weight,
     DepTrans=dependent.transformation,
     ForestTry=foresttry,
     ForestMetric=forestmetric,
@@ -2874,6 +2892,8 @@ defaultCalConditions <- function(element, number.of.standards){
     glmnetlambda <- as.character("0.001-1")
     marsprune <- as.character("2-12")
     marsdegree <- as.character("1-2")
+    lt.cross <- as.character("Additive")
+    lt.weight <- as.character("1961")
 
     cal.table <- data.frame(
         CalType=cal.condition,
@@ -2894,6 +2914,8 @@ defaultCalConditions <- function(element, number.of.standards){
         Min=norm.min,
         Max=norm.max,
         ComptonType=compton.type,
+        LTCross=lt.cross,
+        LTWeight=lt.weight,
         DepTrans=dependent.transformation,
         ForestTry=foresttry,
         ForestMetric=forestmetric,
@@ -3077,6 +3099,26 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         default.cal.conditions$CalTable$DepTrans
     }
     
+    # Classic Lucas-Tooth fields: pre-classic .quants have neither column, so
+    # absent/foreign values collapse to the legacy additive behavior.
+    lt.cross <- if("LTCross" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$LTCross[1])
+    } else if(!"LTCross" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$LTCross
+    }
+    if(is.null(lt.cross) || length(lt.cross)==0 || is.na(lt.cross) || !lt.cross %in% c("Additive", "Classic")){
+        lt.cross <- "Additive"
+    }
+
+    lt.weight <- if("LTWeight" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$LTWeight[1])
+    } else if(!"LTWeight" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$LTWeight
+    }
+    if(is.null(lt.weight) || length(lt.weight)==0 || is.na(lt.weight) || !lt.weight %in% c("None", "1961")){
+        lt.weight <- "1961"
+    }
+
     foresttry <- if("ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
         as.numeric(as.character(imported.cal.conditions$CalTable$ForestTry[1]))
     } else if(!"ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
@@ -3459,6 +3501,8 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         Min=norm.min,
         Max=norm.max,
         ComptonType=compton.type,
+        LTCross=lt.cross,
+        LTWeight=lt.weight,
         DepTrans=dependent.transformation,
         ForestTry=foresttry,
         ForestMetric=forestmetric,
@@ -3632,6 +3676,26 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         default.cal.conditions$CalTable$DepTrans
     }
     
+    # Classic Lucas-Tooth fields: pre-classic .quants have neither column, so
+    # absent/foreign values collapse to the legacy additive behavior.
+    lt.cross <- if("LTCross" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$LTCross[1])
+    } else if(!"LTCross" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$LTCross
+    }
+    if(is.null(lt.cross) || length(lt.cross)==0 || is.na(lt.cross) || !lt.cross %in% c("Additive", "Classic")){
+        lt.cross <- "Additive"
+    }
+
+    lt.weight <- if("LTWeight" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$LTWeight[1])
+    } else if(!"LTWeight" %in% colnames(imported.cal.conditions$CalTable)){
+        default.cal.conditions$CalTable$LTWeight
+    }
+    if(is.null(lt.weight) || length(lt.weight)==0 || is.na(lt.weight) || !lt.weight %in% c("None", "1961")){
+        lt.weight <- "1961"
+    }
+
     foresttry <- if("ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
         as.numeric(as.character(imported.cal.conditions$CalTable$ForestTry[1]))
     } else if(!"ForestTry" %in% colnames(imported.cal.conditions$CalTable)){
@@ -4031,6 +4095,8 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     Min=norm.min,
     Max=norm.max,
     ComptonType=compton.type,
+    LTCross=lt.cross,
+    LTWeight=lt.weight,
     DepTrans=dependent.transformation,
     ForestTry=foresttry,
     ForestMetric=forestmetric,

@@ -57,7 +57,21 @@ Second-order polynomial regression on a single line intensity. Useful when self-
 
 ### 3. Lucas-Tooth
 
-The classical inter-element correction model of Lucas-Tooth & Price (1961): a linear model in which the analyte line's intensity is corrected by the intensities of other selected lines (slopes) and optional intercept lines, `Concentration ~ Intensity + I_1 + I_2 + ...`. This is the right tool when absorption and enhancement by co-occurring elements bias a simple linear fit — the classic example being Fe absorption effects in geological matrices. The `Slope` and `Intercept` entries in the saved parameters record exactly which lines were used.
+The inter-element correction model named for Lucas-Tooth & Price (1961). This is the right tool when absorption and enhancement by co-occurring elements bias a simple linear fit — the classic example being Fe absorption effects in geological matrices. It comes in two forms, chosen by the **Cross-product matrix correction (Lucas-Tooth 1961)** checkbox:
+
+**Additive (default, checkbox off).** A linear model in which the analyte line's intensity is joined additively by the intensities of the selected slope lines, with optional intercept lines, `Concentration ~ Intensity + I_1 + I_2 + ...`. This is CloudCal's long-standing behavior and what every previously saved calibration continues to use.
+
+**Classic 1961 (checkbox on).** The paper's equation (their eq. 1) fitted literally:
+
+```
+C = a + I·(κ₀ + Σ κ_x·I_x)
+```
+
+Each selected slope line enters as a cross-product of intensities — the fitted terms are `Intensity` (the κ₀ sensitivity) plus one `Slope_<line>` column per corrector holding `I·I_x`, so the model's coefficients read directly as the paper's x+2 constants: the regression intercept is `a`, the `Intensity` coefficient is `κ₀`, and each `Slope_<line>` coefficient is that line's influence coefficient `κ_x`. Selecting the analyte's own line as a slope (the default) produces the paper's quadratic self term `I²` — in their copper example, I_Cu appears inside its own correction. Intercept lines have no role in the 1961 equation, so the Intercept selector is hidden while the checkbox is on. Every column — analyte and correctors alike — is divided by the same normalization factor, so the products stay on one consistent scale across all three normalization types and every ROI source (Raw, SNIP, arPLS, E1, Net).
+
+The companion **1961 intensity weighting (relative-error fit)** checkbox (on by default) reproduces how the paper actually solved the least squares: they divided the whole equation by the analyte intensity and minimized Σ((C_chem − C_calc)/I)², arguing that a 5% and a 30% sample deserve equal *fractional* accuracy. Fitting the expanded equation with weights 1/I² is algebraically the same solve — and it is also what conditions the design matrix, since the raw cross-product columns all share the factor I and would otherwise be nearly collinear (the reason naive attempts at this model break `lm`). Near-zero analyte intensities have their weights floored so a blank standard cannot dominate the fit. Note the relative-error rationale strictly applies when the Concentration Transformation is `None`; with `Log`/`e`/`Scale` the weights act on the transformed scale. If the selected terms are still collinear (for example a slope line identical to the analyte under Time normalization) the aliased terms are dropped, refit, and reported in a notification rather than left as NA coefficients.
+
+The saved parameters record everything needed to reproduce the fit: `Slope` and `Intercept` list the lines used, and the CalTable's `LTCross` (`"Additive"`/`"Classic"`) and `LTWeight` (`"None"`/`"1961"`) record the mode — calibrations saved before these fields existed load as `Additive` and predict exactly as they always have.
 
 ### 4. Forest (Random Forest, Intensities) and 5. Rainforest (Random Forest, Spectra)
 
