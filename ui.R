@@ -583,7 +583,7 @@ tabPanel("Cal Curves",
         )
         ),
         wellPanel(
-            tags$b("Estimated Limit of Detection"),
+            tags$b("Estimated Detection Limits"),
             htmlOutput("lodtext")
         ),
         tags$hr(),

@@ -12910,30 +12910,38 @@ shinyServer(function(input, output, session) {
             calCurvePlotView()
         })
 
-        ## Limit of Detection / Quantification. Two complementary bases:
-        ##  - Calibration-curve LOD & LOQ (headline): LOD = 3*sigma0, LOQ = 10*sigma0
-        ##    (ICH/IUPAC multipliers), where sigma0 is a robust scale (MAD) of the
+        ## Limit of Detection / Quantification. Two different bases, one number each -
+        ## the panel shows just the two values and the definitions live in the hover
+        ## text, so the Cal Curves page stays uncluttered.
+        ##  - LOD = 3-sigma BLANK: the instrumental single-line counting noise on the
+        ##    bare line from baseline_lod_estimate() (peak-free shoulder noise, cross
+        ##    checked against Currie sqrt(background)/LiveTime when LiveTime is known),
+        ##    converted to concentration by the raw/linear sensitivity. The smallest
+        ##    amount separable from background; model-independent.
+        ##  - LOQ = 5-sigma MODEL MEASUREMENT: 5 * a robust scale (MAD) of the
         ##    residuals of ONLY the LOWEST-concentration standards to the SELECTED
-        ##    model's fit, in concentration units. Residuals come from valFrame()
-        ##    (the chosen model's predicted-vs-actual concentration, which is what
-        ##    the Cal Curves plot's r-squared reflects for Lucas-Tooth/ML and is
-        ##    transform-safe via mclValGen), so it conforms to the selected model.
-        ##    Using only the near-blank subset (not the whole-range residual SE)
-        ##    keeps it valid across wide dynamic ranges: the pooled residual SE is
-        ##    dominated by the large absolute scatter of high-concentration
-        ##    standards (heteroscedasticity) and grossly overstates the LOD (e.g.
-        ##    Nd 8.5-314 ppm gave a farcical 160 ppm). sigma0 is floored at the
-        ##    single-line counting noise (physical detection limit; also guards a
-        ##    degenerate near-tied low subset from collapsing the estimate).
-        ##  - Instrumental single-line 3-sigma-blank (reference): counting noise on
-        ##    the bare line from baseline_lod_estimate(), using the raw/linear
-        ##    sensitivity. Model-independent.
+        ##    model's fit, in concentration units. That is a measurement limit rather
+        ##    than a blank limit: above what concentration does this calibration return
+        ##    a usable number. Residuals come from valFrame() (the chosen model's
+        ##    predicted-vs-actual concentration, which is what the Cal Curves plot's
+        ##    r-squared reflects for Lucas-Tooth/ML and is transform-safe via
+        ##    mclValGen), so it conforms to the selected model. Using only the
+        ##    near-blank subset (not the whole-range residual SE) keeps it valid across
+        ##    wide dynamic ranges: the pooled residual SE is dominated by the large
+        ##    absolute scatter of high-concentration standards (heteroscedasticity) and
+        ##    grossly overstates the limit (e.g. Nd 8.5-314 ppm gave a farcical
+        ##    160 ppm). sigma_model is floored at the single-line counting noise - a
+        ##    model cannot measure better than counting statistics - which also guards
+        ##    a degenerate near-tied low subset from collapsing the estimate and keeps
+        ##    LOQ above LOD.
+        ## Either basis falls back to the other when its own inputs are missing;
+        ## lod_basis / loq_basis record which one produced each displayed number.
         lodEstimate <- reactive(label="lodEstimate", {
             req(input$calcurveelement)
             tryCatch({
                 ld <- linearModelSet()$data
                 if(is.null(ld) || !all(c("Concentration", "Intensity", "Spectrum") %in% names(ld))){
-                    return(list(inst_note="not_estimable", lod_cal=NA_real_, loq_cal=NA_real_))
+                    return(list(inst_note="not_estimable", lod=NA_real_, loq=NA_real_))
                 }
                 keep <- alignKeep(vals$keeprows, ld)
                 if(length(keep) != nrow(ld) || any(is.na(keep))) keep <- rep(TRUE, nrow(ld))
@@ -12962,10 +12970,11 @@ shinyServer(function(input, output, session) {
                     slope           = slope,
                     range.table     = calMemory$Calibration$Definitions)
 
-                ## Heteroscedasticity-robust calibration LOD/LOQ (near-blank anchored).
-                lod_cal <- NA_real_; loq_cal <- NA_real_; n_cal <- 0L; n_low_cal <- 0L
-                cal_method <- "lowend"
-                inst_lod_val <- if(isTRUE(inst$note=="ok") && is.finite(inst$lod)) inst$lod else NA_real_
+                ## --- 3-sigma blank (LOD) ---------------------------------------
+                blank_lod <- if(isTRUE(inst$note=="ok") && is.finite(inst$lod)) inst$lod else NA_real_
+
+                ## --- near-blank model measurement scatter (drives LOQ) ----------
+                sigma_model <- NA_real_; n_cal <- 0L; n_low_cal <- 0L
 
                 ## Model-conforming residuals in concentration units: prefer valFrame()
                 ## (selected model's predicted vs actual concentration; transform-safe),
@@ -12999,33 +13008,38 @@ shinyServer(function(input, output, session) {
                     n_low <- min(n_r, max(8L, ceiling(0.25 * n_r)))
                     e_low <- rc$resid[seq_len(n_low)]
                     unbias <- 1 / (1 - 3/(4*n_low))
-                    sigma0 <- stats::mad(e_low) * unbias
-                    if(!is.finite(sigma0) || sigma0 == 0) sigma0 <- stats::sd(e_low) * unbias
-                    ## Physical floor: detection cannot beat single-line counting
-                    ## statistics; also guards a near-tied low subset from collapsing.
-                    if(is.finite(inst_lod_val)) sigma0 <- max(sigma0, inst_lod_val/3)
-                    if(is.finite(sigma0) && sigma0 > 0){
-                        lod_cal <- 3 * sigma0; loq_cal <- 10 * sigma0
-                        n_cal <- n_r; n_low_cal <- n_low
+                    s0 <- stats::mad(e_low) * unbias
+                    if(!is.finite(s0) || s0 == 0) s0 <- stats::sd(e_low) * unbias
+                    ## Physical floor: a model cannot measure better than single-line
+                    ## counting statistics; also guards a near-tied low subset from
+                    ## collapsing, and keeps 5*sigma_model above the 3-sigma blank.
+                    if(is.finite(blank_lod)) s0 <- max(s0, blank_lod/3)
+                    if(is.finite(s0) && s0 > 0){
+                        sigma_model <- s0; n_cal <- n_r; n_low_cal <- n_low
                     }
                 }
-                ## Too few standards / degenerate -> trust the instrumental near-blank value.
-                if(!is.finite(lod_cal) && is.finite(inst_lod_val)){
-                    lod_cal <- inst_lod_val; loq_cal <- (10/3) * inst_lod_val
-                    n_cal <- if(is.finite(inst$n)) inst$n else 0L
-                    cal_method <- "instrumental-fallback"
+
+                ## One number per basis; each falls back to the other when unavailable.
+                lod <- blank_lod; lod_basis <- "blank"
+                if(!is.finite(lod) && is.finite(sigma_model)){
+                    lod <- 3 * sigma_model; lod_basis <- "model"
+                }
+                loq <- if(is.finite(sigma_model)) 5 * sigma_model else NA_real_
+                loq_basis <- "model"
+                if(!is.finite(loq) && is.finite(blank_lod)){
+                    loq <- (5/3) * blank_lod; loq_basis <- "blank"
                 }
 
-                list(lod_cal      = lod_cal,
-                     loq_cal      = loq_cal,
+                list(lod          = lod,
+                     loq          = loq,
+                     lod_basis    = lod_basis,
+                     loq_basis    = loq_basis,
                      n_cal        = n_cal,
                      n_low        = n_low_cal,
-                     cal_method   = cal_method,
-                     inst_lod     = if(isTRUE(inst$note=="ok")) inst$lod else NA_real_,
                      inst_note    = if(is.null(inst$note)) "not_estimable" else inst$note,
-                     n            = inst$n,
+                     n            = if(is.null(inst$n) || !is.finite(inst$n)) 0L else inst$n,
                      livetime_used= isTRUE(inst$livetime_used))
-            }, error=function(e) list(inst_note="not_estimable", lod_cal=NA_real_, loq_cal=NA_real_))
+            }, error=function(e) list(inst_note="not_estimable", lod=NA_real_, loq=NA_real_))
         })
 
         # Debounced like the plots: the LOD estimate is the single most expensive
@@ -13041,11 +13055,10 @@ shinyServer(function(input, output, session) {
                 if(is.null(x) || !is.finite(x)) return(NA_real_)
                 signif(x*multiplier, 3)
             }
-            cal_val  <- fmt(est$lod_cal)
-            loq_val  <- fmt(est$loq_cal)
-            inst_val <- fmt(est$inst_lod)
+            lod_val <- fmt(est$lod)
+            loq_val <- fmt(est$loq)
 
-            if(is.na(cal_val) && is.na(inst_val)){
+            if(is.na(lod_val) && is.na(loq_val)){
                 inst_note <- if(is.null(est$inst_note)) "not_estimable" else est$inst_note
                 msg <- if(inst_note=="no_baseline"){
                     "LOD needs a deconvoluted baseline (run deconvolution on the Spectra page)."
@@ -13057,36 +13070,65 @@ shinyServer(function(input, output, session) {
                 return(HTML(paste0("<em>", msg, "</em>")))
             }
 
-            # Instrumental single-line 3-sigma-blank shown as a reference line.
-            inst_line <- if(!is.na(inst_val)){
-                paste0("<div style='color:#888; font-size:0.9em;'>instrumental single-line 3&sigma;-blank: ", inst_val, " ", unit, "</div>")
-            } else ""
+            ## Definitions ride in the hover text rather than a caption block, so the
+            ## panel is two numbers and nothing else.
+            n_blank <- if(is.null(est$n)) 0L else est$n
+            n_low   <- if(is.null(est$n_low) || est$n_low==0) est$n_cal else est$n_low
+            n_low   <- if(is.null(n_low)) 0L else n_low
 
-            if(!is.na(cal_val)){
-                lt_note <- if(!is.na(inst_val) && !isTRUE(est$livetime_used)) " Single-line term has no LiveTime, so its counting-statistics cross-check is unavailable." else ""
-                caption <- if(isTRUE(est$cal_method == "instrumental-fallback")){
-                    "Too few standards for a low-end calibration estimate; showing the instrumental single-line 3&sigma;-blank counting noise (LOQ = 10/3 &times; LOD). Not a measured blank."
-                } else {
-                    sprintf("LOD = 3&sigma;, LOQ = 10&sigma; (ICH/IUPAC), where &sigma; is the robust residual scatter of the %d lowest-concentration standards to the selected model's fit (near-blank; uses low-end scatter, not the whole-range residual SE, so it stays valid over wide dynamic ranges), floored at the single-line counting noise. Reference = 3&sigma; single-line counting noise from peak-free shoulders. Not a measured blank.", if(is.null(est$n_low) || est$n_low==0) est$n_cal else est$n_low)
-                }
-                HTML(paste0(
-                    "<div>Estimated LOD: <b>", cal_val, " ", unit, "</b>",
-                    "&nbsp;&middot;&nbsp; LOQ: <b>", loq_val, " ", unit, "</b></div>",
-                    inst_line,
-                    "<div style='color:#888; font-size:0.85em; margin-top:4px;'>",
-                    caption,
-                    lt_note,
-                    "</div>"
-                ))
+            lod_tip <- if(isTRUE(est$lod_basis == "model")){
+                paste0("Limit of detection - 3 sigma.\n",
+                    "No blank estimate is available for this line, so sigma is the robust scatter of the ",
+                    n_low, " lowest-concentration standards about the selected model's fit rather than the instrumental blank noise.\n",
+                    "Estimated, not a measured blank.")
             } else {
-                # Only the instrumental estimate is available.
-                HTML(paste0(
-                    "<div>Estimated LOD (single-line 3&sigma;-blank): <b>", inst_val, " ", unit, "</b></div>",
-                    "<div style='color:#888; font-size:0.85em; margin-top:4px;'>",
-                    sprintf("3&sigma; single-line counting noise from peak-free shoulders across %d standards. Calibration-curve LOD/LOQ unavailable (need a fitted calibration line). Not a measured blank.", est$n),
-                    "</div>"
-                ))
+                paste0("Limit of detection - 3 sigma of the blank.\n",
+                    "sigma is the single-line counting noise beside the peak, measured from peak-free shoulder channels",
+                    if(isTRUE(est$livetime_used)) " and cross-checked against sqrt(background counts)/LiveTime" else " (no LiveTime, so the counting-statistics cross-check is unavailable)",
+                    ", converted to concentration by the calibration sensitivity",
+                    if(n_blank > 0) paste0(" and taken as the median over ", n_blank, " standards") else "",
+                    ".\nThe smallest amount distinguishable from background. Estimated, not a measured blank.")
             }
+
+            loq_tip <- if(isTRUE(est$loq_basis == "blank")){
+                paste0("Limit of quantification - 5 sigma.\n",
+                    "Too few standards for a near-blank model estimate, so this is 5/3 x the 3-sigma blank LOD rather than the selected model's own measurement scatter.")
+            } else {
+                paste0("Limit of quantification - 5 sigma of the model measurement.\n",
+                    "sigma is the robust (MAD) scatter of the ", n_low,
+                    " lowest-concentration standards about the selected model's fit, in concentration units. Only the near-blank standards are used, so a wide dynamic range does not inflate it, and it is floored at the single-line counting noise.\n",
+                    "Above this concentration the calibration returns a usable number, not just a detection.")
+            }
+
+            ## Pure-CSS hover card rather than a title= attribute: native tooltips are
+            ## suppressed in some Shiny hosts (the RStudio viewer pane among them), and
+            ## a card also appears instantly and can wrap to several lines. The <style>
+            ## travels with the output so it does not depend on the ui.R head block;
+            ## the div is replaced wholesale on each render, so it cannot pile up.
+            tipcss <- paste0("<style>",
+                ".lodwrap{position:relative;}",
+                ".lodtip{border-bottom:1px dotted #888; cursor:help;}",
+                ".lodtip .lodtipbox{visibility:hidden; opacity:0; position:absolute;",
+                " top:100%; left:0; margin-top:6px; z-index:1000; width:340px; max-width:100%;",
+                " background:#333; color:#fff; padding:8px 10px; border-radius:4px;",
+                " font-size:0.85em; font-weight:normal; line-height:1.4; text-align:left;",
+                " box-shadow:0 2px 8px rgba(0,0,0,0.35); transition:opacity 0.1s;",
+                " pointer-events:none;}",
+                ".lodtip:hover .lodtipbox{visibility:visible; opacity:1;}",
+                "</style>")
+
+            tip <- function(label, txt){
+                ## the box is a child of the label span (so :hover reveals it) but is
+                ## positioned against .lodwrap, so both cards drop from the same left
+                ## edge and neither can run off the panel.
+                paste0("<span class=\"lodtip\">", label, "<span class=\"lodtipbox\">",
+                    gsub("\n", "<br>", htmltools::htmlEscape(txt), fixed=TRUE), "</span></span>")
+            }
+
+            parts <- character(0)
+            if(!is.na(lod_val)) parts <- c(parts, paste0(tip("LOD", lod_tip), ": <b>", lod_val, " ", unit, "</b>"))
+            if(!is.na(loq_val)) parts <- c(parts, paste0(tip("LOQ", loq_tip), ": <b>", loq_val, " ", unit, "</b>"))
+            HTML(paste0(tipcss, "<div class=\"lodwrap\">", paste(parts, collapse="&nbsp;&middot;&nbsp; "), "</div>"))
         })
 
 
