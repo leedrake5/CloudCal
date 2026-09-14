@@ -3470,6 +3470,33 @@ just_spectra_summary_apply <- cmpfun(just_spectra_summary_apply)
 
 ###Prep Data
 
+# Slope / intercept line names go stale in two ways. Live: outVaralt() offers
+# Baseline/Total/Compton/Rayleigh drawn from calMemory$Calibration$Deconvoluted,
+# which a deconvolution run updates immediately, while the intensity tables those
+# names have to resolve against are only rebuilt on Commit. Stored: a saved .quant's
+# Parameters$Slope can name a line this session's tables do not carry. Either way
+# `lucas.slope.table[, slope.element.lines]` errors "undefined columns selected" on
+# the first missing name, and that error takes the whole model chain with it.
+# "None"/"NoneNull" are the synthetic columns the lucas_* preps append themselves,
+# so they stay legal even though the hold frame has no such column.
+keepExistingLines <- function(lines, frame){
+    if(is.null(lines)) return(lines)
+    lines[lines %in% c(colnames(frame), "None", "NoneNull")]
+}
+
+# The element being calibrated needs its own intensity column to form the Intensity
+# predictor. When it has none (a line defined but never committed, or an element with
+# no measurable line at all) the same `[.data.frame` error fires, with nothing in the
+# message to act on. Fail with something the user can do instead.
+requireElementLine <- function(frame, element.line){
+    if(is.null(element.line) || length(element.line) != 1 || is.na(element.line) ||
+       !element.line %in% colnames(frame)){
+        stop(paste0("No intensity column for '", paste(element.line, collapse=","),
+            "'. Press Commit on the Lines page to rebuild the intensity tables, ",
+            "or choose a Spectra model type, which does not need one."), call.=FALSE)
+    }
+    invisible(TRUE)
+}
 
 
 lucas_simp_prep_xrf <- function(spectra.line.table, element.line, slope.element.lines, intercept.element.lines=NULL) {
@@ -5144,18 +5171,23 @@ slopeUI <- function(radiocal=3, selection=NULL, elements){
     }
 }
 
+# chemIntensityTypes (14/16/18/20) belong here for the same reason they belong in
+# output$inVar4: they drive the slope selector too. The old trailing branch chained
+# `!=` with `|`, which is true for every possible value - a plain else says what was
+# meant. radiocal arrives from selectInput as a character, so %in% is the comparison
+# that coerces correctly.
 addAllSlopeUI <- function(radiocal=3){
-    if(radiocal==0 | radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
+    if(radiocal %in% c(0, 3, 4, 6, 8, 10, 12, chemIntensityTypes)){
         actionButton(inputId = "addallslopes", label = "Add All Slopes")
-    } else if(radiocal!=0 | radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
+    } else {
         NULL
     }
 }
 
 removeAllSlopeUI <- function(radiocal=3){
-    if(radiocal==0 | radiocal==3 | radiocal==4 | radiocal==6 | radiocal==8 | radiocal==10 | radiocal==12){
+    if(radiocal %in% c(0, 3, 4, 6, 8, 10, 12, chemIntensityTypes)){
         actionButton(inputId = "removeallslopes", label = "Remove All Slopes")
-        } else if(radiocal!=0 | radiocal!=3 | radiocal!=4 | radiocal!=6 | radiocal!=8 | radiocal!=10 | radiocal!=12){
+    } else {
         NULL
     }
 }
@@ -6566,6 +6598,7 @@ predictIntensitySimpPreGen <- function(spectra, hold.frame, deconvolution = NULL
         data <- data[data$Spectrum %in% hold.frame$Spectrum, ]
     }
     spectra.line.table <- hold.frame
+    requireElementLine(spectra.line.table, element)
     
     
     predict.intensity <- if(norm.type==1){
@@ -6669,11 +6702,18 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, deconvolution=NULL
     }
 
     spectra.line.table <- hold.frame
+    requireElementLine(spectra.line.table, element)
     element.lines.to.use <- if(is.null(slopes)){
         names(hold.frame)[!names(hold.frame) %in% c("Spectrum", "Concentration")]
     } else if(!is.null(slopes)){
-        slopes
+        # Drop slope names the hold frame does not carry. Every intensity model
+        # (cal types 4/6/8/10/12 and the chemometric 14/16/18/20) reaches the
+        # lucas_* preps through here, and each of them selects these names out of
+        # the frame by name - see keepExistingLines for how they go stale.
+        keepExistingLines(slopes, hold.frame)
     }
+    intercepts <- keepExistingLines(intercepts, hold.frame)
+    if(!is.null(intercepts) && length(intercepts) == 0) intercepts <- NULL
     
     
     predict.intensity <- if(norm.type==1){
@@ -6758,6 +6798,12 @@ predictIntensityForest <- function(predict.frame){
 }
 
 predictIntensityLucPreGen <- function(spectra, hold.frame, deconvolution = NULL, element, intercepts=NULL, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw", lt.cross="Additive"){
+
+    # Filter before the classic branch returns: the keep_slopes guard further down
+    # only covers the additive path, leaving classic Lucas-Tooth exposed to exactly
+    # the same stale-name error.
+    requireElementLine(hold.frame, element)
+    slopes <- keepExistingLines(slopes, hold.frame)
 
     if(lt_is_classic(lt.cross)){
         # Classic 1961 mode: cross-product slope columns; intercept lines have no
@@ -9591,10 +9637,21 @@ calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALS
         return(Calibration)
 }
 
+# CalType arrives inside parameters$CalTable, and `parameters` is NULL whenever the
+# caller's modelParameters() reactive swallowed an upstream failure (server.R turns
+# any error in the model-set chain into NULL). `NULL$CalTable$CalType == 8` is
+# logical(0), and `if(logical(0))` errors with "argument is of length zero" - fatal
+# here, because modelPack is called straight out of observeEvent(input$createcalelement)
+# and an unhandled error in an observer ends the Shiny session (the app greys out).
+# So resolve the type once, defensively, and hand back NULL when there is nothing to
+# pack. The [1] subscript matches every other CalType consumer in the codebase.
 modelPackPre <- function(parameters, model, table, compress=TRUE){
-    
-    if(parameters$CalTable$CalType==8 | parameters$CalTable$CalType==9){
-        model.raw <-
+
+    if(is.null(parameters)) return(NULL)
+    cal.type <- suppressWarnings(as.numeric(parameters$CalTable$CalType[1]))
+    if(length(cal.type) != 1 || is.na(cal.type)) return(NULL)
+
+    model.raw <- if(cal.type==8 | cal.type==9){
         tryCatch(
             xgb.save.raw(
                 tryCatch(
@@ -9602,57 +9659,61 @@ modelPackPre <- function(parameters, model, table, compress=TRUE){
                     , error=function(e) model$finalModel))
                 , error=function(e) NULL)
     } else {
-        model.raw <- NULL
+        NULL
     }
-    
+
     model <- if(compress==TRUE){
-        if(parameters$CalTable$CalType==1){
+        if(cal.type==1){
             strip(model, keep=c("predict", "summary"))
-        } else if(parameters$CalTable$CalType==2){
+        } else if(cal.type==2){
             strip(model, keep=c("predict", "summary"))
-        } else if(parameters$CalTable$CalType==3){
+        } else if(cal.type==3){
             strip(model, keep=c("predict", "summary"))
-        } else if(parameters$CalTable$CalType==4){
+        } else if(cal.type==4){
             strip_glm(model)
-        } else if(parameters$CalTable$CalType==5){
+        } else if(cal.type==5){
             strip_glm(model)
-        } else if(parameters$CalTable$CalType==6){
+        } else if(cal.type==6){
             model
-        } else if(parameters$CalTable$CalType==7){
+        } else if(cal.type==7){
             model
-        } else if(parameters$CalTable$CalType==8){
+        } else if(cal.type==8){
             strip_glm(model)
-        } else if(parameters$CalTable$CalType==9){
+        } else if(cal.type==9){
             strip_glm(model)
-        } else if(parameters$CalTable$CalType==10){
+        } else if(cal.type==10){
             strip_glm(model)
-        } else if(parameters$CalTable$CalType==11){
+        } else if(cal.type==11){
             strip_glm(model)
-        } else if(parameters$CalTable$CalType==12){
+        } else if(cal.type==12){
             strip_glm(model)
-        } else if(parameters$CalTable$CalType==13){
+        } else if(cal.type==13){
             strip_glm(model)
-        } else if(parameters$CalTable$CalType %in% c(chemIntensityTypes, chemSpectraTypes)){
+        } else if(cal.type %in% c(chemIntensityTypes, chemSpectraTypes)){
             # pls/Cubist/glmnet/earth caret objects are already small; keep them
             # whole rather than risk strip_glm removing slots their predict needs
+            model
+        } else {
+            # Unrecognised type: keep the fitted model whole. The old chain had no
+            # final else, so any type outside 1-21 silently packed a NULL model.
             model
         }
     } else if(compress==FALSE){
         model
     }
-    
-    result.list <- if(parameters$CalTable$CalType!=8 | parameters$CalTable$CalType!=9){
-        list(Parameters=parameters, Model=model, rawModel=model.raw, Table=table)
-    } else if(parameters$CalTable$CalType==8 | parameters$CalTable$CalType==9){
-        list(Parameters=parameters, Model=model, rawModel=model.raw, Table=table)
-    }
-    
+
+    # XGBoost (8/9) is the only family carrying a raw booster, and both arms of the
+    # old `if(CalType!=8 | CalType!=9)` built the identical list anyway - that test is
+    # a tautology (a scalar is always unequal to one of 8/9), so its second arm was
+    # dead code.
+    result.list <- list(Parameters=parameters, Model=model, rawModel=model.raw, Table=table)
+
     if(is.null(result.list$rawModel)){
         result.list$rawModel <- NULL
     }
-    
+
     return(result.list)
-    
+
 }
 
 modelPack <- function(parameters, model, table, compress=TRUE){

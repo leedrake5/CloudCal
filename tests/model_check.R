@@ -23,6 +23,10 @@
 #     on Rainforest, with NN / XGBoost / SVM spectra spot checks
 # This is the slow, intermittent, "smoke out user customizations" pass.
 #
+# A final regression block covers the Cubist Spectra -> Cubist Intensities crash:
+# modelPack tolerating a NULL parameter set, slope names that no longer exist as
+# intensity columns, and the 17 -> 16 switch itself.
+#
 # Usage:
 #   Rscript tests/model_check.R [quant] [classic_el] [intercept_el] [ml_el]
 # Defaults: farWest50kV.quant, Y.K.alpha with Rb.K.alpha intercept, Dy.K.alpha
@@ -562,6 +566,89 @@ try(testServer(app, {
               "svmSpectraModelSet", "svmSpectraModel", function(){
         basichold$transformation <- "e"; basichold$compress <- "50 eV"
         xgboosthold$xgbtype <- "Radial"
+    })
+
+    # ------------------------------------------------------------------
+    # Crash regressions: switching Cubist Spectra (17) -> Cubist Intensities
+    # (16) and pressing Update killed the session outright. Three separate
+    # defects lined up, one per case below.
+    # ------------------------------------------------------------------
+    message("  -- regression: model-switch crash --")
+    basichold$transformation <- "None"; basichold$compress <- "100 eV"
+    basichold$deptransformation <- "None"
+
+    check <- function(nm, fn){
+        res <- list(name = nm, ok = FALSE, note = "")
+        t0 <- Sys.time()
+        tryCatch({
+            res$note <- fn()
+            res$ok <- TRUE
+        }, error = function(e){ res$note <<- paste0("ERROR: ", conditionMessage(e)) })
+        if (res$ok) res$note <- sprintf("%s (%.1fs)", res$note,
+                                        as.numeric(Sys.time() - t0, units = "secs"))
+        env$out[[nm]] <- res
+        message(sprintf("    %-34s %s", nm, res$note))
+    }
+
+    # 1. modelPack is called straight from observeEvent(input$createcalelement),
+    #    where an unhandled error ends the Shiny session. modelParameters() turns
+    #    any upstream failure into NULL, so modelPack must tolerate NULL rather
+    #    than erroring on `if(NULL$CalTable$CalType == 8)`.
+    check("modelPack tolerates NULL params", function(){
+        stopifnot(is.null(modelPack(parameters = NULL, model = NULL, table = NULL, compress = TRUE)))
+        stopifnot(is.null(modelPack(parameters = list(CalTable = data.frame(Other = 1)),
+                                    model = NULL, table = NULL, compress = TRUE)))
+        stopifnot(is.null(modelPack(parameters = list(CalTable = data.frame(CalType = NA)),
+                                    model = NULL, table = NULL, compress = TRUE)))
+        # an unrecognised type keeps the fitted model rather than nulling it
+        kept <- modelPack(parameters = list(CalTable = data.frame(CalType = 99)),
+                          model = "KEEPME", table = NULL, compress = TRUE)
+        stopifnot(identical(kept$Model, "KEEPME"))
+        "NULL/NA/unknown CalType all handled without error"
+    })
+
+    # 2. Slope names go stale when a deconvolution is re-run without pressing
+    #    Commit: outVaralt() offers Compton/Rayleigh immediately, the intensity
+    #    tables do not carry them until the rebuild. The lucas_* preps select
+    #    slopes by name, so an absent one used to error the whole model chain
+    #    with "undefined columns selected".
+    for (rc in c(4, 16)) {
+        lab <- if (rc == 4) "Forest" else "Cubist Intens"
+        check(sprintf("stale slopes ignored (%s)", lab), function(){
+            session$setInputs(calcurveelement = ML_EL, radiocal = rc, normcal = 2,
+                              comptonmin = 0, comptonmax = 0, comptontype = "Raw")
+            minimal_holds(ML_EL, slopes = all_slopes_on, intercepts = NULL)
+            vals$keeprows <- rep(TRUE, nrow(cal$Values))
+            lucashold$slope <- c(all_slopes_on, "Compton", "NotALine")
+            mset <- if (rc == 4) forestModelSet() else cubistIntensityModelSet()
+            dat <- mset$data
+            stopifnot(is.data.frame(dat), nrow(dat) >= 10,
+                      !any(c("Compton", "NotALine") %in% colnames(dat)))
+            fit <- if (rc == 4) forestModel() else cubistIntensityModel()
+            stopifnot(!is.null(fit))
+            sprintf("n=%d cols=%d, 2 absent slopes dropped", nrow(dat), ncol(dat))
+        })
+    }
+
+    # 3. The reported sequence end to end: fit Cubist Spectra, switch to Cubist
+    #    Intensities, and confirm modelParameters() still yields a packable
+    #    parameter set instead of the NULL that reached modelPackPre.
+    check("Cubist Spectra -> Intensities switch", function(){
+        session$setInputs(calcurveelement = ML_EL, radiocal = 17, normcal = 2,
+                          comptonmin = 0, comptonmax = 0, comptontype = "Raw")
+        minimal_holds(ML_EL, slopes = all_slopes_on, intercepts = NULL)
+        vals$keeprows <- rep(TRUE, nrow(cal$Values))
+        stopifnot(!is.null(cubistSpectraModel()))
+
+        session$setInputs(radiocal = 16)
+        pars <- modelParameters()
+        stopifnot(!is.null(pars), identical(as.numeric(pars$CalTable$CalType[1]), 16))
+        dat <- predictFrame()
+        stopifnot(is.data.frame(dat), nrow(dat) >= 10, "Concentration" %in% names(dat))
+        packed <- modelPack(parameters = pars, model = cubistIntensityModel(),
+                            table = NULL, compress = TRUE)
+        stopifnot(!is.null(packed), !is.null(packed$Model))
+        "17 -> 16 packs a type-16 model without error"
     })
 }), silent = TRUE)
 

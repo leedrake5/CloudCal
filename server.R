@@ -3584,6 +3584,17 @@ shinyServer(function(input, output, session) {
             scatter_cols <- intersect(c("Compton", "Rayleigh"), deconvolution_extra_cols(calMemory$Calibration$Deconvoluted$Areas))
             myelements <- c(elementallinestouse(), "Baseline", "Total", scatter_cols)
             
+            # Offer only lines that exist as columns in the intensity table the model
+            # frames select from. Compton/Rayleigh appear here the moment a deconvolution
+            # is re-run, while the intensity tables are only rebuilt on Commit - offering a
+            # name from the first that is missing from the second is what produced
+            # "undefined columns selected" downstream. An empty intersection means the
+            # table is not loaded yet, so leave the list alone rather than blanking it.
+            available <- tryCatch(colnames(calIntensityTable()), error=function(e) NULL)
+            if(length(intersect(myelements, available)) > 0){
+                myelements <- intersect(myelements, available)
+            }
+            
             
             if(is.null(myelements)){
                 paste("Ca.K.alpha")
@@ -3599,6 +3610,17 @@ shinyServer(function(input, output, session) {
             
             scatter_cols <- intersect(c("Compton", "Rayleigh"), deconvolution_extra_cols(calMemory$Calibration$Deconvoluted$Areas))
             myelements <- c(elementallinestouse(), "Baseline", "Total", scatter_cols)
+            
+            # Offer only lines that exist as columns in the intensity table the model
+            # frames select from. Compton/Rayleigh appear here the moment a deconvolution
+            # is re-run, while the intensity tables are only rebuilt on Commit - offering a
+            # name from the first that is missing from the second is what produced
+            # "undefined columns selected" downstream. An empty intersection means the
+            # table is not loaded yet, so leave the list alone rather than blanking it.
+            available <- tryCatch(colnames(calIntensityTable()), error=function(e) NULL)
+            if(length(intersect(myelements, available)) > 0){
+                myelements <- intersect(myelements, available)
+            }
             
             
             if(is.null(myelements)){
@@ -4058,30 +4080,43 @@ shinyServer(function(input, output, session) {
         #})
         
         
+        # The intensity table the calibration page is currently reading, chosen by the
+        # line-preference / line-structure controls. Lifted out of holdFrame() so the
+        # Slope and Intercept choice lists can be intersected against exactly the
+        # columns the model frames will later select by name.
+        calIntensityTable <- reactive({
+            # Both controls are rendered, so they are NULL until they mount and the
+            # comparisons below would be `if(logical(0))`. holdFrame()'s own req()
+            # used to short-circuit before this switch was reached; now that the
+            # choice lists read it too, it needs the guard itself.
+            req(input$linepreferenceelement, input$linestructureelement)
+            if(input$linepreferenceelement=="Narrow"){
+                if(input$linestructureelement=="gaussian"){
+                    calMemory$Calibration$Intensities
+                } else if(input$linestructureelement=="split"){
+                    calMemory$Calibration$IntensitiesSplit
+                } else if(input$linestructureelement=="first"){
+                    calMemory$Calibration$IntensitiesFirst
+                } else if(input$linestructureelement=="second"){
+                    calMemory$Calibration$IntensitiesSecond
+                }
+            } else if(input$linepreferenceelement=="Wide"){
+                if(input$linestructureelement=="gaussian"){
+                    calMemory$Calibration$WideIntensities
+                } else if(input$linestructureelement=="split"){
+                    calMemory$Calibration$WideIntensitiesSplit
+                } else {
+                    calMemory$Calibration$WideIntensities
+                }
+            } else if(input$linepreferenceelement=="Area"){
+                spectraLineTableDeconvolution()
+            }
+        })
+
         holdFrame <- reactive({
             req(input$calcurveelement, concentrationTable(), spectraLineTable())
             
-            spectra.line.table <- if(input$linepreferenceelement=="Narrow"){
-                    if(input$linestructureelement=="gaussian"){
-                        calMemory$Calibration$Intensities
-                    } else if(input$linestructureelement=="split"){
-                        calMemory$Calibration$IntensitiesSplit
-                    } else if(input$linestructureelement=="first"){
-                        calMemory$Calibration$IntensitiesFirst
-                    } else if(input$linestructureelement=="second"){
-                        calMemory$Calibration$IntensitiesSecond
-                    }
-                } else if(input$linepreferenceelement=="Wide"){
-                    if(input$linestructureelement=="gaussian"){
-                        calMemory$Calibration$WideIntensities
-                    } else if(input$linestructureelement=="split"){
-                        calMemory$Calibration$WideIntensitiesSplit
-                    } else {
-                        calMemory$Calibration$WideIntensities
-                    }
-                } else if(input$linepreferenceelement=="Area"){
-                    spectraLineTableDeconvolution()
-                }
+            spectra.line.table <- calIntensityTable()
 
             concentration.table <- concentrationTable()
             
@@ -4245,6 +4280,13 @@ shinyServer(function(input, output, session) {
                         lucashold$slope <- new_slopes
                         updateSelectInput(session, "slope_vars", selected = new_slopes)
                     }
+                } else {
+                    # Restore the saved set, mirroring the element-switch resync. The
+                    # slope selector unmounts on every Spectra type and the
+                    # ignoreNULL=FALSE write-back nulls lucashold$slope as it goes, so
+                    # switching back to an Intensities type has to put it back.
+                    lucashold$slope <- existing_slopes
+                    updateSelectInput(session, "slope_vars", selected = existing_slopes)
                 }
             }
         })
@@ -4856,7 +4898,7 @@ shinyServer(function(input, output, session) {
             # selection survives in lucashold$intercept for when it is unchecked).
             if(input$radiocal==3 && lt_is_classic(lucasLTCross())){
                 NULL
-            } else if(input$radiocal %in% c(3, 4, 6, 8, 10, 12)){
+            } else if(input$radiocal %in% c(3, 4, 6, 8, 10, 12, chemIntensityTypes)){
                 choices <- outVaralt2()
                 req(length(choices) > 0)
                 selectInput(inputId = "intercept_vars", label = h4("Intercept"), choices = choices, selected = isolate(inVar3Selected()), multiple=TRUE)
@@ -4892,7 +4934,11 @@ shinyServer(function(input, output, session) {
         ####Machine Learning: Slope
         
         output$multicore_behavior_ui <- renderUI({
-            #require(input$radiocal)
+            # input$radiocal comes from a renderUI (output$calTypeInput), so it is NULL
+            # until that control mounts - and `if(NULL[1]==1)` below is `if(logical(0))`,
+            # which errors with "argument is of length zero" and kills the flush. Every
+            # neighbouring renderUI already guards this way.
+            req(input$radiocal)
             default.behavior <- if(get_os()=="windows"){
                 "Serialize"
             } else if(get_os()!="windows"){
@@ -5446,7 +5492,7 @@ shinyServer(function(input, output, session) {
         output$inVar4 <- renderUI({
             req(input$radiocal)
 
-            if(input$radiocal %in% c(3, 4, 6, 8, 10, 12)){
+            if(input$radiocal %in% c(3, 4, 6, 8, 10, 12, chemIntensityTypes)){
                 choices <- outVaralt()
                 req(length(choices) > 0)  # Ensure choices are available before rendering
                 selectInput(inputId = "slope_vars", label = h4("Slope"), choices = choices, selected = isolate(inVar4Selected()), multiple=TRUE)
@@ -11602,7 +11648,7 @@ shinyServer(function(input, output, session) {
           updateNumericInput(session, "comptonmax", value = normMaxPre())
 
           # For ML intensity models, default to all slopes for new elements unless existing model has saved slopes
-          if(isTRUE(input$radiocal %in% c(4, 6, 8, 10, 12))){
+          if(isTRUE(input$radiocal %in% c(4, 6, 8, 10, 12, chemIntensityTypes))){
               existing_slopes <- tryCatch(calSettings$calList[[input$calcurveelement]][[1]]$Slope, error = function(e) NULL)
               if(is.null(existing_slopes) || length(existing_slopes) <= 1){
                   new_slopes <- tryCatch(outVaralt(), error = function(e) NULL)
@@ -12334,12 +12380,34 @@ shinyServer(function(input, output, session) {
         #})
         
         
+        # This is an observer, so an unhandled error is fatal to the whole session -
+        # Shiny confines render-function errors to their output slot, but an observer
+        # that throws ends the session and the app greys out. One click fans the entire
+        # model chain out from here (modelParameters(), elementModelGen(), and
+        # calValTable() -> calValFrame() -> valFrame() -> predictFrame()), so the guard
+        # wraps the body rather than just the modelPack calls. Same notify-on-failure
+        # idiom as observeEvent(input$trainslopes) above.
+        # The packs are also built into locals first: the old code cleared the element's
+        # calList entry before rebuilding it, so a failed Update destroyed the model the
+        # user already had. modelPack() returns NULL when its parameters could not be
+        # assembled, which would otherwise delete the entry just as silently.
         observeEvent(input$createcalelement, priority=100, {
-            calMemory$Calibration$calList[[input$calcurveelement]] <- NULL
-            calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=elementModelGen(), table=calValTable(), compress=TRUE))
-                calSettings$calList[[input$calcurveelement]] <- NULL
-                calSettings$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=modelParameters(), model=NULL, table=calValTable(), compress=TRUE))
+            tryCatch({
+                element <- input$calcurveelement
+                cal.pack <- isolate(modelPack(parameters=modelParameters(), model=elementModelGen(), table=calValTable(), compress=TRUE))
+                settings.pack <- isolate(modelPack(parameters=modelParameters(), model=NULL, table=calValTable(), compress=TRUE))
 
+                if(is.null(cal.pack) || is.null(settings.pack)){
+                    print("UPDATE model build failed: model settings could not be assembled")
+                    showNotification("Could not build this model - its settings could not be assembled. The previous model for this element was kept.", type="error")
+                } else {
+                    calMemory$Calibration$calList[[element]] <- cal.pack
+                    calSettings$calList[[element]] <- settings.pack
+                }
+            }, error = function(e){
+                print(paste("UPDATE model build failed:", conditionMessage(e)))
+                showNotification(paste("Model build failed:", conditionMessage(e)), type="error")
+            })
         })
         
         output$usecalsep <- renderUI({
