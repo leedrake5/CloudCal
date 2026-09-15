@@ -4757,8 +4757,11 @@ shinyServer(function(input, output, session) {
         })
         
         output$comptonType <- renderUI({
-            req(input$radiocal)
-            sel <- comptonTypeSelection()
+            req(input$radiocal, input$calcurveelement)
+            # isolate: observeEvent(input$comptontype) writes the same stored value this
+            # reads, so a live read makes the control re-render itself. The choices below
+            # stay reactive so the E1 gate still tracks the loaded deconvolution.
+            sel <- isolate(comptonTypeSelection())
             # "SNIP" is the display label for the stored value "Baseline" (backward-compatible). arPLS is
             # physics-free so always computed and always offered. E1 is offered ONLY when the loaded
             # deconvolution actually CARRIES a computed E1 baseline: E1 needs the scatter-background fit
@@ -5218,6 +5221,10 @@ shinyServer(function(input, output, session) {
         
         # Return the requested dataset
         datasetInputVar <- reactive({
+            # elementvar comes from output$varelementui, so it is NULL until that control
+            # mounts - and switch(NULL, ...) errors with "EXPR must be a length 1 vector",
+            # which took out the whole importance plot.
+            req(input$elementvar)
             switch(input$elementvar,
             "H" = H.table,
             "He" = He.table,
@@ -10790,8 +10797,8 @@ shinyServer(function(input, output, session) {
         })
         
         output$deconvolutionui <- renderUI({
-            req(input$radiocal)
-            deconvolutionUI(radiocal=input$radiocal, selection=calDeconvolutionPre())
+            req(input$radiocal, input$calcurveelement)
+            deconvolutionUI(radiocal=input$radiocal, selection=isolate(calDeconvolutionPre()))
         })
         
         eventReactive(input$deconvolution, {
@@ -10818,8 +10825,8 @@ shinyServer(function(input, output, session) {
         })
         
         output$transformationui <- renderUI({
-            req(input$radiocal)
-            transformationUI(radiocal=input$radiocal, selection=basicTransformation())
+            req(input$radiocal, input$calcurveelement)
+            transformationUI(radiocal=input$radiocal, selection=isolate(calTransformationPre()))
         })
         
         calDependentTransformationPre <- reactive(label="calDependentTransformationPre", {
@@ -10831,8 +10838,8 @@ shinyServer(function(input, output, session) {
         })
         
         output$dependenttransformationui <- renderUI({
-            req(input$radiocal)
-            dependentTransformationUI(radiocal=input$radiocal, selection=dependentTransformation())
+            req(input$radiocal, input$calcurveelement)
+            dependentTransformationUI(radiocal=input$radiocal, selection=isolate(calDependentTransformationPre()))
         })
         
         calEnergyRangePre <- reactive(label="calEnergyRangePre", {
@@ -10845,8 +10852,12 @@ shinyServer(function(input, output, session) {
         })
         
         output$energyrangeui <- renderUI({
-            req(input$radiocal)
-            energyRangeUI(radiocal=input$radiocal, selection=basicEnergyRange())
+            req(input$radiocal, input$calcurveelement)
+            # compress is passed live (not isolated): it is a different control, so it
+            # cannot feed this one back, and the slider step should track the binning the
+            # model actually uses. It was never passed before, so the step was stuck at
+            # 0.1 even at 50/25 eV.
+            energyRangeUI(radiocal=input$radiocal, selection=isolate(calEnergyRangePre()), compress=input$compress)
         })
         
         calCompressPre <- reactive(label="calCompressPre", {
@@ -10858,8 +10869,8 @@ shinyServer(function(input, output, session) {
         })
         
         output$compressui <- renderUI({
-            req(input$radiocal)
-            compressUI(radiocal=input$radiocal, selection=basicCompress())
+            req(input$radiocal, input$calcurveelement)
+            compressUI(radiocal=input$radiocal, selection=isolate(calCompressPre()))
         })
 
         
@@ -11736,7 +11747,13 @@ shinyServer(function(input, output, session) {
             basichold$deptransformation <- input$deptransformation
         })
         
+        # Same no-op guard the normcal / comptonmin / comptonmax observers carry: a
+        # re-rendered slider re-announces its value, and writing it back unchanged
+        # invalidated the whole model/plot chain for nothing. The `programmatic` flag
+        # covers values this app pushed into the widget itself.
         observeEvent(input$energyrange, {
+            if (programmatic()) return()
+            if (isTRUE(all(as.numeric(input$energyrange) == as.numeric(basichold$energyrange)))) return()
             basichold$energyrange <- input$energyrange
         })
         
@@ -11944,66 +11961,66 @@ shinyServer(function(input, output, session) {
         })
         
         output$foresttryui <- renderUI({
-            req(input$radiocal)
+            req(input$radiocal, input$calcurveelement)
             if(input$radiocal==6 | input$radiocal==7){
-                forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=input$neuralhiddenlayers, selection=calForestTrySelectionpre(), maxsample=maxSample())
+                forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=input$neuralhiddenlayers, selection=isolate(calForestTrySelectionpre()), maxsample=maxSample())
             } else {
-                forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=NULL, selection=calForestTrySelectionpre(), maxsample=maxSample())
+                forestTryUI(radiocal=input$radiocal, neuralhiddenlayers=NULL, selection=isolate(calForestTrySelectionpre()), maxsample=maxSample())
             }
         })
         
         
         output$forestmetricui <- renderUI({
-            req(input$radiocal)
-            forestMetricUI(radiocal=input$radiocal, selection=calForestMetricSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            forestMetricUI(radiocal=input$radiocal, selection=isolate(calForestMetricSelectionpre()))
         })
         
         
         output$foresttrainui <- renderUI({
-            req(input$radiocal)
-            forestTrainUI(radiocal=input$radiocal, selection=calForestTCSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            forestTrainUI(radiocal=input$radiocal, selection=isolate(calForestTCSelectionpre()))
         })
         
         output$forestnumberui <- renderUI({
-            req(input$radiocal, input$foresttrain)
-            forestNumberUI(radiocal=input$radiocal, selection=calForestNumberSelectionpre())
+            req(input$radiocal, input$foresttrain, input$calcurveelement)
+            forestNumberUI(radiocal=input$radiocal, selection=isolate(calForestNumberSelectionpre()))
         })
         
         output$cvrepeatsui <- renderUI({
-            req(input$radiocal)
-            tryCatch(cvRepeatsUI(radiocal=input$radiocal, foresttrain=input$foresttrain, selection=calCVRepeatsSelectionpre()), error=function(e) NULL)
+            req(input$radiocal, input$calcurveelement)
+            tryCatch(cvRepeatsUI(radiocal=input$radiocal, foresttrain=input$foresttrain, selection=isolate(calCVRepeatsSelectionpre())), error=function(e) NULL)
         })
         
         
         output$foresttreesui <- renderUI({
-            req(input$radiocal)
+            req(input$radiocal, input$calcurveelement)
             if(input$radiocal==4 | input$radiocal==5){
-                forestTreesUI(radiocal=input$radiocal, selection=calForestTreeSelectionpre())
+                forestTreesUI(radiocal=input$radiocal, selection=isolate(calForestTreeSelectionpre()))
             } else if(input$radiocal==8 | input$radiocal==9){
                 req(xgbtype=input$xgbtype)
-                forestTreesUI(radiocal=input$radiocal, selection=calForestTreeSelectionpre(), xgbtype=input$xgbtype)
+                forestTreesUI(radiocal=input$radiocal, selection=isolate(calForestTreeSelectionpre()), xgbtype=input$xgbtype)
             } else if(input$radiocal==10 | input$radiocal==11){
                 req(xgbtype=input$xgbtype)
-                forestTreesUI(radiocal=input$radiocal, selection=calForestTreeSelectionpre(), xgbtype=input$xgbtype)
+                forestTreesUI(radiocal=input$radiocal, selection=isolate(calForestTreeSelectionpre()), xgbtype=input$xgbtype)
             }
             
         })
         
         output$neuralhiddenlayersui <- renderUI({
-            req(input$radiocal)
-            neuralHiddenLayersUI(radiocal=input$radiocal, selection=calHiddenLayersSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            neuralHiddenLayersUI(radiocal=input$radiocal, selection=isolate(calHiddenLayersSelectionpre()))
         })
         
         output$neuralhiddenunitsui <- renderUI({
-            req(input$radiocal)
+            req(input$radiocal, input$calcurveelement)
             if(input$radiocal==6){
-                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=calHiddenUnitsSelectionpre())
+                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=isolate(calHiddenUnitsSelectionpre()))
             } else if(input$radiocal==7){
-                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=calHiddenUnitsSelectionpre())
+                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=isolate(calHiddenUnitsSelectionpre()))
             } else if(input$radiocal==10){
-                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=calHiddenUnitsSelectionpre(), xgbtype=input$xgbtype)
+                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=isolate(calHiddenUnitsSelectionpre()), xgbtype=input$xgbtype)
             } else if(input$radiocal==11){
-                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=calHiddenUnitsSelectionpre(), xgbtype=input$xgbtype)
+                neuralHiddenUnitsUi(radiocal=input$radiocal, selection=isolate(calHiddenUnitsSelectionpre()), xgbtype=input$xgbtype)
             } else {
                 NULL
             }
@@ -12011,38 +12028,38 @@ shinyServer(function(input, output, session) {
         })
         
         output$neuralweightdecayui <- renderUI({
-            req(input$radiocal)
-            tryCatch(neuralWeightDecayUI(radiocal=input$radiocal, selection=calWeightDecaySelectionpre(), neuralhiddenlayers=input$neuralhiddenlayers), error=function(e) NULL)
+            req(input$radiocal, input$calcurveelement)
+            tryCatch(neuralWeightDecayUI(radiocal=input$radiocal, selection=isolate(calWeightDecaySelectionpre()), neuralhiddenlayers=input$neuralhiddenlayers), error=function(e) NULL)
         })
         
         output$neuralmaxiterationsui <- renderUI({
-            req(input$radiocal)
-            tryCatch(neuralMaxIterationsUI(radiocal=input$radiocal, selection=calMaxIterationsSelectionpre(), neuralhiddenlayers=input$neuralhiddenlayers), error=function(e) NULL)
+            req(input$radiocal, input$calcurveelement)
+            tryCatch(neuralMaxIterationsUI(radiocal=input$radiocal, selection=isolate(calMaxIterationsSelectionpre()), neuralhiddenlayers=input$neuralhiddenlayers), error=function(e) NULL)
         })
         
         output$xgbtypeui <- renderUI({
-            req(input$radiocal)
-            xgbTypeUI(radiocal=input$radiocal, selection=calXGBTypeSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            xgbTypeUI(radiocal=input$radiocal, selection=isolate(calXGBTypeSelectionpre()))
         })
 
         output$treemethodui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            treeMethodUI(radiocal=input$radiocal, selection=calTreeMethodSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            treeMethodUI(radiocal=input$radiocal, selection=isolate(calTreeMethodSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$treedepthui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            treeDepthUI(radiocal=input$radiocal, selection=calTreeDepthSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            treeDepthUI(radiocal=input$radiocal, selection=isolate(calTreeDepthSelectionpre()), xgbtype=input$xgbtype)
         })
         
                output$droptreeui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            dropTreeUI(radiocal=input$radiocal, selection=calDropTreeSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            dropTreeUI(radiocal=input$radiocal, selection=isolate(calDropTreeSelectionpre()), xgbtype=input$xgbtype)
         })
         
                output$skipdropui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            skipDropUI(radiocal=input$radiocal, selection=calSkipDropSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            skipDropUI(radiocal=input$radiocal, selection=isolate(calSkipDropSelectionpre()), xgbtype=input$xgbtype)
         })
         
         
@@ -12056,118 +12073,118 @@ shinyServer(function(input, output, session) {
         })
         
         output$xgbalphaui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            xgbAlphaUI(radiocal=input$radiocal, selection=calXGBAlphaSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            xgbAlphaUI(radiocal=input$radiocal, selection=isolate(calXGBAlphaSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$xgbgammaui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            xgbGammaUI(radiocal=input$radiocal, selection=calXGBGammaSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            xgbGammaUI(radiocal=input$radiocal, selection=isolate(calXGBGammaSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$xgbetaui <- renderUI({
-            req(input$radiocal)
-            xgbEtaUI(radiocal=input$radiocal, selection=calXGBEtaSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            xgbEtaUI(radiocal=input$radiocal, selection=isolate(calXGBEtaSelectionpre()))
         })
         
         output$xgblambdaui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            xgbLambdaUI(radiocal=input$radiocal, selection=calxgboostLambdaSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            xgbLambdaUI(radiocal=input$radiocal, selection=isolate(calxgboostLambdaSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$xgbsubsampleui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            xgbSubSampleUI(radiocal=input$radiocal, selection=calXGBSubSampleSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            xgbSubSampleUI(radiocal=input$radiocal, selection=isolate(calXGBSubSampleSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$xgbcolsampleui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            xgbColSampleUI(radiocal=input$radiocal, selection=calXGBColSampleSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            xgbColSampleUI(radiocal=input$radiocal, selection=isolate(calXGBColSampleSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$xgbminchildui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            xgbMinChildUI(radiocal=input$radiocal, selection=calXGBMinChildSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            xgbMinChildUI(radiocal=input$radiocal, selection=isolate(calXGBMinChildSelectionpre()), xgbtype=input$xgbtype)
         })
 
         output$xgbmaxdeltastepui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            xgbMaxDeltaStepUI(radiocal=input$radiocal, selection=calXGBMaxDeltaStepSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            xgbMaxDeltaStepUI(radiocal=input$radiocal, selection=isolate(calXGBMaxDeltaStepSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$bartkui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            bartKUI(radiocal=input$radiocal, selection=calBARTKSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            bartKUI(radiocal=input$radiocal, selection=isolate(calBARTKSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$bartbetaui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            bartBetaUI(radiocal=input$radiocal, selection=calBARTKSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            bartBetaUI(radiocal=input$radiocal, selection=isolate(calBARTKSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$bartnuui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            bartNuUI(radiocal=input$radiocal, selection=calBARTKSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            bartNuUI(radiocal=input$radiocal, selection=isolate(calBARTKSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$svmcui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            svmCUI(radiocal=input$radiocal, selection=calSVMCSelectionpre())
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            svmCUI(radiocal=input$radiocal, selection=isolate(calSVMCSelectionpre()))
         })
         
         output$svmdegreeui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            svmDegreeUI(radiocal=input$radiocal, selection=calSVMDegreeSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            svmDegreeUI(radiocal=input$radiocal, selection=isolate(calSVMDegreeSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$svmscaleui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            svmScaleUI(radiocal=input$radiocal, selection=calSVMScaleSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            svmScaleUI(radiocal=input$radiocal, selection=isolate(calSVMScaleSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$svmsigmaui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            svmSigmaUI(radiocal=input$radiocal, selection=calSVMSigmaSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            svmSigmaUI(radiocal=input$radiocal, selection=isolate(calSVMSigmaSelectionpre()), xgbtype=input$xgbtype)
         })
         
         output$svmlengthui <- renderUI({
-            req(input$radiocal, input$xgbtype)
-            svmLengthUI(radiocal=input$radiocal, selection=calSVMLengthSelectionpre(), xgbtype=input$xgbtype)
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            svmLengthUI(radiocal=input$radiocal, selection=isolate(calSVMLengthSelectionpre()), xgbtype=input$xgbtype)
         })
 
         output$plsncompui <- renderUI({
-            req(input$radiocal)
-            plsNCompUI(radiocal=as.numeric(input$radiocal), selection=calPLSNCompSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            plsNCompUI(radiocal=as.numeric(input$radiocal), selection=isolate(calPLSNCompSelectionpre()))
         })
 
         output$cubistcommitteesui <- renderUI({
-            req(input$radiocal)
-            cubistCommitteesUI(radiocal=as.numeric(input$radiocal), selection=calCubistCommitteesSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            cubistCommitteesUI(radiocal=as.numeric(input$radiocal), selection=isolate(calCubistCommitteesSelectionpre()))
         })
 
         output$cubistneighborsui <- renderUI({
-            req(input$radiocal)
-            cubistNeighborsUI(radiocal=as.numeric(input$radiocal), selection=calCubistNeighborsSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            cubistNeighborsUI(radiocal=as.numeric(input$radiocal), selection=isolate(calCubistNeighborsSelectionpre()))
         })
 
         output$glmnetalphaui <- renderUI({
-            req(input$radiocal)
-            glmnetAlphaUI(radiocal=as.numeric(input$radiocal), selection=calGlmnetAlphaSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            glmnetAlphaUI(radiocal=as.numeric(input$radiocal), selection=isolate(calGlmnetAlphaSelectionpre()))
         })
 
         output$glmnetlambdaui <- renderUI({
-            req(input$radiocal)
-            glmnetLambdaUI(radiocal=as.numeric(input$radiocal), selection=calGlmnetLambdaSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            glmnetLambdaUI(radiocal=as.numeric(input$radiocal), selection=isolate(calGlmnetLambdaSelectionpre()))
         })
 
         output$marspruneui <- renderUI({
-            req(input$radiocal)
-            marsPruneUI(radiocal=as.numeric(input$radiocal), selection=calMarsPruneSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            marsPruneUI(radiocal=as.numeric(input$radiocal), selection=isolate(calMarsPruneSelectionpre()))
         })
 
         output$marsdegreeui <- renderUI({
-            req(input$radiocal)
-            marsDegreeUI(radiocal=as.numeric(input$radiocal), selection=calMarsDegreeSelectionpre())
+            req(input$radiocal, input$calcurveelement)
+            marsDegreeUI(radiocal=as.numeric(input$radiocal), selection=isolate(calMarsDegreeSelectionpre()))
         })
         
         
@@ -12580,10 +12597,19 @@ shinyServer(function(input, output, session) {
                 10000
             }
 
+            # Spectra-based models (5/7/9/11/13 and the chemometric 15/17/19/21) draw the
+            # val frame's predicted Intensity: predictFrame() is the binned spectrum there
+            # and carries no Intensity column at all, so my.min() saw NULL and the equation
+            # label was positioned at NA. Fall back to the frame actually being drawn, then
+            # to the left edge (-Inf pairs with hjust=0 the way Inf/vjust=1 does for y).
             x_hold <- if(input$radiocal==3){
                 0
-            } else if(input$radiocal!=3){
-                my.min(predict_data$Intensity)
+            } else {
+                xh <- my.min(predict_data$Intensity)
+                if(!is.finite(xh)) xh <- my.min(val_frame_val_data$Intensity)
+                if(!is.finite(xh)) xh <- my.min(val_data$Intensity)
+                if(!is.finite(xh)) xh <- -Inf
+                xh
             }
 
             x_label_pos <- if(is.null(rangescalcurve$x[1])){
@@ -12594,7 +12620,7 @@ shinyServer(function(input, output, session) {
 
             y_label_pos <- if(is.null(rangescalcurve$y[2])){
                 Inf
-            } else if(!is.null(rangescalcurve$x[1])){
+            } else if(!is.null(rangescalcurve$y[2])){
                 rangescalcurve$y[2]
             }
 
@@ -13244,7 +13270,7 @@ shinyServer(function(input, output, session) {
 
             y_label_pos <- if(is.null(rangesvalcurve$y[2])){
                 Inf
-            } else if(!is.null(rangesvalcurve$x[1])){
+            } else if(!is.null(rangesvalcurve$y[2])){
                 rangesvalcurve$y[2]
             }
 
@@ -16548,7 +16574,7 @@ shinyServer(function(input, output, session) {
             
             y_label_pos <- if(is.null(rangescalcurverandom$y[2])){
                 Inf
-            } else if(!is.null(rangescalcurverandom$x[1])){
+            } else if(!is.null(rangescalcurverandom$y[2])){
                 rangescalcurverandom$y[2]
             }
             
@@ -16919,7 +16945,7 @@ shinyServer(function(input, output, session) {
             
             y_label_pos <- if(is.null(rangesvalcurverandom$y[2])){
                 Inf
-            } else if(!is.null(rangesvalcurverandom$x[1])){
+            } else if(!is.null(rangesvalcurverandom$y[2])){
                 rangesvalcurverandom$y[2]
             }
             
@@ -21174,7 +21200,7 @@ observeEvent(input$actionprocess2_multi, {
             
             y_label_pos <- if(is.null(rangescalcurverandom_multi$y[2])){
                 Inf
-            } else if(!is.null(rangescalcurverandom_multi$x[1])){
+            } else if(!is.null(rangescalcurverandom_multi$y[2])){
                 rangescalcurverandom_multi$y[2]
             }
             
@@ -21363,7 +21389,7 @@ observeEvent(input$actionprocess2_multi, {
             
             y_label_pos <- if(is.null(rangesvalcurverandom_multi$y[2])){
                 Inf
-            } else if(!is.null(rangesvalcurverandom_multi$x[1])){
+            } else if(!is.null(rangesvalcurverandom_multi$y[2])){
                 rangesvalcurverandom_multi$y[2]
             }
             

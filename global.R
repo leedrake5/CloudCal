@@ -284,8 +284,12 @@ remove.factors = function(df) {
     return(df)
 }
 
-my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA)
-my.min <- function(x) ifelse( !all(is.na(x)), min(x, na.rm=T), NA)
+# NA_real_, not NA: the bare NA is LOGICAL, and ggplot treats a logical column as a
+# DISCRETE scale. Feeding one to annotate(x=) / scale limits made the whole plot
+# abort with "Discrete values supplied to continuous scale. Example values: NA".
+# Every caller here is numeric, so a typed NA is also just more correct.
+my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA_real_)
+my.min <- function(x) ifelse( !all(is.na(x)), min(x, na.rm=T), NA_real_)
 
 # Fast drop-in for aggregate(list(values), by=list(groups), FUN=...) on the
 # long-format spectra frames (the inner loop of every line-intensity build).
@@ -4983,9 +4987,11 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
         selection
     }
     
-    step <- if(compress=="100 eV"){
-        0.1
-    } else if(compress=="50 eV"){
+    # compress is NULL whenever the compression control is not on screen, and
+    # `if(NULL=="100 eV")` is `if(logical(0))`. Normalize before comparing.
+    if(is.null(compress) || length(compress) != 1 || is.na(compress)) compress <- "100 eV"
+
+    step <- if(compress=="50 eV"){
         0.05
     } else if(compress=="25 eV"){
         0.025
