@@ -214,6 +214,13 @@ splitLayout(cellWidths = c("50%", "50%"),
         uiOutput('deconvolutionthicknessui'),
         uiOutput('deconvolutionenvironmentui'),
         uiOutput('deconvolutiongeometryui'),
+        conditionalPanel(
+            condition = "input.deconvolutiongeometry == true",
+            uiOutput('deconvolutionincidenceui'),
+            uiOutput('deconvolutiontakeoffui'),
+            uiOutput('deconvolutionscatterangleui'),
+            uiOutput('deconvolutiongeometryinfo')
+        ),
         uiOutput('deconvolutionscatterbgui'),
         uiOutput('deconvolutionmassui'),
         actionButton('deconvolutebutton', "Deconvolute"),

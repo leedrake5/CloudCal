@@ -1047,12 +1047,22 @@ shinyServer(function(input, output, session) {
             phys <- tryCatch(dataHoldDeconvolution()$Parameters$Physics, error=function(e) NULL)
             if(is.null(phys)) phys <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$Physics, error=function(e) NULL)
             sg <- tryCatch(phys$.scatter_geometry, error=function(e) NULL)
-            if(!is.null(sg) && isTRUE(sg$inferred)){
-                md$ScatterAngle_deg   <- round(as.numeric(sg$scatter_angle_deg), 2)
-                md$ComptonBroadening  <- round(as.numeric(sg$compton_broadening), 3)
+            # Recorded for EVERY run now, not just inferred ones, so supplied and defaulted angles are
+            # traceable here too. Old calibrations carry only the inferred subset of these fields.
+            if(!is.null(sg)){
+                if(!is.null(sg$incidence_deg))      md$IncidenceAngle_deg <- round(as.numeric(sg$incidence_deg), 2)
+                if(!is.null(sg$takeoff_deg))        md$TakeoffAngle_deg   <- round(as.numeric(sg$takeoff_deg), 2)
+                if(!is.null(sg$scatter_angle_deg))  md$ScatterAngle_deg   <- round(as.numeric(sg$scatter_angle_deg), 2)
+                if(!is.null(sg$compton_broadening)) md$ComptonBroadening  <- round(as.numeric(sg$compton_broadening), 3)
                 if(!is.null(sg$e_rayleigh)) md$Rayleigh_keV <- round(as.numeric(sg$e_rayleigh), 3)
                 if(!is.null(sg$e_compton)) md$Compton_keV  <- round(as.numeric(sg$e_compton), 3)
-                md$GeometrySource     <- "inferred (Rayleigh/Compton)"
+                src <- sg$source
+                md$GeometrySource <- if(isTRUE(sg$inferred)){
+                    "inferred (Rayleigh/Compton)"
+                } else if(!is.null(src)){
+                    paste0("incidence ", src["incidence_deg"], ", take-off ", src["takeoff_deg"],
+                           ", scatter ", src["scatter_angle_deg"])
+                } else "supplied"
             }
             md
         })
@@ -1169,10 +1179,14 @@ shinyServer(function(input, output, session) {
         filter_param <- isolate(input$deconvolutiontubefilter)     # beam-filter stack (reviewed in the UI)
         env_param    <- isolate(input$deconvolutionenvironment); if(is.null(env_param) || env_param=="") env_param <- "air_pp"
         physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param, filter=filter_param, environment=env_param), error=function(e) list())
-        if(isTRUE(isolate(input$deconvolutiongeometry))){   # gated: fold the file's incidence/take-off into full-FP $Mass
+        if(isTRUE(isolate(input$deconvolutiongeometry))){   # gated: typed angle -> file's angle -> automatic chain
             geo <- tryCatch(isolate(.deconvInferredMeta()), error=function(e) NULL)
-            if(!is.null(geo$incidence)) physics_param$incidence_deg <- geo$incidence
-            if(!is.null(geo$takeoff))   physics_param$takeoff_deg   <- geo$takeoff
+            gp <- deconvolution_geometry_physics(
+                incidence      = isolate(input$deconvolutionincidence),
+                takeoff        = isolate(input$deconvolutiontakeoff),
+                scatter_angle  = isolate(input$deconvolutionscatterangle),
+                file_incidence = geo$incidence, file_takeoff = geo$takeoff)
+            for(k in names(gp)) physics_param[[k]] <- gp[[k]]   # a blank field is absent here -> fallback stands
         }
         physics_param$scatter_background <- !isFALSE(isolate(input$deconvolutionscatterbg))   # E1 default-ON; off only if unchecked
         # Protect the calibration's TARGET elements from the abundance prior, so the full-FP tiebreaker never
@@ -1282,10 +1296,14 @@ shinyServer(function(input, output, session) {
             filter_param <- input$deconvolutiontubefilter    # beam-filter stack (reviewed in the UI)
             env_param    <- input$deconvolutionenvironment; if(is.null(env_param) || env_param=="") env_param <- "air_pp"
             physics_param <- tryCatch(instrument_deconv_defaults(mode=mode_param, kv=kv_param, anode=anode_param, detector_type=det_param, active_thickness_um=thick_param, filter=filter_param, environment=env_param), error=function(e) list())
-            if(isTRUE(input$deconvolutiongeometry)){   # gated: fold the file's incidence/take-off into full-FP $Mass
+            if(isTRUE(input$deconvolutiongeometry)){   # gated: typed angle -> file's angle -> automatic chain
                 geo <- tryCatch(.deconvInferredMeta(), error=function(e) NULL)
-                if(!is.null(geo$incidence)) physics_param$incidence_deg <- geo$incidence
-                if(!is.null(geo$takeoff))   physics_param$takeoff_deg   <- geo$takeoff
+                gp <- deconvolution_geometry_physics(
+                    incidence      = input$deconvolutionincidence,
+                    takeoff        = input$deconvolutiontakeoff,
+                    scatter_angle  = input$deconvolutionscatterangle,
+                    file_incidence = geo$incidence, file_takeoff = geo$takeoff)
+                for(k in names(gp)) physics_param[[k]] <- gp[[k]]   # a blank field is absent here -> fallback stands
             }
             physics_param$scatter_background <- !isFALSE(input$deconvolutionscatterbg)   # E1 default-ON; off only if unchecked
             protect_els <- unique(c(input$show_vars_k_alpha, input$show_vars_k_beta,
@@ -1847,8 +1865,59 @@ shinyServer(function(input, output, session) {
         })
         output$deconvolutiongeometryui <- renderUI({
             p <- .deconvPhysics()
-            # checked if a prior run stored explicit geometry; else off (defaults 45/45 stand)
-            deconvolutionGeometryUI(selection=!is.null(p$incidence_deg) || !is.null(p$takeoff_deg))
+            # Checked if a prior run stored geometry the user SUPPLIED; an auto-inferred scatter angle does not
+            # count (it re-infers on its own), so read the provenance rather than the bare key. Old calibrations
+            # have no `source` -> falls through to the original incidence/take-off test.
+            src <- tryCatch(p$.scatter_geometry$source, error=function(e) NULL)
+            deconvolutionGeometryUI(selection = !is.null(p$incidence_deg) || !is.null(p$takeoff_deg) ||
+                (!is.null(src) && identical(unname(src["scatter_angle_deg"]), "supplied")))
+        })
+        # The three angle fields: persisted value -> value read off the file -> blank (= let the automatic
+        # chain run). Mirrors the beam-energy / anode / detector controls above.
+        output$deconvolutionincidenceui <- renderUI({
+            p <- .deconvPhysics(); inf <- .deconvInferredMeta()
+            deconvolutionIncidenceUI(selection=if(!is.null(p$incidence_deg)) p$incidence_deg else inf$incidence)
+        })
+        output$deconvolutiontakeoffui <- renderUI({
+            p <- .deconvPhysics(); inf <- .deconvInferredMeta()
+            deconvolutionTakeoffUI(selection=if(!is.null(p$takeoff_deg)) p$takeoff_deg else inf$takeoff)
+        })
+        output$deconvolutionscatterangleui <- renderUI({
+            p <- .deconvPhysics()
+            # Seed ONLY a user-supplied angle. The inference writes its own result back into the persisted
+            # bundle, so seeding blindly would freeze an auto-inferred angle into a manual entry the moment
+            # the calibration is reloaded -- and then it would never re-infer again.
+            manual <- !isTRUE(tryCatch(p$.scatter_geometry$inferred, error=function(e) FALSE))
+            deconvolutionScatterAngleUI(selection=if(manual) p$scatter_angle_deg else NULL)
+        })
+        # Read-out of the angles the last deconvolution ACTUALLY used and where each came from. Prefers the
+        # live run, falling back to the committed calibration -- same source pair as the Metadata tab.
+        output$deconvolutiongeometryinfo <- renderUI({
+            sg <- tryCatch(dataHoldDeconvolution()$Parameters$Physics$.scatter_geometry, error=function(e) NULL)
+            if(is.null(sg)) sg <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$Physics$.scatter_geometry, error=function(e) NULL)
+            if(is.null(sg)) return(helpText(paste("Blank = auto: the file's angles, then the Compton/Rayleigh",
+                "inference for the scatter angle, then 45 / 45 / 135 deg. Angles are measured from the sample",
+                "SURFACE. A common convention is scatter ~ 180 - incidence - take-off.")))
+            src <- sg$source
+            lbl <- function(k, d) if(!is.null(src) && !is.na(src[k])) unname(src[k]) else d
+            # Calibrations written before the path angles were recorded carry only the scatter angle, so fall
+            # back to the xrftools default that run would in fact have used.
+            r1 <- function(v, d){ x <- suppressWarnings(as.numeric(v))
+                if(length(x) == 1 && is.finite(x)) round(x, 1) else d }
+            msg <- paste0("Using ", r1(sg$incidence_deg, 45), " / ", r1(sg$takeoff_deg, 45), " / ", r1(sg$scatter_angle_deg, 135),
+                          " deg - incidence ", lbl("incidence_deg", "default"),
+                          ", take-off ", lbl("takeoff_deg", "default"),
+                          ", scatter ", lbl("scatter_angle_deg", if(isTRUE(sg$inferred)) "inferred" else "default"), ".")
+            if(isTRUE(sg$inferred) && !is.null(sg$e_rayleigh) && !is.null(sg$e_compton)){
+                msg <- paste0(msg, " Scatter angle self-calibrated from the anode ",
+                              if(!is.null(sg$anode_line) && !is.na(sg$anode_line)) paste0(sg$anode_line, "-line ") else "",
+                              "Rayleigh/Compton split (", round(as.numeric(sg$e_rayleigh), 2), " / ",
+                              round(as.numeric(sg$e_compton), 2), " keV).")
+            } else if(!isTRUE(sg$inferred) && !is.null(sg$reason) && !is.na(sg$reason) &&
+                      nzchar(sg$reason) && !identical(as.character(sg$reason), "ok")){
+                msg <- paste0(msg, " Inference declined: ", sg$reason, ".")
+            }
+            helpText(msg)
         })
         output$deconvolutionscatterbgui <- renderUI({
             p <- .deconvPhysics()

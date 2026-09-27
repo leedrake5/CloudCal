@@ -4676,12 +4676,34 @@ deconvolutionEnvironmentUI <- function(selection="air_pp"){
         choices=deconvolution_environment_presets(), selected=selection)
 }
 
-# Toggle: use the instrument's measurement geometry (sample incidence + detector take-off angles) in the
-# full-FP $Mass self-absorption path. OFF by default because most files/instruments do not report it; when ON,
-# the angles inferred from the file (currently v25 PDZ Record-1) are used, else the FP defaults (45/45) stand.
+# Toggle: set the source-sample-detector measurement geometry. OFF by default because most files/instruments
+# do not report it; when ON, the three angle fields below take effect, each falling back to the file's value
+# (currently v25 PDZ Record-1) and then to the automatic chain when left blank. The path angles (incidence /
+# take-off) drive the scatter self-absorption kernel and the full-FP $Mass solve; the scatter angle sets the
+# Compton shift the Rayleigh/Compton templates are built from.
 deconvolutionGeometryUI <- function(selection=FALSE){
-    checkboxInput('deconvolutiongeometry', "Use instrument geometry (file incidence/take-off angles)",
+    checkboxInput('deconvolutiongeometry', "Set measurement geometry (incidence / take-off / scatter)",
         value=isTRUE(selection))
+}
+
+# The three geometry angles; blank = auto (deconvolution_geometry_physics holds the fallback chain). NB they
+# are measured FROM THE SAMPLE SURFACE, not from the surface normal -- xrftools takes sin() of them
+# (.xrf_scatter_sample_kernel, xrf_quantify), so the grazing convention is what the physics expects.
+# xrftools documents scatter_angle ~ 180 - incidence - takeoff but treats the three independently (its own
+# 45/45/135 defaults do not satisfy that relation), so the relation is a hint here, never enforced.
+deconvolutionIncidenceUI <- function(selection=NULL){
+    numericInput('deconvolutionincidence', "Sample incidence angle (deg from surface; blank = auto)",
+        value=selection, min=1, max=90, step=1)
+}
+
+deconvolutionTakeoffUI <- function(selection=NULL){
+    numericInput('deconvolutiontakeoff', "Detector take-off angle (deg from surface; blank = auto)",
+        value=selection, min=1, max=90, step=1)
+}
+
+deconvolutionScatterAngleUI <- function(selection=NULL){
+    numericInput('deconvolutionscatterangle', "Scatter angle (deg; blank = infer from Compton/Rayleigh)",
+        value=selection, min=1, max=179, step=1)
 }
 
 # Toggle: fit the scatter background jointly (E1) instead of subtracting a SNIP baseline. Fits the un-baselined
@@ -10447,6 +10469,47 @@ deconvolution_physics_from_params <- function(params){
     if(is.list(params) && !is.null(params$Physics) && is.list(params$Physics)) params$Physics else list()
 }
 
+# --- Measurement geometry -----------------------------------------------------------------------
+# Resolve the three geometry angles for the `physics` bundle. Per field: the value the user TYPED wins, else
+# the value the FILE reported, else the key is OMITTED -- and omission is precisely what keeps the automatic
+# chain intact, since spectra_gls_deconvolute only infers the scatter angle from the anode Rayleigh/Compton
+# split when physics$scatter_angle_deg is NULL, and xrftools falls back to its own 45/45 path angles.
+# Out-of-range / non-finite entries are DROPPED rather than forwarded: the scatter kernel clamps sin() at
+# 1e-3, but xrf_quantify does not, so a 0 (or an NA from a cleared numericInput) would silently turn the
+# full-FP self-absorption denominator into Inf/NaN.
+deconvolution_geometry_physics <- function(incidence=NULL, takeoff=NULL, scatter_angle=NULL,
+                                           file_incidence=NULL, file_takeoff=NULL){
+    ok <- function(v, lo, hi){
+        v <- suppressWarnings(as.numeric(v))
+        length(v) == 1 && is.finite(v) && v >= lo && v <= hi
+    }
+    pick <- function(typed, from_file, lo, hi){
+        if(ok(typed, lo, hi)) return(as.numeric(typed))
+        if(ok(from_file, lo, hi)) return(as.numeric(from_file))
+        NULL
+    }
+    out <- list(incidence_deg     = pick(incidence,     file_incidence, 1, 90),
+                takeoff_deg       = pick(takeoff,       file_takeoff,   1, 90),
+                scatter_angle_deg = pick(scatter_angle, NULL,           1, 179))
+    out[!vapply(out, is.null, logical(1))]
+}
+
+# Accept xrftools' own geometry container inside the bundle -- physics=list(geometry=xrf_geometry(...)), the
+# natural form for a command-line caller -- by flattening it onto the flat scalars the rest of the pipeline
+# reads. The `geometry` key itself MUST then be dropped: deconvolute_complete has no such formal, so the
+# do.call splat would fail every spectrum with "unused argument". An explicitly-set flat scalar wins over the
+# object (the more specific key). Idempotent, so it is safe to call on an already-flattened bundle.
+deconvolution_physics_flatten_geometry <- function(physics){
+    if(!is.list(physics)) return(physics)
+    g <- physics[["geometry"]]
+    if(is.list(g)){
+        for(k in c("incidence_deg", "takeoff_deg", "scatter_angle_deg"))
+            if(is.null(physics[[k]]) && !is.null(g[[k]])) physics[[k]] <- g[[k]]
+    }
+    physics[["geometry"]] <- NULL
+    physics
+}
+
 # Tube anode by instrument family. No handheld file format encodes the anode, but it is fixed per instrument:
 # Niton (Thermo) uses a SILVER (Ag) anode; essentially every other handheld -- Bruker Tracer/Titan, Olympus
 # Vanta/Delta, SciAps -- uses RHODIUM (Rh). Metadata builders call this to stamp `TubeAnode` at import so the
@@ -10715,6 +10778,7 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
                                      mass_min_sensitivity=1e-2, fidelity="relative", mass_full_min_signal=2e-3,
                                      baseline_frame=NULL, spectra_raw=NULL, livetime=NULL, lod_sigma=3){
     tryCatch({
+        physics <- deconvolution_physics_flatten_geometry(physics)   # accept physics$geometry from a direct caller
         element_cols <- setdiff(names(area_frame), c("Spectrum", "Baseline", "Compton", "Rayleigh"))
         if(length(element_cols) == 0) return(NULL)
         pget <- function(k, default){ v <- physics[[k]]; if(!is.null(v) && !is.na(v[1])) v else default }
@@ -10852,8 +10916,10 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
     air_path_cm=NULL, atmosphere="Air", window=NULL,
     # --- scatter (needs a tube) ---
     tube_anode=NULL, tube_kv=NULL, tube_filter=NULL, scatter=NULL, scatter_angle_deg=135, compton_broadening=2,
-    # incidence/takeoff geometry are consumed only by the full-FP $Mass self-absorption path (deconvolution_mass_frame);
-    # accepted here (unused) so the physics bundle can carry them through without an "unused argument" error.
+    # Sample incidence / detector take-off, degrees FROM THE SAMPLE SURFACE. Both legs of the self-absorption
+    # path: the scatter templates below (via xrf_geometry -> .xrf_scatter_sample_kernel, the thick-sample
+    # Sherman denominator 1/(mu(E)/sin psi1 + mu(E')/sin psi2)) AND the full-FP $Mass solve
+    # (deconvolution_mass_frame -> xrf_quantify). NULL keeps xrftools' own 45/45 defaults.
     incidence_deg=NULL, takeoff_deg=NULL,
     # --- line shape / engine ---
     tail=0, step=0, beta=NULL, refine_calibration=FALSE, sum_peaks=FALSE, pileup_tau=NULL,
@@ -10919,7 +10985,15 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
         tube <- tryCatch(
             if(!is.null(tube_anode) && !is.null(tube_kv)) xrf_tube(tube_anode, kv=tube_kv, filter=tube_filter) else NULL,
             error=function(e) NULL)
-        geometry <- tryCatch(xrf_geometry(scatter_angle_deg=scatter_angle_deg), error=function(e) NULL)
+        # The path angles must go in too, not just the scatter angle: xrf_scatter_peaks and
+        # xrf_scatter_continuum weight their templates through .xrf_scatter_sample_kernel, which reads
+        # geometry$incidence_deg / $takeoff_deg. Dropping them here silently pinned every scatter template to
+        # 45/45 even on runs that had real angles. A blank/invalid value falls back to the xrftools default.
+        geo_ang <- function(v, d){ v <- suppressWarnings(as.numeric(v))
+            if(length(v) == 1 && is.finite(v) && v > 0 && v <= 90) v else d }
+        geometry <- tryCatch(xrf_geometry(incidence_deg = geo_ang(incidence_deg, 45),
+                                          takeoff_deg   = geo_ang(takeoff_deg, 45),
+                                          scatter_angle_deg = scatter_angle_deg), error=function(e) NULL)
 
         # Apply smoothing and baseline
         smoothed_tibble <- spectra_tibble %>%
@@ -11019,6 +11093,11 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     # `physics` bundles the optional new xrftools deconvolution arguments (detector_type, excitation,
     # nonneg, tube_anode/tube_kv, efficiency, escape, tail, ...). Empty list = historical behaviour.
     if(is.null(physics)) physics <- list()
+    # A caller working from the console can hand in xrftools' own container --
+    # physics=list(geometry=xrf_geometry(incidence_deg=, takeoff_deg=, scatter_angle_deg=)) -- so flatten it
+    # onto the flat scalars BEFORE anything else looks at them: the persisted record, the scatter-angle
+    # inference guard and the do.call splat (which has no `geometry` formal) all read them.
+    physics <- deconvolution_physics_flatten_geometry(physics)
     # dot-prefixed keys (e.g. .mode) are UI-only metadata: keep them in the persisted Parameters for
     # restoring the UI, but strip them from the arguments passed to deconvolute_complete.
     # NB: names() is NULL for an empty/unnamed physics (the default list()), and startsWith(NULL, ".")
@@ -11032,6 +11111,14 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     # and relative $Mass, so the displayed Areas and legacy behaviour are unchanged outside full mode.
     mass_mode <- if(isTRUE(mass)) "relative" else if(is.character(mass) && length(mass)==1) tolower(mass) else "off"
     abundance_prior <- if(identical(mass_mode, "full")) 0.2 else 0
+
+    # Per-angle provenance, recorded whether or not the inference below runs. "supplied" = the value arrived
+    # in the bundle (typed into the UI geometry fields, read off the file's metadata, or passed by a script);
+    # "inferred" = self-calibrated below; "default" = nothing was known, so xrftools' own value stands.
+    geo_src <- c(incidence_deg     = if(!is.null(physics_call$incidence_deg))     "supplied" else "default",
+                 takeoff_deg       = if(!is.null(physics_call$takeoff_deg))       "supplied" else "default",
+                 scatter_angle_deg = if(!is.null(physics_call$scatter_angle_deg)) "supplied" else "default")
+    geo_prov <- list(inferred = FALSE, reason = NA_character_)
 
     # Self-calibrate the scatter geometry from the anode Rayleigh/Compton splitting: when the anode is known
     # but the scatter angle was NOT explicitly set, infer the effective angle (and Compton width) from the
@@ -11047,6 +11134,9 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
             xrf_infer_scatter_geometry(d$Energy, d$CPS, physics_call$tube_anode, physics_call$tube_kv,
                 detector_type = if(!is.null(physics_call$detector_type)) physics_call$detector_type else "SDD")
         }, error=function(e) NULL)
+        # Keep the decline reason ("insufficient scatter counts", "Compton candidate too narrow", ...) even
+        # when the guards refuse, so the UI can say WHY the assumed angle is still in force.
+        if(!is.null(geo) && !is.null(geo$reason)) geo_prov$reason <- as.character(geo$reason)
         if(!is.null(geo) && isTRUE(geo$confident)){
             physics_call$scatter_angle_deg  <- geo$scatter_angle_deg
             physics_call$compton_broadening <- geo$compton_broadening
@@ -11059,12 +11149,24 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
             # Rayleigh/Compton split and inspect the evidence (measured line energies, width ratio, band counts).
             physics$scatter_angle_deg  <- geo$scatter_angle_deg
             physics$compton_broadening <- geo$compton_broadening
-            physics$.scatter_geometry  <- list(inferred = TRUE,
-                scatter_angle_deg = geo$scatter_angle_deg, compton_broadening = geo$compton_broadening,
-                e_rayleigh = geo$e_rayleigh, e_compton = geo$e_compton, e_anode_ka = geo$e_anode_ka,
-                width_ratio = geo$width_ratio, band_counts = geo$band_counts)
+            geo_src["scatter_angle_deg"] <- "inferred"
+            geo_prov$inferred    <- TRUE
+            geo_prov$e_rayleigh  <- geo$e_rayleigh
+            geo_prov$e_compton   <- geo$e_compton
+            geo_prov$e_anode     <- geo$e_anode        # NB the field is e_anode, not e_anode_ka: with a low-kV
+            geo_prov$anode_line  <- geo$anode_line     # tube the anchor is an anode L line, not Kalpha
+            geo_prov$width_ratio <- geo$width_ratio
+            geo_prov$band_counts <- geo$band_counts
         }
     }
+    # Close the record with the angles the fit is ACTUALLY about to use -- an absent key means xrftools' own
+    # default (45/45 path angles, 135 deg scatter, broadening 2), which is what the reader needs to see.
+    geo_prov$incidence_deg      <- if(!is.null(physics_call$incidence_deg))      physics_call$incidence_deg      else 45
+    geo_prov$takeoff_deg        <- if(!is.null(physics_call$takeoff_deg))        physics_call$takeoff_deg        else 45
+    geo_prov$scatter_angle_deg  <- if(!is.null(physics_call$scatter_angle_deg))  physics_call$scatter_angle_deg  else 135
+    geo_prov$compton_broadening <- if(!is.null(physics_call$compton_broadening)) physics_call$compton_broadening else 2
+    geo_prov$source <- geo_src
+    physics$.scatter_geometry <- geo_prov
 
     # Per-spectrum LiveTime lookup (Poisson weights for the E1 scatter-background fit; falls back to the batch
     # median when a spectrum's name isn't matched). Accepts three forms:
