@@ -11,8 +11,9 @@
 #   5. Predict the calibration's own standards and compare to stored values
 #   6. Standardless FP estimate sanity (raw grams + closure)
 #   7. Example-file zoo: every recognized import format reads, carries
-#      metadata (live time, detector, eV/ch where present), and the MCA
-#      spectra deconvolute with the physics defaults inferred from the file
+#      metadata (live time, detector, eV/ch where present), and the MCA and
+#      SEM-EDS (Esprit .txt) spectra deconvolute with the physics defaults
+#      inferred from the file
 #
 # Usage:
 #   Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir]
@@ -76,6 +77,28 @@ check("intensity rows match spectra", {
 })
 check("every calList element has a model + CalTable", all(vapply(cal$calList, function(x)
     !is.null(x[[1]]$CalTable) && length(x) >= 2, logical(1))))
+check("extensions strip only at the end of a name (\"_spectrum\" issue)",
+    identical(spectrumNameVector(c("A_spectrum1", "Inspection_3", "B_spectrum2.spe", "c.pdz", "d.CSV")),
+              c("A_spectrum1", "Inspection_3", "B_spectrum2", "c", "d")))
+check("calRDS folds legacy mangled-name twins back onto their spectra", {
+    # Rebuild what the old unanchored stripping saved for a spectrum named "<s>_spectrum": its concentrations
+    # and intensities on a mangled twin "<s>ctrum", the real-name row blank.
+    leg <- cal; s <- as.character(leg$Values$Spectrum[1]); real <- paste0(s, "_spectrum"); twin <- paste0(s, "ctrum")
+    leg$Spectra$Spectrum[leg$Spectra$Spectrum == s] <- real
+    mangle <- function(df, blank){
+        i <- which(df$Spectrum == s); tw <- df[i, , drop = FALSE]; tw$Spectrum <- twin
+        num <- setdiff(names(df)[vapply(df, is.numeric, logical(1))], "Spectrum")
+        df$Spectrum[i] <- real; df[i, num] <- blank
+        rbind(df, tw)
+    }
+    leg$Values <- mangle(leg$Values, 0)
+    leg$Intensities <- mangle(leg$Intensities, NA)
+    fixed <- calRDS(Calibration = leg, xgb_raw = FALSE)
+    el <- intersect(val_elements, colnames(cal$Intensities))[1]
+    !twin %in% fixed$Values$Spectrum && !twin %in% fixed$Intensities$Spectrum &&
+        isTRUE(all.equal(fixed$Values[[el]][fixed$Values$Spectrum == real], cal$Values[[el]][cal$Values$Spectrum == s])) &&
+        isTRUE(all.equal(fixed$Intensities[[el]][fixed$Intensities$Spectrum == real], cal$Intensities[[el]][cal$Intensities$Spectrum == s]))
+})
 
 ## ------------------------------------------------------------------
 message("\n-- 2. Intensity table builders --")
@@ -223,6 +246,22 @@ try(testServer(app, {
         basichold$deptransformation <- "Scale"
         sec4$dep_scale <- fit_ok()
         basichold$deptransformation <- "None"
+
+        # "Train slopes" normalization sweep: the lowest AIC of Time / Total Counts / best Compton window
+        # wins, and the window reported is the one the sweep actually chose
+        sec4$norm_sweep <- isTRUE(tryCatch({
+            nl <- planktonVector()
+            cc <- concentrationTable(); cc <- cc[complete.cases(cc[, el]), ]
+            slt <- spectraLineTable(); slt <- slt[slt$Spectrum %in% holdFrame()$Spectrum, ]
+            slt <- slt[complete.cases(cc[, el]), ]
+            dn <- dataNorm(); dn <- dn[dn$Spectrum %in% cc$Spectrum, ]
+            win <- optimal_norm_chain_xrf(dn, el, slt, cc, nl$Min, nl$Max)
+            aics <- c(extractAIC(lm(cc[, el] ~ general_prep_xrf(slt, el)$Intensity, na.action = na.exclude), k = log(1))[2],
+                      extractAIC(lm(cc[, el] ~ simple_tc_prep_xrf(dn, slt, el)$Intensity, na.action = na.exclude), k = log(1))[2],
+                      attr(win, "aic"))
+            bn <- bestNormVars()
+            bn$Type == which.min(aics) && identical(bn$Compton, c(nl$Min[win], nl$Max[win]))
+        }, error = function(e) FALSE))
     }
 }), silent = TRUE)
 if (is.null(sec4$element)) sec4$element <- "?"
@@ -235,6 +274,7 @@ check(sprintf("scratch model is sane (%s r2=%s)", sec4$element, signif(sec4$r2, 
 check("scratch linear fits with Time normalization", isTRUE(sec4$norm_time))
 check("scratch linear fits with ROI normalization", isTRUE(sec4$norm_roi))
 check("scratch linear fits with scaled concentrations", isTRUE(sec4$dep_scale))
+check("Train-slopes sweep picks the lowest-AIC normalization + its window", isTRUE(sec4$norm_sweep))
 
 ## ------------------------------------------------------------------
 message("\n-- 5. Self-prediction against stored values --")
@@ -392,16 +432,26 @@ if (dir.exists(EXAMPLES_DIR)) {
         all(vapply(txts, function(f){
             sp <- tryCatch(readTXTData(filepath = f, filename = basename(f)), error = function(e) NULL)
             md <- tryCatch(txtFrameMetadata(f, basename(f)), error = function(e) NULL)
-            read_ok(sp) && is.data.frame(md)
+            if (!read_ok(sp) || !is.data.frame(md)) return(FALSE)
+            # Esprit (SEM-EDS) exports: a live time, metadata that joins its spectrum by name, and electron
+            # physics inferred from it; deconvoluted alongside the MCA spectra below
+            if (isTRUE(md$Excitation[1] == "electron")) {
+                zoo_decon[[basename(f)]] <<- list(sp = sp, md = md)
+                return(is.finite(md$LiveTime[1]) && md$LiveTime[1] > 0 &&
+                       identical(md$Spectrum[1], unique(sp$Spectrum)) &&
+                       identical(deconvolution_infer_from_metadata(md)$mode, "sem"))
+            }
+            TRUE
         }, logical(1)))
     })
 
-    check("MCA spectra deconvolute with file-inferred physics defaults", {
+    check("MCA/TXT spectra deconvolute with file-inferred physics defaults", {
         length(zoo_decon) > 0 && all(vapply(zoo_decon, function(z){
             inf <- tryCatch(deconvolution_infer_from_metadata(z$md), error = function(e) NULL)
             phys <- tryCatch(instrument_deconv_defaults(
                 mode = if (!is.null(inf$mode)) inf$mode else "legacy",
-                kv = inf$kv, detector_type = inf$detector, environment = "air_pp"),
+                kv = inf$kv, detector_type = inf$detector,
+                environment = if (!is.null(inf$environment)) inf$environment else "air_pp"),
                 error = function(e) list())
             lt <- tryCatch(deconvolution_livetime_lookup(z$md), error = function(e) NULL)
             dec <- tryCatch(spectra_gls_deconvolute(z$sp, cores = 1, physics = phys,

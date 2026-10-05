@@ -1860,8 +1860,9 @@ shinyServer(function(input, output, session) {
             p <- .deconvPhysics(); deconvolutionThicknessUI(selection=if(!is.null(p$active_thickness_um)) p$active_thickness_um else 450)
         })
         output$deconvolutionenvironmentui <- renderUI({
-            p <- .deconvPhysics()
-            deconvolutionEnvironmentUI(selection=if(!is.null(p$.environment)) p$.environment else "air_pp")
+            p <- .deconvPhysics(); inf <- .deconvInferredMeta()
+            sel <- if(!is.null(p$.environment)) p$.environment else if(!is.null(inf$environment)) inf$environment else "air_pp"
+            deconvolutionEnvironmentUI(selection=sel)   # persisted -> inferred (vacuum for SEM-EDS) -> air + PP
         })
         output$deconvolutiongeometryui <- renderUI({
             p <- .deconvPhysics()
@@ -2971,8 +2972,8 @@ shinyServer(function(input, output, session) {
             colnames(net.data) <- c("Spectrum", elements)
             net.data <- net.data[order(as.character(net.data$Spectrum)),]
             
-            net.data$Spectrum <- gsub(".csv", "", net.data$Spectrum)
-            net.data$Spectrum <- gsub(".CSV", "", net.data$Spectrum)
+            net.data$Spectrum <- sub("[.]csv$", "", net.data$Spectrum)
+            net.data$Spectrum <- sub("[.]CSV$", "", net.data$Spectrum)
             
             net.data
             
@@ -4665,9 +4666,6 @@ shinyServer(function(input, output, session) {
             data <- dataNorm()
             concentration.table <- concentrationTable()
             
-            index <- seq(1, length(norm.list[[1]]), 1)
-            
-            
             concentration.table <- concentration.table[complete.cases(concentration.table[,input$calcurveelement]),]
             
             
@@ -4699,17 +4697,21 @@ shinyServer(function(input, output, session) {
                 extractAIC(lm(concentration.table[, input$calcurveelement]~simple_tc_prep_xrf_net(data, spectra.line.table, input$calcurveelement)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
             }
             
-            comp.bic <- if(dataType()=="Spectra"){
+            # The sweep returns the winning Compton window's index with that window's AIC attached: weigh the AIC
+            # (not the index) against Time / Total Counts, and report the window that actually won. Net counts
+            # have no spectrum to sweep, so Compton can't win there.
+            comp.best <- if(data_type=="Spectra"){
                 optimal_norm_chain_xrf(data=data, element=element, spectra.line.table=spectra.line.table, values=concentration.table, possible.mins=norm.list[["Min"]], possible.maxs=norm.list[["Max"]])
-            } else if(dataType()=="Net"){
-                time.bic
+            } else {
+                NULL
             }
+            comp.bic <- if(is.null(comp.best)) Inf else attr(comp.best, "aic")
             
             norm.chain <- c(time.bic, tc.bic, comp.bic)
             type.chain <- c(1, 2, 3)
             
-            best <- index[[which.min(unlist(norm.chain))]]
-            best.comp <- c(planktonVector()[["Min"]][best], planktonVector()[["Max"]][best])
+            best <- if(is.null(comp.best)) 1 else as.vector(comp.best)
+            best.comp <- c(norm.list[["Min"]][best], norm.list[["Max"]][best])
             best.type <- type.chain[which.min(unlist(norm.chain))]
             result.list <- list(best.type, best.comp)
             names(result.list) <- c("Type", "Compton")
@@ -22348,7 +22350,7 @@ content = function(file){
             }  else if(input$valfiletype=="PDZ") {
                 readvalPDZ()
             }  else if(input$valfiletype=="SPE") {
-                readvalSPE()
+                readValSPE()
             }
             
             data$CPS <- as.numeric(data$CPS)
@@ -22389,13 +22391,17 @@ content = function(file){
 
         })
         
-        # Metadata for the validation spectra (PDZ Record-1 and CSV headers carry
+        # Metadata for the validation spectra (PDZ Record-1 and CSV/MCA/TXT headers carry
         # tube/detector/LiveTime information usable for FP physics).
         myValMetaData <- reactive({
             if(identical(input$valfiletype, "PDZ")){
                 tryCatch(readPDZMetadataProcess(inFile=input$loadvaldata), error=function(e) NULL)
             } else if(identical(input$valfiletype, "CSV")){
                 tryCatch(fullSpectraMetadataProcess(inFile=input$loadvaldata), error=function(e) NULL)
+            } else if(identical(input$valfiletype, "MCA")){
+                tryCatch(fileMetadataProcess(input$loadvaldata, mcaFrameMetadata), error=function(e) NULL)
+            } else if(identical(input$valfiletype, "TXT")){
+                tryCatch(fileMetadataProcess(input$loadvaldata, txtFrameMetadata), error=function(e) NULL)
             } else NULL
         })
 

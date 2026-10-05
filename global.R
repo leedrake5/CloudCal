@@ -1589,14 +1589,8 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
         return(list(note="bad_slope"))
     }
 
-    strip_ext <- function(x){
-        # mgsub over the unique names only (the shoulder-channel frame repeats
-        # ~40 names over thousands of rows and mgsub dominates the LOD runtime).
-        x <- as.character(x)
-        u <- unique(x)
-        cleaned <- mgsub::mgsub(u, c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe"), rep("", 8))
-        cleaned[match(x, u)]
-    }
+    # Trailing-extension strip shared with the calibration loader (same extension set, unique-names mapping).
+    strip_ext <- function(x) spectrumNameVector(x)
 
     ## Window dispatch shared by the ROI sum and the ROI-membership probe, so the
     ## LOD window is always identical to the one the calibration itself uses.
@@ -2329,8 +2323,7 @@ elementFrameFast <- function(data, grab_one, elements, empty_fill=0){
     frame <- data.frame(Spectrum = specs, cols, stringsAsFactors = FALSE)
     colnames(frame) <- make.names(c("Spectrum", elements))
 
-    file_extensions <- c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe")
-    frame$Spectrum <- mgsub::mgsub(frame$Spectrum, file_extensions, rep("", length(file_extensions)))
+    frame$Spectrum <- spectrumNameVector(frame$Spectrum)   # trailing extension only (file_loading.R)
     frame
 }
 elementFrameFast <- cmpfun(elementFrameFast)
@@ -2378,9 +2371,8 @@ elementFrame <- function(data, range.table=NULL, elements, calculation="gaussian
     
     spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]
 
-    # Remove file extensions in a single pass
-    file_extensions <- c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe")
-    spectra.line.frame$Spectrum <- mgsub::mgsub(spectra.line.frame$Spectrum, file_extensions, rep("", length(file_extensions)))
+    # Remove the trailing file extension (only at the end of the name; see spectrumNameVector)
+    spectra.line.frame$Spectrum <- spectrumNameVector(spectra.line.frame$Spectrum)
 
     spectra.line.frame
 
@@ -2571,9 +2563,8 @@ wideElementFrame <- function(data, elements, range.table=NULL, calculation="gaus
     
     spectra.line.frame <- spectra.line.frame[order(as.character(spectra.line.frame$Spectrum)),]
 
-    # Remove file extensions in a single pass
-    file_extensions <- c(".pdz", ".csv", ".CSV", ".spt", ".mca", ".spx", ".PDZ", ".spe")
-    spectra.line.frame$Spectrum <- mgsub::mgsub(spectra.line.frame$Spectrum, file_extensions, rep("", length(file_extensions)))
+    # Remove the trailing file extension (only at the end of the name; see spectrumNameVector)
+    spectra.line.frame$Spectrum <- spectrumNameVector(spectra.line.frame$Spectrum)
 
     spectra.line.frame
 
@@ -4011,12 +4002,14 @@ optimal_norm_chain_xrf <- function(data, element, spectra.line.table, values, po
     
     index <- seq(1, length(possible.mins), 1)
     
-    chain.lm <- pbapply::pblapply(index, function(x) lm(values[,element]~simple_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=possible.mins[x], norm.max=possible.maxs[x])$Intensity, na.action=na.exclude))
-    aic <- lapply(chain.lm, function(x) extractAIC(x, k=log(length(1)))[2])
+    # A window past the spectrum's last channel (e.g. 30-35 keV on a 20 kV SEM spectrum) holds no counts and
+    # can't be fit; score it Inf so it can never win.
+    chain.lm <- pbapply::pblapply(index, function(x) tryCatch(lm(values[,element]~simple_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=possible.mins[x], norm.max=possible.maxs[x])$Intensity, na.action=na.exclude), error=function(e) NULL))
+    aic <- lapply(chain.lm, function(x) if(is.null(x)) Inf else extractAIC(x, k=log(length(1)))[2])
     best <- index[[which.min(unlist(aic))]]
 
-    
-    best
+    # The winning window's INDEX, carrying its AIC so a caller can weigh it against other normalizations.
+    structure(best, aic=unlist(aic)[[best]])
     
 }
 optimal_norm_chain_xrf <- cmpfun(optimal_norm_chain_xrf)
@@ -6586,8 +6579,8 @@ netData <- function(spectra, element.lines.to.use){
     colnames(net.data) <- c("Spectrum", elements)
     net.data <- net.data[order(as.character(net.data$Spectrum)),]
     
-    net.data$Spectrum <- gsub(".csv", "", net.data$Spectrum)
-    net.data$Spectrum <- gsub(".CSV", "", net.data$Spectrum)
+    net.data$Spectrum <- sub("[.]csv$", "", net.data$Spectrum)
+    net.data$Spectrum <- sub("[.]CSV$", "", net.data$Spectrum)
     
     return(net.data)
     
@@ -9604,17 +9597,9 @@ calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALS
         
         
         if(extensions==TRUE){
-            extensions <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
-            # mgsub over unique names only - the long-format Spectra column repeats
-            # ~40 names over 100k+ rows and mgsub is very slow per string.
-            strip_u <- function(x){
-                x <- as.character(x)
-                u <- unique(x)
-                cleaned <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=u)
-                cleaned[match(x, u)]
-            }
-            Calibration[["Spectra"]]$Spectrum <- strip_u(Calibration[["Spectra"]]$Spectrum)
-            Calibration[["Values"]]$Spectrum <- strip_u(Calibration[["Values"]]$Spectrum)
+            # trailing extension only (spectrumNameVector, file_loading.R)
+            Calibration[["Spectra"]]$Spectrum <- spectrumNameVector(Calibration[["Spectra"]]$Spectrum)
+            Calibration[["Values"]]$Spectrum <- spectrumNameVector(Calibration[["Values"]]$Spectrum)
         }
         
 
@@ -10538,7 +10523,7 @@ deconvolution_detector_from_model <- function(model){
 # anything not present, so callers fall through to UI / preset defaults.
 deconvolution_infer_from_metadata <- function(md){
     out <- list(kv=NULL, filter=NULL, filter_stack=NULL, anode=NULL, detector=NULL,
-                incidence=NULL, takeoff=NULL, evch_ev=NULL, mode=NULL)
+                incidence=NULL, takeoff=NULL, evch_ev=NULL, mode=NULL, environment=NULL)
     if(is.null(md) || !is.data.frame(md) || nrow(md) == 0) return(out)
     num1 <- function(col){ if(!col %in% names(md)) return(NULL)
         v <- suppressWarnings(as.numeric(md[[col]])); v <- v[is.finite(v) & v > 0]
@@ -10561,6 +10546,12 @@ deconvolution_infer_from_metadata <- function(md){
     if(known){
         det <- toupper(if(!is.null(out$detector)) out$detector else "")
         out$mode <- if(grepl("CDTE|HPGE", det) || (!is.null(out$kv) && out$kv > 60)) "high_energy" else "handheld"
+    }
+    # Electron-excited spectra (SEM-EDS, e.g. Bruker Esprit .txt): TubeVoltage is the beam energy, there is no tube
+    # to model, and the X-ray path is the chamber vacuum rather than the handheld air + polypropylene default.
+    if(identical(chr1("Excitation"), "electron")){
+        out$mode <- "sem"
+        out$environment <- "vacuum"
     }
     out
 }
@@ -11355,7 +11346,7 @@ deconvolutionIntensityFrame <- function(deconvolution_areas, intensity_frame){
     return(deconvoluted_intensities)
 }
 
-# Instrument physics bundle from spectra metadata (PDZ Record-1 / CSV headers),
+# Instrument physics bundle from spectra metadata (PDZ Record-1 / CSV / MCA / TXT headers),
 # with handheld-XRF fallbacks. Used for standalone full-FP quantification so the
 # self-absorption / secondary-fluorescence solve sees the real tube and detector
 # instead of legacy defaults.
@@ -11372,13 +11363,22 @@ physicsFromValMetadata <- function(metadata, default_kv=40, default_anode="Rh", 
         dt_m <- dt_m[!is.na(dt_m) & nzchar(dt_m)]
         if(length(dt_m) > 0) det <- dt_m[1]
     }
-    phys <- tryCatch(instrument_deconv_defaults(mode="handheld", kv=kv, anode=anode, detector_type=det),
-                     error=function(e) list())
+    # Follow the excitation the metadata implies: SEM-EDS has no tube (so no anode is defaulted in) and a vacuum
+    # path; CdTe/HPGe or >60 kV files get the high-energy physics; everything else stays handheld.
+    inf <- deconvolution_infer_from_metadata(metadata)
+    mode <- if(!is.null(inf$mode) && inf$mode %in% c("sem", "high_energy")) inf$mode else "handheld"
+    phys <- tryCatch(if(mode == "sem"){
+            instrument_deconv_defaults(mode="sem", kv=kv, detector_type=det, environment=inf$environment)
+        } else {
+            instrument_deconv_defaults(mode=mode, kv=kv, anode=anode, detector_type=det)
+        }, error=function(e) list())
     if(is.data.frame(metadata) && nrow(metadata) > 0){
+        # Formats without geometry (CSV, MCA, Hitachi TXT) have no angle columns: NULL[1] -> numeric(0), which
+        # must not reach if().
         inc <- suppressWarnings(as.numeric(metadata$IncidenceAngle[1]))
         tko <- suppressWarnings(as.numeric(metadata$TakeoffAngle[1]))
-        if(is.finite(inc)) phys$incidence_deg <- inc
-        if(is.finite(tko)) phys$takeoff_deg <- tko
+        if(length(inc) == 1 && is.finite(inc)) phys$incidence_deg <- inc
+        if(length(tko) == 1 && is.finite(tko)) phys$takeoff_deg <- tko
     }
     phys
 }

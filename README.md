@@ -84,7 +84,7 @@ CloudCal is an open-source Shiny application for building and applying quantitat
 | **MCA** | `.mca` | Multi-channel analyzer format | Elio, Generic MCA |
 | **SPE** | `.spe` | Itrax spectrum format | Cox Analytical Itrax |
 | **DFL** | `.dfl` | Itrax detector calibration | Cox Analytical Itrax |
-| **TXT** | `.txt` | Text format spectra | Various |
+| **TXT** | `.txt` | Text format spectra | Hitachi, Bruker Esprit (SEM-EDS), Generic |
 | **Net** | `.csv` | Net counts from Artax | Artax 7.4+ |
 
 ### Aggregate CSV Support

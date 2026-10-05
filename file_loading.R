@@ -74,7 +74,7 @@ csvFrameOld <- function(filepath, filename=NULL){
         filename <- as.character(basename(filepath))
     }
     filename <- make.names(filename)
-    filename <- gsub(".csv", "", filename, ignore.case=TRUE)
+    filename <- sub("[.]csv$", "", filename, ignore.case=TRUE)
     return(data.frame(Energy=read_csv_filename_x(filepath), CPS=read_csv_filename_y(filepath), Spectrum=rep(filename, length(read_csv_filename_x(filepath))), stringsAsFactors=FALSE))
 }
 csvFrameOld <- cmpfun(csvFrameOld)
@@ -84,7 +84,7 @@ csvFrameOG <- function(ret=NULL, filepath, filename=NULL, use_native_calibration
         filename <- as.character(basename(filepath))
     }
     filename <- make.names(filename)
-    filename <- gsub(".csv", "", filename, ignore.case=TRUE)
+    filename <- sub("[.]csv$", "", filename, ignore.case=TRUE)
     
     if(is.null(ret)){
         ret <- read.csv(file=filepath, sep=",", header=FALSE)
@@ -129,7 +129,7 @@ csvFrameSimple <- function(ret=NULL, filepath, filename=NULL, use_native_calibra
         filename <- as.character(basename(filepath))
     }
     filename <- make.names(filename)
-    filename <- gsub(".csv", "", filename, ignore.case=TRUE)
+    filename <- sub("[.]csv$", "", filename, ignore.case=TRUE)
     
     if(is.null(ret)){
         ret <- read.csv(file=filepath, sep=",", header=TRUE)
@@ -164,7 +164,7 @@ csvFrameMetadata <- function(filepath, filename=NULL){
         filename <- as.character(basename(filepath))
     }
     filename <- make.names(filename)
-    filename <- gsub(".csv", "", filename, ignore.case=TRUE)
+    filename <- sub("[.]csv$", "", filename, ignore.case=TRUE)
 
     # Instrument determines the anode/detector (never encoded in a CSV) and which header block to parse.
     inst <- tryCatch(get_instrument_and_beams(filepath)$instrument, error=function(e) "Generic")
@@ -245,12 +245,12 @@ mcaFrameMetadata <- function(filepath, filename=NULL){
 
 # Hitachi (.txt) metadata: eVCh from the "Energy Calibration:" slope and LiveTime from "Live Time:". Tube
 # kV/filter are not in the file; Hitachi handhelds are Rh anode / SDD.
-txtFrameMetadata <- function(filepath, filename=NULL){
+txtFrameMetadataHitachi <- function(lines=NULL, filepath, filename=NULL){
     if(is.null(filename)) filename <- basename(filepath)
     fn <- make.names(gsub("[.]txt$", "", filename, ignore.case=TRUE))
     # Hitachi puts the "Live Time:" / "Energy Calibration:" lines AFTER the 2048-channel data block, so read
     # the whole (small) file, not just the head.
-    lines <- tryCatch(suppressWarnings(readLines(filepath, warn=FALSE, encoding="latin1")), error=function(e) character(0))
+    if(is.null(lines)) lines <- tryCatch(readTXTLines(filepath), error=function(e) character(0))
     evch <- NA_real_
     cal_ln <- grep("Energy Calibration:", lines, value=TRUE, ignore.case=TRUE)[1]
     if(!is.na(cal_ln)){ ec <- tryCatch(extract_hitachi_energy_calibration(cal_ln), error=function(e) NULL)
@@ -260,6 +260,36 @@ txtFrameMetadata <- function(filepath, filename=NULL){
     data.frame(Spectrum=fn, eVCh=evch, LiveTime=if(is.finite(lt)) round(lt, 2) else NA_real_,
                TubeVoltage=NA_real_, TubeAnode=deconvolution_instrument_anode("Hitachi"),
                TubeFilter=NA_character_, TubeFilterStack=NA_character_, DetectorType="SDD", stringsAsFactors=FALSE)
+}
+
+# Bruker Esprit (SEM-EDS) metadata: eVCh from "Calibration, lin." (eV/ch) and Live/RealTime from the header's ms
+# fields. TubeVoltage is the electron beam's "Primary energy" (kV); electron excitation has no anode or beam
+# filter, and Excitation="electron" lets deconvolution_infer_from_metadata pick the SEM-EDS physics mode.
+txtFrameMetadataEsprit <- function(lines=NULL, filepath, filename=NULL){
+    if(is.null(filename)) filename <- basename(filepath)
+    fn <- make.names(gsub("[.]txt$", "", filename, ignore.case=TRUE))
+    if(is.null(lines)) lines <- readTXTLines(filepath)
+    rt <- espritValue(lines, "Real time")/1000
+    lt <- espritValue(lines, "Life time")/1000
+    # readTXTDataEsprit divides by the real time when the live time is missing; report the time the CPS was built with.
+    if(!is.finite(lt) || lt <= 0) lt <- rt
+    det_ln <- grep("^\\s*Detector type\\s*:", lines, value=TRUE, ignore.case=TRUE)[1]
+    det <- if(is.na(det_ln)) NA_character_ else deconvolution_detector_from_model(sub("^[^:]*:\\s*", "", det_ln))
+    data.frame(Spectrum=fn, eVCh=espritValue(lines, "Calibration, lin.")/1000,
+               LiveTime=if(is.finite(lt)) round(lt, 2) else NA_real_, RealTime=if(is.finite(rt)) round(rt, 2) else NA_real_,
+               TubeVoltage=espritValue(lines, "Primary energy"), TubeAnode=NA_character_,
+               TubeFilter=NA_character_, TubeFilterStack=NA_character_, DetectorType=if(is.na(det)) "SDD" else det,
+               TakeoffAngle=espritValue(lines, "Take off angle"), Excitation="electron", stringsAsFactors=FALSE)
+}
+
+txtFrameMetadata <- function(filepath, filename=NULL){
+    if(is.null(filename)) filename <- basename(filepath)
+    lines <- tryCatch(readTXTLines(filepath), error=function(e) character(0))
+    if(isEspritTXT(lines)){
+        txtFrameMetadataEsprit(lines=lines, filepath=filepath, filename=filename)
+    } else {
+        txtFrameMetadataHitachi(lines=lines, filepath=filepath, filename=filename)
+    }
 }
 
 # Iterate a per-file metadata builder over an uploaded fileInput frame (shiny inFile: datapath/name columns).
@@ -276,7 +306,7 @@ fullSpectraDataTableProcess <- function(inFile=NULL, gainshiftvalue=0){
             
         if (is.null(inFile)) return(NULL)
         temp = inFile$name
-        temp <- gsub(".csv", "", temp)
+        temp <- sub("[.]csv$", "", temp)
         id.seq <- seq(1, 2048,1)
         
         n <- length(temp)*id.seq
@@ -308,7 +338,7 @@ fullSpectraProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibra
        
            if (is.null(inFile)) return(NULL)
            temp = inFile$name
-           temp <- gsub(".csv", "", temp)
+           temp <- sub("[.]csv$", "", temp)
            id.seq <- seq(1, 2048,1)
            
            n <- length(temp)*id.seq
@@ -330,7 +360,7 @@ fullSpectraMetadataProcess <- function(inFile=NULL){
        
            if (is.null(inFile)) return(NULL)
            temp = inFile$name
-           temp <- gsub(".csv", "", temp)
+           temp <- sub("[.]csv$", "", temp)
            id.seq <- seq(1, 2048,1)
            
            n <- length(temp)*id.seq
@@ -869,6 +899,43 @@ importCSVFrameDetailed <- function(csv_import, chosen_beam="1"){
 }
 importCSVFrameDetailed <- cmpfun(importCSVFrameDetailed)
 
+# Lines of a .txt spectrum in whatever encoding it was written. Bruker Esprit exports UTF-16LE without a BOM,
+# which read.table/readLines see as NUL-riddled bytes, so sniff the BOM / NUL byte pattern and decode first;
+# anything else is read exactly as before (latin1).
+readTXTLines <- function(filepath){
+    bytes <- readBin(filepath, "raw", n=file.size(filepath))
+    nul <- as.raw(0)
+    enc <- if(length(bytes) < 2){
+        NA_character_
+    } else if(bytes[1]==as.raw(0xFF) && bytes[2]==as.raw(0xFE)){
+        "UTF-16LE"
+    } else if(bytes[1]==as.raw(0xFE) && bytes[2]==as.raw(0xFF)){
+        "UTF-16BE"
+    } else if(bytes[2]==nul){
+        "UTF-16LE"
+    } else if(bytes[1]==nul){
+        "UTF-16BE"
+    } else {
+        NA_character_
+    }
+    if(is.na(enc)) return(suppressWarnings(readLines(filepath, warn=FALSE, encoding="latin1")))
+    if(length(bytes) %% 2) bytes <- bytes[-length(bytes)]
+    text <- sub("^\ufeff", "", iconv(list(bytes), from=enc, to="UTF-8"))
+    strsplit(text, "\r?\n")[[1]]
+}
+
+# Bruker Esprit's .txt export: a "Bruker Nano"/"Esprit" banner, a "Key: value" header, then an "Energy Counts" block.
+isEspritTXT <- function(lines){
+    any(grepl("Bruker|Esprit", head(lines, 3), ignore.case=TRUE)) && any(grepl("^\\s*Energy\\s+Counts\\s*$", lines))
+}
+
+# Numeric value of an Esprit "Key: value" header line ("Life time: 39347", "Si dead layer:0.029"); NA if absent.
+espritValue <- function(lines, key){
+    ln <- grep(paste0("^\\s*", key, "\\s*:"), lines, value=TRUE, ignore.case=TRUE)[1]
+    if(is.na(ln)) return(NA_real_)
+    suppressWarnings(as.numeric(trimws(sub("^[^:]*:", "", ln))))
+}
+
 extract_hitachi_energy_calibration <- function(line) {
   # Match pattern: Energy Calibration: -0.010000 keV 0.025033 keV/channel
   pattern <- "Energy Calibration:\\s*([-+]?[0-9]*\\.?[0-9]+)\\s*keV\\s*([-+]?[0-9]*\\.?[0-9]+)\\s*keV/channel"
@@ -891,7 +958,7 @@ readTXTDataHitachi <- function(file=NULL, filepath, filename=NULL, use_native_ca
         if(is.null(filename)){
             filename <- basename(filepath)
         }
-        filename <- make.names(gsub(".txt", "", filename, ignore.case=TRUE))
+        filename <- make.names(sub("[.]txt$", "", filename, ignore.case=TRUE))
         
         if(is.null(file)){
              text <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
@@ -922,7 +989,7 @@ readTXTDataOG <- function(file=NULL, filepath, filename=NULL, use_native_calibra
     if(is.null(filename)){
         filename <- basename(filepath)
     }
-    filename <- make.names(gsub(".txt", "", filename, ignore.case=TRUE))
+    filename <- make.names(sub("[.]txt$", "", filename, ignore.case=TRUE))
    
    if(is.null(file)){
         text <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
@@ -945,14 +1012,49 @@ readTXTDataOG <- function(file=NULL, filepath, filename=NULL, use_native_calibra
 }
 readTXTDataOG <- cmpfun(readTXTDataOG)
 
+# Bruker Esprit (SEM-EDS) .txt export: the "Energy Counts" block already holds energies in keV (channel 0 is
+# "Calibration, abs."), and Esprit records Real/Life time in ms.
+readTXTDataEsprit <- function(lines=NULL, filepath, filename=NULL, use_native_calibration=TRUE){
+    if(is.null(filename)){
+        filename <- basename(filepath)
+    }
+    filename <- make.names(gsub("[.]txt$", "", filename, ignore.case=TRUE))
+
+    if(is.null(lines)){
+        lines <- readTXTLines(filepath)
+    }
+    start <- grep("^\\s*Energy\\s+Counts\\s*$", lines)[1]
+    spectrum <- read.table(text=lines[(start+1):length(lines)], header=FALSE)
+
+    live_time <- espritValue(lines, "Life time")/1000
+    if(!is.finite(live_time) || live_time <= 0) live_time <- espritValue(lines, "Real time")/1000
+    # Neither time present: keep raw counts rather than NA/Inf CPS.
+    if(!is.finite(live_time) || live_time <= 0) live_time <- 1
+
+    energy <- if(use_native_calibration==TRUE){
+        spectrum[,1]
+    } else {
+        seq(1, nrow(spectrum), 1)
+    }
+
+    data.frame(Energy=energy, CPS=spectrum[,2]/live_time, Spectrum=filename, stringsAsFactors=FALSE)
+}
+
 readTXTData <- function(filepath, filename=NULL, use_native_calibration=TRUE){
 
-    file <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
+    # Sniff before read.table, which can't parse Esprit's UTF-16 exports.
+    lines <- readTXTLines(filepath)
 
-    if(file[1,1]==2048){
-        readTXTDataHitachi(file=file, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
+    if(isEspritTXT(lines)){
+        readTXTDataEsprit(lines=lines, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
     } else {
-        readTXTDataOG(file=file, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
+        file <- read.table(filepath, sep=",", fill=TRUE, header=FALSE)
+
+        if(file[1,1]==2048){
+            readTXTDataHitachi(file=file, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
+        } else {
+            readTXTDataOG(file=file, filepath=filepath, filename=filename, use_native_calibration=use_native_calibration)
+        }
     }
     
 }
@@ -1000,7 +1102,7 @@ readSPTData <- function(filepath, filename, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)
     }
-    filename <- make.names(gsub(".spt", "", filename))
+    filename <- make.names(sub("[.]spt$", "", filename))
     filename.vector <- rep(filename, 4096)
     
     meta <- paste0(readLines(filepath, n=16),collapse=" ")
@@ -1224,7 +1326,7 @@ readMCAData4096 <- function(filepath, filename=NULL, full=NULL, use_native_calib
     if(is.null(filename)){
         filename <- basename(filepath)
     }
-    filename <- make.names(gsub(".mca", "", filename))
+    filename <- make.names(sub("[.]mca$", "", filename))
     filename.vector <- rep(filename, 4096)
     
     if(is.null(full)){
@@ -1270,7 +1372,7 @@ readPMCAData4096 <- function(filepath, filename=NULL, full=NULL, use_native_cali
     if(is.null(filename)){
         filename <- basename(filepath)
     }
-    filename <- make.names(gsub(".mca", "", filename))
+    filename <- make.names(sub("[.]mca$", "", filename))
     filename.vector <- rep(filename, 4096)
     
     if(is.null(full)){
@@ -1321,7 +1423,7 @@ readMinalyzeData4096 <- function(filepath, filename=NULL, full=NULL, use_native_
     if(is.null(filename)){
         filename <- basename(filepath)
     }
-    filename <- make.names(gsub(".mca", "", filename))
+    filename <- make.names(sub("[.]mca$", "", filename))
     filename.vector <- rep(filename, 4096)
     
     if(is.null(full)){
@@ -1362,7 +1464,7 @@ readMCAData2048 <- function(filepath, filename, full=NULL, use_native_calibratio
         filename <- basename(filepath)
     }
     
-    filename <- make.names(gsub(".mca", "", filename))
+    filename <- make.names(sub("[.]mca$", "", filename))
     filename.vector <- rep(filename, 2048)
     
     if(is.null(full)){
@@ -1390,7 +1492,7 @@ readPMCAData2048 <- function(filepath, filename=NULL, full=NULL, use_native_cali
     if(is.null(filename)){
         filename <- basename(filepath)
     }
-    filename <- make.names(gsub(".mca", "", filename))
+    filename <- make.names(sub("[.]mca$", "", filename))
     filename.vector <- rep(filename, 2048)
     
     if(is.null(full)){
@@ -1478,28 +1580,36 @@ readMCAProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration
     return(data)
 }
 
-readSPXData <- function(filepath, filename, use_native_calibration=TRUE){
+readSPXData <- function(filepath, filename=NULL, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)
     }
     
-    filename <- make.names(gsub(".spx", "", filename))
-    filename.vector <- rep(filename, 4096)
+    filename <- make.names(sub("[.]spx$", "", filename))
     
     xmlfile <- xmlTreeParse(filepath)
     xmllist <- xmlToList(xmlfile)
     channels.pre <- xmllist[["ClassInstance"]][["Channels"]][[1]]
     counts <- as.numeric(strsplit(channels.pre, ",", )[[1]])
-    newdata <- as.data.frame(seq(1, 4096, 1), stringsAsFactors=FALSE)
-    intercept <- as.numeric(xmllist[["ClassInstance"]][["ClassInstance"]][["CalibAbs"]])
-    slope <- as.numeric(xmllist[["ClassInstance"]][["ClassInstance"]][["CalibLin"]])
-    time <- as.numeric(xmllist[[2]][["TRTHeaderedClass"]][[3]][["LifeTime"]])/1000
+    filename.vector <- rep(filename, length(counts))
+    # Bruker writes the calibration with the acquiring PC's decimal separator ("-1,2015..." on a German locale).
+    intercept <- as.numeric(sub(",", ".", xmllist[["ClassInstance"]][["ClassInstance"]][["CalibAbs"]], fixed=TRUE))
+    slope <- as.numeric(sub(",", ".", xmllist[["ClassInstance"]][["ClassInstance"]][["CalibLin"]], fixed=TRUE))
+    # Live/real time (ms) sit in the hardware header, whose position among the header blocks varies between
+    # Artax/Esprit versions, so find them by name. A spectrum saved without hardware times keeps raw counts.
+    header <- unlist(xmllist[[2]][["TRTHeaderedClass"]])
+    header_time <- function(key) suppressWarnings(as.numeric(header[grepl(paste0("(^|[.])", key, "$"), names(header))][1]))/1000
+    time <- header_time("LifeTime")
+    if(!is.finite(time) || time <= 0) time <- header_time("RealTime")
+    if(!is.finite(time) || time <= 0) time <- 1
     
     cps <- counts/time
+    # Bruker channels are 0-based: CalibAbs is the energy of the first channel (Esprit's .txt export writes it
+    # as row one).
     energy <- if(use_native_calibration==TRUE){
-        newdata[,1]*slope+intercept
+        seq(0, length(counts)-1, 1)*slope+intercept
     } else if(use_native_calibration==FALSE){
-        seq(1, 4096, 1)
+        seq(1, length(counts), 1)
     }
     
     spectra.frame <- data.frame(energy, cps, filename.vector, stringsAsFactors=FALSE)
@@ -1529,7 +1639,7 @@ readSPXProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration
 
 readPDZ25DataExpiremental <- function(filepath, filename, use_native_calibration=TRUE){
     
-    filename <- make.names(gsub(".pdz", "", filename))
+    filename <- make.names(sub("[.]pdz$", "", filename))
     filename.vector <- rep(filename, 2048)
     
     nbrOfRecords <- 3000
@@ -1557,7 +1667,7 @@ readPDZ25DataExpiremental <- cmpfun(readPDZ25DataExpiremental)
 
 readPDZ24DataExpiremental <- function(filepath, filename, use_native_calibration=TRUE){
     
-    filename <- make.names(gsub(".pdz", "", filename))
+    filename <- make.names(sub("[.]pdz$", "", filename))
     filename.vector <- rep(filename, 2048)
     
     nbrOfRecords <- 3000
@@ -1590,7 +1700,7 @@ readPDZ25Data <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_cali
         filename <- basename(filepath)
     }
     
-    filename <- make.names(gsub(".pdz", "", filename))
+    filename <- make.names(sub("[.]pdz$", "", filename))
     
     integers <- as.vector(readPDZ25(filepath))
     
@@ -1636,7 +1746,7 @@ readPDZ25DataManual <- function(filepath, filename=NULL, binaryshift, pdzprep=TR
         filename <- basename(filepath)
     }
     
-    filename <- make.names(gsub(".pdz", "", filename))
+    filename <- make.names(sub("[.]pdz$", "", filename))
     
     nbrOfRecords <- 2048
     integers <- as.vector(readPDZ25(filepath))
@@ -1675,7 +1785,7 @@ readPDZ24Data<- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calib
         filename <- basename(filepath)
     }
     
-    filename <- make.names(gsub(".pdz", "", filename))
+    filename <- make.names(sub("[.]pdz$", "", filename))
     filename.vector <- rep(filename, 2048)
     
     nbrOfRecords <- 2048
@@ -1721,7 +1831,7 @@ readPDZManualData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_
         filename <- basename(filepath)
     }
     
-    filename <- make.names(gsub(".pdz", "", filename))
+    filename <- make.names(sub("[.]pdz$", "", filename))
     filename.vector <- rep(filename, 2020)
     
     nbrOfRecords <- 2020
@@ -1771,7 +1881,7 @@ readPDZDataUniversal <- function(filepath, filename=NULL, pdzprep=TRUE, use_nati
     if(is.null(filename)){
         filename <- basename(filepath)
     }
-    filename <- make.names(gsub(".pdz", "", filename, ignore.case=TRUE))
+    filename <- make.names(sub("[.]pdz$", "", filename, ignore.case=TRUE))
 
     # Get all spectra from the file (returns list of data.frames with Energy, CPS)
     spectra_list <- getPDZDataFrames(filepath)
@@ -1904,7 +2014,7 @@ readPDZMetadata <- function(filepath, filename=NULL) {
     # Returns data.frame with one row per spectrum in the file
 
     if(is.null(filename)){
-        filename <- gsub(".pdz", "", basename(filepath))
+        filename <- sub("[.]pdz$", "", basename(filepath))
     }
     filename <- make.names(filename, unique=FALSE)
 
@@ -4304,22 +4414,60 @@ intensity_fix <- function(calibration, keep_labels=TRUE){
     return(calibration)
 }
 
-# File extensions to remove from spectrum names
+# File extensions to remove from spectrum names -- only as the trailing extension. These used to be unanchored
+# mgsub regexes (".spe" = any character + "spe", anywhere), which mangled names such as "X_spectrum" -> "Xctrum"
+# and "Inspection_3" -> "Iction_3" and split those spectra from their concentrations.
 .file_extensions <- c(".pdz", ".PDZ", ".csv", ".CSV", ".spt", ".mca", ".spx", ".spe")
+.file_extension_pattern <- paste0("\\.(", paste(substring(.file_extensions, 2), collapse="|"), ")$")
 
 spectrumNameSingle <- function(spectrum_name){
-    mgsub::mgsub(spectrum_name, .file_extensions, rep("", length(.file_extensions)))
+    sub(.file_extension_pattern, "", spectrum_name)
 }
 
 spectrumNameVector <- function(spectrum_vector){
     # Long-format spectra columns repeat ~40 unique names across ~100k+ rows;
-    # mgsub's regex pass is by far the most expensive part of loading a
-    # calibration when run on the full column. Clean the unique names only and
-    # map back - identical per-string semantics.
+    # clean the unique names only and map back - identical per-string semantics.
     x <- as.character(spectrum_vector)
     u <- unique(x)
-    cleaned <- mgsub::mgsub(u, .file_extensions, rep("", length(.file_extensions)))
+    cleaned <- sub(.file_extension_pattern, "", u)
     cleaned[match(x, u)]
+}
+
+# Calibrations saved while extension stripping was unanchored hold a mangled twin of every spectrum whose name
+# contained an extension-like substring ("Obs1_spectrum" was also saved as "Obs1ctrum"), and the concentrations
+# and intensities sat on the twin, so those standards silently dropped out of the fit. Fold each twin into its
+# real spectrum's row, filling only blank cells (NA, or 0 for numbers), then drop it. A twin that two real names
+# would both have produced can't be attributed, so it is left alone. Used by calRDS.
+foldLegacySpectrumTwins <- function(df, spectra, col = "Spectrum"){
+    if (!is.data.frame(df) || !(col %in% names(df)) || !length(spectra)) return(df)
+    spectra <- unique(as.character(spectra))
+    # Only a name with an extension token after some character could have been mangled; the old mgsub pass is
+    # slow (~1 s per 18k names, run once per table here), so apply it to those candidates only.
+    cand <- grepl(paste0(".(", paste(substring(.file_extensions, 2), collapse = "|"), ")"), spectra)
+    if (!any(cand)) return(df)
+    legacy <- spectra
+    legacy[cand] <- tryCatch(make.names(mgsub::mgsub(spectra[cand], .file_extensions, rep("", length(.file_extensions))), unique = FALSE),
+                             error = function(e) spectra[cand])   # the old (unanchored) behaviour, for recognising twins only
+    foldable <- legacy != spectra & !(legacy %in% spectra) & !(legacy %in% legacy[duplicated(legacy)])
+    if (!any(foldable)) return(df)
+    nm <- as.character(df[[col]])
+    drop <- integer(0)
+    for (i in which(foldable)) {
+        twin <- which(nm == legacy[i]); if (!length(twin)) next
+        real <- which(nm == spectra[i])
+        if (!length(real)) {                       # only the twin was saved: it simply takes the real name
+            df[[col]][twin[1]] <- spectra[i]
+            drop <- c(drop, twin[-1])
+            next
+        }
+        for (cc in setdiff(names(df), col)) {
+            v <- df[[cc]][real[1]]
+            if (is.na(v) || (is.numeric(v) && v == 0)) df[[cc]][real[1]] <- df[[cc]][twin[1]]
+        }
+        drop <- c(drop, twin)
+    }
+    if (length(drop)) df <- df[-drop, , drop = FALSE]
+    df
 }
 
 # Helper to normalize spectrum names in a data frame column
@@ -4575,6 +4723,10 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     }
 
     Calibration$Values <- normalizeSpectrumColumn(Calibration$Values)
+    # Older .quant files: fold the mangled-name twin rows back into their real spectra (see foldLegacySpectrumTwins).
+    # Unique names once: the long-format Spectra column runs to millions of rows on big calibrations.
+    spectra_names <- unique(as.character(Calibration$Spectra$Spectrum))
+    Calibration$Values <- foldLegacySpectrumTwins(Calibration$Values, spectra_names)
 
     # Normalize deconvoluted tables
     if ("Deconvoluted" %in% names(Calibration)) {
@@ -4603,6 +4755,9 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
 
     # Normalize any existing intensity tables and build any that are missing
     Calibration <- ensureIntensityTables(Calibration, elements, allowParallel)
+    for (tbl in c("Intensities", "IntensitiesSplit", "IntensitiesFirst", "IntensitiesSecond", "WideIntensities", "WideIntensitiesSplit")) {
+        if (tbl %in% names(Calibration)) Calibration[[tbl]] <- foldLegacySpectrumTwins(Calibration[[tbl]], spectra_names)
+    }
 
 
     if("Deconvoluted" %in% names(Calibration)){
@@ -4689,10 +4844,9 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     
     
     if(extensions==TRUE){
-        extensions <- c(".spx", ".PDZ", ".pdz", ".CSV", ".csv", ".spt", ".mca")
-        Calibration[["Spectra"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Spectra"]]$Spectrum))
+        Calibration[["Spectra"]]$Spectrum <- spectrumNameVector(Calibration[["Spectra"]]$Spectrum)
         if(!is.null(Calibration[["Values"]])){
-            Calibration[["Values"]]$Spectrum <- mgsub::mgsub(pattern=extensions, replacement=rep("", length(extensions)), string=as.character(Calibration[["Values"]]$Spectrum))
+            Calibration[["Values"]]$Spectrum <- spectrumNameVector(Calibration[["Values"]]$Spectrum)
         }
     }
 
