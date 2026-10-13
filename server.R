@@ -1189,6 +1189,7 @@ shinyServer(function(input, output, session) {
             for(k in names(gp)) physics_param[[k]] <- gp[[k]]   # a blank field is absent here -> fallback stands
         }
         physics_param$scatter_background <- !isFALSE(isolate(input$deconvolutionscatterbg))   # E1 default-ON; off only if unchecked
+        physics_param <- deconvolution_apply_split_series(physics_param, isolate(input$deconvolutionsplitseries), mode_param)
         # Protect the calibration's TARGET elements from the abundance prior, so the full-FP tiebreaker never
         # penalises an element the user is deliberately measuring (only bites when abundance_prior>0 anyway).
         protect_els <- unique(c(isolate(input$show_vars_k_alpha), isolate(input$show_vars_k_beta),
@@ -1306,6 +1307,7 @@ shinyServer(function(input, output, session) {
                 for(k in names(gp)) physics_param[[k]] <- gp[[k]]   # a blank field is absent here -> fallback stands
             }
             physics_param$scatter_background <- !isFALSE(input$deconvolutionscatterbg)   # E1 default-ON; off only if unchecked
+            physics_param <- deconvolution_apply_split_series(physics_param, input$deconvolutionsplitseries, mode_param)
             protect_els <- unique(c(input$show_vars_k_alpha, input$show_vars_k_beta,
                                     input$show_vars_l_alpha, input$show_vars_l_beta, input$show_vars_m))
             protect_els <- protect_els[!is.na(protect_els) & nzchar(protect_els)]
@@ -1923,6 +1925,10 @@ shinyServer(function(input, output, session) {
         output$deconvolutionscatterbgui <- renderUI({
             p <- .deconvPhysics()
             deconvolutionScatterBgUI(selection=!isFALSE(p$scatter_background))   # default-ON unless explicitly disabled
+        })
+        output$deconvolutionsplitseriesui <- renderUI({
+            deconvolutionSplitSeriesUI(selection=deconvolution_split_selection(.deconvPhysics(),
+                "Deconvoluted" %in% names(calMemory$Calibration)))
         })
         output$deconvolutionmassui <- renderUI({
             fid <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$MassFidelity, error=function(e) NULL)
@@ -22431,7 +22437,17 @@ content = function(file){
             
             
             deconvolution_physics <- deconvolution_physics_from_params(deconvolution_parameters)
-            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=decon_cores, physics=deconvolution_physics, mass=TRUE), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=decon_cores, physics=deconvolution_physics, mass=TRUE))
+            # Same fit model as training: a calibration deconvolved with E1 needs a LiveTime here too, or E1 silently
+            # falls back to SNIP and the models see differently-fitted areas than they were trained on.
+            trained_e1 <- !is.null(calFileContents2()$Deconvoluted$E1)
+            val_livetime <- deconvolution_prediction_livetime(calFileContents2()$Deconvoluted, myValMetaData(),
+                                                              calFileContents2()$SpectraMetadata)
+            if(trained_e1 && is.null(val_livetime)){
+                showNotification("This calibration was deconvolved with the E1 scatter background, but no live time is available for these spectra, so their areas use the SNIP fit instead. Predictions may be biased.", type="warning", duration=10)
+            } else if(trained_e1 && isTRUE(attr(val_livetime, "nominal"))){
+                showNotification("These spectra carry no live time; using the calibration's median live time so the E1 fit matches training.", type="message", duration=8)
+            }
+            deconvolution <- tryCatch(spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=decon_cores, physics=deconvolution_physics, mass=TRUE, livetime=val_livetime), error=function(e) spectra_gls_deconvolute(spectra, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=decon_cores, physics=deconvolution_physics, mass=TRUE, livetime=val_livetime))
             
             deconvolution
             

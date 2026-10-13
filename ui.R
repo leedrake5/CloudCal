@@ -222,6 +222,7 @@ splitLayout(cellWidths = c("50%", "50%"),
             uiOutput('deconvolutiongeometryinfo')
         ),
         uiOutput('deconvolutionscatterbgui'),
+        uiOutput('deconvolutionsplitseriesui'),
         uiOutput('deconvolutionmassui'),
         actionButton('deconvolutebutton', "Deconvolute"),
         helpText("Re-run deconvolution with the current parameters."))

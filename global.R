@@ -4712,13 +4712,24 @@ deconvolutionScatterBgUI <- function(selection=TRUE){
         value=!isFALSE(selection))
 }
 
+# K-series vs L+M split (physics$split_series). "Auto" follows the instrument mode (on for Handheld and High-energy);
+# On/Off force it for any non-legacy mode. When split, an element whose K-lines are in the fit window gets two
+# independent templates -- "Pb" (K) and "Pb_L" (L+M) -- instead of one tied at a matrix-free K:L ratio, and
+# El.K.alpha / El.L.alpha read their own series' area.
+deconvolutionSplitSeriesUI <- function(selection="auto"){
+    selectInput('deconvolutionsplitseries', "Fit K-series separately from L/M lines",
+        choices=c("Auto (on for Handheld / High-energy)"="auto", "On"="on", "Off"="off"),
+        selected=if(selection %in% c("auto", "on", "off")) selection else "auto")
+}
+
 # FP mass-estimate control. Off by default. "Relative" divides areas by an FP sensitivity computed once per
 # batch (fast; matrix-decoupled A/S). "Full FP" runs a per-spectrum fundamental-parameters solve with
 # self-absorption (slower). Secondary/tertiary fluorescence are OFF by default: the Shiraiwa-Fujino enhancement
 # over-estimates in dilute / near-pure-exciter matrices and, via sum-to-one closure, corrupts even
 # non-enhanced elements -- re-enable per-run (physics$secondary_fluorescence) once its magnitude is
-# recalibrated. Adds a $Mass table. High-Z K-lines the detector cannot see (e.g. U-K/Th-K at 90-100 keV on a
-# thin SDD) are auto-routed to their L-lines by the deconvolution's detector-visibility filter.
+# recalibrated. Adds a $Mass table. With tied templates, high-Z K-lines below 2% detector efficiency (e.g. U-K/Th-K
+# at 90-100 keV on a thin SDD) are routed to their L-lines by the deconvolution's visibility filter; with
+# split_series the element's mass comes from its K-series column and the "<El>_L" column is left out.
 deconvolutionMassUI <- function(selection="off"){
     # accept the legacy logical (TRUE/FALSE) as well as the new mode strings
     sel <- if(isTRUE(selection)) "relative" else if(isFALSE(selection) || is.null(selection)) "off" else as.character(selection)
@@ -7362,7 +7373,7 @@ calBundle <- function(filetype, units, spectra, intensities, wide.intensities, d
 }
 
 
-cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, rounding=4, multiplier=1, confidence=FALSE, cores=NULL){
+cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, rounding=4, multiplier=1, confidence=FALSE, cores=NULL, livetime=NULL){
     
     if(is.null(cores)){
         cores = parallel::detectCores()-2
@@ -7370,7 +7381,11 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
     
     if(is.null(deconvoluted_valdata)){
         deconvolution_parameters <- Calibration$Deconvoluted$Parameters
-        deconvoluted_data <-spectra_gls_deconvolute(valdata, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=decon_cores, physics=deconvolution_physics_from_params(deconvolution_parameters), mass=TRUE)
+        # `livetime`: the new spectra's LiveTime (named by Spectrum), used only when the calibration was deconvolved
+        # with E1 so prediction runs the same fit model; otherwise the calibration's own / median training live time.
+        val_livetime <- if(!is.null(livetime) && !is.null(Calibration$Deconvoluted$E1)) livetime else
+            deconvolution_prediction_livetime(Calibration$Deconvoluted, NULL, Calibration$SpectraMetadata)
+        deconvoluted_data <-spectra_gls_deconvolute(valdata, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=decon_cores, physics=deconvolution_physics_from_params(deconvolution_parameters), mass=TRUE, livetime=val_livetime)
         deconvoluted_valdata <- deconvoluted_data
     }
 
@@ -10375,7 +10390,10 @@ spectra_frame_fit_baseline_convert <- function(a_tibble, name, include = c("back
 intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
     
     deconvolution_frame <- as.data.frame(deconvolution_tibble)
-    deconvolution_frame$order <- atomic_order_vector(deconvolution_frame$element)
+    # split_series templates ("Pb_L" = Pb's L+M lines) are element columns too: order them by the base element,
+    # right after its bare K-series column.
+    is_series <- grepl("^[A-Z][a-z]?_L$", deconvolution_frame$element)
+    deconvolution_frame$order <- atomic_order_vector(sub("_L$", "", deconvolution_frame$element)) + ifelse(is_series, 0.5, 0)
 
     # Real elements: keep, ordered by atomic number.
     element_frame <- deconvolution_frame[!is.na(deconvolution_frame$order), , drop=FALSE]
@@ -10408,14 +10426,19 @@ instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detec
     base <- switch(mode,
         legacy      = list(),   # unconstrained OLS + jump-ratio intensities (no new physics)
         handheld    = list(excitation="photon",   detector_type=dt("SDD"),  tube_anode=anode, tube_kv=kv,
-                           efficiency=TRUE, nonneg=TRUE, excitation_weighting="cross_section", coster_kronig=TRUE),
+                           efficiency=TRUE, nonneg=TRUE, excitation_weighting="cross_section", coster_kronig=TRUE,
+                           split_series=TRUE),
         sem         = list(excitation="electron", detector_type=dt("SDD"),  overvoltage_min=1.2,
                            efficiency=TRUE, nonneg=TRUE, excitation_weighting="cross_section", coster_kronig=TRUE),
         pixe        = list(excitation="photon",   detector_type=dt("SDD"),
                            efficiency=TRUE, nonneg=TRUE, excitation_weighting="cross_section", coster_kronig=TRUE),
         high_energy = list(excitation="photon",   detector_type=dt("HPGe"), tube_anode=anode, tube_kv=kv,
                            efficiency=TRUE, escape=TRUE, nonneg=TRUE,
-                           excitation_weighting="cross_section", coster_kronig=TRUE))
+                           excitation_weighting="cross_section", coster_kronig=TRUE, split_series=TRUE))
+    # split_series (handheld / high-energy): fit each element's K-series and its L+M lines as two INDEPENDENT
+    # templates ("Pb" = K, "Pb_L" = L+M) instead of one template tied at a matrix-free K:L ratio. The tied ratio
+    # ignores sample self-absorption, which differs ~100x between a 75 keV K-line and a 10 keV L-line, so a strong
+    # Pb K-alpha could not be fitted without predicting a phantom Pb L-alpha (see deconvolute_complete).
     # Active-layer thickness for the efficiency model. The ubiquitous modern SDD is 450 um (the xrftools
     # SDD preset), so a 450 default on a silicon SDD is a no-op that simply makes the assumption explicit
     # in the persisted metadata. Apply the UI value to a true SDD/Si detector; for HPGe/CdTe/Si(Li) --
@@ -10446,6 +10469,32 @@ instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detec
     }
     base$.mode <- mode   # UI-only metadata (stripped before the deconvolution call; used to restore the selector)
     base
+}
+
+# Apply the "Fit K-series separately" selector ("auto" / "on" / "off") to a bundle from instrument_deconv_defaults().
+# "auto" (or a not-yet-rendered NULL) keeps the mode default; legacy keeps its historical fit. "off" REMOVES the key
+# rather than storing FALSE (the deconvolute_complete default), so a calibration saved with the split off still
+# deconvolutes in an older CloudCal that has no split_series argument. The choice itself is always kept as the
+# UI-only dot-key `.split_series` (stripped before the fit), so the selector restores to what the user picked.
+deconvolution_apply_split_series <- function(physics, selection, mode){
+    if(!is.list(physics)) return(physics)
+    sel <- if(is.null(selection) || length(selection) != 1 || !selection %in% c("auto", "on", "off")) "auto" else selection
+    if(!identical(as.character(mode), "legacy")){
+        if(identical(sel, "on"))  physics$split_series <- TRUE
+        if(identical(sel, "off")) physics$split_series <- NULL
+    }
+    physics$.split_series <- sel
+    physics
+}
+
+# Selector value to show for a stored physics bundle: the stored choice; else on/off from the functional key; else
+# "off" for a calibration deconvolved before this option existed (it keeps its tied-template areas); else "auto".
+deconvolution_split_selection <- function(physics, has_deconvoluted=FALSE){
+    s <- physics[[".split_series"]]
+    if(is.character(s) && length(s) == 1 && s %in% c("auto", "on", "off")) return(s)
+    if(isTRUE(physics[["split_series"]])) return("on")
+    if(isFALSE(physics[["split_series"]]) || isTRUE(has_deconvoluted)) return("off")
+    "auto"
 }
 
 # Extract the persisted physics bundle from a calibration's Deconvoluted$Parameters (old calibrations
@@ -10618,10 +10667,17 @@ deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spec
         window=physics$window), error=function(err) rep(1, length(E)))
       e[!is.finite(e) | e<0] <- 0; e }
   # per-element detectable line clusters (merge lines within 0.18 keV; keep those expected >= 15% of the primary)
+  # A split_series element (it has an "<El>_L" column) carries only its K-series in the bare column, so judge that
+  # area against its K lines -- otherwise Pb's K area would be tested in its (efficiency-weighted primary) L window.
+  # Cap them at the measured range: a K-beta past the last channel has a zero window sum and would falsely refute.
+  split_els <- sub("_L$", "", grep("^[A-Z][a-z]?_L$", names(area_frame), value=TRUE))
+  e_top <- suppressWarnings(max(as.numeric(spectra_raw$Energy), na.rm=TRUE))
   cl_of <- function(el){
     en <- tryCatch(xrf_energies(el, beam_energy_kev=beam), error=function(e) NULL)
     if(!is.data.frame(en) || !nrow(en)) return(NULL)
     en <- en[is.finite(en$energy_kev) & en$energy_kev>1.5 & en$energy_kev<(beam-1) & en$relative_peak_intensity>=0.02, , drop=FALSE]
+    if(el %in% split_els && "edge" %in% names(en))
+      en <- en[substr(as.character(en$edge), 1, 1) %in% "K" & (!is.finite(e_top) | en$energy_kev <= e_top - 0.5), , drop=FALSE]
     if(!nrow(en)) return(NULL)
     o <- order(en$energy_kev); E <- en$energy_kev[o]; r <- en$relative_peak_intensity[o]
     grp <- cumsum(c(1, diff(E) > 0.18)); Ec <- as.numeric(tapply(E*r, grp, sum)/tapply(r, grp, sum)); rc <- as.numeric(tapply(r, grp, sum))
@@ -10765,12 +10821,30 @@ deconvolution_livetime_lookup <- function(md){
     lt                                               # unnamed -> deconvolution_mass_frame uses the batch median
 }
 
+# LiveTime for re-deconvolving NEW spectra under a stored calibration. E1 (the joint scatter-background fit) only
+# engages with a live time, so prediction must supply one exactly when training ran E1 -- otherwise a model trained
+# on E1 areas is applied to SNIP-fit areas. NULL when the calibration's deconvolution has no E1 baseline (training
+# ran SNIP; keep it that way). Otherwise the new spectra's own LiveTime, or, when their files carry none, the
+# calibration's median training live time marked attr(, "nominal"). The value only switches E1 on: its Poisson
+# weights are livetime / fitted cps, a uniform scale, so the fitted areas barely depend on it.
+deconvolution_prediction_livetime <- function(deconvoluted, metadata=NULL, calibration_metadata=NULL){
+    if(!is.list(deconvoluted) || is.null(deconvoluted$E1)) return(NULL)
+    lt <- tryCatch(deconvolution_livetime_lookup(metadata), error=function(e) NULL)
+    if(length(lt) && any(is.finite(suppressWarnings(as.numeric(lt))))) return(lt)
+    cal_lt <- suppressWarnings(as.numeric(tryCatch(deconvolution_livetime_lookup(calibration_metadata), error=function(e) NULL)))
+    cal_lt <- cal_lt[is.finite(cal_lt) & cal_lt > 0]
+    if(length(cal_lt)) structure(stats::median(cal_lt), nominal=TRUE) else NULL
+}
+
 deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL, fallback_energy=NULL,
                                      mass_min_sensitivity=1e-2, fidelity="relative", mass_full_min_signal=2e-3,
                                      baseline_frame=NULL, spectra_raw=NULL, livetime=NULL, lod_sigma=3){
     tryCatch({
         physics <- deconvolution_physics_flatten_geometry(physics)   # accept physics$geometry from a direct caller
         element_cols <- setdiff(names(area_frame), c("Spectrum", "Baseline", "Compton", "Rayleigh"))
+        # Bare element symbols only: split_series "<El>_L" columns are the L+M part of an element whose K-series
+        # (the bare column) carries its mass; they must never reach the FP solve or fpMassClosure.
+        element_cols <- element_cols[grepl("^[A-Z][a-z]?$", element_cols)]
         if(length(element_cols) == 0) return(NULL)
         pget <- function(k, default){ v <- physics[[k]]; if(!is.null(v) && !is.na(v[1])) v else default }
         beam <- pget("beam_energy_kev", if(!is.null(energy_max)) energy_max else fallback_energy)
@@ -10926,6 +11000,9 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
     # a tube + a per-spectrum `livetime` for the Poisson weights; the `use_e1` guard below silently falls back
     # to the classic SNIP-subtract fit without them -- so defaulting TRUE is safe (auto-fallback, never errors).
     scatter_background=TRUE, scatter_background_n=10L, livetime=NULL,
+    # split_series: fit an element's in-window K-series and its L+M lines as two independent templates ("Pb" and
+    # "Pb_L"). FALSE (default, and every calibration saved before this option) keeps the single tied template.
+    split_series=FALSE,
     cache_templates=TRUE){
     if(is.null(energy_max)){
         energy_max <- max(spectra_frame$Energy)
@@ -10953,22 +11030,59 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
                 coster_kronig=coster_kronig),
             error=function(e) xrf_energies("everything", beam_energy_kev=beam_energy_kev))
 
-        # Detector-efficiency line-visibility filter (feasibility gate + L-line routing). Drop element lines the
-        # detector effectively cannot see -- efficiency < min_line_efficiency, e.g. U-Kalpha/Th-Kalpha at 90-100 keV
-        # on a thin SDD (~0.6-0.7% full-energy efficiency). Quantifying such a line divides noise by a near-zero
-        # sensitivity: at 220 kV on SDD U-K net counts are ~noise (cor with certified ~0, R^2 0.06). Dropping the
-        # invisible K-lines routes the element onto its detector-VISIBLE lines instead (U/Th -> their L-lines at
-        # 13-16 keV, ~90% efficient -- the same L-line route that gives U R^2 0.90 in the mudrock beam); an element
-        # with NO visible line drops out of the fit entirely (correctly flagged infeasible on this detector). It is
-        # detector-AWARE and a NO-OP at handheld energies (every line is >~10% efficient) and on CdTe (high-E K-lines
-        # stay visible). Guarded: only when a detector is known; never drops ALL lines.
+        # Detector-efficiency line-visibility filter. Drops element lines below 2% full-energy efficiency.
+        # Tied templates (split_series = FALSE): the filter also ROUTES heavy elements onto their visible lines --
+        # e.g. U/Th-K at 90-100 keV on a thin SDD (~0.6% efficient) are dropped so U/Th fit on their L-lines, which
+        # gave U R^2 0.90 in the 220 kV mudrock beam where U-K net counts were ~noise. But it drops the K-lines even
+        # when they are the strong ones: Pb K-alpha on a 450 um SDD is 0.66% efficient yet ~125k net counts at
+        # 200 kV, and dropping it left Pb on L-lines buried under As K-alpha (AMIS0421: no Pb at all).
+        # Split templates (split_series = TRUE): the K-series has its own amplitude, so a weak K-series just fits
+        # ~0 and no routing is needed. Only drop lines on the LOW-energy side of the efficiency maximum (window /
+        # air-limited: C, N, O, F, Ne), never transparency-limited high-energy lines.
+        # Guarded: only when a detector is known; never drops ALL lines.
         if(!is.null(detector_type) && is.data.frame(peaks) && nrow(peaks) && "energy_kev" %in% names(peaks)){
-            eff_line <- tryCatch(xrf_detector_efficiency(peaks$energy_kev, detector_type,
+            eff_fun <- function(e) xrf_detector_efficiency(e, detector_type,
                         active_thickness_um=active_thickness_um, air_path_cm=air_path_cm,
-                        atmosphere=if(!is.null(atmosphere)) atmosphere else "Air", window=window),
-                    error=function(e) rep(1, nrow(peaks)))
+                        atmosphere=if(!is.null(atmosphere)) atmosphere else "Air", window=window)
+            eff_line <- tryCatch(eff_fun(peaks$energy_kev), error=function(e) rep(1, nrow(peaks)))
             visible <- !is.finite(eff_line) | eff_line >= 0.02            # 2% full-energy efficiency floor
+            if(isTRUE(split_series)){
+                e_grid <- seq(0.5, min(max(peaks$energy_kev, 1, na.rm=TRUE), 300), by=0.25)
+                e_peak <- tryCatch(e_grid[which.max(eff_fun(e_grid))], error=function(e) Inf)
+                visible <- visible | (is.finite(peaks$energy_kev) & peaks$energy_kev > e_peak)
+            }
             if(any(visible) && !all(visible)) peaks <- peaks[visible, , drop=FALSE]
+        }
+
+        # K vs L+M split: an element whose strongest K line sits inside the fit window keeps its bare symbol for the
+        # K-series and moves its L and M lines to a separate "<El>_L" template. xrftools builds one template per
+        # `element` label (escape satellites inherit the label), so relabelling here is all the fit needs. M stays
+        # tied to L: freeing heavy-element M-lines put them on Si K-alpha (obsidian Si R^2 0.31 -> 0.10). The
+        # decision uses the strongest K line with a margin inside the window, so an element straddling the edge
+        # (Eu K-alpha2 40.90 / K-alpha1 41.54 keV in a ~41 keV window) is not split in some spectra and not others.
+        abundance_ppm <- NULL
+        if(isTRUE(split_series) && is.data.frame(peaks) && nrow(peaks) && all(c("element", "energy_kev") %in% names(peaks))){
+            shell_of <- if("edge" %in% names(peaks)) peaks$edge else peaks$trans
+            series <- substr(as.character(shell_of), 1, 1)
+            strength <- if("relative_peak_intensity" %in% names(peaks)) peaks$relative_peak_intensity else rep(1, nrow(peaks))
+            k_rows <- which(series %in% "K" & is.finite(peaks$energy_kev))
+            if(length(k_rows)){
+                k_primary <- vapply(split(k_rows, peaks$element[k_rows]),
+                                    function(ix) peaks$energy_kev[ix][which.max(strength[ix])], numeric(1))
+                split_elements <- names(k_primary)[k_primary <= energy_max - max(0.25, 0.01 * energy_max)]
+                to_l <- peaks$element %in% split_elements & series %in% c("L", "M")
+                peaks$element[to_l] <- paste0(peaks$element[to_l], "_L")
+                # Full-FP's abundance prior looks penalties up by template name; give "<El>_L" its element's crustal
+                # abundance so e.g. a rare-earth L template at 200 kV (Tb_L on Fe K) stays as penalised as its element.
+                if(is.numeric(abundance_prior) && isTRUE(abundance_prior > 0)){
+                    l_templates <- unique(peaks$element[to_l])
+                    ab_table <- tryCatch(get(".xrf_crustal_abundance_ppm", envir=asNamespace("xrftools")),
+                                         error=function(e) .xrf_crustal_abundance_ppm)   # same table the bare columns use
+                    ab <- ab_table[sub("_L$", "", l_templates)]
+                    keep_ab <- is.finite(ab)
+                    if(any(keep_ab)) abundance_ppm <- setNames(as.numeric(ab[keep_ab]), l_templates[keep_ab])
+                }
+            }
         }
 
         # Tube / geometry for optional Rayleigh-Compton scatter templates. A primary-beam filter (e.g. the
@@ -11018,6 +11132,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
                         refine_calibration = refine_calibration, sum_peaks = sum_peaks,
                         pileup_tau = pileup_tau, cache_templates = cache_templates, use_qr = use_qr,
                         abundance_prior = abundance_prior, abundance_protect = abundance_protect,
+                        abundance_ppm = abundance_ppm,
                         scatter_continuum = TRUE, background = max(1L, as.integer(scatter_background_n)))
             } else {
             smoothed_tibble %>%
@@ -11032,7 +11147,8 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
                     compton_broadening = compton_broadening, tail = tail, step = step, beta = beta,
                     refine_calibration = refine_calibration, sum_peaks = sum_peaks,
                     pileup_tau = pileup_tau, cache_templates = cache_templates, use_qr = use_qr,
-                    abundance_prior = abundance_prior, abundance_protect = abundance_protect)
+                    abundance_prior = abundance_prior, abundance_protect = abundance_protect,
+                    abundance_ppm = abundance_ppm)
             }
         }, error = function(e) {
             if (grepl("unused argument", e$message)) {
@@ -11095,6 +11211,18 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     # errors ("non-character object(s)") -- guard it, since an unnamed bundle has no dot-keys to strip.
     physics_names <- names(physics)
     physics_call <- if (is.null(physics_names)) physics else physics[!startsWith(physics_names, ".")]
+    # Only forward keys deconvolute_complete actually takes, minus the ones safe_deconvolute passes explicitly: do.call
+    # fails EVERY spectrum with "unused argument" on an unknown key, or "matched by multiple actual arguments" on a
+    # duplicate. Keys read only by the $Mass code (e.g. secondary_fluorescence) stay in `physics` for it.
+    if (!is.null(names(physics_call))) {
+        explicit_args <- c("spectra_frame", "energy_max", "width", "alpha", "default_sigma", "smooth_iter",
+                           "snip_iter", "use_qr", "abundance_prior", "livetime")
+        fit_args <- setdiff(names(formals(deconvolute_complete)), explicit_args)
+        unused <- setdiff(names(physics_call), fit_args)
+        if (length(unused))
+            message("spectra_gls_deconvolute: physics key(s) not used by the fit: ", paste(unused, collapse=", "))
+        physics_call <- physics_call[intersect(names(physics_call), fit_args)]
+    }
 
     # $Mass fidelity, resolved up front so full-FP can regularise the deconvolution itself. The
     # crustal-abundance NNLS ridge (collinearity-weighted) is applied ONLY for full-FP $Mass -- where
@@ -11282,7 +11410,10 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
         }
     }
     new_spectra_frame <- as.data.frame(rbindlist(only_spectra_list))
-    new_area_frame <- as.data.frame(rbindlist(only_areas_list))
+    # Bind by NAME: spectra can carry different template columns (each spectrum's fit window is its own energy
+    # range, and split_series adds "<El>_L" columns only where the K-series is in that window). A positional bind
+    # would put one element's area under another's name; fill leaves a missing template as NA.
+    new_area_frame <- as.data.frame(rbindlist(only_areas_list, use.names=TRUE, fill=TRUE))
     new_baseline_frame <- NULL                       # per-channel SNIP baseline (Spectrum/Energy/CPS); feeds the LOD filter
     new_arpls_frame <- NULL                          # per-channel arPLS baseline (physics-free, always built)
     new_e1_frame <- NULL                             # per-channel E1 fitted baseline (only when off-legacy)
@@ -11313,29 +11444,27 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
 
 deconvolutionIntensityFrame <- function(deconvolution_areas, intensity_frame){
     
-    k_alpha <- deconvolution_areas
-    colnames(k_alpha) <- paste0(colnames(k_alpha), ".K.alpha")
-    colnames(k_alpha)[1] <- gsub(".K.alpha", "", colnames(k_alpha)[1])
-    k_beta <- deconvolution_areas
-    colnames(k_beta) <- paste0(colnames(k_beta), ".K.beta")
-    colnames(k_beta)[1] <- gsub(".K.beta", "", colnames(k_beta)[1])
-    l_alpha <- deconvolution_areas
-    colnames(l_alpha) <- paste0(colnames(l_alpha), ".L.alpha")
-    colnames(l_alpha)[1] <- gsub(".L.alpha", "", colnames(l_alpha)[1])
-    l_beta <- deconvolution_areas
-    colnames(l_beta) <- paste0(colnames(l_beta), ".L.beta")
-    colnames(l_beta)[1] <- gsub(".L.beta", "", colnames(l_beta)[1])
-    m_lines <- deconvolution_areas
-    colnames(m_lines) <- paste0(colnames(m_lines), ".M.line")
-    colnames(m_lines)[1] <- gsub(".M.line", "", colnames(m_lines)[1])
-    
-    all_intensities <- Reduce(function(...) merge(..., all=T, by="Spectrum"), list(k_alpha, k_beta, l_alpha, l_beta, m_lines))
     elements <- colnames(intensity_frame)[!colnames(intensity_frame) %in% "Spectrum"]
-    not.elements <- elements[!elements %in% spectralLines]
     elements <- elements[elements %in% spectralLines]
-    
-    reduced_intensities <- all_intensities[,c("Spectrum", elements)]
-    
+
+    # Each requested line reads one Areas column. K lines read the bare element: its K-series template when the fit
+    # split series, otherwise its single template. L and M lines read "<El>_L" (the element's L+M template) when the
+    # fit split it, else the same bare column -- per spectrum, so a row where that element was not split keeps its
+    # bare area. Unsplit elements therefore get today's area on every line name. A line whose element has no Areas
+    # column at all is NA rather than an "undefined columns selected" error.
+    areas <- as.data.frame(deconvolution_areas)
+    area_of <- function(nm) if(nm %in% names(areas)) areas[[nm]] else rep(NA_real_, nrow(areas))
+    reduced_intensities <- data.frame(Spectrum=areas$Spectrum, stringsAsFactors=FALSE)
+    for(line in elements){
+        el <- line_strip(line)
+        v <- area_of(el)
+        if(grepl("\\.(L\\.(alpha|beta)|M\\.line)$", line) && paste0(el, "_L") %in% names(areas)){
+            vl <- area_of(paste0(el, "_L"))
+            v <- ifelse(is.na(vl), v, vl)
+        }
+        reduced_intensities[[line]] <- v
+    }
+
     intensity_frame_reduced <- intensity_frame[, !colnames(intensity_frame) %in% elements]
     if(is.data.frame(intensity_frame_reduced)==FALSE){
         intensity_frame_reduced = data.frame(Spectrum = intensity_frame_reduced)

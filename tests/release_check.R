@@ -14,9 +14,12 @@
 #      metadata (live time, detector, eV/ch where present), and the MCA and
 #      SEM-EDS (Esprit .txt) spectra deconvolute with the physics defaults
 #      inferred from the file
+#   8. High-energy K/L+M series split: a 200 kV / 450 um SDD spectrum keeps its
+#      Pb K-lines (0.66% detector efficiency) and El.K / El.L line names read
+#      their own series; prediction re-runs E1 when training did
 #
 # Usage:
-#   Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir]
+#   Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir] [high_energy_mca]
 # Defaults target the Far West 50 kV obsidian set.
 # Exit status is nonzero if any check fails.
 
@@ -29,6 +32,8 @@ FP_QUANT <- if (length(args) >= 3) args[3] else
     "/Users/lee/Dropbox/Documents/CloudCal Evaluation/Test Quants/steel_template.quant"
 EXAMPLES_DIR <- if (length(args) >= 4) args[4] else
     "/Users/lee/Dropbox/Documents/CloudCal Evaluation/Example Files"
+HIGH_ENERGY_MCA <- if (length(args) >= 5) args[5] else
+    "/Users/lee/Dropbox/Documents/CloudCal Evaluation/High Energy/AMIS0421.mca"
 
 APP_DIR <- normalizePath(file.path(dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE)[1])), ".."))
 if (!file.exists(file.path(APP_DIR, "global.R"))) APP_DIR <- getwd()
@@ -466,6 +471,105 @@ if (dir.exists(EXAMPLES_DIR)) {
         paste(basename(leftover), collapse = ", "), ")")
 } else {
     message("    (examples dir not found: ", EXAMPLES_DIR, " - skipping zoo)")
+}
+
+## ------------------------------------------------------------------
+message("\n-- 8. High-energy K / L+M series split --")
+check("split defaults: on for handheld / high-energy, absent for SEM and legacy", {
+    identical(names(instrument_deconv_defaults("legacy", kv = 50, anode = "Rh")), ".mode") &&
+        isTRUE(instrument_deconv_defaults("handheld", kv = 50, anode = "Rh")$split_series) &&
+        isTRUE(instrument_deconv_defaults("high_energy", kv = 200, anode = "W")$split_series) &&
+        is.null(instrument_deconv_defaults("sem", kv = 15)$split_series) &&
+        "split_series" %in% names(formals(deconvolute_complete))
+})
+check("selector: off drops the key (old builds still load), legacy keeps its fit, restore rules", {
+    hh <- instrument_deconv_defaults("handheld", kv = 50, anode = "Rh")
+    off <- deconvolution_apply_split_series(hh, "off", "handheld")
+    leg <- deconvolution_apply_split_series(instrument_deconv_defaults("legacy"), "on", "legacy")
+    s <- deconvolution_split_selection
+    is.null(off$split_series) && identical(off$.split_series, "off") &&
+        is.null(leg$split_series) && identical(leg$.split_series, "on") &&
+        isTRUE(deconvolution_apply_split_series(hh, NULL, "handheld")$split_series) &&
+        s(list(.split_series = "auto"), TRUE) == "auto" && s(list(split_series = TRUE), TRUE) == "on" &&
+        s(list(.mode = "handheld"), TRUE) == "off" && s(list(), FALSE) == "auto"
+})
+check("Areas keep <El>_L right after its element; scatter kept, background dropped", {
+    a <- intensity_frame_deconvolution_convert(data.frame(
+             element = c("scatter_compton", "Pb_L", "Fe", "Pb", "background_1", "scatter_rayleigh"),
+             peak_area = c(10, 3, 1, 2, 99, 20), stringsAsFactors = FALSE), name = "s1")
+    identical(names(a), c("Spectrum", "Fe", "Pb", "Pb_L", "Compton", "Rayleigh")) && a$Pb_L == 3
+})
+check("line mapping: K <- El, L/M <- El_L (unsplit row -> El), missing element -> NA", {
+    ar <- data.frame(Spectrum = c("a", "b"), Fe = c(1, 2), Pb = c(5, 6), Pb_L = c(7, NA), Baseline = 9)
+    it <- data.frame(Spectrum = c("a", "b"), Fe.K.alpha = 0, Fe.L.alpha = 0, Pb.K.alpha = 0, Pb.L.alpha = 0,
+                     Pb.M.line = 0, Zr.K.alpha = 0, Total = 3)
+    m <- deconvolutionIntensityFrame(ar, it)
+    all(m$Fe.L.alpha == c(1, 2)) && all(m$Pb.K.alpha == c(5, 6)) && all(m$Pb.L.alpha == c(7, 6)) &&
+        all(m$Pb.M.line == c(7, 6)) && all(is.na(m$Zr.K.alpha)) && all(m$Total == 3)
+})
+check("unsplit stored Areas map exactly as before (bare area on every line name)", {
+    ar <- cal$Deconvoluted$Areas
+    if (is.null(ar)) TRUE else {
+        m <- deconvolutionIntensityFrame(ar, cal$Intensities); ln <- intersect(names(m), spectralLines)
+        length(ln) > 0 && all(vapply(ln, function(l) isTRUE(all.equal(m[[l]],
+            ar[[line_strip(l)]][match(m$Spectrum, ar$Spectrum)])), logical(1)))
+    }
+})
+check("FP mass frame ignores <El>_L columns", {
+    mf <- deconvolution_mass_frame(data.frame(Spectrum = "a", Fe = 100, Pb = 10, Pb_L = 5),
+                                   physics = list(detector_type = "SDD", beam_energy_kev = 50))
+    is.data.frame(mf) && !("Pb_L" %in% names(mf))
+})
+if (file.exists(HIGH_ENERGY_MCA)) {
+    # AMIS0421 (Pb 5956 ppm, Bi 636 ppm) at 200 kV on a 450 um SDD. The PMCA export has no calibration block, so
+    # the energy axis is channel * 24.89 eV. Before the split, the 2% detector-visibility gate dropped every Pb
+    # K-line (0.66% efficient) and the E1 background absorbed the peaks: Pb and Bi read 0.
+    he_sp <- readMCAData(filepath = HIGH_ENERGY_MCA, filename = basename(HIGH_ENERGY_MCA))
+    he_sp$Energy <- he_sp$Energy * 0.02489
+    he_lt <- deconvolution_livetime_lookup(mcaFrameMetadata(HIGH_ENERGY_MCA, basename(HIGH_ENERGY_MCA)))
+    he_phys <- instrument_deconv_defaults(mode = "high_energy", kv = 200, anode = "W", detector_type = "SDD",
+                                          active_thickness_um = 450, filter = "Sn 2400")
+    he_dec <- tryCatch(spectra_gls_deconvolute(he_sp, cores = 1, physics = he_phys, mass = "relative", livetime = he_lt),
+                       error = function(e){ message("    ERROR: ", conditionMessage(e)); NULL })
+    he_net <- function(col) if (!is.null(he_dec) && col %in% names(he_dec$Areas))
+        he_dec$Areas[[col]][1] * he_lt[[1]] / 0.02489 else NA_real_   # area (cps*keV) -> net counts
+    he_win <- function(df) sum(df$CPS[abs(df$Energy - 74.97) <= 0.1])
+    message(sprintf("    Pb K %.0f, Pb L+M %.0f, Bi K %.0f net counts; fit/data at Pb K-alpha1 %.2f",
+                    he_net("Pb"), he_net("Pb_L"), he_net("Bi"),
+                    if (is.null(he_dec)) NA_real_ else he_win(he_dec$Spectra) / he_win(he_sp)))
+    check("AMIS0421: E1 fired; Pb/Bi split into K + L templates", {
+        !is.null(he_dec$E1) && all(c("Pb", "Pb_L", "Bi", "Bi_L") %in% names(he_dec$Areas)) &&
+            isTRUE(he_dec$Parameters$Physics$split_series)
+    })
+    check("AMIS0421: Pb K-alpha1 modelled (fit/data 0.8-1.3 at 74.97 keV; was ~0.17)", {
+        r <- he_win(he_dec$Spectra) / he_win(he_sp); is.finite(r) && r > 0.8 && r < 1.3
+    })
+    check("AMIS0421: Pb K > 50k net counts, Bi/Pb 0.05-0.2 (certified 0.107)", {
+        is.finite(he_net("Pb")) && he_net("Pb") > 5e4 &&
+            is.finite(he_net("Bi")) && he_net("Bi") / he_net("Pb") > 0.05 && he_net("Bi") / he_net("Pb") < 0.2
+    })
+    check("AMIS0421: Pb.K.alpha <- Pb, Pb.L.alpha / Pb.M.line <- Pb_L; $Mass has Pb, not Pb_L", {
+        ifr <- data.frame(Spectrum = he_dec$Areas$Spectrum, Pb.K.alpha = 0, Pb.L.alpha = 0, Pb.M.line = 0,
+                          Fe.K.alpha = 0, stringsAsFactors = FALSE)
+        di <- deconvolutionIntensityFrame(he_dec$Areas, ifr)
+        isTRUE(all.equal(di$Pb.K.alpha, he_dec$Areas$Pb)) && isTRUE(all.equal(di$Pb.L.alpha, he_dec$Areas$Pb_L)) &&
+            isTRUE(all.equal(di$Pb.M.line, he_dec$Areas$Pb_L)) && isTRUE(all.equal(di$Fe.K.alpha, he_dec$Areas$Fe)) &&
+            "Pb" %in% names(he_dec$Mass) && !("Pb_L" %in% names(he_dec$Mass))
+    })
+    check("AMIS0421: split off keeps the tied single template (no _L columns)", {
+        off <- spectra_gls_deconvolute(he_sp, cores = 1, mass = "off", livetime = he_lt,
+                   physics = deconvolution_apply_split_series(he_phys, "off", "high_energy"))
+        !any(grepl("_L$", names(off$Areas))) && is.null(off$Parameters$Physics$split_series) &&
+            identical(off$Parameters$Physics$.split_series, "off")
+    })
+    check("prediction live time follows training: NULL without E1, own / nominal with E1", {
+        md <- data.frame(Spectrum = "AMIS0421.mca", LiveTime = 100, stringsAsFactors = FALSE)
+        is.null(deconvolution_prediction_livetime(list(E1 = NULL), md)) &&
+            identical(unname(deconvolution_prediction_livetime(he_dec, md)), 100) &&
+            isTRUE(attr(deconvolution_prediction_livetime(he_dec, NULL, md), "nominal"))
+    })
+} else {
+    message("    (high-energy MCA not found: ", HIGH_ENERGY_MCA, " - skipping)")
 }
 
 ## ------------------------------------------------------------------
