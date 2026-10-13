@@ -17,6 +17,8 @@
 #   8. High-energy K/L+M series split: a 200 kV / 450 um SDD spectrum keeps its
 #      Pb K-lines (0.66% detector efficiency) and El.K / El.L line names read
 #      their own series; prediction re-runs E1 when training did
+#   9. Spectra saved as R objects (.RData / .rda / .rds) import in every
+#      supported shape
 #
 # Usage:
 #   Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir] [high_energy_mca]
@@ -571,6 +573,71 @@ if (file.exists(HIGH_ENERGY_MCA)) {
 } else {
     message("    (high-energy MCA not found: ", HIGH_ENERGY_MCA, " - skipping)")
 }
+
+## ------------------------------------------------------------------
+message("\n-- 9. Spectra saved as R objects (.RData / .rda / .rds) --")
+rd_dir <- file.path(tempdir(), "cloudcal_rdata_check"); dir.create(rd_dir, showWarnings = FALSE)
+rd_ids <- unique(cal$Spectra$Spectrum)[1:2]
+rd_long <- cal$Spectra[cal$Spectra$Spectrum %in% rd_ids, c("Spectrum", "Energy", "CPS")]
+rd_key <- function(d) { d <- d[order(d$Spectrum, d$Energy), c("Energy", "CPS", "Spectrum")]; rownames(d) <- NULL; d }
+rd_ref <- rd_key(transform(rd_long, Spectrum = make.names(Spectrum)))
+rd_wide <- reshape2::dcast(rd_long, Energy ~ Spectrum, value.var = "CPS")
+rd_meta <- data.frame(Spectrum = rd_ids, LiveTime = c(30, 31), stringsAsFactors = FALSE)
+rd_xrf <- tibble::tibble(.path = rd_ids, .spectra = lapply(rd_ids, function(i)
+    tibble::tibble(energy_kev = rd_long$Energy[rd_long$Spectrum == i], cps = rd_long$CPS[rd_long$Spectrum == i])))
+saveRDS(rd_long, file.path(rd_dir, "long.rds"))
+save(rd_wide, file = file.path(rd_dir, "wide.RData"))
+saveRDS(rd_xrf, file.path(rd_dir, "xrftools.rds"))
+saveRDS(list(Spectra = rd_long, SpectraMetadata = rd_meta), file.path(rd_dir, "bundle.rda"))
+saveRDS(rd_long[rd_long$Spectrum == rd_ids[1], c("Energy", "CPS")], file.path(rd_dir, "one spectrum.rds"))
+writeLines("not R data", file.path(rd_dir, "garbage.rdata"))
+rd_read <- function(f) readRDataSpectra(file.path(rd_dir, f), f)
+check("RData import: long (saveRDS), wide (save), xrftools tibble and $Spectra bundle all round-trip", {
+    all(vapply(c("long.rds", "wide.RData", "xrftools.rds", "bundle.rda"), function(f)
+        isTRUE(all.equal(rd_key(rd_read(f)), rd_ref, check.attributes = FALSE)), logical(1)))
+})
+check("RData import: unlabelled spectrum named after its file; junk files fail cleanly", {
+    identical(unique(rd_read("one spectrum.rds")$Spectrum), "one.spectrum") &&
+        inherits(tryCatch(rd_read("garbage.rdata"), error = function(e) e), "error")
+})
+check("RData import: batch skips bad files, de-duplicates repeated ids, carries LiveTime metadata", {
+    files <- c("long.rds", "bundle.rda", "garbage.rdata")
+    d <- suppressWarnings(readRDataProcess(data.frame(name = files, datapath = file.path(rd_dir, files),
+                                                      stringsAsFactors = FALSE)))
+    md <- rdataFrameMetadata(file.path(rd_dir, "bundle.rda"), "bundle.rda")
+    ch <- readRDataProcess(data.frame(name = "long.rds", datapath = file.path(rd_dir, "long.rds"),
+                                      stringsAsFactors = FALSE), use_native_calibration = FALSE)
+    length(unique(d$Spectrum)) == 4 && nrow(d) == 2 * nrow(rd_long) &&
+        identical(md$LiveTime, c(30, 31)) && identical(md$Spectrum, make.names(rd_ids)) &&
+        identical(ch$Energy[ch$Spectrum == make.names(rd_ids[1])], as.numeric(seq_len(sum(rd_long$Spectrum == rd_ids[1]))))
+})
+# Same files through the app: the "RData" file type loads spectra + LiveTime and commits an intensity table.
+sec9 <- new.env()
+try(testServer(app, {
+    files <- c("bundle.rda", "wide.RData")
+    session$setInputs(
+        filetype = "RData", energynudge = 0,
+        file1 = data.frame(name = files, datapath = file.path(rd_dir, files), stringsAsFactors = FALSE),
+        show_vars_k_alpha = scratch_lines,
+        show_vars_k_beta = NULL, show_vars_l_alpha = NULL,
+        show_vars_l_beta = NULL, show_vars_m = NULL,
+        plotunit = "%", loglinear = "Linear",
+        linepreferenceelement = "Narrow", linestructureelement = "gaussian",
+        gausbuffer = 0.02, splitbuffer = 0.1,
+        comptonmin = 0, comptonmax = 0, comptontype = "Raw",
+        randomize = 1
+    )
+    dh <- tryCatch(dataHold(), error = function(e) NULL)
+    sec9$n_spectra <- if (is.data.frame(dh)) length(unique(dh$Spectrum)) else 0
+    md <- tryCatch(myMetaData(), error = function(e) NULL)
+    sec9$livetime <- is.data.frame(md) && "LiveTime" %in% names(md)
+    session$setInputs(linecommit = 1)
+    it <- calMemory$Calibration$Intensities
+    sec9$intensities <- is.data.frame(it) && nrow(it) == sec9$n_spectra && all(scratch_lines %in% colnames(it))
+}), silent = TRUE)
+check("RData file type in a session: 4 spectra load (repeated ids kept apart), LiveTime metadata, intensities commit",
+      identical(sec9$n_spectra, 4L) && isTRUE(sec9$livetime) && isTRUE(sec9$intensities))
+unlink(rd_dir, recursive = TRUE)
 
 ## ------------------------------------------------------------------
 n_fail <- sum(!unlist(results))

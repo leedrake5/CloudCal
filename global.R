@@ -7465,27 +7465,9 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         }
         cal_type <- cmpfun(cal_type)
 
-        val.data.type <- if(Calibration[["FileType"]]=="Spectra"){
-                "Spectra"
-            } else if(Calibration[["FileType"]]=="CSV"){
-                "Spectra"
-            } else if(Calibration[["FileType"]]=="Aggregate CSV File"){
-                "Spectra"
-            } else if(Calibration[["FileType"]]=="TXT"){
-                "Spectra"
-            } else if(Calibration[["FileType"]]=="Net"){
-                "Net"
-            } else if(Calibration[["FileType"]]=="Elio"){
-                "Spectra"
-            } else if(Calibration[["FileType"]]=="SPX"){
-                "Spectra"
-            } else if(Calibration[["FileType"]]=="MCA"){
-                "Spectra"
-            } else if(Calibration[["FileType"]]=="PDZ"){
-                "Spectra"
-            } else if(is.null(Calibration[["FileType"]])){
-                "Spectra"
-            }
+        # Only net-count calibrations differ; every spectra format (CSV, TXT, Elio, SPX, MCA, PDZ, and the JSON /
+        # SPE / RData types the old per-type chain omitted, leaving this NULL) predicts from spectra.
+        val.data.type <- if(identical(Calibration[["FileType"]], "Net")) "Net" else "Spectra"
             
             count.table <- count.list$Narrow_gaussian
         

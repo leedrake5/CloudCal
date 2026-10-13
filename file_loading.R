@@ -1322,6 +1322,147 @@ readSPEProcess <- function(inFile = NULL, inEn = NULL, use_native_calibration = 
     return(data)
 }
 
+# --- Spectra saved as R objects (.RData / .rda from save(), .rds from saveRDS()) ---------------------------------
+
+# Every R object stored in one file, as a named list. saveRDS() files hold a single object (readRDS, named after the
+# file); save() files hold one or more named objects (load()ed into a private environment, never the session).
+readRObjects <- function(filepath, filename=NULL){
+    if(is.null(filename)) filename <- basename(filepath)
+    obj <- tryCatch(readRDS(filepath), error=function(e) NULL)
+    if(!is.null(obj)) return(setNames(list(obj), sub("[.](rdata|rda|rds)$", "", filename, ignore.case=TRUE)))
+    env <- new.env(parent=emptyenv())
+    nms <- tryCatch(load(filepath, envir=env), error=function(e)
+        stop("not an R data file (neither readRDS nor load could read it): ", filename))
+    mget(nms, envir=env)
+}
+
+# Coerce one R object to CloudCal's long spectra frame (Energy, CPS, Spectrum). Accepted shapes:
+#   * a long frame: Energy (or energy_kev) + CPS (or Counts / Intensity / value) [+ Spectrum / Sample / variable];
+#   * a wide frame: an Energy column plus one numeric column per spectrum;
+#   * an xrftools spectra tibble (.spectra list-column of energy_kev / cps tibbles, ids from .path or Spectrum);
+#   * a list holding any of these -- a saved calibration (.quant) or deconvolution result contributes its
+#     $Spectra; otherwise each element is read and the list names become Spectrum ids.
+# `id` names a spectrum that has no Spectrum column of its own. Intensities are taken as-is (CloudCal expects CPS).
+spectraFrameFromRObject <- function(obj, id="Spectrum", depth=0){
+    if(is.null(obj) || depth > 3) return(NULL)
+    find_col <- function(nms, candidates){
+        i <- match(tolower(candidates), tolower(nms)); i <- i[!is.na(i)]
+        if(length(i)) nms[i[1]] else NULL
+    }
+    bind <- function(parts){
+        parts <- Filter(Negate(is.null), parts)
+        if(length(parts)) as.data.frame(data.table::rbindlist(parts, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE) else NULL
+    }
+    if(is.matrix(obj)) obj <- as.data.frame(obj, stringsAsFactors=FALSE)
+    if(is.data.frame(obj)){
+        nms <- names(obj)
+        if(".spectra" %in% nms && is.list(obj[[".spectra"]])){
+            ids <- if(".path" %in% nms) basename(as.character(obj[[".path"]]))
+                   else if("Spectrum" %in% nms) as.character(obj[["Spectrum"]])
+                   else paste0(id, "_", seq_len(nrow(obj)))
+            return(bind(lapply(seq_len(nrow(obj)), function(k)
+                spectraFrameFromRObject(as.data.frame(obj[[".spectra"]][[k]]), id=ids[k], depth=depth+1))))
+        }
+        e_col <- find_col(nms, c("Energy", "energy_kev", "keV"))
+        if(is.null(e_col)) return(NULL)
+        y_col <- find_col(nms, c("CPS", "Counts", "Intensity", "value"))
+        if(!is.null(y_col)){
+            s_col <- find_col(nms, c("Spectrum", "Sample", ".path", "variable"))
+            return(data.frame(Energy=as.numeric(obj[[e_col]]), CPS=as.numeric(obj[[y_col]]),
+                              Spectrum=if(is.null(s_col)) id else as.character(obj[[s_col]]), stringsAsFactors=FALSE))
+        }
+        spec_cols <- setdiff(nms[vapply(obj, is.numeric, logical(1))], e_col)
+        if(!length(spec_cols)) return(NULL)
+        return(data.frame(Energy=rep(as.numeric(obj[[e_col]]), length(spec_cols)),
+                          CPS=unlist(lapply(spec_cols, function(k) as.numeric(obj[[k]])), use.names=FALSE),
+                          Spectrum=rep(spec_cols, each=nrow(obj)), stringsAsFactors=FALSE))
+    }
+    # Plain lists only: classed lists (lm fits, energy-calibration models, ...) are not spectra.
+    if(is.list(obj) && identical(class(obj), "list")){
+        if(!is.null(obj[["Spectra"]])){
+            sp <- spectraFrameFromRObject(obj[["Spectra"]], id=id, depth=depth+1)
+            if(!is.null(sp)) return(sp)
+        }
+        nms <- names(obj)
+        if(is.null(nms)) nms <- rep("", length(obj))
+        nms[!nzchar(nms)] <- paste0(id, "_", which(!nzchar(nms)))
+        return(bind(lapply(seq_along(obj), function(k) spectraFrameFromRObject(obj[[k]], id=nms[k], depth=depth+1))))
+    }
+    NULL
+}
+
+readRDataSpectra <- function(filepath, filename=NULL){
+    if(is.null(filename)) filename <- basename(filepath)
+    objs <- readRObjects(filepath, filename)
+    # A lone object is named after the file, so a single unlabelled spectrum takes the file name like other formats.
+    data <- spectraFrameFromRObject(if(length(objs) == 1) objs[[1]] else objs,
+                                    id=sub("[.](rdata|rda|rds)$", "", filename, ignore.case=TRUE))
+    if(is.null(data) || !nrow(data))
+        stop("no spectra found in ", filename, ": expected Energy + CPS columns, a wide frame with an Energy column, ",
+             "an xrftools spectra tibble, or a list of these")
+    data <- data[is.finite(data$Energy) & is.finite(data$CPS), c("Energy", "CPS", "Spectrum"), drop=FALSE]
+    spec <- as.character(data$Spectrum); u <- unique(spec)
+    data$Spectrum <- make.names(u)[match(spec, u)]
+    data
+}
+
+# use_native_calibration = FALSE replaces Energy with each spectrum's channel index (1..n, in energy order), as the
+# other readers do, so a calibration saved with a manual / peak-fit energy calibration can re-apply it.
+readRDataProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration=TRUE){
+    if(is.null(inFile)) return(NULL)
+    data.list <- pblapply(seq_len(nrow(inFile)), function(x)
+        tryCatch(readRDataSpectra(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]),
+                 error=function(e){ warning(sprintf("Failed to read R data file %s: %s", inFile[x, "name"], conditionMessage(e))); NULL }))
+    # Spectrum ids come from inside the objects, so two files can reuse one (e.g. both hold "Sample1"); rbinding them
+    # would silently merge two spectra into one. Prefix a repeated id with its file name instead.
+    seen <- character(0)
+    for(x in seq_along(data.list)){
+        d <- data.list[[x]]
+        if(is.null(d)) next
+        clash <- unique(d$Spectrum[d$Spectrum %in% seen])
+        if(length(clash)){
+            base <- sub("[.](rdata|rda|rds)$", "", inFile[x, "name"], ignore.case=TRUE)
+            hit <- d$Spectrum %in% clash
+            d$Spectrum[hit] <- make.names(paste0(base, "_", d$Spectrum[hit]))
+            data.list[[x]] <- d
+        }
+        seen <- union(seen, unique(d$Spectrum))
+    }
+    data.list <- Filter(Negate(is.null), data.list)
+    if(!length(data.list)) return(NULL)
+    data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
+    if(!isTRUE(use_native_calibration)){
+        data <- data[order(match(data$Spectrum, unique(data$Spectrum)), data$Energy), , drop=FALSE]
+        data$Energy <- as.numeric(ave(seq_along(data$Energy), data$Spectrum, FUN=seq_along))
+        rownames(data) <- NULL
+    }
+    if(gainshiftvalue>0){
+        data$Energy <- data$Energy + gainshiftvalue
+    }
+    data
+}
+
+# Metadata carried alongside R-object spectra (LiveTime enables the E1 deconvolution): a saved calibration's
+# $SpectraMetadata, a saved metadata frame (Spectrum + LiveTime, no Energy), or per-spectrum LiveTime / eVCh columns
+# on a long spectra frame. NULL when the file carries none.
+rdataFrameMetadata <- function(filepath, filename=NULL){
+    if(is.null(filename)) filename <- basename(filepath)
+    objs <- readRObjects(filepath, filename)
+    md <- NULL
+    for(o in objs){
+        cand <- if(is.list(o) && identical(class(o), "list") && is.data.frame(o[["SpectraMetadata"]])) o[["SpectraMetadata"]]
+                else if(is.data.frame(o) && all(c("Spectrum", "LiveTime") %in% names(o)) && !("Energy" %in% names(o))) o
+                else if(is.data.frame(o) && all(c("Spectrum", "Energy", "LiveTime") %in% names(o))){
+                    keep <- intersect(c("Spectrum", "LiveTime", "eVCh", "TubeVoltage", "TubeAnode", "DetectorType"), names(o))
+                    unique(o[, keep, drop=FALSE])
+                } else NULL
+        if(!is.null(cand)){ md <- as.data.frame(cand, stringsAsFactors=FALSE); break }
+    }
+    if(is.null(md) || !("Spectrum" %in% names(md))) return(NULL)
+    md$Spectrum <- make.names(as.character(md$Spectrum))
+    md
+}
+
 readMCAData4096 <- function(filepath, filename=NULL, full=NULL, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)

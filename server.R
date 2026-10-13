@@ -253,7 +253,7 @@ shinyServer(function(input, output, session) {
         }
 
         # Return the file type if it's a valid option, otherwise default to CSV
-        valid_types <- c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE")
+        valid_types <- c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE", "RData")
         if(file_type %in% valid_types){
             return(file_type)
         }
@@ -264,9 +264,9 @@ shinyServer(function(input, output, session) {
     
     output$filetypeui <- renderUI({
         if(is.null(input$calfileinput)){
-            selectInput("filetype", label="Filetype", c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected="CSV")
+            selectInput("filetype", label="Filetype", c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE", "RData"), selected="CSV")
         } else if(!is.null(input$calfileinput)){
-            selectInput("filetype", label="Filetype", c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected=oldCalCompatibility())
+            selectInput("filetype", label="Filetype", c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE", "RData"), selected=oldCalCompatibility())
         }
 
     })
@@ -301,6 +301,9 @@ shinyServer(function(input, output, session) {
         } else if(input$filetype=="SPE") {
             fileInput('file1', 'Choose SPE File', multiple=TRUE,
             accept=c(".spe"))
+        } else if(input$filetype=="RData") {
+            fileInput('file1', 'Choose RData / RDS File', multiple=TRUE,
+            accept=c(".rdata", ".rda", ".rds"))
         }
         
     })
@@ -564,6 +567,14 @@ shinyServer(function(input, output, session) {
         
         readSPEProcess(inFile=inFile(), inEn=input$dfl_eds, use_native_calibration=encal_auto())
         
+    })
+
+    # Spectra saved as R objects (save() / saveRDS()); see readRDataSpectra for the accepted shapes.
+    readRData <- reactive(label="readRData", {
+        req(input$file1)
+
+        readRDataProcess(inFile=inFile(), gainshiftvalue=gainshiftHold(), use_native_calibration=encal_auto())
+
     })
     
     
@@ -964,6 +975,8 @@ shinyServer(function(input, output, session) {
                         readPDZ()
                     }  else if(input$filetype=="SPE"){
                         readSPE()
+                    }  else if(input$filetype=="RData"){
+                        readRData()
                     }
                     # make.names over unique names only: the long frame repeats each
                     # file name ~2048 times, so this is ~2000x less string work.
@@ -1023,6 +1036,8 @@ shinyServer(function(input, output, session) {
                 tryCatch(fileMetadataProcess(inFile(), mcaFrameMetadata), error=function(e) NULL)
             } else if(input$filetype=="TXT"){
                 tryCatch(fileMetadataProcess(inFile(), txtFrameMetadata), error=function(e) NULL)
+            } else if(input$filetype=="RData"){
+                tryCatch(fileMetadataProcess(inFile(), rdataFrameMetadata), error=function(e) NULL)
             } else {
                 NULL
             }
@@ -2382,7 +2397,7 @@ shinyServer(function(input, output, session) {
                 spectralLines
             }  else if(input$filetype=="PDZ"){
                 spectralLines
-            }  else if(input$filetype=="SPE"){
+            }  else if(input$filetype %in% c("SPE", "RData")){
                 spectralLines
             } else if(input$filetype=="Net"){
                 colnames(spectra.line.table[2:n])
@@ -3004,7 +3019,7 @@ shinyServer(function(input, output, session) {
                 spectraData()
             }  else if(input$filetype=="PDZ"){
                 spectraData()
-            }  else if(input$filetype=="SPE"){
+            }  else if(input$filetype %in% c("SPE", "RData")){
                 spectraData()
             } else if(input$filetype=="Net"){
                 netData()
@@ -3040,7 +3055,7 @@ shinyServer(function(input, output, session) {
                 isolate(spectraData())
             }  else if(input$filetype=="PDZ"){
                 isolate(spectraData())
-            }  else if(input$filetype=="SPE"){
+            }  else if(input$filetype %in% c("SPE", "RData")){
                 isolate(spectraData())
             } else if(input$filetype=="Net"){
                 isolate(netData())
@@ -3060,7 +3075,7 @@ shinyServer(function(input, output, session) {
                 isolate(spectraDataSplit())
             }  else if(input$filetype=="PDZ"){
                 isolate(spectraDataSplit())
-            }  else if(input$filetype=="SPE"){
+            }  else if(input$filetype %in% c("SPE", "RData")){
                 isolate(spectraDataSplit())
             } else if(input$filetype=="Net"){
                 isolate(netData())
@@ -3080,7 +3095,7 @@ shinyServer(function(input, output, session) {
                 isolate(spectraDataFirst())
             }  else if(input$filetype=="PDZ"){
                 isolate(spectraDataFirst())
-            }  else if(input$filetype=="SPE"){
+            }  else if(input$filetype %in% c("SPE", "RData")){
                 isolate(spectraDataFirst())
             } else if(input$filetype=="Net"){
                 isolate(netData())
@@ -3100,7 +3115,7 @@ shinyServer(function(input, output, session) {
                 isolate(spectraDataSecond())
             }  else if(input$filetype=="PDZ"){
                 isolate(spectraDataSecond())
-            }  else if(input$filetype=="SPE"){
+            }  else if(input$filetype %in% c("SPE", "RData")){
                 isolate(spectraDataSecond())
             } else if(input$filetype=="Net"){
                 isolate(netData())
@@ -3121,7 +3136,7 @@ shinyServer(function(input, output, session) {
                 isolate(wideSpectraData())
             }  else if(input$filetype=="PDZ"){
                 isolate(wideSpectraData())
-            }  else if(input$filetype=="SPE"){
+            }  else if(input$filetype %in% c("SPE", "RData")){
                 isolate(wideSpectraData())
             } else if(input$filetype=="Net"){
                 isolate(netData())
@@ -3141,7 +3156,7 @@ shinyServer(function(input, output, session) {
                 isolate(wideSpectraDataSplit())
             }  else if(input$filetype=="PDZ"){
                 isolate(wideSpectraDataSplit())
-            }  else if(input$filetype=="SPE"){
+            }  else if(input$filetype %in% c("SPE", "RData")){
                 isolate(wideSpectraDataSplit())
             } else if(input$filetype=="Net"){
                 isolate(netData())
@@ -4032,7 +4047,7 @@ shinyServer(function(input, output, session) {
                 "Spectra"
             }  else if(input$filetype=="PDZ"){
                 "Spectra"
-            }  else if(input$filetype=="SPE"){
+            }  else if(input$filetype %in% c("SPE", "RData")){
                 "Spectra"
             } else if (input$filetype=="Net"){
                 "Net"
@@ -22069,6 +22084,9 @@ content = function(file){
         } else if(input$valfiletype=="SPE") {
             fileInput('loadvaldata', 'Choose SPE File', multiple=TRUE,
             accept=c(".spe"))
+        } else if(input$valfiletype=="RData") {
+            fileInput('loadvaldata', 'Choose RData / RDS File', multiple=TRUE,
+            accept=c(".rdata", ".rda", ".rds"))
         }
         
     })
@@ -22100,7 +22118,7 @@ content = function(file){
         }
 
         # Return the file type if it's a valid option, otherwise default to CSV
-        valid_types <- c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE")
+        valid_types <- c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE", "RData")
         if(file_type %in% valid_types){
             return(file_type)
         }
@@ -22112,9 +22130,9 @@ content = function(file){
     output$valfiletypeui <- renderUI({
 
         if(is.null(input$calfileinput2)){
-            selectInput("valfiletype", label="Filetype", c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected="CSV")
+            selectInput("valfiletype", label="Filetype", c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE", "RData"), selected="CSV")
         } else if(!is.null(input$calfileinput2)){
-            selectInput("valfiletype", label="Filetype", c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE"), selected=valCalCompatibility())
+            selectInput("valfiletype", label="Filetype", c("CSV", "JSON", "TXT", "Net", "Elio", "MCA", "SPX", "PDZ", "SPE", "RData"), selected=valCalCompatibility())
 
         }
 
@@ -22314,6 +22332,12 @@ content = function(file){
             readSPEProcess(inFile=input$loadvaldata, inEn=input$dfl_val_eds, use_native_calibration=valEncalAuto())
 
         })
+
+        readValRData <- reactive({
+
+            readRDataProcess(inFile=input$loadvaldata, gainshiftvalue=gainshiftHold(), use_native_calibration=valEncalAuto())
+
+        })
             
             
             readvalPDZ <- reactive({
@@ -22357,6 +22381,8 @@ content = function(file){
                 readvalPDZ()
             }  else if(input$valfiletype=="SPE") {
                 readValSPE()
+            }  else if(input$valfiletype=="RData") {
+                readValRData()
             }
             
             data$CPS <- as.numeric(data$CPS)
@@ -22408,6 +22434,8 @@ content = function(file){
                 tryCatch(fileMetadataProcess(input$loadvaldata, mcaFrameMetadata), error=function(e) NULL)
             } else if(identical(input$valfiletype, "TXT")){
                 tryCatch(fileMetadataProcess(input$loadvaldata, txtFrameMetadata), error=function(e) NULL)
+            } else if(identical(input$valfiletype, "RData")){
+                tryCatch(fileMetadataProcess(input$loadvaldata, rdataFrameMetadata), error=function(e) NULL)
             } else NULL
         })
 
@@ -22557,7 +22585,7 @@ content = function(file){
                 "Spectra"
             } else if(input$valfiletype=="Spectra") {
                 "Spectra"
-            } else if(input$valfiletype=="SPE") {
+            } else if(input$valfiletype %in% c("SPE", "RData")) {
                 "Spectra"
             }
             
