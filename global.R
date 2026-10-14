@@ -23,11 +23,7 @@ get_os <- function(){
 tryCatch(options(java.parameters = c("-XX:+UseConcMarkSweepGC", "-Xmx81920m")), error=function(e) NULL)
 
 list.of.packages <- c("backports", "mgsub", "pbapply", "reshape2", "TTR", "dplyr", "ggtern",  "shiny", "rhandsontable", "random", "DT", "shinythemes", "broom", "shinyjs", "gridExtra", "dtplyr", "formattable", "XML", "corrplot", "scales", "rmarkdown", "markdown",  "httpuv", "stringi", "reticulate", "devtools", "randomForest", "caret", "data.table", "mvtnorm", "DescTools",  "doSNOW", "doParallel", "baseline",  "pls", "prospectr", "stringi", "ggplot2", "compiler", "itertools", "foreach", "grid", "nnet", "neuralnet", "xgboost", "reshape", "magrittr", "reactlog", "Metrics", "strip", "bartMachine", "arm", "brnn", "kernlab", "rBayesianOptimization", "magrittr", "smooth", "smoother", "ggrepel", "tibble", "purrr", "remotes", "tidyverse", "tools", "shinycssloaders", "openxlsx", "itraxR", "pbmcapply")
-# Install a single package, falling back to its CRAN GitHub mirror when it is not
-# available from CRAN itself (e.g. archived or platform-specific packages such as
-# RDCOMClient). install.packages signals an unavailable package/dependency as a
-# warning, so we install each package defensively and only fall back / report a
-# failure if the package is still missing afterwards.
+# Install one package, falling back to its CRAN GitHub mirror (cran/<pkg>) when CRAN cannot provide it; install.packages only warns when a package is unavailable, so success is judged by whether it is installed afterwards.
 install_one <- function(pkg, type) {
     if (pkg %in% rownames(installed.packages())) return(invisible(TRUE))
     tryCatch(
@@ -45,8 +41,7 @@ install_one <- function(pkg, type) {
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)){
-    # Don't let a benign install warning (e.g. an unavailable optional dependency)
-    # abort setup via warn = 2; install each package defensively, then restore.
+    # Lower warn to 1 while installing so a benign install warning cannot abort setup under warn = 2, then restore it.
     old.warn <- getOption("warn")
     options(warn = 1)
     install.type <- if (get_os() == "linux") "source" else "binary"
@@ -103,20 +98,14 @@ if("caret" %in% installed.packages()[,"Package"]==FALSE && get_os()=="windows"){
 #        tryCatch(install.packages("https://github.com/leedrake5/CloudCal/raw/master/Packages/caret_6.0.93.1.tar.gz", type="source", repos=NULL), error=function(e) tryCatch(remotes::install_github("leedrake5/caret", subdir="pkg/caret"), error=function(e) NULL))
 #    }
 
-# rPDZ package management
-# install.packages(url, repos=NULL) signals warnings (not errors) on failure,
-# so tryCatch(..., error=...) misses the common case. Verify by checking the
-# installed version afterward, and fall back to remotes::install_github if the
-# hosted archive didn't land.
+# rPDZ package management: install.packages(url, repos=NULL) only warns on failure, so the install is verified by the installed version, falling back to remotes::install_github.
 required_version <- "2.0.3"
 
 installed_version <- function(pkg) {
     if (pkg %in% rownames(installed.packages())) as.character(packageVersion(pkg)) else NA_character_
 }
 
-# Draw a friendly notice in a renderPlot slot when there's nothing meaningful to
-# plot (e.g. a covariance matrix with a single observation). Replaces a hard
-# error with a clear message in the panel users were expecting.
+# Draw a notice in a renderPlot slot instead of an error when there is nothing meaningful to plot, such as correlations from a single spectrum.
 singleSpectrumNotice <- function(message = "Only one spectrum loaded — variance cannot be calculated.\nAdd additional spectra to compute correlations.") {
     op <- par(mar = c(0, 0, 0, 0))
     on.exit(par(op))
@@ -181,10 +170,10 @@ options(shiny.reactlog = TRUE)
 #reactlog_enable()
 shiny::devmode(TRUE)
 options(shiny.fullstacktrace=TRUE)
-###update packages
+# Update packages
 #update.packages(repos='http://cran.rstudio.com/', ask=FALSE)
 
-###Old ggplot2
+# Old ggplot2
 #devtools::install_version("ggplot2", version = "2.2.1", repos = "http://cran.us.r-project.org", checkBuilt=TRUE)
 
 
@@ -256,20 +245,10 @@ my.cores <- if(parallel::detectCores()>=3){
     "1"
 }
 
-# Deconvolution parallelism gate. spectra_gls_deconvolute() forks per-spectrum via pbmclapply (mclapply),
-# which only parallelizes on Unix/macOS -- Windows cannot fork, so we run serial there (mclapply would
-# silently coerce to 1 anyway). Fork is also the right model here rather than a PSOCK cluster: forked
-# workers inherit xrftools' warm in-process template + per-element sensitivity caches copy-on-write, whereas
-# PSOCK workers would each cold-start those caches and pay a data-copy tax -- often slower than serial. The
-# per-spectrum xrftools work is now ~0.37 s (see the 2026-07 physics/perf batch), so Windows-serial is a
-# small, honest cost. my.cores = detectCores()-2 (a string); a <=2-core machine is already serial.
+# Deconvolution cores: spectra_gls_deconvolute() forks per spectrum (pbmclapply), so it runs serially on Windows, which cannot fork; forking beats a PSOCK cluster because the workers share xrftools' warm template and sensitivity caches copy-on-write.
 decon_cores <- if(get_os() == "windows") 1L else as.numeric(my.cores)
 
-# Several model packages ship their own OpenMP runtime (xgboost bundles libomp;
-# data.table and earth link the system one). On macOS the duplicate-runtime
-# check can abort the whole R session (OMP Error #13) the first time two of
-# them meet in one process - e.g. training a MARS model after an XGBoost one.
-# This standard override lets the runtimes coexist.
+# Several model packages ship their own OpenMP runtime (xgboost bundles libomp), and on macOS the duplicate-runtime check can abort the R session when two meet in one process; this standard override lets them coexist.
 if(get_os() != "windows") Sys.setenv(KMP_DUPLICATE_LIB_OK = "TRUE")
 
 source('file_loading.R')
@@ -284,20 +263,13 @@ remove.factors = function(df) {
     return(df)
 }
 
-# NA_real_, not NA: the bare NA is LOGICAL, and ggplot treats a logical column as a
-# DISCRETE scale. Feeding one to annotate(x=) / scale limits made the whole plot
-# abort with "Discrete values supplied to continuous scale. Example values: NA".
-# Every caller here is numeric, so a typed NA is also just more correct.
+# Return NA_real_, not NA: ggplot treats a logical NA as discrete, which breaks continuous scales and annotate() positions.
 my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA_real_)
 my.min <- function(x) ifelse( !all(is.na(x)), min(x, na.rm=T), NA_real_)
 
-# Fast drop-in for aggregate(list(values), by=list(groups), FUN=...) on the
-# long-format spectra frames (the inner loop of every line-intensity build).
-# rowsum-based: same two-column, sorted-by-group data.frame shape; callers
-# rename the columns. ~20x faster than aggregate on 75k-row frames.
+# Fast rowsum-based drop-in for aggregate(list(values), by=list(groups), FUN=...) on long-format spectra frames, the inner loop of every line-intensity build; it returns the same two-column, group-sorted data.frame and callers rename the columns.
 fastAggCPS <- function(values, groups, method="sum", na.rm=FALSE){
-    # match aggregate()'s empty-input error: elementGrab's tryCatch relies on it
-    # to substitute the zero-filled fallback frame for empty ROI windows.
+    # Match aggregate()'s error on empty input: elementGrab's tryCatch relies on it to substitute a zero-filled frame for empty ROI windows.
     if(length(values) == 0) stop("no rows to aggregate")
     groups <- as.character(groups)
     if(identical(method, "sum") || identical(method, sum)){
@@ -323,10 +295,7 @@ fastAggCPS <- function(values, groups, method="sum", na.rm=FALSE){
 }
 fastAggCPS <- cmpfun(fastAggCPS)
 
-# Content-equality for data frames that survives widget round-trips: handsontable
-# JSON serialization changes rownames/attributes/factor-ness without changing the
-# data, and identical() on those false differences re-triggers the whole reactive
-# chain (tables, models, plots) plus the Element dropdown re-render.
+# Compares data frames by content, ignoring the rownames, attributes and factor-ness that handsontable round-trips change, because identical() would see those as differences and re-trigger the whole reactive chain.
 dfSame <- function(a, b){
     if (is.null(a) || is.null(b)) return(is.null(a) && is.null(b))
     if (!is.data.frame(a) || !is.data.frame(b)) return(identical(a, b))
@@ -405,12 +374,7 @@ generate_grid <- function(bounds, init_points, init_grid_dt = NULL){
 }
 
 
-# Reset foreach's registered parallel backend to sequential and clear its
-# accumulated globals. The usual one-liner (foreach:::.foreachGlobals) hard-errors
-# if that internal is renamed or if foreach isn't loaded; this version guards
-# both (exists() check + tryCatch) and no-ops safely instead of throwing. Defined
-# here in global.R so any code that expects unregister_dopar() finds it on the
-# search path -- a missing definition is what surfaced under debug = TRUE.
+# Resets foreach's registered parallel backend to sequential by clearing its internal .foreachGlobals; a safe no-op when foreach or that internal is unavailable.
 unregister_dopar <- function() {
     ns <- tryCatch(getNamespace("foreach"), error = function(e) NULL)
     if (!is.null(ns) && exists(".foreachGlobals", envir = ns)) {
@@ -426,22 +390,14 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
                                  kernel = list(type = "exponential", power = 2),
                                  verbose = TRUE, seed = NULL, debug = FALSE) {
   require(data.table)
-  # Seed the RNG INSIDE the call so the random initialisation is reproducible
-  # even in parallel workers (a set.seed() in the master process does not reach
-  # %dopar%/doSNOW workers). Passing the same seed to each group's run makes
-  # every group draw the identical init_points, so their Histories align.
+  # Seed inside the call because a set.seed() in the master process does not reach parallel workers; the same seed gives every run identical init_points, so their Histories align.
   if (!is.null(seed)) set.seed(seed)
-  # debug = TRUE is what BayesianOptimizationDebug() sets: errors propagate with
-  # a full traceback instead of being caught and logged. debug = FALSE (default)
-  # "jumps around" errors, recording them in Error_Log and continuing.
+  # debug = TRUE (set by BayesianOptimizationDebug()) also prints each failing step with its traceback; in both modes a failed step is recorded in Error_Log and the run continues.
   DT_bounds <- data.table(Parameter = names(bounds),
                           Lower = sapply(bounds, `[[`, 1),
                           Upper = sapply(bounds, `[[`, 2),
                           Type = sapply(bounds, class))
-  # NB: select columns with `..param_cols`. The `..` prefix binds only to the
-  # token after it, so the earlier `..DT_bounds$Parameter` parsed as
-  # `(..DT_bounds)$Parameter` and returned the name vector itself (which then
-  # reached FUN as character args). That broke every round.
+  # Select columns with `..param_cols`: data.table's `..` prefix binds only to the next token, so `..DT_bounds$Parameter` would return the name vector itself instead of the columns.
   param_cols <- DT_bounds$Parameter
 
   setDT(init_grid_dt)
@@ -449,12 +405,7 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
   # Initialize error tracking dataframe
   Error_DT <- data.table()
 
-  # Catch a step's error, log it to Error_DT (when `step` is given), and continue
-  # with `fallback`. In debug mode ALSO print the failing step, message, and the
-  # live call stack (a traceback) BEFORE recovering -- so you can walk a whole
-  # run and see every failure instead of aborting at the first one. Both `expr`
-  # and `fallback` are lazy, so `fallback` (e.g. a random Matrix_runif draw) is
-  # only evaluated on failure and never disturbs the seeded stream.
+  # Catch a step's error, log it to Error_DT (when `step` is given) and continue with `fallback`; in debug mode also print the failing step and call stack, so a run shows every failure. `expr` and `fallback` are lazy, so `fallback` is only evaluated on failure and never disturbs the seeded random stream.
   guard <- function(expr, step = NULL, fallback = NULL) {
     logit <- function(e) {
       if (!is.null(step))
@@ -463,10 +414,7 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
     }
     if (!isTRUE(debug))
       return(tryCatch(expr, error = function(e) { logit(e); fallback }))
-    # debug: capture the call stack at the point of failure (via
-    # withCallingHandlers, stack still intact), but PRINT in the outer handler
-    # after the stack has unwound -- otherwise a cat() fired inside FUN's
-    # capture.output() sink is swallowed. Then recover and continue.
+    # Debug mode captures the call stack at the point of failure but prints it from the outer handler, after the stack has unwound, because output inside FUN's capture.output() sink would be swallowed; then it recovers and continues.
     tb <- NULL
     tryCatch(
       withCallingHandlers(expr, error = function(e) { tb <<- sys.calls() }),
@@ -534,9 +482,7 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
           Min_Max_Inverse_Scale_Vec(DT_bounds$Lower, DT_bounds$Upper) %>%
           setNames(DT_bounds$Parameter),
         step = "Utility_Max",
-        # Name the fallback draw like the success path (x, y, ...); an unnamed
-        # Matrix_runif matrix would otherwise land as V1/V2 columns via
-        # rbind(fill=TRUE) and pollute History.
+        # Name the fallback draw like the success path, otherwise rbind(fill=TRUE) adds it to History as unnamed V1/V2 columns.
         fallback = setNames(as.numeric(Matrix_runif(1, DT_bounds$Lower, DT_bounds$Upper)),
                             param_cols))
 
@@ -548,11 +494,7 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
       DT_history <- rbind(DT_history, cbind(This_Par, Value=NA_real_, Round=i), fill=TRUE)
     }
 
-    # Evaluate FUN but KEEP everything it emits so a failed round can be
-    # explained: the list(Score, Pred) return value, its printed output, and any
-    # warnings (muffled from the console on success, surfaced on failure). Only
-    # messages stay suppressed (usually progress noise). In debug mode a thrown
-    # error still propagates with a traceback via guard().
+    # Evaluate FUN while keeping its return value, printed output and warnings, so a failed round can be explained; output and warnings are shown only on failure and messages are suppressed. In debug mode guard() also prints a thrown error with its traceback.
     .fun_out <- NULL
     .fun_log <- character(0)
     .warnbox <- new.env(parent = emptyenv()); .warnbox$w <- character(0)
@@ -572,8 +514,7 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
     )
     .fun_warn <- .warnbox$w
 
-    # Human-readable "param=value, ..." for the tested point (compact: integers
-    # print whole, continuous to 5 sig figs), so the log shows WHERE we sampled.
+    # Human-readable "param=value, ..." string for the tested point (5 significant digits), so the log shows where it sampled.
     if (verbose) {
       pv <- unlist(This_Par)
       par_str <- paste(names(pv),
@@ -584,8 +525,7 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
 
     if (is.null(This_Score_Pred) || is.null(This_Score_Pred$Score)) {
       DT_history[i, Value := NA_real_]
-      # Explain WHY: NULL result vs a result that lacks a usable $Score, plus
-      # what FUN actually returned (so you can see if the shape is wrong).
+      # Record why the round failed: FUN returned NULL, or returned something without $Score, in which case its class and names show what shape it had.
       reason <- if (is.null(This_Score_Pred)) {
         "FUN returned NULL (it caught/swallowed an error, or produced no value)"
       } else {
@@ -641,11 +581,7 @@ BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points =
 }
 
 
-# BayesianOptimizationDebug: identical to BayesianOptimization but with
-# debug = TRUE, so evaluation errors propagate with a full traceback instead of
-# being caught and logged to Error_Log. Kept as a thin wrapper so the two never
-# drift apart -- every feature (seed, Error_Log, History shape) lives in one
-# place. Returns the same result structure, so mergeOptRes() accepts either.
+# BayesianOptimization with debug = TRUE, which also prints each failing step with its traceback; a thin wrapper so the two cannot drift apart, returning the same structure, so mergeOptRes() accepts either.
 BayesianOptimizationDebug <- function(FUN, bounds, init_grid_dt = NULL, init_points = 0,
     n_iter, acq = "ei", kappa = 2.576, eps = 0,
     kernel = list(type = "exponential", power = 2), verbose = TRUE, seed = NULL) {
@@ -655,56 +591,29 @@ BayesianOptimizationDebug <- function(FUN, bounds, init_grid_dt = NULL, init_poi
 }
 
 
-# ---------------------------------------------------------------------------
-# mergeOptRes: combine the History of two or more BayesianOptimization runs
-# (or BayesianOptimizationDebug runs) so you can see which hyperparameter
-# settings score well ACROSS instruments, not just on a single one.
-#
-# Each run samples different hyperparameter points, so points are first grouped
-# into "similar" bins: integer-valued parameters are matched exactly, and
-# continuous parameters are rounded to `digits` significant figures. Within a
-# run, points falling in the same bin are collapsed with `agg` (max by default,
-# matching BO's maximise-the-metric convention). Runs are then outer-joined on
-# the binned hyperparameters, each run's metric column is renamed to its source
-# label, and a trailing Mean column averages the metric across runs -- so the
-# rows with the highest Mean are the settings that generalise best.
-#
-# Runs can be supplied via `...` (argument names become source labels) or as a
-# single named list, e.g. both of these are equivalent:
+# mergeOptRes: combines the History of two or more BayesianOptimization runs to show which hyperparameter settings score well across instruments, not just on one.
+# Points are binned (integer parameters matched exactly, continuous ones rounded to `digits` significant figures), collapsed within each run by `agg`, outer-joined across runs with one metric column per source, and averaged into Mean, so the rows with the highest Mean generalise best.
+# Runs are passed via `...` (argument names become source labels) or as one named list; these are equivalent:
 #     mergeOptRes(InstrA = resA, InstrB = resB)
 #     mergeOptRes(list(InstrA = resA, InstrB = resB))
-#
-# Works on output from BOTH BayesianOptimization (failed points = NA) and
-# BayesianOptimizationDebug (failed points = -Inf): unevaluated points are
-# dropped with a finite check either way. By default a malformed run is skipped
-# with a warning ("jump around errors"); set debug = TRUE to let it raise so
-# you get a traceback.
-#
+# Points without a finite metric are dropped. A malformed run is skipped with a warning unless debug = TRUE, which raises the error instead.
 # Args:
-#   ...          OPT_Res lists, or one named list of them (see above).
+#   ...          OPT_Res lists, or one named list of them.
 #   .list        Optional extra named list of runs, merged with `...`.
-#   digits       Sig figs for binning continuous hyperparameters (default 3).
+#   digits       Significant figures for binning continuous hyperparameters (default 3).
 #   agg          Within-run collapse of a bin's metrics (default max).
-#   min_sources  Keep only settings evaluated by at least this many runs
-#                (default 1; set to the number of runs for shared-only).
+#   min_sources  Keep only settings evaluated by at least this many runs (default 1; the number of runs keeps shared settings only).
 #   value_col    Name of the metric column in History (default "Value").
 #   sort         Sort rows by descending Mean (default TRUE).
-#   debug        FALSE = skip bad runs with a warning; TRUE = raise (traceback).
-#
-# Returns a data.frame: [binned hyperparameters..., <one column per source>,
-# N_Sources, Mean, SD], with Mean then SD last (SD = spread of the metric across
-# sources; NA when only one source contributed).
-# ---------------------------------------------------------------------------
+#   debug        FALSE skips bad runs with a warning; TRUE raises.
+# Returns a data.frame of the binned hyperparameters, one metric column per source, N_Sources, Mean and SD (the spread across sources; NA when only one source contributed).
 mergeOptRes <- function(..., .list = NULL, digits = 3, agg = max,
                         min_sources = 1, value_col = "Value",
                         sort = TRUE, debug = FALSE) {
 
     runs <- c(list(...), .list)
 
-    # Unwrap a single list-of-runs passed positionally (e.g. a result_list from
-    # a parallel sweep). Unwrap when it holds AT LEAST ONE run -- using `all`
-    # here meant a single failed/NULL parallel task left the list wrapped, so it
-    # looked like "one run" and produced the misleading "needs at least two".
+    # Unwrap a single list of runs passed positionally, such as a parallel sweep's result list, when it holds at least one run, so failed or NULL tasks in it do not prevent the unwrap.
     is_run <- function(x) is.list(x) && !is.null(x[["History"]])
     if (length(runs) == 1 && is.list(runs[[1]]) && !is_run(runs[[1]]) &&
         length(runs[[1]]) > 0 && any(vapply(runs[[1]], is_run, logical(1)))) {
@@ -768,8 +677,7 @@ mergeOptRes <- function(..., .list = NULL, digits = 3, agg = max,
     if (length(param_cols) == 0)
         stop("Runs share no common hyperparameter columns.")
 
-    # Integer-valued params (matched exactly) vs continuous (rounded), decided
-    # from the pooled values so binning is consistent across runs.
+    # Classify each parameter as integer-valued (matched exactly) or continuous (rounded) from the pooled values, so binning is consistent across runs.
     pooled <- do.call(rbind, lapply(tabs, function(d) d[, param_cols, drop = FALSE]))
     is_int <- vapply(param_cols, function(p) {
         x <- suppressWarnings(as.numeric(pooled[[p]]))
@@ -800,9 +708,7 @@ mergeOptRes <- function(..., .list = NULL, digits = 3, agg = max,
     val_mat <- as.matrix(merged[, src, drop = FALSE])
     merged[["N_Sources"]] <- rowSums(!is.na(val_mat))
     merged[["Mean"]] <- rowMeans(val_mat, na.rm = TRUE)
-    # Spread of the metric across sources (NA where only one source contributed,
-    # since SD is undefined for a single value) -- high SD = the setting works on
-    # some instruments but not others, low SD = it generalises evenly.
+    # Spread of the metric across sources (NA when only one source contributed); a high SD means the setting works on some instruments but not others.
     merged[["SD"]] <- apply(val_mat, 1, function(v) stats::sd(v, na.rm = TRUE))
 
     merged <- merged[merged[["N_Sources"]] >= min_sources, , drop = FALSE]
@@ -828,7 +734,7 @@ RDS_from_web <- function(url) {
   file.remove(tempFile_location)
   b
 }
-######Load lines
+# Load lines
 lineLibrary <- tryCatch(readRDS("data/LineDefinitions.rdata"), error=function(e) RDS_from_web("https://github.com/leedrake5/CloudCal/raw/master/data/LineDefinitions.rdata"))
 #temp <- tempfile()
 fluorescence.lines <- lineLibrary$FluorescenceeLines
@@ -847,10 +753,7 @@ atomic_order <- cmpfun(atomic_order)
 
 
 atomic_order_vector <- function(elements){
-    # Length-preserving: a non-element (e.g. the new xrftools scatter_compton / scatter_rayleigh or escape
-    # templates) yields numeric(0) from atomic_order. Map those to NA instead of letting unlist() silently
-    # drop them -- dropping shortened the result and broke `frame$order <- atomic_order_vector(frame$element)`
-    # ("replacement has N rows, data has M").
+    # Length-preserving: names that are not elements, such as scatter or escape templates, map to NA instead of being dropped, so the result can be assigned back as a column.
     vapply(elements, function(e){ o <- atomic_order(e); if(length(o) == 0) NA_real_ else as.numeric(o[1]) }, numeric(1))
 }
 atomic_order_vector <- cmpfun(atomic_order_vector)
@@ -1360,7 +1263,7 @@ parallel_prediction_caret <- cmpfun(parallel_prediction_caret)
 
 
 GG_save_pdf = function(list, filename) {
-    #start pdf
+    # start pdf
     pdf(filename)
     
     #loop
@@ -1368,7 +1271,7 @@ GG_save_pdf = function(list, filename) {
         print(p)
     }
     
-    #end pdf
+    # end pdf
     dev.off()
     
     invisible(NULL)
@@ -1376,7 +1279,7 @@ GG_save_pdf = function(list, filename) {
 GG_save_pdf <- cmpfun(GG_save_pdf)
 
 
-###Train Functions
+# Train Functions
 
 pull_test <- function(a.vector, a.value.position){
     
@@ -1532,49 +1435,25 @@ elementGrabKalpha <- function(element, data, calculation="gaussian", gaus_buffer
 }
 
 
-## ---------------------------------------------------------------------------
-## Limit of Detection (LOD) estimate from the calibration spectra.
-##
-## Reports a 3-sigma detection limit for one element/line, in the SAME
-## concentration units as the calibration's stored Concentration column, given
-## the linear sensitivity `slope` (= d Concentration / d Intensity from
-## lm(Concentration ~ Intensity)).
-##
-## The noise term is the crux. The SNIP baseline is a SMOOTH continuum, so its
-## own point-to-point scatter has had the counting noise removed - using it to
-## set the noise level badly underestimates the LOD. Instead we recover the real
-## noise two ways and take the LARGER (conservative):
-##
-##  1. Shoulder noise (primary): the high-frequency counting noise measured from
-##     robust channel-to-channel first differences of the raw spectrum in
-##     PEAK-FREE SHOULDER windows just outside the line ROI. Differencing cancels
-##     the smooth continuum/peak shape and any baseline/fit mis-modelling, and
-##     MAD(diff)/sqrt(2) rejects contaminated channels - so this recovers the
-##     counting noise smoothing removed, without needing LiveTime. Scaled to the
-##     ROI sum by sqrt(n_ROI).
-##  2. Currie/counting-statistics (cross-check): sigma = sqrt(background counts)
-##     from the baseline ROI level and LiveTime - the textbook XRF LLD. Only
-##     available when LiveTime is known; converges with (1) when present.
-##
-## LOD_i = 3 * max(sigma_resid, sigma_currie) * slope / F_i, aggregated across
-## the kept standards by the median.
-##
-## Arguments mirror the Cal Curves page controls so the result is responsive to
-## the line-definition and normalization choices:
-##   element.line     - full line name, e.g. "Fe.K.alpha" (input$calcurveelement)
-##   baseline         - Deconvoluted$Baseline frame (Spectrum, Energy, CPS)
-##   spectra_raw      - Calibration$Spectra (raw per-channel CPS, same grid)
-##   fit              - Deconvoluted$Spectra (fitted peak response, same grid)
-##   line.preference  - "Narrow" | "Wide" | "Area"  (input$linepreferenceelement)
-##   line.structure   - "gaussian" | "split" | "first" | "second"
-##   norm.type        - 1 none, 2 total counts, 3 Compton  (input$normcal)
-##   norm.src         - per-channel frame used for normalization divisor
-##   norm.min/max     - Compton window (input$comptonmin/comptonmax)
-##   metadata         - frame with Spectrum + LiveTime (enables the Currie term)
-##   keep.spectra     - character vector of standards kept on the cal curve
-##   slope            - linear sensitivity (d Concentration / d Intensity)
-##   range.table      - custom line Definitions (Name, EnergyMin, EnergyMax)
-## ---------------------------------------------------------------------------
+# Estimates a 3-sigma limit of detection (LOD) for one element line from the calibration spectra, in the calibration's concentration units, given the linear sensitivity `slope` (d Concentration / d Intensity from lm(Concentration ~ Intensity)).
+# The SNIP baseline is smooth, so its own scatter lacks the counting noise and would badly underestimate the LOD; the noise is instead estimated two ways and the larger is used:
+#   1. Shoulder noise: MAD(diff)/sqrt(2) of channel-to-channel differences of the raw spectrum in peak-free windows just outside the ROI, scaled to the ROI sum by sqrt(n_ROI). Differencing cancels the smooth continuum and peak shape, and it needs no LiveTime.
+#   2. Currie counting statistics: sigma = sqrt(background counts) from the baseline ROI level and LiveTime, available only when LiveTime is known.
+# LOD_i = 3 * max(sigma_resid, sigma_currie) * |slope| / F_i, where F_i is the standard's normalization divisor; the median over the kept standards is reported.
+# Arguments mirror the Cal Curves page controls, so the result follows its line-definition and normalization choices:
+#   element.line     - full line name, e.g. "Fe.K.alpha" (input$calcurveelement)
+#   baseline         - Deconvoluted$Baseline frame (Spectrum, Energy, CPS)
+#   spectra_raw      - Calibration$Spectra (raw per-channel CPS, same grid)
+#   fit              - Deconvoluted$Spectra (fitted peak response, same grid); not used
+#   line.preference  - "Narrow" | "Wide" | "Area"  (input$linepreferenceelement)
+#   line.structure   - "gaussian" | "split" | "first" | "second"
+#   norm.type        - 1 none, 2 total counts, 3 Compton  (input$normcal)
+#   norm.src         - per-channel frame used for normalization divisor
+#   norm.min/max     - Compton window (input$comptonmin/comptonmax)
+#   metadata         - frame with Spectrum + LiveTime (enables the Currie term)
+#   keep.spectra     - character vector of standards kept on the cal curve
+#   slope            - linear sensitivity (d Concentration / d Intensity)
+#   range.table      - custom line Definitions (Name, EnergyMin, EnergyMax)
 baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=NULL,
                                    line.preference="Narrow",
                                    line.structure="gaussian", gaus.buffer=0.02,
@@ -1589,11 +1468,10 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
         return(list(note="bad_slope"))
     }
 
-    # Trailing-extension strip shared with the calibration loader (same extension set, unique-names mapping).
+    # Strip trailing file extensions exactly as the calibration loader does, so spectrum names match.
     strip_ext <- function(x) spectrumNameVector(x)
 
-    ## Window dispatch shared by the ROI sum and the ROI-membership probe, so the
-    ## LOD window is always identical to the one the calibration itself uses.
+    # Window dispatch shared by the ROI sum and the ROI-membership probe, so the LOD window always matches the one the calibration uses.
     grab <- function(dat){
         if(line.preference=="Wide"){
             calc <- if(line.structure %in% c("gaussian", "split")) line.structure else "gaussian"
@@ -1603,16 +1481,14 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
         }
     }
 
-    ## Baseline ROI level per standard (the background level under the peak).
+    # Baseline ROI level per standard (the background level under the peak).
     roi <- grab(baseline)
     if(is.null(roi) || ncol(roi) < 2){
         return(list(note="not_estimable"))
     }
     roi <- data.frame(Spectrum=strip_ext(roi$Spectrum), rawBase=as.numeric(roi[[2]]), stringsAsFactors=FALSE)
 
-    ## Discover which energy channels fall in the ROI by probing the SAME window
-    ## with a one-channel-per-"spectrum" frame: the returned Spectrum names come
-    ## back as the in-window energies. n_ROI scales channel noise to the ROI sum.
+    # Find the ROI's channels by running the same window over a probe frame with one channel per "spectrum", whose returned Spectrum names are the in-window energies; n_ROI scales channel noise to the ROI sum.
     grid <- sort(unique(round(as.numeric(baseline$Energy), 3)))
     roi_energies <- tryCatch({
         probe <- data.frame(Spectrum=sprintf("%.3f", grid), Energy=grid, CPS=1, stringsAsFactors=FALSE)
@@ -1622,15 +1498,7 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
     }, error=function(e) numeric(0))
     n_roi <- length(roi_energies)
 
-    ## Per-standard COUNTING noise from peak-free shoulder windows flanking the
-    ## ROI. We take successive-channel first differences of the raw spectrum
-    ## within each shoulder and estimate the per-channel sigma robustly as
-    ## MAD(diff)/sqrt(2). Differencing cancels the smooth continuum, peak tails,
-    ## and any baseline/fit mis-modelling (all low-frequency), so only the
-    ## high-frequency counting noise survives; MAD rejects the odd contaminated
-    ## channel (e.g. a neighbouring L-line edge). This isolates exactly the noise
-    ## that smoothing removed, needs no LiveTime, and converges to the Currie
-    ## counting-statistics value when LiveTime is available.
+    # Per-standard counting noise from peak-free shoulders flanking the ROI: MAD(diff)/sqrt(2) of successive-channel differences of the raw spectrum, where differencing cancels the low-frequency continuum and fit errors and MAD rejects the odd contaminated channel. It needs no LiveTime and converges to the Currie counting-statistics value when LiveTime is available.
     sigma_ch <- NULL   # data.frame(Spectrum, sigma) per standard
     if(n_roi > 0 && !is.null(spectra_raw) && all(c("Spectrum","Energy","CPS") %in% names(spectra_raw))){
         lo <- min(roi_energies); hi <- max(roi_energies)
@@ -1646,8 +1514,7 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
                 sh$Spectrum <- strip_ext(sh$Spectrum)
                 sh$Energy <- round(as.numeric(sh$Energy), 3)
                 sh$side <- ifelse(sh$Energy < lo, "L", "R")
-                ## Robust per-channel sigma via MAD of within-shoulder first
-                ## differences; sqrt(2) undoes the variance doubling from diffing.
+                # Robust per-channel sigma from the MAD of within-shoulder first differences (the SD if the MAD is zero); dividing by sqrt(2) undoes the variance doubling from differencing.
                 robust_sigma <- function(d){
                     d <- d[order(d$Energy), ]
                     diffs <- unlist(lapply(split(d$CPS, d$side), function(v) if(length(v) >= 2) diff(v) else numeric(0)))
@@ -1662,7 +1529,7 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
         }
     }
 
-    ## Normalization divisor per standard (mirrors spectra_tc_/spectra_comp_/lucas_* logic).
+    # Normalization divisor per standard (mirrors spectra_tc_/spectra_comp_/lucas_* logic).
     if(norm.type==1 || is.null(norm.src)){
         roi$F <- 1
     } else {
@@ -1678,7 +1545,7 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
         roi$F[is.na(roi$F) | roi$F==0] <- 1
     }
 
-    ## LiveTime (seconds) for the Currie counting-statistics term, if available.
+    # LiveTime (seconds) for the Currie counting-statistics term, if available.
     livetime_used <- FALSE
     if(!is.null(metadata) && all(c("Spectrum", "LiveTime") %in% names(metadata))){
         lt <- data.frame(Spectrum=strip_ext(metadata$Spectrum), LiveTime=as.numeric(metadata$LiveTime), stringsAsFactors=FALSE)
@@ -1689,14 +1556,14 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
         }
     }
 
-    ## Attach per-standard shoulder sigma.
+    # Attach per-standard shoulder sigma.
     if(!is.null(sigma_ch)){
         roi <- merge(roi, sigma_ch, by="Spectrum", all.x=TRUE)
     } else {
         roi$sigma <- NA_real_
     }
 
-    ## Restrict to the standards kept on the cal curve.
+    # Restrict to the standards kept on the cal curve.
     if(!is.null(keep.spectra)){
         roi <- roi[roi$Spectrum %in% strip_ext(keep.spectra), ]
     }
@@ -1708,12 +1575,11 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
 
     m <- abs(slope)
 
-    ## Per-standard sigma (normalized CPS units) for each method.
-    ## Residual: channel SD scaled to the ROI sum by sqrt(n_ROI).
+    # Per-standard sigma in normalized CPS units for each method; the residual term scales the channel SD to the ROI sum by sqrt(n_ROI).
     sigma_resid_i <- if(!is.null(sigma_ch) && n_roi > 0){
         sqrt(n_roi) * roi$sigma / roi$F
     } else rep(NA_real_, n)
-    ## Currie: sqrt(background counts) from baseline level and LiveTime.
+    # Currie: sqrt(background counts) from baseline level and LiveTime.
     sigma_currie_i <- if(livetime_used && "LiveTime" %in% names(roi)){
         lt_ok <- is.finite(roi$LiveTime) & roi$LiveTime > 0 & is.finite(roi$rawBase) & roi$rawBase > 0
         s <- rep(NA_real_, n)
@@ -1721,7 +1587,7 @@ baseline_lod_estimate <- function(element.line, baseline, spectra_raw=NULL, fit=
         s
     } else rep(NA_real_, n)
 
-    ## Conservative per-standard sigma = max of the two available terms.
+    # Conservative per-standard sigma = max of the two available terms.
     sigma_i <- mapply(function(a, b){
         vals <- c(a, b); vals <- vals[is.finite(vals)]
         if(length(vals)==0) NA_real_ else max(vals)
@@ -2186,15 +2052,11 @@ xrf_parse <- function(range.table, data, calculation="gaussian", buffer=0.1){
 
     choice.lines <- range.table[complete.cases(range.table),]
 
-    # split() orders groups by name; take the index from the split result so
-    # names and rows stay aligned (re-stamping original-order names permuted them).
+    # split() orders groups by name, so take the index from the split result to keep names and rows aligned.
     choice.list <- split(choice.lines, f=as.character(choice.lines$Name))
     index <- names(choice.list)
 
-    # A definition whose energy window lies outside the spectrum (e.g. a
-    # placeholder ROI above the beam energy) yields no rows and used to error
-    # out the whole parse. Skip those lines and report them via the "dropped"
-    # attribute so the UI can warn instead of crashing.
+    # A definition whose energy window lies outside the spectrum yields no rows; skip it and list it in the "dropped_lines" attribute so the UI can warn instead of the whole parse failing.
     selected.list <- lapply(index, function(x) tryCatch(
         range_subset_xrf(range.frame=choice.list[[x]], data=data, calculation=calculation, buffer=buffer),
         error=function(e) NULL))
@@ -2245,8 +2107,7 @@ elementGrab <- function(element.line, data, range.table=NULL, calculation="gauss
     res <- tryCatch(
         elementGrabPre(element.line=element.line, data=data, range.table=range.table, calculation=calculation, gaus_buffer=gaus_buffer, split_buffer=split_buffer, buffer=buffer)
         , error=function(e) error_frame)
-    # NULL (e.g. a definition entirely outside the spectrum energy range) gets
-    # the same zero-filled fallback as an error, so table assembly never sees NULL.
+    # A NULL result, such as from a definition outside the spectrum's energy range, gets the same zero-filled fallback as an error, so table assembly never sees NULL.
     if(is.null(res)) error_frame else res
 
 }
@@ -2266,18 +2127,7 @@ add_missing_columns <- function(df, colnames) {
   return(df)
 }
 
-# Vectorized intensity-table builder. The per-element path re-scans and
-# re-aggregates the full long-format frame once per element (~70x per table).
-# When every spectrum shares one energy grid (the usual case - one instrument,
-# one channel calibration), the window of each element line is a fixed set of
-# channels, so each table column is a masked column sum over a channels x
-# spectra matrix. The channel masks are discovered by running the EXISTING
-# per-element grab machinery over a tiny one-row-per-channel probe (same trick
-# as baseline_lod_estimate), so all window formulas, calculation variants and
-# custom-line definitions stay in one place. Element lines are ROI sums;
-# custom definition lines are ROI means (mirroring xrf_parse_single); an empty
-# window yields zeros exactly like elementGrab's error fallback. Returns NULL
-# when spectra do not share a grid - callers then use the per-element path.
+# Vectorized intensity-table builder that avoids re-scanning the long-format frame once per element: when all spectra share one energy grid, each line's window is a fixed set of channels, so each column is a masked sum over a channels x spectra matrix (a mean for custom definition lines, as in xrf_parse_single). The masks come from running grab_one over a one-row-per-channel probe, so the window formulas stay in one place, and an empty window yields `empty_fill` (default 0) like elementGrab's fallback. Returns NULL when spectra do not share a grid; callers then use the per-element path.
 elementFrameFast <- function(data, grab_one, elements, empty_fill=0){
     if(length(elements) == 0) return(NULL)
     if(!all(c("Spectrum", "Energy", "CPS") %in% names(data))) return(NULL)
@@ -2304,8 +2154,7 @@ elementFrameFast <- function(data, grab_one, elements, empty_fill=0){
         if(!is.null(hit) && is.data.frame(hit) && nrow(hit) > 0 && ncol(hit) >= 2 &&
            "Spectrum" %in% names(hit)){
             v <- suppressWarnings(as.numeric(hit[[2]]))
-            # v > 0 keeps genuine in-window channels (probe CPS=1 -> sum/mean >= 1)
-            # and drops elementGrab's zero-filled error fallback rows.
+            # v > 0 keeps genuine in-window channels (the probe's CPS is 1) and drops elementGrab's zero-filled fallback rows.
             idx <- suppressWarnings(as.integer(as.character(hit$Spectrum)))
             idx <- idx[!is.na(v) & v > 0 & is.finite(idx)]
             if(length(idx) > 0){
@@ -2474,10 +2323,7 @@ wideElementSplitLine <- function(element.line, data, method="sum", buffer=0.1) {
         "Ma1"
     }
     
-    # Split = union of the two +/-buffer windows around the wide window's bounds,
-    # mirroring the narrow elementSplit* functions. The previous condition
-    # combined contradictory bounds with &, so it excluded nothing and summed
-    # the whole spectrum.
+    # Split = union of the two +/-buffer windows around the wide window's bounds, mirroring the narrow elementSplit* functions.
     hold.frame <- data[((data$Energy >= elementLine[1, emission]-buffer & data$Energy <= elementLine[1, emission]+buffer) | (data$Energy >= elementLine[2, emission]-buffer & data$Energy <= elementLine[2, emission]+buffer)), c("CPS", "Spectrum")]
 
     hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
@@ -2573,7 +2419,7 @@ wideElementFrame <- cmpfun(wideElementFrame)
 
 
 
-####Normalize
+# Normalize
 
 element_norm <- function(data, element, min, max) {
     
@@ -2589,7 +2435,7 @@ element_norm <- function(data, element, min, max) {
 element_norm <- cmpfun(element_norm)
 
 
-####Cal Models
+# Cal Models
 
 linear_simp_xrf <- function(concentration.table, spectra.line.table, element.line) {
     
@@ -2892,7 +2738,7 @@ lucas_comp_xrf <- cmpfun(lucas_comp_xrf)
 
 
 
-###Spectra Manipulaton
+# Spectra Manipulaton
 
 james <- function(x) (abs(x)+x)/2
 james.cp <- compiler::cmpfun(james)
@@ -2942,14 +2788,10 @@ spectra_stats <- function(spectra.frame, norm.type, norm.min, norm.max, compress
 spectra_stats <- cmpfun(spectra_stats)
 
 
-###############
-###Prep Data###
-###############
+# Prep Data
 
 
-###############
-###Full Spectra##
-###############
+# Full Spectra
 
 
 spectra_frame_xrf <- function(spectra){
@@ -3039,12 +2881,7 @@ spectra_simp_prep_xrf <- function(spectra, energy.min=NULL, energy.max=NULL, com
 spectra_simp_prep_xrf <- cmpfun(spectra_simp_prep_xrf)
 
 
-# Resolve which frame supplies the ROI-normalization DIVISOR for a given compton.type / ROI Type. Central
-# so every prep + predict site shares one mapping. Tokens: "Raw" -> the raw spectra; "Baseline" (the stored
-# token behind the "SNIP" UI label) and "SNIP" -> deconvolution$Baseline (the SNIP baseline); "arPLS" ->
-# deconvolution$arPLS; "E1" -> deconvolution$E1; "Net" -> deconvolution$Spectra (fitted peaks). If a
-# requested MODELLED baseline is absent (e.g. an old calibration deconvoluted before arPLS/E1 existed, or a
-# legacy-mode run with no E1), fall back to the SNIP baseline, then raw -- so normalization never returns NULL.
+# Returns the frame that supplies the ROI-normalization divisor for a compton.type, so every prep and predict site shares one mapping; "Baseline" is the stored token behind the "SNIP" UI label. A missing modelled source (arPLS, E1, Net) falls back to the SNIP baseline with a warning, then to raw, so the result is never NULL.
 deconvolution_norm_source <- function(raw, deconvolution, compton.type){
     ct <- as.character(compton.type)[1]; if(is.na(ct) || !nzchar(ct)) ct <- "Raw"
     src <- switch(ct,
@@ -3379,14 +3216,10 @@ spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.
 spectra_comp_trans_xrf <- cmpfun(spectra_comp_trans_xrf)
 
 
-###############
-###Prep Data###
-###############
+# Prep Data
 
 
-###############
-###Raw Spectra##
-###############
+# Raw Spectra
 
 
 general_prep_xrf <- function(spectra.line.table, element.line) {
@@ -3463,26 +3296,15 @@ just_spectra_summary_apply <- cmpfun(just_spectra_summary_apply)
 
 
 
-###Prep Data
+# Prep Data
 
-# Slope / intercept line names go stale in two ways. Live: outVaralt() offers
-# Baseline/Total/Compton/Rayleigh drawn from calMemory$Calibration$Deconvoluted,
-# which a deconvolution run updates immediately, while the intensity tables those
-# names have to resolve against are only rebuilt on Commit. Stored: a saved .quant's
-# Parameters$Slope can name a line this session's tables do not carry. Either way
-# `lucas.slope.table[, slope.element.lines]` errors "undefined columns selected" on
-# the first missing name, and that error takes the whole model chain with it.
-# "None"/"NoneNull" are the synthetic columns the lucas_* preps append themselves,
-# so they stay legal even though the hold frame has no such column.
+# Keeps only the slope/intercept line names the frame carries; names go stale when the line choices follow a new deconvolution before the intensity tables are rebuilt on Commit, or when a saved .quant names a line this session lacks, and one missing column would fail the whole model chain. "None"/"NoneNull" are synthetic columns the lucas_* preps add themselves, so they are always kept.
 keepExistingLines <- function(lines, frame){
     if(is.null(lines)) return(lines)
     lines[lines %in% c(colnames(frame), "None", "NoneNull")]
 }
 
-# The element being calibrated needs its own intensity column to form the Intensity
-# predictor. When it has none (a line defined but never committed, or an element with
-# no measurable line at all) the same `[.data.frame` error fires, with nothing in the
-# message to act on. Fail with something the user can do instead.
+# The calibrated element needs its own intensity column for the Intensity predictor; when it has none (a line never committed, or no measurable line), stop with a message the user can act on instead of a bare column-selection error.
 requireElementLine <- function(frame, element.line){
     if(is.null(element.line) || length(element.line) != 1 || is.na(element.line) ||
        !element.line %in% colnames(frame)){
@@ -3612,14 +3434,10 @@ lucas_comp_prep_xrf <- cmpfun(lucas_comp_prep_xrf)
 
 
 
-###############
-###Prep Data###
-###############
+# Prep Data
 
 
-###############
-###Net Counts##
-###############
+# Net Counts
 
 
 general_prep_xrf_net <- function(spectra.line.table, element.line) {
@@ -3674,7 +3492,7 @@ simple_comp_prep_xrf_net <- cmpfun(simple_comp_prep_xrf_net)
 
 
 
-###Prep Data
+# Prep Data
 
 
 
@@ -3823,11 +3641,7 @@ lt_cross_of <- function(element.cal){
 
 lucas_classic_prep_xrf <- function(data=NULL, spectra.line.table, deconvolution=NULL, element.line, slope.element.lines, norm.type=1, norm.min=NULL, norm.max=NULL, compton.type="Raw", data.type="Spectra", spectrum.ids=NULL){
 
-    # Classic Lucas-Tooth & Price (1961), eq. 1: P = a + I*(k0 + sum_x k_x*I_x).
-    # Emits the expanded regression columns - Intensity (the k0 term) and one
-    # Slope_<line> product column per corrector; selecting the analyte itself
-    # gives the paper's quadratic self term. Every column shares one divisor so
-    # the products stay on a consistent scale.
+    # Classic Lucas-Tooth & Price (1961), eq. 1: P = a + I*(k0 + sum_x k_x*I_x). Builds the expanded regression columns, Intensity (the k0 term) and one Slope_<line> product column per corrector (the analyte itself gives the quadratic self term), all on one shared divisor so the products stay on a consistent scale.
 
     if(is.null(spectrum.ids) && "Spectrum" %in% colnames(spectra.line.table)){
         spectrum.ids <- spectra.line.table[["Spectrum"]]
@@ -3838,8 +3652,7 @@ lucas_classic_prep_xrf <- function(data=NULL, spectra.line.table, deconvolution=
         if(norm.type==2){
             divisor <- rowSums(spectra.line.table[, !colnames(spectra.line.table) %in% c("Spectrum", "Concentration"), drop=FALSE], na.rm=TRUE)
         }
-        # norm.type 3 on net counts has no spectrum to window; divisor stays 1,
-        # matching the legacy _net preps.
+        # norm.type 3 on net counts has no spectrum to window, so the divisor stays 1, as in the *_net preps.
     } else if(norm.type %in% c(2, 3)){
         src <- deconvolution_norm_source(data, deconvolution, compton.type)
         if(!is.null(spectrum.ids) && "Spectrum" %in% colnames(src)){
@@ -3884,10 +3697,7 @@ lucasToothFit <- function(predict.frame, lt.cross="Additive", lt.weight="None"){
 
     fit.weights <- NULL
     if(identical(as.character(lt.weight)[1], "1961")){
-        # The 1961 paper solves the equation divided through by the analyte
-        # intensity (their J matrix); weights of 1/I^2 reproduce that fit exactly
-        # while keeping the model in concentration space, and condition the
-        # cross-product design so the shared factor I cannot alias the terms.
+        # The 1961 paper solves the equation divided through by the analyte intensity (their J matrix); weights of 1/I^2 reproduce that fit while keeping the model in concentration space, and keep the shared factor I from aliasing the cross-product terms.
         abs.intensity <- abs(predict.frame$Intensity)
         weight.floor <- max(max(abs.intensity, na.rm=TRUE)*1e-9, .Machine$double.eps)
         fit.weights <- 1/pmax(abs.intensity, weight.floor)^2
@@ -3917,6 +3727,97 @@ lucasToothFit <- function(predict.frame, lt.cross="Additive", lt.weight="None"){
     }
 
     list(Model=lc.model, Notes=notes)
+}
+
+
+# Leave-one-out validation for Linear, Non-Linear and Lucas-Tooth: each standard is predicted by fit.fun refit on the others, so a standard that alone pins a term is predicted by a fit it did not determine. Values go through mclValGen to be on the reported concentration scale, and the refits are kept for the leave-one-out curves and the cross-validated model.
+looFits <- function(frame, fit.fun, dependent.transformation="None", y_min=0, y_max=1){
+    empty <- list(Table=data.frame(Spectrum=character(0), Concentration=numeric(0), Fitted=numeric(0), LOO=numeric(0), stringsAsFactors=FALSE),
+        Models=list(), Full=NULL, Frame=frame, DepTrans=dependent.transformation, YMin=y_min, YMax=y_max)
+    if(!is.data.frame(frame) || !"Concentration" %in% colnames(frame)) return(empty)
+    frame <- frame[is.finite(suppressWarnings(as.numeric(frame$Concentration))), , drop=FALSE]
+    n <- nrow(frame)
+    if(!"Spectrum" %in% colnames(frame)) frame$Spectrum <- as.character(seq_len(n))
+    empty$Frame <- frame
+    if(n < 3) return(empty)
+    val_of <- function(model, rows){
+        tryCatch(suppressWarnings(mclValGen(model=model, data=frame[rows, , drop=FALSE], predict.frame=frame[rows, , drop=FALSE],
+            dependent.transformation=dependent.transformation, y_min=y_min, y_max=y_max)), error=function(e) NULL)
+    }
+    full <- tryCatch(suppressWarnings(fit.fun(frame)), error=function(e) NULL)
+    fitted <- if(is.null(full)) NULL else val_of(full, seq_len(n))
+    if(is.null(fitted) || nrow(fitted) != n) return(empty)
+    models <- lapply(seq_len(n), function(i) tryCatch(suppressWarnings(fit.fun(frame[-i, , drop=FALSE])), error=function(e) NULL))
+    loo <- vapply(seq_len(n), function(i){
+        v <- if(is.null(models[[i]])) NULL else val_of(models[[i]], i)
+        if(is.null(v)) NA_real_ else suppressWarnings(as.numeric(v$Prediction)[1])
+    }, numeric(1))
+    list(Table=data.frame(Spectrum=as.character(frame$Spectrum), Concentration=as.numeric(fitted$Concentration),
+            Fitted=as.numeric(fitted$Prediction), LOO=loo, stringsAsFactors=FALSE),
+        Models=models, Full=full, Frame=frame, DepTrans=dependent.transformation, YMin=y_min, YMax=y_max)
+}
+
+# Estimates from one model for any rows (standards or an intensity grid), back-transformed to the reported scale as mclValGen does for the val frame.
+looEstimates <- function(model, newdata, dependent.transformation="None", y_min=0, y_max=1){
+    if(is.null(model) || !is.data.frame(newdata) || nrow(newdata) == 0) return(rep(NA_real_, NROW(newdata)))
+    holder <- data.frame(Spectrum=rep(NA_character_, nrow(newdata)), Concentration=rep(NA_real_, nrow(newdata)), stringsAsFactors=FALSE)
+    v <- tryCatch(suppressWarnings(mclValGen(model=model, data=newdata, predict.frame=holder,
+        dependent.transformation=dependent.transformation, y_min=y_min, y_max=y_max)), error=function(e) NULL)
+    if(is.null(v) || nrow(v) != nrow(newdata)) rep(NA_real_, nrow(newdata)) else as.numeric(v$Prediction)
+}
+
+# The cross-validated model: the leave-one-out refits' coefficients averaged into one model of the same form, which predicts the mean of the refits' estimates because every family member is linear in its coefficients. A refit that dropped an aliased term counts zero for it, as in predict(), and fitted values and residuals are recomputed so summary() and confidence intervals use the averaged coefficients.
+looAverageModel <- function(fits){
+    full <- fits$Full
+    models <- Filter(Negate(is.null), fits$Models)
+    if(is.null(full) || length(models) == 0) return(NULL)
+    nm <- names(coef(full))
+    b <- vapply(models, function(m){
+        x <- unname(coef(m)[nm])
+        x[is.na(x)] <- 0
+        x
+    }, numeric(length(nm)))
+    b <- if(is.matrix(b)) rowMeans(b) else mean(b)
+    names(b) <- nm
+    b[is.na(coef(full))] <- NA
+    use <- !is.na(b)
+    avg <- full
+    avg$coefficients <- b
+    avg$fitted.values <- drop(model.matrix(full)[, use, drop=FALSE] %*% b[use])
+    avg$residuals <- drop(model.response(model.frame(full))) - avg$fitted.values
+    avg
+}
+
+# Every leave-one-out refit's estimates for each row of newdata, one column per refit named for the standard it left out.
+looRefitEstimates <- function(fits, newdata){
+    fitted <- !vapply(fits$Models, is.null, logical(1))
+    if(!any(fitted) || !is.data.frame(newdata) || nrow(newdata) == 0) return(NULL)
+    est <- matrix(vapply(fits$Models[fitted], looEstimates, numeric(nrow(newdata)), newdata=newdata,
+        dependent.transformation=fits$DepTrans, y_min=fits$YMin, y_max=fits$YMax), nrow=nrow(newdata))
+    colnames(est) <- fits$Table$Spectrum[fitted]
+    est
+}
+
+# Leave-one-out calibration curves: one line per refit (Refits, long format) and the cross-validated model through them (Average). Linear and Non-Linear use a grid over the standards' intensities; Lucas-Tooth has no single intensity axis, so standards sit at their corrected intensity (the cross-validated estimate) and each refit's line joins its estimates for them.
+looCurveFrame <- function(fits, cv.model, corrected=FALSE, points=200){
+    frame <- fits$Frame
+    if(is.null(cv.model) || !is.data.frame(frame) || nrow(frame) == 0) return(NULL)
+    if(corrected){
+        newdata <- frame
+        x <- looEstimates(cv.model, newdata, fits$DepTrans, fits$YMin, fits$YMax)
+    } else {
+        rng <- suppressWarnings(range(as.numeric(frame$Intensity), finite=TRUE))
+        if(!all(is.finite(rng))) return(NULL)
+        x <- seq(rng[1], rng[2], length.out=points)
+        newdata <- data.frame(Intensity=x)
+    }
+    est <- looRefitEstimates(fits, newdata)
+    if(is.null(est)) return(NULL)
+    average <- if(corrected) x else looEstimates(cv.model, newdata, fits$DepTrans, fits$YMin, fits$YMax)
+    refits <- data.frame(Refit=rep(colnames(est), each=nrow(est)), Intensity=rep(x, ncol(est)), Estimate=as.vector(est), stringsAsFactors=FALSE)
+    average <- data.frame(Intensity=x, Estimate=average)
+    list(Refits=refits[is.finite(refits$Intensity) & is.finite(refits$Estimate), , drop=FALSE],
+        Average=average[is.finite(average$Intensity) & is.finite(average$Estimate), , drop=FALSE])
 }
 
 
@@ -4002,25 +3903,19 @@ optimal_norm_chain_xrf <- function(data, element, spectra.line.table, values, po
     
     index <- seq(1, length(possible.mins), 1)
     
-    # A window past the spectrum's last channel (e.g. 30-35 keV on a 20 kV SEM spectrum) holds no counts and
-    # can't be fit; score it Inf so it can never win.
+    # A window past the spectrum's last channel holds no counts and cannot be fit, so its failed fit scores Inf and can never win.
     chain.lm <- pbapply::pblapply(index, function(x) tryCatch(lm(values[,element]~simple_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, norm.min=possible.mins[x], norm.max=possible.maxs[x])$Intensity, na.action=na.exclude), error=function(e) NULL))
     aic <- lapply(chain.lm, function(x) if(is.null(x)) Inf else extractAIC(x, k=log(length(1)))[2])
     best <- index[[which.min(unlist(aic))]]
 
-    # The winning window's INDEX, carrying its AIC so a caller can weigh it against other normalizations.
+    # Return the winning window's index with its AIC attached, so a caller can weigh it against other normalizations.
     structure(best, aic=unlist(aic)[[best]])
     
 }
 optimal_norm_chain_xrf <- cmpfun(optimal_norm_chain_xrf)
 
 
-# Returns the INDEX of the winning intercept combo (lowest AIC of
-# concentration ~ Lucas-Tooth Intensity); the caller maps it back to the combo.
-# `values` is a numeric concentration vector already aligned row-for-row with
-# the intensity frames. The previous version regressed a full-length response
-# against keep-subset predictors ("variable lengths differ") and then read the
-# winner from coefficient names a single-predictor fit does not have.
+# Returns the index of the winning intercept combo (lowest AIC of concentration ~ Lucas-Tooth Intensity), or NA if none can be fit; the caller maps it back to the combo. `values` is a numeric concentration vector aligned row-for-row with the intensity frames.
 optimal_intercept_chain_xrf <- function(element, intensities, values, keep){
     n <- nrow(intensities[[1]])
     if(length(keep) != n || any(is.na(keep))) keep <- rep(TRUE, n)
@@ -4161,7 +4056,7 @@ find_peaks_xrf <- cmpfun(find_peaks_xrf)
 
 
 
-###Unit Transformation
+# Unit Transformation
 
 data_summarize <- function(xrf.table) {
     
@@ -4171,7 +4066,7 @@ data_summarize <- function(xrf.table) {
     #xrf.table <- subset(xrf.table, !(xrf.table$Depth < 5 | xrf.table$Depth > 37))
     
     xrf.table <- data.table(xrf.table)
-    ###Neds work
+    # Neds work
     xrf.table.aggregate <- xrf.table[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Depth)]
     
     data <- as.data.frame(dcast.data.table(xrf.table.aggregate, Spectrum~Energy, value.var="CPS"), stringsAsFactors=FALSE)
@@ -4191,7 +4086,7 @@ bord.col='lightblue', max.sp = F,...){
     
     require(scales)
     
-    #sanity checks
+    # sanity checks
     if('mlp' %in% class(mod.in)) warning('Bias layer not applicable for rsnns object')
     if('numeric' %in% class(mod.in)){
         if(is.null(struct)) stop('Three-element vector required for struct')
@@ -4210,8 +4105,7 @@ bord.col='lightblue', max.sp = F,...){
         else stop('Only nnet method can be used with train object')
     }
     
-    #gets weights for neural network, output is list
-    #if rescaled argument is true, weights are returned but rescaled based on abs value
+    # Gets the network weights as a list; when nid is TRUE the absolute weights are rescaled to the range 1 to rel.rsc.
     nnet.vals <- function(mod.in,nid,rel.rsc,struct.out=struct){
         
         require(scales)
@@ -4222,7 +4116,7 @@ bord.col='lightblue', max.sp = F,...){
             wts<-mod.in
         }
         
-        #neuralnet package
+        # neuralnet package
         if('nn' %in% class(mod.in)){
             struct.out<-unlist(lapply(mod.in$weights[[1]],ncol))
             struct.out<-struct.out[-length(struct.out)]
@@ -4234,19 +4128,19 @@ bord.col='lightblue', max.sp = F,...){
             wts<-unlist(mod.in$weights[[1]])
         }
         
-        #nnet package
+        # nnet package
         if('nnet' %in% class(mod.in)){
             struct.out<-mod.in$n
             wts<-mod.in$wts
         }
         
-        #RSNNS package
+        # RSNNS package
         if('mlp' %in% class(mod.in)){
             struct.out<-c(mod.in$nInputs,mod.in$archParams$size,mod.in$nOutputs)
             hid.num<-length(struct.out)-2
             wts<-mod.in$snnsObject$getCompleteWeightMatrix()
             
-            #get all input-hidden and hidden-hidden wts
+            # get all input-hidden and hidden-hidden wts
             inps<-wts[grep('Input',row.names(wts)),grep('Hidden_2',colnames(wts)),drop=F]
             inps<-reshape2::melt(rbind(rep(NA,ncol(inps)),inps))$value
             uni.hids<-paste0('Hidden_',1+seq(1,hid.num))
@@ -4256,18 +4150,18 @@ bord.col='lightblue', max.sp = F,...){
                 inps<-c(inps,reshape2::melt(rbind(rep(NA,ncol(tmp)),tmp))$value)
             }
             
-            #get connections from last hidden to output layers
+            # get connections from last hidden to output layers
             outs<-wts[grep(paste0('Hidden_',hid.num+1),row.names(wts)),grep('Output',colnames(wts)),drop=F]
             outs<-rbind(rep(NA,ncol(outs)),outs)
             
-            #weight vector for all
+            # weight vector for all
             wts<-c(inps,reshape2::melt(outs)$value)
             assign('bias',F,envir=environment(nnet.vals))
         }
         
         if(nid) wts<-rescale(abs(wts),c(1,rel.rsc))
         
-        #convert wts to list with appropriate names
+        # convert wts to list with appropriate names
         hid.struct<-struct.out[-c(length(struct.out))]
         row.nms<-NULL
         for(i in 1:length(hid.struct)){
@@ -4292,24 +4186,23 @@ bord.col='lightblue', max.sp = F,...){
     
     if(wts.only) return(wts)
     
-    #circle colors for input, if desired, must be two-vector list, first vector is for input layer
+    # circle colors for input, if desired, must be two-vector list, first vector is for input layer
     if(is.list(circle.col)){
         circle.col.inp<-circle.col[[1]]
         circle.col<-circle.col[[2]]
     } else circle.col.inp<-circle.col
     
-    #initiate plotting
+    # initiate plotting
     x.range<-c(0,100)
     y.range<-c(0,100)
-    #these are all proportions from 0-1
+    # these are all proportions from 0-1
     if(is.null(line.stag)) line.stag<-0.011*circle.cex/2
     layer.x<-seq(0.17,0.9,length=length(struct))
     bias.x<-layer.x[-length(layer.x)]+diff(layer.x)/2
     bias.y<-0.95
     circle.cex<-circle.cex
     
-    #get variable names from mod.in object
-    #change to user input if supplied
+    # Get variable names from mod.in; x.lab and y.lab replace them below if supplied.
     if('numeric' %in% class(mod.in)){
         x.names<-paste0(rep('X',struct[1]),seq(1:struct[1]))
         y.names<-paste0(rep('Y',struct[3]),seq(1:struct[3]))
@@ -4347,7 +4240,7 @@ bord.col='lightblue', max.sp = F,...){
             else y.names<-as.character(forms)[2]
         }
     }
-    #change variables names to user sub
+    # change variables names to user sub
     if(!is.null(x.lab)){
         if(length(x.names) != length(x.lab)) stop('x.lab length not equal to number of input variables')
         else x.names<-x.lab
@@ -4357,11 +4250,10 @@ bord.col='lightblue', max.sp = F,...){
         else y.names<-y.lab
     }
     
-    #initiate plot
+    # initiate plot
     plot(x.range,y.range,type='n',axes=F,ylab='',xlab='',...)
     
-    #function for getting y locations for input, hidden, output layers
-    #input is integer value from 'struct'
+    # Y locations of a layer's nodes; lyr is the layer's node count from 'struct'.
     get.ys<-function(lyr, max_space = max.sp){
         if(max_space){
             spacing <- diff(c(0*diff(y.range),0.9*diff(y.range)))/lyr
@@ -4373,10 +4265,7 @@ bord.col='lightblue', max.sp = F,...){
         length=lyr)
     }
     
-    #function for plotting nodes
-    #'layer' specifies which layer, integer from 'struct'
-    #'x.loc' indicates x location for layer, integer from 'layer.x'
-    #'layer.name' is string indicating text to put in node
+    # Plots one layer's nodes: layer is its node count from 'struct', x.loc its x position from 'layer.x', and layer.name the node label text.
     layer.points<-function(layer,x.loc,layer.name,cex=cex.val){
         x<-rep(x.loc*diff(x.range),layer)
         y<-get.ys(layer)
@@ -4386,10 +4275,7 @@ bord.col='lightblue', max.sp = F,...){
         if(layer.name=='O' & var.labs) text(x+line.stag*diff(x.range),y,y.names,pos=4,cex=cex.val)
     }
     
-    #function for plotting bias points
-    #'bias.x' is vector of values for x locations
-    #'bias.y' is vector for y location
-    #'layer.name' is  string indicating text to put in node
+    # Plots the bias nodes at x locations bias.x and height bias.y, labelled with layer.name.
     bias.points<-function(bias.x,bias.y,layer.name,cex,...){
         for(val in 1:length(bias.x)){
             points(
@@ -4407,8 +4293,7 @@ bord.col='lightblue', max.sp = F,...){
         }
     }
     
-    #function creates lines colored by direction and width as proportion of magnitude
-    #use 'all.in' argument if you want to plot connection lines for only a single input node
+    # Draws the connections between two layers, colored by weight sign and sized by weight magnitude when nid is TRUE; 'all.in' can limit them to a single input node.
     layer.lines<-function(mod.in,h.layer,layer1=1,layer2=2,out.layer=F,nid,rel.rsc,all.in,pos.col,
     neg.col,...){
         
@@ -4515,14 +4400,11 @@ bord.col='lightblue', max.sp = F,...){
         }
     }
     
-    #use functions to plot connections between layers
-    #bias lines
+    # Plot the connections between layers, starting with the bias lines.
     if(bias) bias.lines(bias.x,mod.in,nid=nid,rel.rsc=rel.rsc,all.out=all.out,pos.col=alpha(pos.col,alpha.val),
     neg.col=alpha(neg.col,alpha.val))
     
-    #layer lines, makes use of arguments to plot all or for individual layers
-    #starts with input-hidden
-    #uses 'all.in' argument to plot connection lines for all input nodes or a single node
+    # Input-hidden layer lines, for all input nodes or only the one named by 'all.in'.
     if(is.logical(all.in)){
         mapply(
         function(x) layer.lines(mod.in,x,layer1=1,layer2=2,nid=nid,rel.rsc=rel.rsc,
@@ -4535,7 +4417,7 @@ bord.col='lightblue', max.sp = F,...){
         layer.lines(mod.in,node.in,layer1=1,layer2=2,nid=nid,rel.rsc=rel.rsc,all.in=all.in,
         pos.col=alpha(pos.col,alpha.val),neg.col=alpha(neg.col,alpha.val))
     }
-    #connections between hidden layers
+    # connections between hidden layers
     lays<-split(c(1,rep(2:(length(struct)-1),each=2),length(struct)),
     f=rep(1:(length(struct)-1),each=2))
     lays<-lays[-c(1,(length(struct)-1))]
@@ -4545,8 +4427,7 @@ bord.col='lightblue', max.sp = F,...){
             pos.col=alpha(pos.col,alpha.val),neg.col=alpha(neg.col,alpha.val))
         }
     }
-    #lines for hidden-output
-    #uses 'all.out' argument to plot connection lines for all output nodes or a single node
+    # Hidden-to-output lines, for all output nodes or only the one named by 'all.out'.
     if(is.logical(all.out))
     mapply(
     function(x) layer.lines(mod.in,x,layer1=length(struct)-1,layer2=length(struct),out.layer=T,nid=nid,rel.rsc=rel.rsc,
@@ -4559,7 +4440,7 @@ bord.col='lightblue', max.sp = F,...){
         pos.col=pos.col,neg.col=neg.col,all.out=all.out)
     }
     
-    #use functions to plot nodes
+    # use functions to plot nodes
     for(i in 1:length(struct)){
         in.col<-circle.col
         layer.name<-'H'
@@ -4573,7 +4454,7 @@ bord.col='lightblue', max.sp = F,...){
 }
 plot.nnet <- cmpfun(plot.nnet)
 
-###UI Choices
+# UI Choices
 
 deconvolutionWidthUI <- function(selection=5){
     sliderInput('deconvolutionwidth', "Width of Smoothing Window", min=1, max=23, step=2, value=selection)
@@ -4595,9 +4476,8 @@ deconvolutionSnipIterUI <- function(selection=20){
     sliderInput('deconvolutionsnipiter', "Baseline Snip Iterations", min=5, max=100, step=1, value=selection)
 }
 
-# --- Deconvolution physics UI (phase b2) --------------------------------------------------------
-# "Legacy (current)" reproduces historical behaviour; the other modes opt into the newer xrftools
-# physics (non-negative fit, energy-dependent resolution, cross-section/electron excitation, etc.).
+# Deconvolution physics UI
+# "Legacy (current)" keeps the original deconvolution; the other modes opt into the xrftools physics (non-negative fit, energy-dependent resolution, cross-section or electron excitation).
 deconvolutionModeUI <- function(selection="legacy"){
     selectInput('deconvolutionmode', "Instrument / physics mode",
         choices=c("Legacy (current)"="legacy", "Handheld XRF"="handheld", "SEM-EDS (electron)"="sem",
@@ -4617,35 +4497,26 @@ deconvolutionTubeAnodeUI <- function(selection="None"){
         choices=c("None", "Rh", "Ag", "W", "Mo", "Au", "Pd", "Cr", "Ta", "Cu"), selected=selection)
 }
 
-# Primary-beam filter that hardens the tube spectrum. Free text so a filter stack can be given, e.g.
-# "Cu 100; Ti 25; Al 300" (each "Element thickness_um"; ';' or ',' separated; blank = none). Auto-seeded
-# from the imported file's filter metadata when available -- REVIEW/EDIT before use, since a handheld may
-# report filter-wheel contents rather than the single in-beam filter for a given measurement.
+# Primary-beam filter that hardens the tube spectrum, as free text so a stack can be given ("Element thickness_um" entries separated by ';' or ','; blank = none). It is seeded from the file's filter metadata when available; check it, since a handheld may report its filter-wheel contents rather than the filter in the beam.
 deconvolutionTubeFilterUI <- function(selection=NULL){
     textInput('deconvolutiontubefilter', "Beam filter (e.g. 'Cu 100; Ti 25; Al 300'; blank = none)",
         value=if(is.null(selection)) "" else selection)
 }
 
-# Detector type (energy-dependent resolution + efficiency). "Auto" follows the instrument mode
-# (SDD for handheld/SEM/PIXE, HPGe for high-energy); the ubiquitous default is a silicon-drift detector.
+# Detector type, which sets the energy-dependent resolution and efficiency; "Auto" follows the instrument mode (SDD for handheld, SEM and PIXE, HPGe for high-energy).
 deconvolutionDetectorUI <- function(selection="Auto"){
     selectInput('deconvolutiondetector', "Detector",
         choices=c("Auto (mode default: SDD)"="Auto", "SDD", "SiLi", "SiPIN", "HPGe", "CdTe"),
         selected=selection)
 }
 
-# Detector active-layer thickness (microns) for the efficiency model. Defaults to 450 um, the modern
-# silicon-drift-detector standard. Applied to SDD/Si detectors; HPGe/CdTe keep their mm-scale preset
-# unless a non-450 value is entered. Only used when a non-legacy mode engages the efficiency model.
+# Detector active-layer thickness (um) for the efficiency model, default 450 um (a typical SDD); HPGe/CdTe keep their mm-scale preset unless a value other than 450 is entered. Only used when a non-legacy mode engages the efficiency model.
 deconvolutionThicknessUI <- function(selection=450){
     numericInput('deconvolutionthickness', "Detector active thickness (um, SDD = 450)",
         value=selection, min=1, max=20000, step=10)
 }
 
-# Measurement-environment presets: the atmosphere over the sample->detector path plus any polymer snout
-# window, which attenuate low-energy lines. There's no reliable way to read the exact path/window from a
-# file, so we default to the most common handheld setup (air + a 4 um polypropylene window) and let the
-# user revise. Each maps to (atmosphere, air_path_cm, window) consumed by xrf_detector_efficiency.
+# Measurement-environment presets: the atmosphere over the sample-detector path plus any polymer window, both of which attenuate low-energy lines. Files do not report these reliably, so the default is the common handheld setup (air + 4 um polypropylene); each preset maps to (atmosphere, air_path_cm, window) for xrf_detector_efficiency.
 deconvolution_environment_presets <- function(){
     c("Air + polypropylene window (4 um)"="air_pp",
       "Helium flush + polypropylene (4 um)"="helium",
@@ -4663,27 +4534,19 @@ deconvolution_environment_config <- function(preset){
         vacuum     = list(atmosphere="vacuum", air_path_cm=0,   window=NULL),
         list(atmosphere=NULL, air_path_cm=NULL, window=NULL))   # "none" / unknown -> no path model
 }
-# Measurement environment selector. Defaults to the most common handheld case; user revises otherwise.
+# Measurement environment selector, defaulting to the most common handheld setup.
 deconvolutionEnvironmentUI <- function(selection="air_pp"){
     selectInput('deconvolutionenvironment', "Measurement environment (path + window)",
         choices=deconvolution_environment_presets(), selected=selection)
 }
 
-# Toggle: set the source-sample-detector measurement geometry. OFF by default because most files/instruments
-# do not report it; when ON, the three angle fields below take effect, each falling back to the file's value
-# (currently v25 PDZ Record-1) and then to the automatic chain when left blank. The path angles (incidence /
-# take-off) drive the scatter self-absorption kernel and the full-FP $Mass solve; the scatter angle sets the
-# Compton shift the Rayleigh/Compton templates are built from.
+# Toggle for setting the measurement geometry, off by default because most files do not report it. When on, each blank angle falls back to the file's value and then to the automatic chain; incidence and take-off drive the scatter self-absorption kernel and the full-FP $Mass solve, and the scatter angle sets the Compton shift the scatter templates are built from.
 deconvolutionGeometryUI <- function(selection=FALSE){
     checkboxInput('deconvolutiongeometry', "Set measurement geometry (incidence / take-off / scatter)",
         value=isTRUE(selection))
 }
 
-# The three geometry angles; blank = auto (deconvolution_geometry_physics holds the fallback chain). NB they
-# are measured FROM THE SAMPLE SURFACE, not from the surface normal -- xrftools takes sin() of them
-# (.xrf_scatter_sample_kernel, xrf_quantify), so the grazing convention is what the physics expects.
-# xrftools documents scatter_angle ~ 180 - incidence - takeoff but treats the three independently (its own
-# 45/45/135 defaults do not satisfy that relation), so the relation is a hint here, never enforced.
+# The three geometry angles, blank = auto (deconvolution_geometry_physics holds the fallback chain). Incidence and take-off are measured from the sample surface, not the normal, because xrftools takes their sine; scatter_angle ~ 180 - incidence - takeoff is only a hint, since xrftools treats the three independently.
 deconvolutionIncidenceUI <- function(selection=NULL){
     numericInput('deconvolutionincidence', "Sample incidence angle (deg from surface; blank = auto)",
         value=selection, min=1, max=90, step=1)
@@ -4699,39 +4562,22 @@ deconvolutionScatterAngleUI <- function(selection=NULL){
         value=selection, min=1, max=179, step=1)
 }
 
-# Toggle: fit the scatter background jointly (E1) instead of subtracting a SNIP baseline. Fits the un-baselined
-# raw cps with scatter-continuum + smooth-background templates (Poisson-weighted), recovering peaks on steep
-# backgrounds -- validated against certified steel (Mn on the Fe tail 267% -> 88%; Mo under the scatter hump
-# 177% -> 93%) and across the obsidian/mudrock/high-kV quants (better fit, trace tracking preserved, phantoms
-# not increased). DEFAULT ON: the deconvolution falls back to the SNIP fit automatically when there is no tube
-# or per-spectrum LiveTime, so it is safe as a default. Rescales areas (persisted so calibration + validation
-# stay consistent). A heavy element read via an L-line that overlaps an abundant K-line or the scatter peak can
-# still read low -- name it in the target list (it is then exempted from the abundance prior).
+# Toggle for E1: fit raw cps with Poisson-weighted scatter-continuum and smooth-background templates instead of subtracting a SNIP baseline, which recovers peaks on steep backgrounds. On by default since the deconvolution falls back to the SNIP fit without a tube or per-spectrum LiveTime; E1 rescales areas, so the setting is persisted to keep calibration and validation consistent. A heavy element read through an L-line that overlaps an abundant K-line or the scatter peak can still read low unless it is named in the target list, which exempts it from the abundance prior.
 deconvolutionScatterBgUI <- function(selection=TRUE){
     checkboxInput('deconvolutionscatterbg', "Fit scatter background (E1 — recommended; needs LiveTime)",
         value=!isFALSE(selection))
 }
 
-# K-series vs L+M split (physics$split_series). "Auto" follows the instrument mode (on for Handheld and High-energy);
-# On/Off force it for any non-legacy mode. When split, an element whose K-lines are in the fit window gets two
-# independent templates -- "Pb" (K) and "Pb_L" (L+M) -- instead of one tied at a matrix-free K:L ratio, and
-# El.K.alpha / El.L.alpha read their own series' area.
+# K-series vs L+M split (physics$split_series): "Auto" follows the instrument mode (on for Handheld and High-energy) and On/Off force it for any non-legacy mode. When split, an element with K-lines in the fit window gets independent K and L+M templates (e.g. "Pb" and "Pb_L") instead of one tied at a matrix-free K:L ratio, and El.K.alpha / El.L.alpha read their own series' area.
 deconvolutionSplitSeriesUI <- function(selection="auto"){
     selectInput('deconvolutionsplitseries', "Fit K-series separately from L/M lines",
         choices=c("Auto (on for Handheld / High-energy)"="auto", "On"="on", "Off"="off"),
         selected=if(selection %in% c("auto", "on", "off")) selection else "auto")
 }
 
-# FP mass-estimate control. Off by default. "Relative" divides areas by an FP sensitivity computed once per
-# batch (fast; matrix-decoupled A/S). "Full FP" runs a per-spectrum fundamental-parameters solve with
-# self-absorption (slower). Secondary/tertiary fluorescence are OFF by default: the Shiraiwa-Fujino enhancement
-# over-estimates in dilute / near-pure-exciter matrices and, via sum-to-one closure, corrupts even
-# non-enhanced elements -- re-enable per-run (physics$secondary_fluorescence) once its magnitude is
-# recalibrated. Adds a $Mass table. With tied templates, high-Z K-lines below 2% detector efficiency (e.g. U-K/Th-K
-# at 90-100 keV on a thin SDD) are routed to their L-lines by the deconvolution's visibility filter; with
-# split_series the element's mass comes from its K-series column and the "<El>_L" column is left out.
+# FP mass estimate, off by default, which adds a $Mass table: "Relative" divides areas by an FP sensitivity computed once per batch (fast) and "Full FP" runs a per-spectrum fundamental-parameters solve with self-absorption (slower). Secondary/tertiary fluorescence (physics$secondary_fluorescence) are off by default until the Shiraiwa-Fujino enhancement is recalibrated, since it over-estimates in dilute or near-pure-exciter matrices and, through sum-to-one closure, distorts the other elements too.
 deconvolutionMassUI <- function(selection="off"){
-    # accept the legacy logical (TRUE/FALSE) as well as the new mode strings
+    # Accepts an older logical setting (TRUE -> "relative", FALSE or NULL -> "off") as well as the mode strings.
     sel <- if(isTRUE(selection)) "relative" else if(isFALSE(selection) || is.null(selection)) "off" else as.character(selection)
     selectInput('deconvolutionmass', "Estimate mass (FP)",
         choices=c("Off"="off", "Relative (fast)"="relative",
@@ -4783,19 +4629,11 @@ deconvolutionUI <- function(radiocal=3, selection=NULL){
     
 }
 
-# ---------------------------------------------------------------------------
-# Chemometric calibration types (14-21): PLS, Cubist, glmnet, MARS - each on
-# Intensities (like cal type 12) or Spectra (like cal type 13). The generic
-# UI/data plumbing is shared with the SVM pair via chemRadiocalAlias(); only
-# the model-specific tuning controls below are new.
+# Chemometric calibration types 14-21 (PLS, Cubist, glmnet, MARS), each on Intensities or Spectra, share the SVM pair's UI and data plumbing via chemRadiocalAlias(); only the tuning controls below are model-specific.
 chemIntensityTypes <- c(14, 16, 18, 20)
 chemSpectraTypes   <- c(15, 17, 19, 21)
 
-# Multi-instrument type groups: every ML/chem family ported into the Multi path
-# (cal types 6-21) trains on the shared per-instrument INTENSITY frame
-# (predictFrameForestMulti) or SPECTRA frame (rainforestDataMulti). The dispatch
-# sites inside observeEvent(actionprocess2_multi) branch on these groups instead of
-# enumerating each type. Odd/even split mirrors the core Intensities/Spectra pairs:
+# Multi-instrument type groups: every ML/chem family in the Multi path (cal types 6-21) trains on the shared per-instrument intensity frame (predictFrameForestMulti) or spectra frame (rainforestDataMulti), and Multi dispatch branches on these groups instead of listing each type:
 #   6 Neural, 8 XGBoost, 10 Bayes, 12 SVM, 14 PLS, 16 Cubist, 18 glmnet, 20 MARS (Intensities)
 #   7/9/11/13/15/17/19/21 = their Spectra twins.
 multiIntensityTypes <- c(6, 8, 10, 12, 14, 16, 18, 20)
@@ -4807,8 +4645,7 @@ chemRadiocalAlias <- function(radiocal){
     radiocal
 }
 
-# Parse a "lo-hi" tuning-range string (the CalTable convention) to c(lo, hi);
-# tolerant of numeric vectors, single values, and missing/NA input.
+# Parse a "lo-hi" tuning-range string (the CalTable convention) into a sorted c(lo, hi); numeric vectors and single values are also accepted, and missing or NA input returns default.
 chemRange <- function(v, default){
     if(is.null(v) || (length(v) == 1 && is.na(v))) return(default)
     if(is.character(v)) v <- suppressWarnings(as.numeric(unlist(strsplit(as.character(v[1]), "-"))))
@@ -5013,8 +4850,7 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
         selection
     }
     
-    # compress is NULL whenever the compression control is not on screen, and
-    # `if(NULL=="100 eV")` is `if(logical(0))`. Normalize before comparing.
+    # compress is NULL when the compression control is not on screen, so it defaults to "100 eV" before the comparisons below.
     if(is.null(compress) || length(compress) != 1 || is.na(compress)) compress <- "100 eV"
 
     step <- if(compress=="50 eV"){
@@ -5203,11 +5039,7 @@ slopeUI <- function(radiocal=3, selection=NULL, elements){
     }
 }
 
-# chemIntensityTypes (14/16/18/20) belong here for the same reason they belong in
-# output$inVar4: they drive the slope selector too. The old trailing branch chained
-# `!=` with `|`, which is true for every possible value - a plain else says what was
-# meant. radiocal arrives from selectInput as a character, so %in% is the comparison
-# that coerces correctly.
+# The add/remove-all-slope buttons appear for every cal type with a slope selector, including chemIntensityTypes (as in output$inVar4); %in% is used because radiocal arrives from selectInput as a character.
 addAllSlopeUI <- function(radiocal=3){
     if(radiocal %in% c(0, 3, 4, 6, 8, 10, 12, chemIntensityTypes)){
         actionButton(inputId = "addallslopes", label = "Add All Slopes")
@@ -5305,17 +5137,8 @@ model = NULL) {
     out
 }
 
-# Project the StandardsUsed on/off mask onto a data frame's rows.
-#
-# The mask (vals$keeprows / a stored StandardsUsed) is the user's standard
-# selection. R's df[logical, ] indexes by POSITION and ignores names, so a
-# mask keyed by Spectrum only aligns if we look it up by identity here. When
-# the mask carries Spectrum names (the format saved after this change) we
-# project it onto frame$Spectrum, so the selection survives row reorder / a
-# same-count membership change; standards absent from the saved mask default
-# to ON. An unnamed (legacy) mask falls through to today's positional
-# behavior unchanged. `invert=TRUE` returns the complement (for the
-# `!keeprows` excluded-point layers).
+# Project the StandardsUsed on/off mask (vals$keeprows or a stored StandardsUsed) onto a frame's rows. Because df[logical, ] indexes by position, a Spectrum-named mask is matched to frame$Spectrum so the selection survives row reordering, with standards missing from the mask kept on; otherwise the mask is applied by position, as for unnamed legacy masks.
+# invert = TRUE returns the complement, for the excluded-point layers.
 alignKeep <- function(mask, frame, invert = FALSE){
     if(is.null(mask)) return(mask)
     keep <- if(!is.null(names(mask)) && !is.null(frame) && !is.null(frame$Spectrum)){
@@ -5328,12 +5151,7 @@ alignKeep <- function(mask, frame, invert = FALSE){
     if(invert) !keep else keep
 }
 
-# Toggle the StandardsUsed selection for the points a user clicked/brushed.
-# `sel` is a logical aligned positionally to `frame`'s rows. When the mask is
-# Spectrum-named and the frame carries Spectrum, flip the clicked standards BY
-# IDENTITY (survives reorder). Legacy unnamed masks whose length matches use the
-# old positional xor. Anything else (named mask on a frame without Spectrum, or
-# a length mismatch) is a no-op rather than a recycling corruption.
+# Toggle the StandardsUsed selection for clicked or brushed points (sel is a logical aligned to frame's rows): a Spectrum-named mask is flipped by Spectrum, an unnamed mask of matching length by positional xor, and anything else is returned unchanged rather than recycled.
 keepToggle <- function(keep, frame, sel){
     if(!is.null(names(keep)) && !is.null(frame) && !is.null(frame$Spectrum)){
         sp <- as.character(frame$Spectrum[sel])
@@ -5346,15 +5164,7 @@ keepToggle <- function(keep, frame, sel){
     }
 }
 
-# Multi-instrument variants. The multi mask is a NESTED list
-# `keeprows[[instrument]]`, each a Spectrum-named logical. The combined/flattened
-# frame carries BOTH Instrument and Spectrum -- the key is the PAIR, because the
-# same Spectrum recurs across instruments (the same standards measured on each
-# device). alignKeepMulti projects the nested mask onto a combined frame by
-# (Instrument, Spectrum); keepToggleMulti flips clicked rows the same way. Both
-# fall back to the legacy unlist()/xor()/relist() positional behavior when the
-# per-instrument masks are unnamed or the frame lacks the keys, so pre-existing
-# multi .quants are unaffected.
+# Multi-instrument variants: the mask is a nested list keeprows[[instrument]] of Spectrum-named logicals, matched to a combined frame by the (Instrument, Spectrum) pair because the same standards are measured on each instrument. alignKeepMulti projects the mask onto the frame and keepToggleMulti flips clicked rows; both fall back to positional unlist()/xor()/relist() when the masks are unnamed or the frame lacks those columns.
 masksNamed <- function(nested) !is.null(nested) && length(nested) > 0 &&
     all(vapply(nested, function(m) !is.null(names(m)), logical(1)))
 
@@ -5835,9 +5645,7 @@ xgbTypeUI <- function(radiocal, selection){
     } else if(radiocal==11){
         selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
     } else if(radiocal==12){
-        # Exponential / Boundrange String / Spectrum String are kernlab STRING
-        # kernels (text input only) - not applicable to numeric XRF data, so
-        # they are deliberately not offered.
+        # kernlab's Exponential, Boundrange String and Spectrum String kernels are string kernels for text input, so they are not offered for numeric XRF data.
         selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
     } else if(radiocal==13){
         selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
@@ -6620,12 +6428,7 @@ spectrumSelect <- function(spectra, hold.frame){
 predictIntensitySimpPreGen <- function(spectra, hold.frame, deconvolution = NULL, element, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw"){
 
     data <- deconvolution_norm_source(spectra, deconvolution, compton.type)
-    # Keep `data` aligned with the active calibration set. dataNormCal() already
-    # does this for Raw upstream; deconvolution$Baseline / $Spectra come from
-    # calMemory and aren't refiltered when the user deselects standards, so do
-    # it here. Without this, prep helpers that aggregate per Spectrum (e.g.
-    # lucas_comp_prep_xrf) build a vector longer than `intensity` and the
-    # downstream data.frame() fails with "differing number of rows".
+    # Keep data aligned with the active calibration set: deconvolution$Baseline and $Spectra come from calMemory and are not refiltered when standards are deselected (dataNormCal() handles Raw), and per-Spectrum prep helpers such as lucas_comp_prep_xrf need the same rows as the intensities.
     if(!is.null(data) && "Spectrum" %in% colnames(data)){
         data <- data[data$Spectrum %in% hold.frame$Spectrum, ]
     }
@@ -6665,9 +6468,7 @@ scaleTransform <- function(values, y_min, y_max){
 }
 
 applyDependentTransformation <- function(values, dependent.transformation, y_min=0, y_max=1){
-    # Forward transform of the Concentration column for the model frames. The
-    # inverse lives in mclValGen/xgbValGen/mclPred and must mirror this.
-    # Unrecognized/NA selections fall back to "None" (same guard as mclValGen).
+    # Forward transform of the Concentration column for the model frames; the inverse in mclValGen/xgbValGen/mclPred must mirror it, and unrecognized or NA selections fall back to "None" as in mclValGen.
     if(is.null(dependent.transformation) || length(dependent.transformation) != 1 ||
        is.na(dependent.transformation) || !dependent.transformation %in% c("None", "Log", "e", "Scale")){
         dependent.transformation <- "None"
@@ -6726,9 +6527,7 @@ predictIntensitySimp <- function(predict.frame){
 predictIntensityForestPreGen <- function(spectra, hold.frame, deconvolution=NULL, element, intercepts=NULL, slopes=NULL, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw"){
 
     data <- deconvolution_norm_source(spectra, deconvolution, compton.type)
-    # See predictIntensitySimpPreGen: deconvolution slots aren't refiltered when
-    # the user deselects calibration standards, so align `data` with
-    # hold.frame$Spectrum here to match what dataNormCal() does for Raw.
+    # Align data with hold.frame$Spectrum, as in predictIntensitySimpPreGen, because deconvolution slots are not refiltered when standards are deselected.
     if(!is.null(data) && "Spectrum" %in% colnames(data)){
         data <- data[data$Spectrum %in% hold.frame$Spectrum, ]
     }
@@ -6738,10 +6537,7 @@ predictIntensityForestPreGen <- function(spectra, hold.frame, deconvolution=NULL
     element.lines.to.use <- if(is.null(slopes)){
         names(hold.frame)[!names(hold.frame) %in% c("Spectrum", "Concentration")]
     } else if(!is.null(slopes)){
-        # Drop slope names the hold frame does not carry. Every intensity model
-        # (cal types 4/6/8/10/12 and the chemometric 14/16/18/20) reaches the
-        # lucas_* preps through here, and each of them selects these names out of
-        # the frame by name - see keepExistingLines for how they go stale.
+        # Drop slope names the hold frame does not carry: every intensity model (cal types 4/6/8/10/12 and 14/16/18/20) reaches the lucas_* preps through here, and they select these columns by name (see keepExistingLines for how names go stale).
         keepExistingLines(slopes, hold.frame)
     }
     intercepts <- keepExistingLines(intercepts, hold.frame)
@@ -6831,25 +6627,18 @@ predictIntensityForest <- function(predict.frame){
 
 predictIntensityLucPreGen <- function(spectra, hold.frame, deconvolution = NULL, element, intercepts=NULL, slopes, norm.type, norm.min=NULL, norm.max=NULL, data.type="Spectra", compton.type="Raw", lt.cross="Additive"){
 
-    # Filter before the classic branch returns: the keep_slopes guard further down
-    # only covers the additive path, leaving classic Lucas-Tooth exposed to exactly
-    # the same stale-name error.
+    # Filter stale slope names before the classic branch returns, because the keep_slopes guard further down only covers the additive path.
     requireElementLine(hold.frame, element)
     slopes <- keepExistingLines(slopes, hold.frame)
 
     if(lt_is_classic(lt.cross)){
-        # Classic 1961 mode: cross-product slope columns; intercept lines have no
-        # role in the paper's equation and are deliberately not forwarded.
+        # Classic 1961 mode builds cross-product slope columns; intercept lines have no role in that equation, so they are not passed on.
         return(lucas_classic_prep_xrf(data=spectra, spectra.line.table=hold.frame, deconvolution=deconvolution, element.line=element, slope.element.lines=slopes, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, compton.type=compton.type, data.type=data.type, spectrum.ids=hold.frame$Spectrum))
     }
 
     predict.intensity.forest <- predictIntensityForestPreGen(spectra=spectra, hold.frame=hold.frame, deconvolution=deconvolution, element=element, intercepts=intercepts, norm.type=norm.type, norm.min=norm.min, norm.max=norm.max, data.type=data.type, compton.type=compton.type)
 
-    # drop=FALSE: with a single slope line (or an unsynced empty slope hold) the
-    # old vector-drop lost the column names, so downstream lookups of $Intensity
-    # found nothing and the cross-validation frames collapsed. Also keep only
-    # slope columns that exist - a stale hold naming an absent line otherwise
-    # errors the whole model chain.
+    # Keep only slope columns that exist, since a stale hold can name an absent line, and use drop=FALSE so a single column keeps its name for downstream $Intensity lookups.
     keep_slopes <- slopes[slopes %in% colnames(predict.intensity.forest)]
     predict.intensity.forest[, unique(c("Intensity", keep_slopes)), drop=FALSE]
     
@@ -7300,7 +7089,7 @@ calProgressSummary <- function(calList){
 
 
 
-###Spectra Manipulations
+# Spectra Manipulations
 logspec <- function(x) ifelse(x!=0, log10(x), 0)
 exspec <- function(x) ifelse(x!=0, exp(x), 0)
 
@@ -7381,8 +7170,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
     
     if(is.null(deconvoluted_valdata)){
         deconvolution_parameters <- Calibration$Deconvoluted$Parameters
-        # `livetime`: the new spectra's LiveTime (named by Spectrum), used only when the calibration was deconvolved
-        # with E1 so prediction runs the same fit model; otherwise the calibration's own / median training live time.
+        # livetime is the new spectra's LiveTime (named by Spectrum) and is used only when the calibration was deconvolved with E1, so prediction runs the same fit; without it an E1 calibration falls back to its median training live time.
         val_livetime <- if(!is.null(livetime) && !is.null(Calibration$Deconvoluted$E1)) livetime else
             deconvolution_prediction_livetime(Calibration$Deconvoluted, NULL, Calibration$SpectraMetadata)
         deconvoluted_data <-spectra_gls_deconvolute(valdata, width=deconvolution_parameters$SmoothWidth, alpha=deconvolution_parameters$SmoothAlpha, default_sigma=deconvolution_parameters$DefaultSigma, smooth_iter=deconvolution_parameters$SmoothIter, snip_iter=deconvolution_parameters$SnipIter, cores=decon_cores, physics=deconvolution_physics_from_params(deconvolution_parameters), mass=TRUE, livetime=val_livetime)
@@ -7455,8 +7243,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 }  else if(the.cal[[element]][[1]]$CalTable$CalType[1]==13){
                     13
                 } else if(the.cal[[element]][[1]]$CalTable$CalType[1] %in% chemIntensityTypes){
-                    # chem intensity models predict exactly like the SVM
-                    # intensity path (all-slope caret model on line intensities)
+                    # Chemometric intensity models predict like the SVM intensity path (cal type 12, an all-slope caret model on line intensities).
                     12
                 } else if(the.cal[[element]][[1]]$CalTable$CalType[1] %in% chemSpectraTypes){
                     13
@@ -7465,8 +7252,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         }
         cal_type <- cmpfun(cal_type)
 
-        # Only net-count calibrations differ; every spectra format (CSV, TXT, Elio, SPX, MCA, PDZ, and the JSON /
-        # SPE / RData types the old per-type chain omitted, leaving this NULL) predicts from spectra.
+        # Only net-count calibrations differ; every spectra format (CSV, TXT, Elio, SPX, MCA, PDZ, JSON, SPE, RData) predicts from spectra.
         val.data.type <- if(identical(Calibration[["FileType"]], "Net")) "Net" else "Spectra"
             
             count.table <- count.list$Narrow_gaussian
@@ -8262,9 +8048,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                     object=the.cal[[x]][["Model"]],
                     newdata=if(lt_cross_of(the.cal[[x]])){
-                        # Classic passes the raw val spectra and lets the stored
-                        # ComptonType pick the divisor slot, rather than the legacy
-                        # quirk of handing the whole deconvolution list to `data`.
+                        # Classic mode passes the raw validation spectra as data and lets the stored ComptonType pick the divisor slot; the additive branch below passes the deconvolution list instead.
                         lucas_classic_prep_xrf(
                             data=valdata,
                             spectra.line.table=as.data.frame(
@@ -8300,9 +8084,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                     object=the.cal[[x]][["Model"]],
                     newdata=if(lt_cross_of(the.cal[[x]])){
-                        # Classic passes the raw val spectra and lets the stored
-                        # ComptonType pick the divisor slot, rather than the legacy
-                        # quirk of handing the whole deconvolution list to `data`.
+                        # Classic mode passes the raw validation spectra as data and lets the stored ComptonType pick the divisor slot; the additive branch below passes the deconvolution list instead.
                         lucas_classic_prep_xrf(
                             data=valdata,
                             spectra.line.table=as.data.frame(
@@ -9353,8 +9135,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
 
         
 
-        # drop=FALSE: with a single predicted element the old vector-drop lost
-        # the element name and the output column came back as "predicted.data.table"
+        # drop=FALSE keeps the element name as the column name when only one element is predicted.
         predicted.data.table <- round(predicted.frame[,-1, drop=FALSE]*multiplier, rounding)
 
         #predicted.values <- t(predicted.values)
@@ -9365,10 +9146,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
 
 
 mclValGen <- function(model, data, predict.frame, dependent.transformation, y_min=0, y_max=1){
-    # Guard against a missing/NA/unrecognized transformation (e.g. older or large
-    # cals whose CalTable$DepTrans is NA). Without this the if-chain below either
-    # errors on `if(NA)` or leaves the prediction NULL, which makes the val.frame
-    # collapse to all-zero predictions.
+    # Treat a missing, NA or unrecognized transformation (e.g. an NA CalTable$DepTrans in older cals) as "None", so the if-chain below always yields a prediction.
     if(is.null(dependent.transformation) || length(dependent.transformation) != 1 ||
        is.na(dependent.transformation) || !dependent.transformation %in% c("None", "Log", "e", "Scale")){
         dependent.transformation <- "None"
@@ -9459,10 +9237,7 @@ mclPred <- function(object, newdata, dependent.transformation, ymin=0, ymax=1, c
         }
     } else if(confidence==TRUE){
         if(finalModel==TRUE){
-            # interval="confidence" is only meaningful for lm/glm finalModels.
-            # SVM/glmnet/pls/earth/cubist finalModels reject newdata=/interval=
-            # (predict.glmnet needs a matrix, pls returns an ncomp array, etc.),
-            # so for them fall back to caret point predictions via predict.train.
+            # interval="confidence" only works for lm/glm finalModels; other finalModels (SVM, glmnet, pls, earth, cubist) reject newdata/interval, so they fall back to caret point predictions via predict.train.
             lm.interval <- inherits(object$finalModel, c("lm", "glm"))
             if(dependent.transformation=="None"){
                 if(lm.interval){
@@ -9647,14 +9422,7 @@ calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALS
         return(Calibration)
 }
 
-# CalType arrives inside parameters$CalTable, and `parameters` is NULL whenever the
-# caller's modelParameters() reactive swallowed an upstream failure (server.R turns
-# any error in the model-set chain into NULL). `NULL$CalTable$CalType == 8` is
-# logical(0), and `if(logical(0))` errors with "argument is of length zero" - fatal
-# here, because modelPack is called straight out of observeEvent(input$createcalelement)
-# and an unhandled error in an observer ends the Shiny session (the app greys out).
-# So resolve the type once, defensively, and hand back NULL when there is nothing to
-# pack. The [1] subscript matches every other CalType consumer in the codebase.
+# Resolve CalType once and return NULL when there is nothing to pack: parameters is NULL whenever the caller's modelParameters() swallowed an upstream failure, and modelPack runs inside observeEvent(input$createcalelement), where an error would end the Shiny session.
 modelPackPre <- function(parameters, model, table, compress=TRUE){
 
     if(is.null(parameters)) return(NULL)
@@ -9700,22 +9468,17 @@ modelPackPre <- function(parameters, model, table, compress=TRUE){
         } else if(cal.type==13){
             strip_glm(model)
         } else if(cal.type %in% c(chemIntensityTypes, chemSpectraTypes)){
-            # pls/Cubist/glmnet/earth caret objects are already small; keep them
-            # whole rather than risk strip_glm removing slots their predict needs
+            # pls/Cubist/glmnet/earth caret objects are already small, so keep them whole rather than risk strip_glm removing slots their predict needs.
             model
         } else {
-            # Unrecognised type: keep the fitted model whole. The old chain had no
-            # final else, so any type outside 1-21 silently packed a NULL model.
+            # Unrecognised type: keep the fitted model whole.
             model
         }
     } else if(compress==FALSE){
         model
     }
 
-    # XGBoost (8/9) is the only family carrying a raw booster, and both arms of the
-    # old `if(CalType!=8 | CalType!=9)` built the identical list anyway - that test is
-    # a tautology (a scalar is always unequal to one of 8/9), so its second arm was
-    # dead code.
+    # Only XGBoost (8/9) carries a raw booster; other types get no rawModel entry.
     result.list <- list(Parameters=parameters, Model=model, rawModel=model.raw, Table=table)
 
     if(is.null(result.list$rawModel)){
@@ -9765,8 +9528,7 @@ defaultCalList <- function(calibration, temp=FALSE){
                 val.col <- paste0(i, ".val")
                 int.col <- paste0(i, ".int")
                 cal.df <- cal.df[complete.cases(cal.df[, c(val.col, int.col)]), ]
-                # Skip elements with too few overlapping standards to fit a line;
-                # otherwise lm() aborts with "0 (non-NA) cases" and kills the whole load.
+                # Skip elements with fewer than two complete standards, since lm() cannot fit them and would abort the whole load.
                 if(nrow(cal.df) >= 2){
                     calibration$calList[[i]] <- list(Parameters=deleteCalConditions(element=i), Model=lm(cal.df[, val.col]~cal.df[, int.col]), na.action=na.omit)
                 } else {
@@ -10033,7 +9795,7 @@ cloudCalPredictErrorEQM <- function(Calibration, predictions=NULL, elements.cal,
     }
     data_fano <- fanoFactor(data=valdata, energy.min=energy.min, energy.max=energy.max)
     
-    ####possibly 1.96*rmse
+    # possibly 1.96*rmse
     prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=error_list$RMSE[[x]]))
     names(prediction_list) <- names(Calibration$calList)
     prediction_list_short <- list()
@@ -10092,7 +9854,7 @@ cloudCalPredictErrorYHat <- function(Calibration, predictions=NULL, elements.cal
     
     data_fano <- fanoFactor(data=valdata, energy.min=energy.min, energy.max=energy.max)
     
-    ####possibly 1.96*rmse
+    # possibly 1.96*rmse
     prediction_list <- lapply(names(Calibration$calList), function(x) data.frame(Spectrum=predictions$Spectrum, Element=predictions[,x], Error=yhat_est[[x]]))
     names(prediction_list) <- names(Calibration$calList)
     prediction_list_short <- list()
@@ -10122,7 +9884,7 @@ cloudCalPredictErrorYHat <- function(Calibration, predictions=NULL, elements.cal
 #}
 
 
-###From https://stackoverflow.com/questions/58015605/getting-confidence-intervals-on-prediction-from-carettrain
+# From https://stackoverflow.com/questions/58015605/getting-confidence-intervals-on-prediction-from-carettrain
 
 caretTrainNewdata <- function(object, newdata, na.action = na.omit){
     if (!is.null(object$modelInfo$library))
@@ -10351,12 +10113,8 @@ spectra_frame_baseline_convert <- function(a_tibble){
     return(spectra_frame)
 }
 
-# Extract the E1 physics-informed baseline (the fitted background + scatter continuum) from an
-# ALREADY-RUN deconvolution fit -- no re-fitting. Replicates xrf_fit_baseline()'s body directly on the
-# exploded .deconvolution_* columns (xrf_add_deconvolution_fun splits the deconvolution_fit into separate
-# columns, so there is no classed object to pass). baseline = sum of the non-element templates
-# (background_*, scatter_*, pileup_/sum_) on the fit's energy grid. Returns Spectrum/Energy/CPS like
-# spectra_frame_baseline_convert, or NULL if the fit components/response are unavailable.
+# Extract the E1 baseline (fitted background + scatter continuum) from an already-run deconvolution fit without refitting, by summing the non-element templates selected by include (background_*, scatter_*, pileup_/sum_) on the fit's energy grid; this repeats xrf_fit_baseline() on the separate .deconvolution_* columns, which carry no classed fit object.
+# Returns Spectrum/Energy/CPS like spectra_frame_baseline_convert, or NULL if the fit components or response are unavailable.
 spectra_frame_fit_baseline_convert <- function(a_tibble, name, include = c("background","scatter","pileup")){
     comp <- tryCatch(a_tibble$.deconvolution_components[[1]], error=function(e) NULL)
     resp <- tryCatch(a_tibble$.deconvolution_response[[1]],   error=function(e) NULL)
@@ -10372,8 +10130,7 @@ spectra_frame_fit_baseline_convert <- function(a_tibble, name, include = c("back
 intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
     
     deconvolution_frame <- as.data.frame(deconvolution_tibble)
-    # split_series templates ("Pb_L" = Pb's L+M lines) are element columns too: order them by the base element,
-    # right after its bare K-series column.
+    # split_series templates ("Pb_L" = Pb's L+M lines) are element columns too, ordered right after their element's bare K-series column.
     is_series <- grepl("^[A-Z][a-z]?_L$", deconvolution_frame$element)
     deconvolution_frame$order <- atomic_order_vector(sub("_L$", "", deconvolution_frame$element)) + ifelse(is_series, 0.5, 0)
 
@@ -10381,10 +10138,7 @@ intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
     element_frame <- deconvolution_frame[!is.na(deconvolution_frame$order), , drop=FALSE]
     element_frame <- element_frame[order(element_frame$order),]
 
-    # Non-element fit components. Keep the tube-scatter channels as named columns (Compton / Rayleigh) so
-    # they are available as slope/intercept correction covariates in calibration -- alongside Baseline /
-    # Total via otherSpectraStuff -- and drop the rest (e.g. escape peaks). Scatter sharpens the fit either
-    # way (its intensity is no longer misattributed to elements); this just also exports the two areas.
+    # Of the non-element fit components, keep the tube-scatter areas as Compton and Rayleigh columns so calibrations can use them as slope/intercept covariates alongside Baseline and Total, and drop the rest (e.g. escape peaks).
     scatter_map <- c(scatter_compton = "Compton", scatter_rayleigh = "Rayleigh")
     scatter_frame <- deconvolution_frame[deconvolution_frame$element %in% names(scatter_map), , drop=FALSE]
     scatter_frame <- scatter_frame[order(match(scatter_frame$element, names(scatter_map))), , drop=FALSE]
@@ -10398,10 +10152,8 @@ intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
     return(result_frame)
 }
 
-# --- Deconvolution physics helpers (phase b2) ---------------------------------------------------
-# Map an instrument mode to the optional xrftools deconvolution arguments (the `physics=` bundle for
-# spectra_gls_deconvolute / deconvolute_complete). `kv` = tube voltage or accelerating voltage;
-# `anode` = tube anode element (handheld / high-energy). "legacy" reproduces historical behaviour.
+# Deconvolution physics helpers
+# Map an instrument mode to the optional xrftools deconvolution arguments (the physics= bundle for spectra_gls_deconvolute / deconvolute_complete); kv is the tube or accelerating voltage, anode the tube anode element, and "legacy" adds no physics so it reproduces the plain fit.
 instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detector_type=NULL, active_thickness_um=NULL, filter=NULL, environment="air_pp"){
     mode <- match.arg(as.character(mode), c("legacy","handheld","sem","pixe","high_energy"))
     dt <- function(d) if(is.null(detector_type) || is.na(detector_type) || detector_type=="") d else detector_type
@@ -10417,31 +10169,21 @@ instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detec
         high_energy = list(excitation="photon",   detector_type=dt("HPGe"), tube_anode=anode, tube_kv=kv,
                            efficiency=TRUE, escape=TRUE, nonneg=TRUE,
                            excitation_weighting="cross_section", coster_kronig=TRUE, split_series=TRUE))
-    # split_series (handheld / high-energy): fit each element's K-series and its L+M lines as two INDEPENDENT
-    # templates ("Pb" = K, "Pb_L" = L+M) instead of one template tied at a matrix-free K:L ratio. The tied ratio
-    # ignores sample self-absorption, which differs ~100x between a 75 keV K-line and a 10 keV L-line, so a strong
-    # Pb K-alpha could not be fitted without predicting a phantom Pb L-alpha (see deconvolute_complete).
-    # Active-layer thickness for the efficiency model. The ubiquitous modern SDD is 450 um (the xrftools
-    # SDD preset), so a 450 default on a silicon SDD is a no-op that simply makes the assumption explicit
-    # in the persisted metadata. Apply the UI value to a true SDD/Si detector; for HPGe/CdTe/Si(Li) --
-    # whose active layers are mm-scale -- keep the detector's own preset unless the user deliberately
-    # typed a non-default (non-450) thickness. A blank field (NULL/NA) always defers to the preset.
+    # split_series (handheld / high-energy) fits each element's K-series and L+M lines as independent templates ("Pb" = K, "Pb_L" = L+M), since a single template tied at a matrix-free K:L ratio ignores self-absorption, which hits low-energy L-lines far harder, and so predicts phantom L-lines (see deconvolute_complete).
+    # Active-layer thickness for the efficiency model, non-legacy modes only: the UI value (default 450 um, the xrftools SDD preset) applies to SDD/Si detectors, while HPGe/CdTe/Si(Li) keep their own mm-scale preset unless a non-450 value was typed; a blank field defers to the preset.
     if(mode != "legacy" && !is.null(active_thickness_um) && !is.na(active_thickness_um)){
         eff_det <- toupper(if(is.null(base$detector_type)) "" else base$detector_type)
         if(eff_det %in% c("SDD","SI","") || active_thickness_um != 450){
             base$active_thickness_um <- active_thickness_um
         }
     }
-    # Beam energy also only applies to non-legacy modes: legacy must stay an EMPTY bundle (apart from the
-    # stripped .mode tag) so it reproduces the historical result byte-for-byte even if the always-visible
-    # beam-energy field happens to hold a value from a mode the user was previously exploring.
+    # Beam energy also applies only to non-legacy modes: legacy must stay an empty bundle (apart from the stripped .mode tag) to reproduce the plain fit exactly, even when the always-visible beam-energy field holds a value.
     if(mode != "legacy" && !is.null(kv) && !is.na(kv)) base$beam_energy_kev <- kv
     # Primary-beam filter (xrftools "Sym um" string, e.g. the PDZ-inferred "Cu 100"). Non-legacy modes only.
     if(mode != "legacy" && !is.null(filter) && !is.na(filter) && nzchar(trimws(as.character(filter)))){
         base$tube_filter <- as.character(filter)
     }
-    # Measurement environment (atmosphere + air path + polymer snout window) for the efficiency model.
-    # Non-legacy modes only; defaults to the most common handheld setup (air + 4 um polypropylene).
+    # Measurement environment (atmosphere, air path and polymer snout window) for the efficiency model, non-legacy modes only; the default is the common handheld setup (air + 4 um polypropylene).
     if(mode != "legacy"){
         env <- deconvolution_environment_config(environment)
         if(!is.null(env$atmosphere))  base$atmosphere  <- env$atmosphere
@@ -10449,15 +10191,11 @@ instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detec
         if(!is.null(env$window))      base$window      <- env$window
         base$.environment <- as.character(environment)   # UI-only tag to restore the selector
     }
-    base$.mode <- mode   # UI-only metadata (stripped before the deconvolution call; used to restore the selector)
+    base$.mode <- mode   # UI-only tag to restore the selector; stripped before the deconvolution call
     base
 }
 
-# Apply the "Fit K-series separately" selector ("auto" / "on" / "off") to a bundle from instrument_deconv_defaults().
-# "auto" (or a not-yet-rendered NULL) keeps the mode default; legacy keeps its historical fit. "off" REMOVES the key
-# rather than storing FALSE (the deconvolute_complete default), so a calibration saved with the split off still
-# deconvolutes in an older CloudCal that has no split_series argument. The choice itself is always kept as the
-# UI-only dot-key `.split_series` (stripped before the fit), so the selector restores to what the user picked.
+# Apply the "Fit K-series separately" selector ("auto" / "on" / "off") to a bundle from instrument_deconv_defaults(): "auto" or a missing selection keeps the mode default, legacy is never changed, and "off" removes split_series rather than storing FALSE (the deconvolute_complete default) so the calibration still deconvolutes in older CloudCal versions. The choice is always kept in the UI-only .split_series key, stripped before the fit, to restore the selector.
 deconvolution_apply_split_series <- function(physics, selection, mode){
     if(!is.list(physics)) return(physics)
     sel <- if(is.null(selection) || length(selection) != 1 || !selection %in% c("auto", "on", "off")) "auto" else selection
@@ -10469,8 +10207,7 @@ deconvolution_apply_split_series <- function(physics, selection, mode){
     physics
 }
 
-# Selector value to show for a stored physics bundle: the stored choice; else on/off from the functional key; else
-# "off" for a calibration deconvolved before this option existed (it keeps its tied-template areas); else "auto".
+# Selector value to show for a stored physics bundle: the stored choice, else on/off from split_series, else "off" for a deconvolved calibration with no stored choice (it keeps its tied-template areas), else "auto".
 deconvolution_split_selection <- function(physics, has_deconvoluted=FALSE){
     s <- physics[[".split_series"]]
     if(is.character(s) && length(s) == 1 && s %in% c("auto", "on", "off")) return(s)
@@ -10479,20 +10216,13 @@ deconvolution_split_selection <- function(physics, has_deconvoluted=FALSE){
     "auto"
 }
 
-# Extract the persisted physics bundle from a calibration's Deconvoluted$Parameters (old calibrations
-# have no Physics field -> empty list -> historical behaviour reproduced).
+# Extract the persisted physics bundle from a calibration's Deconvoluted$Parameters; calibrations without a Physics field get an empty list, which reproduces the legacy fit.
 deconvolution_physics_from_params <- function(params){
     if(is.list(params) && !is.null(params$Physics) && is.list(params$Physics)) params$Physics else list()
 }
 
-# --- Measurement geometry -----------------------------------------------------------------------
-# Resolve the three geometry angles for the `physics` bundle. Per field: the value the user TYPED wins, else
-# the value the FILE reported, else the key is OMITTED -- and omission is precisely what keeps the automatic
-# chain intact, since spectra_gls_deconvolute only infers the scatter angle from the anode Rayleigh/Compton
-# split when physics$scatter_angle_deg is NULL, and xrftools falls back to its own 45/45 path angles.
-# Out-of-range / non-finite entries are DROPPED rather than forwarded: the scatter kernel clamps sin() at
-# 1e-3, but xrf_quantify does not, so a 0 (or an NA from a cleared numericInput) would silently turn the
-# full-FP self-absorption denominator into Inf/NaN.
+# Measurement geometry
+# Resolve the geometry angles for the physics bundle: the typed value wins, else the file's value, else the key is omitted so spectra_gls_deconvolute can infer the scatter angle and xrftools uses its default 45/45 angles. Out-of-range or non-finite values are dropped, because a 0 or NA angle would make the full-FP self-absorption term Inf or NaN.
 deconvolution_geometry_physics <- function(incidence=NULL, takeoff=NULL, scatter_angle=NULL,
                                            file_incidence=NULL, file_takeoff=NULL){
     ok <- function(v, lo, hi){
@@ -10510,11 +10240,7 @@ deconvolution_geometry_physics <- function(incidence=NULL, takeoff=NULL, scatter
     out[!vapply(out, is.null, logical(1))]
 }
 
-# Accept xrftools' own geometry container inside the bundle -- physics=list(geometry=xrf_geometry(...)), the
-# natural form for a command-line caller -- by flattening it onto the flat scalars the rest of the pipeline
-# reads. The `geometry` key itself MUST then be dropped: deconvolute_complete has no such formal, so the
-# do.call splat would fail every spectrum with "unused argument". An explicitly-set flat scalar wins over the
-# object (the more specific key). Idempotent, so it is safe to call on an already-flattened bundle.
+# Flatten an xrftools geometry object in the bundle (physics=list(geometry=xrf_geometry(...))) onto the flat angle keys the pipeline reads, then drop the geometry key, which deconvolute_complete does not accept. Explicit flat values win over the object, and repeat calls are harmless.
 deconvolution_physics_flatten_geometry <- function(physics){
     if(!is.list(physics)) return(physics)
     g <- physics[["geometry"]]
@@ -10526,18 +10252,13 @@ deconvolution_physics_flatten_geometry <- function(physics){
     physics
 }
 
-# Tube anode by instrument family. No handheld file format encodes the anode, but it is fixed per instrument:
-# Niton (Thermo) uses a SILVER (Ag) anode; essentially every other handheld -- Bruker Tracer/Titan, Olympus
-# Vanta/Delta, SciAps -- uses RHODIUM (Rh). Metadata builders call this to stamp `TubeAnode` at import so the
-# physics can auto-populate; the value is a best guess and remains editable in the UI.
+# Best-guess tube anode by instrument family for files that do not record it: Niton (Thermo) uses Ag and nearly every other handheld uses Rh. Metadata builders use it to stamp TubeAnode at import, and the value stays editable in the UI.
 deconvolution_instrument_anode <- function(instrument){
     if(is.null(instrument) || is.na(instrument) || !nzchar(instrument)) return(NA_character_)
     if(grepl("niton|thermo", instrument, ignore.case=TRUE)) "Ag" else "Rh"
 }
 
-# Map a detector MODEL string (e.g. the v25 PDZ Record-1 "Commando_TITAN\\KETEK ... (20mm2)" or "xFlash",
-# "Amptek", "SiPin", "Ketek") to a detector TYPE the physics understands. Silicon-drift models (KETEK, xFlash,
-# Amptek SDD, "silicon drift") -> SDD; Si-PIN -> SiPIN; CdTe / HPGe by name. NA when unrecognisable.
+# Map a detector model string (e.g. from a PDZ header) to a detector type the physics understands: CdTe and HPGe by name, Si-PIN -> SiPIN, silicon-drift names (KETEK, xFlash, Amptek, TITAN, ...) -> SDD, otherwise NA.
 deconvolution_detector_from_model <- function(model){
     if(is.null(model) || is.na(model) || !nzchar(model)) return(NA_character_)
     m <- toupper(model)
@@ -10548,10 +10269,7 @@ deconvolution_detector_from_model <- function(model){
     else NA_character_
 }
 
-# Auto-inference (Phase 0/1): pull representative instrument settings out of an imported SpectraMetadata frame
-# so the physics controls can be pre-seeded from the file -- and, crucially, suggest an instrument `mode` so
-# import can switch the deconvolution off "legacy" (which discards the seeded values). Returns NULLs for
-# anything not present, so callers fall through to UI / preset defaults.
+# Pull representative instrument settings from an imported SpectraMetadata frame to pre-seed the physics controls, and suggest an instrument mode so import can move off "legacy", which ignores the seeded values. Missing settings stay NULL so callers fall back to UI or preset defaults.
 deconvolution_infer_from_metadata <- function(md){
     out <- list(kv=NULL, filter=NULL, filter_stack=NULL, anode=NULL, detector=NULL,
                 incidence=NULL, takeoff=NULL, evch_ev=NULL, mode=NULL, environment=NULL)
@@ -10569,8 +10287,7 @@ deconvolution_infer_from_metadata <- function(md){
     out$detector     <- chr1("DetectorType")       # SDD for handhelds; CdTe/HPGe for high-energy benchtops
     out$incidence    <- num1("IncidenceAngle")     # v25 PDZ geometry; feeds $Mass self-absorption path length
     out$takeoff      <- num1("TakeoffAngle")
-    # Energy calibration eV/channel from the file. Sources are mixed-unit (PDZ ~20 eV/ch; CSV/MCA/TXT keV/ch
-    # ~0.02), so normalise to eV/channel: a value below 1 is keV/ch and is scaled up.
+    # Energy calibration from the file, normalised to eV/channel: sources mix units (PDZ in eV, CSV/MCA/TXT in keV), so a value below 1 is treated as keV/channel.
     ev <- num1("eVCh"); if(!is.null(ev)) out$evch_ev <- if(ev < 1) ev * 1000 else ev
     # Suggest a mode when the file carries recognisable hardware, so the mode UI can leave "legacy" behind.
     known <- !is.null(out$kv) || !is.null(out$filter_stack) || !is.null(out$anode) || !is.null(out$detector)
@@ -10578,8 +10295,7 @@ deconvolution_infer_from_metadata <- function(md){
         det <- toupper(if(!is.null(out$detector)) out$detector else "")
         out$mode <- if(grepl("CDTE|HPGE", det) || (!is.null(out$kv) && out$kv > 60)) "high_energy" else "handheld"
     }
-    # Electron-excited spectra (SEM-EDS, e.g. Bruker Esprit .txt): TubeVoltage is the beam energy, there is no tube
-    # to model, and the X-ray path is the chamber vacuum rather than the handheld air + polypropylene default.
+    # Electron-excited spectra (SEM-EDS) use sem mode in vacuum: TubeVoltage is the beam energy and there is no tube to model.
     if(identical(chr1("Excitation"), "electron")){
         out$mode <- "sem"
         out$environment <- "vacuum"
@@ -10587,24 +10303,14 @@ deconvolution_infer_from_metadata <- function(md){
     out
 }
 
-# Special (non-element) deconvolution channels usable as calibration slope/intercept covariates: the SNIP
-# Baseline area plus the tube-scatter Compton / Rayleigh peak areas (present only when a tube is modelled).
-# Defensive: returns just the columns actually present, so old calibrations (Baseline only, or none) work.
+# Non-element deconvolution channels usable as slope/intercept covariates: the SNIP Baseline area and, when a tube is modelled, the Compton/Rayleigh scatter areas. Only the columns present are returned, so older calibrations still work.
 deconvolution_extra_cols <- function(areas){
     if(is.null(areas) || !is.data.frame(areas) || !("Spectrum" %in% names(areas))) return(character(0))
     intersect(c("Baseline", "Compton", "Rayleigh"), names(areas))
 }
 
-# Fundamental-parameters mass estimate for a whole deconvolution batch. Observed areal mass per element =
-# peak_area / FP sensitivity (matrix-decoupled, un-normalized: A_i/S_i). The sensitivity S_i depends only on
-# the element set + excitation/detector physics -- NOT on the spectrum -- so it is computed ONCE via
-# xrf_fp_sensitivity and the entire Areas table is divided by it (one FP call per batch, not one per
-# spectrum). Returns a frame organised like $Areas (Spectrum + element columns), or NULL on any failure
-# (e.g. an older xrftools without xrf_fp_sensitivity) so the deconvolution never fails just to build $Mass.
-# Crustal abundance of the elements (ppm by mass, upper continental crust; ~0 for synthetic / short-lived
-# nuclides). Used as a Bayesian prior in the full-FP phantom filter: a rarer element must clear a higher
-# detection bar than a common one, and physically-impossible elements (Tc, Pm, Po, At, Rn, Ra, Ac, Fr, Pa,
-# Np, Pu) get an essentially infinite bar. Standard crustal-abundance values (CRC / USGS).
+# deconvolution_mass_frame (further below) estimates fundamental-parameters areal mass for a deconvolution batch as peak_area / FP sensitivity, computing the spectrum-independent sensitivity once per batch (or running a per-spectrum FP solve when fidelity = "full"); it returns a frame shaped like $Areas, or NULL on failure so the deconvolution never fails just to build $Mass.
+# Crustal abundance of the elements (ppm by mass, upper continental crust, CRC/USGS values; near zero for synthetic or short-lived nuclides), used as a detection prior so very rare elements must clear a higher bar.
 .xrf_crustal_abundance_ppm <- c(
   O=461000, Si=282000, Al=82300, Fe=56300, Ca=41500, Na=23600, Mg=23300, K=20900, Ti=5650, H=1400,
   P=1050, Mn=950, F=585, Ba=425, Sr=370, S=350, C=200, Zr=165, Cl=145, V=120, Cr=102, Rb=90, Ni=84, Zn=70,
@@ -10615,30 +10321,12 @@ deconvolution_extra_cols <- function(areas){
   Te=0.001, Ru=0.001, Rh=0.001, Ir=0.001, Re=0.0007, Kr=1e-4, Xe=3e-5,
   Tc=1e-9, Pm=1e-9, Po=2e-10, At=1e-12, Rn=4e-13, Ra=9e-7, Ac=5e-10, Pa=1.4e-6, Fr=1e-18, Np=1e-12, Pu=1e-12)
 
-# Full-FP phantom filter. The "fit everything" deconvolution invents dozens of spurious elements at
-# baseline-noise level (and worse, at degenerate overlaps: Tb Lalpha+Lbeta land on Fe Kalpha+Kbeta, actinide
-# L-lines land on the real Th/U/Pb/Rb lines) which poison the per-spectrum self-absorption matrix. This gates
-# each candidate element, per spectrum, through four stacked Bayesian checks -- each catches what the previous
-# cannot -- and returns which (spectrum, element) cells are real plus a per-cell area cap:
-#   (1) LOD          -- net counts AND fitted-area both >= lod_sigma over the primary line's Poisson background.
-#   (2) line-ratio   -- the element's supportable amplitude is bounded by its LEAST-supported *detectable* line
-#                       (a = min over lines of (net + cushion)/p, p = rel_intensity x detector_efficiency, so
-#                       filtered-out low-E lines don't falsely veto). A phantom can borrow a neighbour's strong
-#                       line but not reproduce its own distinguishing lines -> capped near zero (Tb 370->5 sigma).
-#   (3) attribution  -- the element's fitted share of its own window vs all competing fitted components,
-#                       INCLUDING the Compton/Rayleigh scatter at the KNOWN tube-anode energy. Each competitor's
-#                       leak is weighted by its fluorescence PRODUCTION efficiency (a weak-line competitor claims
-#                       less), so a strong K-line wins an overlap. Kills single-line parasites (Co under Fe Kbeta;
-#                       Rh == the anode line) and low-voltage REE L-line phantoms sitting under a transition-metal K.
-#   (4) efficiency   -- the (2) significance must clear a bar set by the line's matrix-free fluorescence PRODUCTION
-#                       efficiency (photoionization cross-section x yield x branching at the beam, NO detector term):
-#                       bar = 3 + 1.5*log10(effMax/eff), clamped [3,40]. Because production collapses to the weak
-#                       L-lines below an element's K-edge, a low-voltage REE (L-only) faces a high bar while the SAME
-#                       REE on its efficient K-line at high voltage passes near 3 sigma. Crustal abundance is kept
-#                       ONLY as a binary EXISTENCE floor (Tc/Pm/Po/At/Rn/Ac/Fr/Ra/Pa/Np/Pu -> ~infinite bar) --
-#                       non-natural nuclides, not matrix chemistry. Replaces the old matrix-flavored abundance bar.
-# `cap` (<=1) scales a kept element's fitted area down to what its own line ratios actually support, so a
-# barely-surviving degenerate (Tb) contributes bounded mass instead of poisoning the matrix at its stolen area.
+# Full-FP phantom filter: the fit-everything deconvolution invents spurious elements at noise level and on overlapping lines, which would corrupt the per-spectrum self-absorption matrix, so each candidate element is tested per spectrum by four gates.
+# (1) LOD: net counts and fitted area must both be at least lod_sigma times the Poisson noise of the primary line's background.
+# (2) Line ratio: a detectable line that predicts far more counts than observed refutes the element, and the amplitude its lines jointly support sets the cap.
+# (3) Attribution: the element must hold at least half of its primary window against the other elements (weighted by production efficiency) and the known-anode Compton/Rayleigh scatter.
+# (4) Credibility: both significances must clear a bar from production efficiency, 3 + 1.5*log10(effMax/eff), raised for elements rarer than 1 ppm and clamped to [3, 40].
+# Returns pass (which spectrum/element cells are real) and cap (<= 1), which scales a kept element's fitted area down to what its own line ratios support.
 deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spectra_raw, livetime,
                                           physics, beam, lod_sigma=3){
   det <- if(!is.null(physics$detector_type)) physics$detector_type else "SDD"
@@ -10648,10 +10336,7 @@ deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spec
         air_path_cm=physics$air_path_cm, atmosphere=if(!is.null(physics$atmosphere)) physics$atmosphere else "Air",
         window=physics$window), error=function(err) rep(1, length(E)))
       e[!is.finite(e) | e<0] <- 0; e }
-  # per-element detectable line clusters (merge lines within 0.18 keV; keep those expected >= 15% of the primary)
-  # A split_series element (it has an "<El>_L" column) carries only its K-series in the bare column, so judge that
-  # area against its K lines -- otherwise Pb's K area would be tested in its (efficiency-weighted primary) L window.
-  # Cap them at the measured range: a K-beta past the last channel has a zero window sum and would falsely refute.
+  # Per-element detectable line clusters (lines within 0.18 keV merged). A split_series element (one with an "<El>_L" column) has only its K-series in the bare column, so it is judged on its K lines alone, limited to the measured energy range so a line past the last channel cannot falsely refute it.
   split_els <- sub("_L$", "", grep("^[A-Z][a-z]?_L$", names(area_frame), value=TRUE))
   e_top <- suppressWarnings(max(as.numeric(spectra_raw$Energy), na.rm=TRUE))
   cl_of <- function(el){
@@ -10665,20 +10350,13 @@ deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spec
     grp <- cumsum(c(1, diff(E) > 0.18)); Ec <- as.numeric(tapply(E*r, grp, sum)/tapply(r, grp, sum)); rc <- as.numeric(tapply(r, grp, sum))
     p <- rc * eff_at(Ec); o2 <- order(-p); Ec <- Ec[o2]; p <- p[o2]
     if(!length(p) || !is.finite(p[1]) || p[1]<=0) return(NULL)
-    # keep lines expected >= 5% of the primary: the DISTINGUISHING lines (an element's weak minor lines a
-    # phantom can't fake -- Tb Lbeta2/Lgamma) are the ones refutation needs, so the cutoff must stay low.
+    # Keep lines expected at >= 5% of the primary: refutation relies on an element's weak distinguishing lines, which a phantom cannot reproduce, so the cutoff must stay low.
     p <- p/p[1]; ok <- p >= 0.05
     list(E=Ec[ok], p=p[ok], Eprim=Ec[1], sigprim=sig_kev(Ec[1]))
   }
   clusters <- lapply(keep, cl_of); names(clusters) <- keep
   valid <- vapply(clusters, Negate(is.null), logical(1))
-  # Credibility prior = matrix-free fluorescence PRODUCTION efficiency (photoionization cross-section x fluorescence
-  # yield x radiative branching at the run's beam, with the detector term OFF). The detector factor is common to
-  # everything at a given energy, so it cancels in element-vs-element discrimination and lives only in the count-
-  # space LOD (gate 1); including it here would wrongly penalise an isolated high-energy line (U-Kalpha at 98 keV,
-  # SDD ~0.5% efficient). Production auto-selects the excitable series: below an element's K-edge it collapses to
-  # the weak L-lines, so a low-voltage REE (L-only) gets a high bar while the same REE on its efficient K-line at
-  # high voltage does not. One batch call (spectrum-independent), like xrf_fp_sensitivity in deconvolution_mass_frame.
+  # Credibility prior: matrix-free fluorescence production efficiency at the run's beam, computed once per batch with the detector term off, because detector efficiency cancels between elements, is already in the count-space LOD (gate 1) and would penalise isolated high-energy lines. Below an element's K-edge production falls to its weak L-lines, so L-only excitation faces a higher bar.
   effP <- setNames(rep(NA_real_, length(keep)), keep)
   tryCatch({
     tube_eff <- if(!is.null(physics$tube_anode) && !is.null(physics$tube_kv))
@@ -10691,19 +10369,14 @@ deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spec
   }, error=function(e) NULL)
   effRef <- suppressWarnings(max(effP[is.finite(effP) & effP>0])); if(!is.finite(effRef) || effRef<=0) effRef <- 1
   ab_raw <- function(el){ v <- as.numeric(.xrf_crustal_abundance_ppm[el]); if(length(v)!=1) NA_real_ else v }
-  # (4) credibility bar = max of two UNIVERSAL (matrix-INDEPENDENT, same threshold for every sample) priors:
-  #   - production-efficiency grade: 3 + 1.5*log10(effMax/eff)  -- the K-vs-L / voltage credibility (primary).
-  #   - crustal-RARITY floor for elements below 1 ppm: 3 + 3*log10(1/ppm) -- catches what efficiency CANNOT,
-  #     i.e. elements that are ultra-rare in EVERY rock. The anode-scatter K-line region (Ru/Rh/Pd/Ag/Au/Pt/Te/Bi,
-  #     19-27 keV under the Rh Compton/Rayleigh) is rare-but-EFFICIENT, so a pure-efficiency bar lets it leak; the
-  #     non-natural nuclides (Tc/Pm/Po/.../Pu) also land here (~30-40 sigma). Pivoting at 1 ppm keeps it OFF the REE
-  #     (all >= 0.5 ppm -> <= ~3.9 sigma), so it does NOT reintroduce the crustal under-penalisation of REE that the
-  #     efficiency prior replaced -- it is universal, not matrix-aware.
+  # (4) Credibility bar: the larger of two sample-independent priors, clamped to [3, 40] sigma:
+  # - production-efficiency grade 3 + 1.5*log10(effMax/eff), the main K-vs-L and beam-voltage check;
+  # - crustal-rarity floor 3 + 3*log10(1/ppm) for elements below 1 ppm, which catches rare but efficiently excited elements (such as those under the anode scatter peaks) and non-natural nuclides, while the 1 ppm pivot keeps the REE below about 4 sigma.
   thr_ab <- setNames(vapply(keep, function(el){
       e <- effP[[el]]; grade  <- if(is.finite(e) && e>0) 3 + 1.5*log10(effRef/e) else 3
       a <- ab_raw(el);  rarity <- if(is.finite(a) && a < 1)  3 + 3*log10(1/max(a, 1e-18)) else 3
       max(3, min(max(grade, rarity), 40)) }, numeric(1)), keep)
-  # (3) attribution competitor weight also by production efficiency (weak-line competitor makes a weaker claim)
+  # (3) Attribution weights each competitor by its production efficiency, so a weak-line competitor makes a weaker claim.
   eff_floor <- suppressWarnings(min(c(effP[is.finite(effP) & effP>0], effRef))) * 1e-3
   abE <- effP; abE[!is.finite(abE) | abE<=0] <- if(is.finite(eff_floor) && eff_floor>0) eff_floor else 1e-9
   compE <- vapply(keep, function(el) if(valid[[el]]) clusters[[el]]$Eprim   else NA_real_, numeric(1))
@@ -10748,10 +10421,7 @@ deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spec
       grossp <- winsum(rcps, ren, Ep, sp) * lt_i; a_prim <- grossp - bgp
       net_sig <- a_prim/sqrt(bgp); fit_sig <- (A*lt_i/dE)/sqrt(bgp)
       if(!(is.finite(net_sig) && is.finite(fit_sig) && net_sig>=lod_sigma && fit_sig>=lod_sigma)) next
-      # (2) line-ratio refutation: if a strong detectable line predicts far more counts than observed, the
-      #     element's pattern is refuted (it borrowed a neighbour's line but can't produce its own). A weak
-      #     line lost in noise predicts little, so it cannot refute -- this protects real minor elements.
-      #     a_sup tracks the amplitude the lines jointly support, for the mass cap.
+      # (2) Line-ratio refutation: a detectable line that predicts far more counts than observed refutes the element, while a weak line lost in noise predicts too little to refute a real minor element; a_sup tracks the amplitude all lines support, for the mass cap.
       refuted <- FALSE; a_sup <- a_prim
       for(j in seq_along(cz$E)){
         s_j <- sig_kev(cz$E[j]); bg_j <- winsum(bcps, ben, cz$E[j], s_j)*lt_i
@@ -10761,18 +10431,9 @@ deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spec
         a_sup <- min(a_sup, (net_j + sqrt(max(bg_j,1)))/cz$p[j])
       }
       if(refuted) next
-      # (4) credibility bar: rarer/less-efficient element -> higher sigma required (impossibles need ~infinite).
-      # BOTH the fitted-area significance AND the raw-ROI net significance must clear the bar. Testing fit_sig
-      # alone is a loophole: the E1 scatter-continuum+background basis can inflate a rare element's FITTED area
-      # (broad multi-line L-templates soak up continuum SNIP would subtract) so fit_sig >> net_sig -- e.g. Ra at
-      # 220 kV got fit_sig 42 (>21 bar) from net_sig 6. Requiring net_sig (actual counts at the primary line) to
-      # also clear the bar rejects that (verified: drops Ra on all spectra, keeps real Sr/Zr/Rb/Y/Nb/Fe whose
-      # net_sig >= their ~3 bar). For common elements the ~3-sigma bar makes this near-redundant with gate (1);
-      # it only bites the rare/inefficient high-bar elements that are exactly the phantom-prone ones.
+      # (4) Credibility bar: both the fitted-area and the raw net-count significance must clear the element's bar, because the E1 background basis can inflate a rare element's fitted area well above its actual counts.
       if(!(fit_sig >= thr_ab[[el]] && net_sig >= thr_ab[[el]])) next
-      # (3) attribution: fitted share of the primary window vs competitors incl. the KNOWN-anode scatter.
-      #     Each element competitor's leak is downweighted by min(1, abundance_D/abundance_E) -- a rarer
-      #     competitor makes a weaker claim on the window -- so the more abundant element wins an overlap.
+      # (3) Attribution: the element must hold at least half of its primary window against the known-anode scatter and the other elements, each competitor's leak weighted by min(1, its production efficiency / this element's), so the more efficiently produced element wins an overlap.
       lo <- Ep-1.5*sp; hi <- Ep+1.5*sp
       own <- A*(pnorm(hi, Ep, sp) - pnorm(lo, Ep, sp)); leak <- 0
       othr <- which(is.finite(compE) & is.finite(compS)); othr <- othr[othr != kk]
@@ -10789,9 +10450,7 @@ deconvolution_fp_phantom_gate <- function(area_frame, keep, baseline_frame, spec
   list(pass=pass, cap=cap)
 }
 
-# Build a per-spectrum LiveTime lookup (named numeric, seconds) from an imported metadata frame, for the
-# full-FP $Mass count-space LOD. Names are cleaned to match dataHold()'s Spectrum ids (extension stripped).
-# Returns NULL when no usable LiveTime column is present (the LOD then falls back to the col-max signal filter).
+# Build a per-spectrum LiveTime lookup (named numeric, seconds) from an imported metadata frame for the full-FP $Mass count-space LOD, stripping file extensions to match dataHold()'s Spectrum ids. Returns NULL without a usable LiveTime column, in which case the LOD falls back to the column-max signal filter.
 deconvolution_livetime_lookup <- function(md){
     if(!is.data.frame(md) || !("LiveTime" %in% names(md))) return(NULL)
     lt <- suppressWarnings(as.numeric(md$LiveTime))
@@ -10803,12 +10462,8 @@ deconvolution_livetime_lookup <- function(md){
     lt                                               # unnamed -> deconvolution_mass_frame uses the batch median
 }
 
-# LiveTime for re-deconvolving NEW spectra under a stored calibration. E1 (the joint scatter-background fit) only
-# engages with a live time, so prediction must supply one exactly when training ran E1 -- otherwise a model trained
-# on E1 areas is applied to SNIP-fit areas. NULL when the calibration's deconvolution has no E1 baseline (training
-# ran SNIP; keep it that way). Otherwise the new spectra's own LiveTime, or, when their files carry none, the
-# calibration's median training live time marked attr(, "nominal"). The value only switches E1 on: its Poisson
-# weights are livetime / fitted cps, a uniform scale, so the fitted areas barely depend on it.
+# LiveTime for re-deconvolving new spectra under a stored calibration; E1 only engages with a live time, so one is supplied exactly when training ran E1.
+# Returns NULL when training ran SNIP, else the new spectra's LiveTime or, if their files carry none, the calibration's median training live time marked attr(, "nominal"), which is enough because the value only switches E1 on.
 deconvolution_prediction_livetime <- function(deconvoluted, metadata=NULL, calibration_metadata=NULL){
     if(!is.list(deconvoluted) || is.null(deconvoluted$E1)) return(NULL)
     lt <- tryCatch(deconvolution_livetime_lookup(metadata), error=function(e) NULL)
@@ -10824,8 +10479,7 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
     tryCatch({
         physics <- deconvolution_physics_flatten_geometry(physics)   # accept physics$geometry from a direct caller
         element_cols <- setdiff(names(area_frame), c("Spectrum", "Baseline", "Compton", "Rayleigh"))
-        # Bare element symbols only: split_series "<El>_L" columns are the L+M part of an element whose K-series
-        # (the bare column) carries its mass; they must never reach the FP solve or fpMassClosure.
+        # Bare element symbols only: split_series "<El>_L" columns hold the L+M part of an element whose mass is carried by its bare K-series column, so they must not reach the FP solve or fpMassClosure.
         element_cols <- element_cols[grepl("^[A-Z][a-z]?$", element_cols)]
         if(length(element_cols) == 0) return(NULL)
         pget <- function(k, default){ v <- physics[[k]]; if(!is.null(v) && !is.na(v[1])) v else default }
@@ -10834,8 +10488,7 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
         tube_obj <- tryCatch(
             if(!is.null(physics$tube_anode) && !is.null(physics$tube_kv)) xrf_tube(physics$tube_anode, kv=physics$tube_kv, filter=physics$tube_filter) else NULL,
             error=function(e) NULL)
-        # Sensitivity uses the run's excitation/detector physics, defaulting to a full-physics estimate
-        # (efficiency on, cross-section weighting) so the mass is meaningful even from a legacy fit.
+        # Sensitivity uses the run's excitation and detector physics, defaulting to full physics (efficiency on, cross-section weighting) so the mass is meaningful even from a legacy fit.
         sens_args <- list(elements = element_cols, beam_energy_kev = beam,
                  detector_type = physics$detector_type,
                  be_window_um = physics$be_window_um, dead_layer_um = physics$dead_layer_um,
@@ -10844,8 +10497,7 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
                  excitation_weighting = pget("excitation_weighting", "cross_section"),
                  coster_kronig = pget("coster_kronig", TRUE),
                  tube = tube_obj)
-        # active_thickness_um only exists in newer xrftools; pass it only when the installed function accepts
-        # it, so an older install still builds $Mass (just without the thickness-consistency refinement).
+        # Pass active_thickness_um only when the installed xrftools accepts it, so older versions still build $Mass.
         if("active_thickness_um" %in% names(formals(xrf_fp_sensitivity)))
             sens_args$active_thickness_um <- physics$active_thickness_um
         # measurement environment (air path / atmosphere / snout window) -- newer xrftools only
@@ -10856,35 +10508,19 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
         }
         S <- do.call(xrf_fp_sensitivity, sens_args)
         sens <- setNames(S$sensitivity, S$element)[element_cols]           # NA for unexcited elements
-        # Detectability floor. An element whose emission line the detector effectively cannot see (below the
-        # window cutoff -- e.g. C at 0.28 keV or O at 0.53 keV on an 8um-Be SDD) or that is barely excited has
-        # a near-zero FP sensitivity. Its fitted peak_area is then just baseline noise, and peak_area /
-        # sensitivity amplifies that into absurd masses (obsidian carbon came out ~1e13). Drop any element
-        # whose sensitivity is below `mass_min_sensitivity` x the strongest element's sensitivity -- these are
-        # not measurable by this instrument, so a mass estimate for them is meaningless rather than merely noisy.
+        # Detectability floor: an element the detector cannot see or that is barely excited has near-zero FP sensitivity, and peak_area / sensitivity turns its baseline-noise area into absurd masses, so drop elements whose sensitivity is below `mass_min_sensitivity` x the strongest element's.
         smax <- suppressWarnings(max(sens, na.rm=TRUE))
         keep <- element_cols[is.finite(sens) & sens > 0 & is.finite(smax) & sens >= mass_min_sensitivity * smax]
         if(length(keep) == 0) return(NULL)
 
         if(identical(as.character(fidelity), "full")){
-            # Full fidelity: per-spectrum fundamental-parameters solve (self-absorption + secondary/tertiary
-            # fluorescence) via xrf_quantify's un-normalized observed_mass. Slower -- one FP solve per spectrum,
-            # and the matrix couples elements -- but correct for heavy matrices where secondary fluorescence
-            # (e.g. Cu enhancing Fe/Mn/Cr in a bronze) badly biases the relative A/S estimate.
-            #
+            # Full fidelity: a per-spectrum fundamental-parameters solve via xrf_quantify's un-normalized observed_mass, with self-absorption and optional secondary/tertiary fluorescence; slower than the relative A/S estimate, but it corrects the matrix effects that bias that estimate in heavy matrices.
             qargs <- list(beam_energy_kev = beam, detector_type = physics$detector_type,
                 be_window_um = physics$be_window_um, dead_layer_um = physics$dead_layer_um,
                 efficiency = pget("efficiency", TRUE), excitation = pget("excitation", "photon"),
                 excitation_weighting = pget("excitation_weighting", "cross_section"),
                 coster_kronig = pget("coster_kronig", TRUE), tube = tube_obj,
-                # secondary/tertiary fluorescence OFF by default (matches xrf_quantify's own default). Empirically
-                # the Shiraiwa-Fujino enhancement is correct for concentrated exciter/analyte (18-8 stainless Cr
-                # ~58%) but GROWS UNPHYSICALLY with no saturation in the dilute-analyte / near-pure-exciter regime
-                # (measured 132% applied vs a <=22% empirical bound on our steel CRMs = 2-6x over), and -- via the
-                # sum-to-one closure -- corrupts even NON-enhanced elements (Mn concentration R2 0.942->0.916). The
-                # over-correction is invisible to the enhanced element's own R2 (Cr stays ~1.0), so it silently
-                # biases quant. Re-enable per-run (physics$secondary_fluorescence) once the g-factor incident leg is
-                # recalibrated (fold over the tube excitation grid, not the endpoint mu at kV -- cuts it ~1/3).
+                # Secondary/tertiary fluorescence is off by default, as in xrf_quantify: the Shiraiwa-Fujino enhancement grows without saturation for a dilute analyte in a near-pure exciter and, through the sum-to-one closure, silently biases the other elements too. Re-enable it per run (physics$secondary_fluorescence) once the g-factor incident leg is folded over the tube excitation grid rather than using the endpoint mu at kV.
                 self_absorption = TRUE,
                 secondary_fluorescence = pget("secondary_fluorescence", FALSE),
                 tertiary_fluorescence = pget("tertiary_fluorescence", FALSE))
@@ -10896,13 +10532,7 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
             if("incidence_deg" %in% qf && !is.null(physics$incidence_deg)) qargs$incidence_deg <- physics$incidence_deg
             if("takeoff_deg"  %in% qf && !is.null(physics$takeoff_deg))  qargs$takeoff_deg  <- physics$takeoff_deg
 
-            # Restrict the FP element set to real signal, per spectrum, via the four-gate Bayesian phantom
-            # filter (LOD + line-ratio refutation + abundance-weighted attribution + crustal-abundance prior;
-            # see deconvolution_fp_phantom_gate). The "fit everything" deconvolution invents dozens of spurious
-            # elements that would otherwise poison the self-absorption matrix. `pass` keeps only elements
-            # detected in a given spectrum; `cap` (<=1) scales a barely-surviving degenerate's stolen area down
-            # to what its own line ratios support. Needs per-channel raw + baseline + LiveTime; when any is
-            # missing (metadata-less import, baseline off, older caller) it falls back to the col-max filter.
+            # Restrict each spectrum's FP element set to real signal with deconvolution_fp_phantom_gate, since the fit-everything deconvolution invents spurious elements that would poison the self-absorption matrix; `pass` marks detected elements and `cap` (<=1) scales down a degenerate element's stolen area. Without raw spectra, baseline and LiveTime, or if the gate fails, the col-max filter is used.
             lt_num <- if(!is.null(livetime)) suppressWarnings(as.numeric(livetime)) else numeric(0)
             use_gate <- is.data.frame(baseline_frame) && all(c("Spectrum","Energy","CPS") %in% names(baseline_frame)) &&
                         is.data.frame(spectra_raw)  && all(c("Spectrum","Energy","CPS") %in% names(spectra_raw)) &&
@@ -10925,8 +10555,7 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
                 if(length(keep) == 0) return(NULL)
             }
             rows <- lapply(seq_len(nrow(area_frame)), function(i){
-                # per-spectrum element set: only lines detected in THIS spectrum enter the FP solve, so
-                # phantom/absent lines cannot poison this spectrum's self-absorption matrix.
+                # Only elements detected in this spectrum enter its FP solve, so phantom or absent lines cannot poison its self-absorption matrix.
                 els_i <- if(!is.null(pass_mat)) keep[pass_mat[i, ]] else keep
                 if(length(els_i) == 0) return(setNames(rep(NA_real_, length(keep)), keep))
                 ar <- as.numeric(area_frame[i, els_i])
@@ -10949,41 +10578,27 @@ deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL
 
 deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=2.5, default_sigma=0.07,
     smooth_iter=20, snip_iter=20, use_qr=TRUE,
-    # --- estimator: backward-compat defaults reproduce the historical unconstrained OLS ---
+    # estimator: backward-compat defaults reproduce the historical unconstrained OLS
     nonneg=FALSE, weighting="none",
-    # --- excitation / line model: backward-compat defaults reproduce the historical jump-ratio model
-    #     (identical for single-family K-only / L-only elements; the emission-probability omega fix is
-    #     the only unrevertable change and cancels under per-element normalization there) ---
+    # Excitation / line model: the defaults keep the jump-ratio model for backward compatibility, with identical results for K-only or L-only elements, where the emission-probability omega change cancels under per-element normalization.
     beam_energy_kev=NULL, excitation="photon", overvoltage_min=1,
     excitation_weighting="jump", coster_kronig=FALSE,
-    # --- detector resolution: overrides default_sigma with sigma(E) when detector_type is set ---
+    # detector resolution: overrides default_sigma with sigma(E) when detector_type is set
     detector_type=NULL, fano=NULL, epsilon_ev=NULL, noise_fwhm_ev=NULL,
-    # --- detector response (all off by default) ---
+    # detector response (all off by default)
     efficiency=FALSE, escape=FALSE, be_window_um=NULL, dead_layer_um=NULL, active_thickness_um=NULL,
     air_path_cm=NULL, atmosphere="Air", window=NULL,
-    # --- scatter (needs a tube) ---
+    # scatter (needs a tube)
     tube_anode=NULL, tube_kv=NULL, tube_filter=NULL, scatter=NULL, scatter_angle_deg=135, compton_broadening=2,
-    # Sample incidence / detector take-off, degrees FROM THE SAMPLE SURFACE. Both legs of the self-absorption
-    # path: the scatter templates below (via xrf_geometry -> .xrf_scatter_sample_kernel, the thick-sample
-    # Sherman denominator 1/(mu(E)/sin psi1 + mu(E')/sin psi2)) AND the full-FP $Mass solve
-    # (deconvolution_mass_frame -> xrf_quantify). NULL keeps xrftools' own 45/45 defaults.
+    # Sample incidence and detector take-off angles, in degrees from the sample surface: the two legs of the self-absorption path, used by the scatter templates and the full-FP $Mass solve. NULL keeps xrftools' 45/45 defaults.
     incidence_deg=NULL, takeoff_deg=NULL,
-    # --- line shape / engine ---
+    # line shape / engine
     tail=0, step=0, beta=NULL, refine_calibration=FALSE, sum_peaks=FALSE, pileup_tau=NULL,
-    # abundance_prior>0 turns on the crustal-abundance NNLS ridge (collinearity-weighted); used only for
-    # full-FP $Mass, where degenerate phantoms most poison the solve. 0 = legacy fit. abundance_protect exempts
-    # named elements (the calibration's target list) from that prior, so the tiebreaker never crushes an element
-    # the user is deliberately measuring (e.g. a heavy-L trace like Pb whose lines overlap phantom neighbours).
+    # abundance_prior > 0 turns on the collinearity-weighted crustal-abundance NNLS ridge, used only for full-FP $Mass where degenerate phantoms most poison the solve; 0 is the unregularised fit. abundance_protect exempts named elements, such as the calibration's targets, so the prior never crushes an element the user is measuring.
     abundance_prior=0, abundance_protect=NULL,
-    # scatter_background (E1): fit the UN-baselined raw cps with a jointly-fitted scatter continuum + smooth
-    # background basis (Poisson-weighted) instead of subtracting a SNIP baseline. Recovers peaks on steep
-    # backgrounds (Mn on the Fe Kalpha tail, Mo under the scatter hump) and models the physics ~2.5x better
-    # (validated on obsidian/steel/mudrock/high-kV: better fit, trace tracking preserved, no regression). Needs
-    # a tube + a per-spectrum `livetime` for the Poisson weights; the `use_e1` guard below silently falls back
-    # to the classic SNIP-subtract fit without them -- so defaulting TRUE is safe (auto-fallback, never errors).
+    # scatter_background (E1) fits the raw, un-baselined cps with a jointly fitted scatter continuum and smooth background, Poisson-weighted, instead of subtracting a SNIP baseline, which recovers peaks on steep backgrounds. It needs a tube, a per-spectrum `livetime` and a recent xrftools; without them the `use_e1` guard falls back to the SNIP fit, so defaulting to TRUE is safe.
     scatter_background=TRUE, scatter_background_n=10L, livetime=NULL,
-    # split_series: fit an element's in-window K-series and its L+M lines as two independent templates ("Pb" and
-    # "Pb_L"). FALSE (default, and every calibration saved before this option) keeps the single tied template.
+    # split_series fits an element's in-window K-series and its L+M lines as two independent templates ("Pb" and "Pb_L"); FALSE, the default and what older calibrations used, keeps one tied template.
     split_series=FALSE,
     cache_templates=TRUE){
     if(is.null(energy_max)){
@@ -10993,9 +10608,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
     if(is.null(beam_energy_kev)){
         beam_energy_kev <- energy_max
     }
-    # The Gaussian smoothing filter needs an ODD, integer number of taps, and the SNIP/smooth iteration
-    # counts must be whole numbers. A caller optimizing these over a continuous range (e.g. width = 20.327)
-    # would otherwise build an even-length filter that crashes the smoother. Snap them to valid values.
+    # The Gaussian filter needs an odd integer number of taps and the SNIP/smooth iteration counts must be whole numbers, so snap them to valid values in case a caller optimizes them over a continuous range.
     if(is.numeric(width) && length(width) == 1 && is.finite(width)){
         width <- max(1, 2 * round((width - 1) / 2) + 1)   # nearest odd integer >= 1
     }
@@ -11012,16 +10625,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
                 coster_kronig=coster_kronig),
             error=function(e) xrf_energies("everything", beam_energy_kev=beam_energy_kev))
 
-        # Detector-efficiency line-visibility filter. Drops element lines below 2% full-energy efficiency.
-        # Tied templates (split_series = FALSE): the filter also ROUTES heavy elements onto their visible lines --
-        # e.g. U/Th-K at 90-100 keV on a thin SDD (~0.6% efficient) are dropped so U/Th fit on their L-lines, which
-        # gave U R^2 0.90 in the 220 kV mudrock beam where U-K net counts were ~noise. But it drops the K-lines even
-        # when they are the strong ones: Pb K-alpha on a 450 um SDD is 0.66% efficient yet ~125k net counts at
-        # 200 kV, and dropping it left Pb on L-lines buried under As K-alpha (AMIS0421: no Pb at all).
-        # Split templates (split_series = TRUE): the K-series has its own amplitude, so a weak K-series just fits
-        # ~0 and no routing is needed. Only drop lines on the LOW-energy side of the efficiency maximum (window /
-        # air-limited: C, N, O, F, Ne), never transparency-limited high-energy lines.
-        # Guarded: only when a detector is known; never drops ALL lines.
+        # Detector-efficiency visibility filter (only when a detector is known, never dropping every line): drop lines below 2% full-energy efficiency. With tied templates this moves heavy elements onto their visible L-lines but can drop inefficient yet strong K-lines, so with split_series, where a weak K-series just fits ~0, lines above the efficiency maximum are always kept.
         if(!is.null(detector_type) && is.data.frame(peaks) && nrow(peaks) && "energy_kev" %in% names(peaks)){
             eff_fun <- function(e) xrf_detector_efficiency(e, detector_type,
                         active_thickness_um=active_thickness_um, air_path_cm=air_path_cm,
@@ -11036,12 +10640,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
             if(any(visible) && !all(visible)) peaks <- peaks[visible, , drop=FALSE]
         }
 
-        # K vs L+M split: an element whose strongest K line sits inside the fit window keeps its bare symbol for the
-        # K-series and moves its L and M lines to a separate "<El>_L" template. xrftools builds one template per
-        # `element` label (escape satellites inherit the label), so relabelling here is all the fit needs. M stays
-        # tied to L: freeing heavy-element M-lines put them on Si K-alpha (obsidian Si R^2 0.31 -> 0.10). The
-        # decision uses the strongest K line with a margin inside the window, so an element straddling the edge
-        # (Eu K-alpha2 40.90 / K-alpha1 41.54 keV in a ~41 keV window) is not split in some spectra and not others.
+        # K vs L+M split: an element whose strongest K line is inside the fit window, with a margin so edge elements split consistently across spectra, keeps its bare symbol for the K-series and moves its L and M lines to an "<El>_L" template; xrftools builds one template per `element` label, so relabelling is enough. M stays tied to L because freed heavy-element M-lines get fitted onto Si K-alpha.
         abundance_ppm <- NULL
         if(isTRUE(split_series) && is.data.frame(peaks) && nrow(peaks) && all(c("element", "energy_kev") %in% names(peaks))){
             shell_of <- if("edge" %in% names(peaks)) peaks$edge else peaks$trans
@@ -11054,8 +10653,7 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
                 split_elements <- names(k_primary)[k_primary <= energy_max - max(0.25, 0.01 * energy_max)]
                 to_l <- peaks$element %in% split_elements & series %in% c("L", "M")
                 peaks$element[to_l] <- paste0(peaks$element[to_l], "_L")
-                # Full-FP's abundance prior looks penalties up by template name; give "<El>_L" its element's crustal
-                # abundance so e.g. a rare-earth L template at 200 kV (Tb_L on Fe K) stays as penalised as its element.
+                # Full-FP's abundance prior looks penalties up by template name, so each "<El>_L" template gets its element's crustal abundance and is penalised like the element.
                 if(is.numeric(abundance_prior) && isTRUE(abundance_prior > 0)){
                     l_templates <- unique(peaks$element[to_l])
                     ab_table <- tryCatch(get(".xrf_crustal_abundance_ppm", envir=asNamespace("xrftools")),
@@ -11067,15 +10665,11 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
             }
         }
 
-        # Tube / geometry for optional Rayleigh-Compton scatter templates. A primary-beam filter (e.g. the
-        # PDZ-inferred "Cu 100") hardens the excitation spectrum; passed through to xrf_tube when present.
+        # Tube and geometry for the optional Rayleigh/Compton scatter templates; a primary-beam filter, which hardens the excitation spectrum, is passed to xrf_tube when present.
         tube <- tryCatch(
             if(!is.null(tube_anode) && !is.null(tube_kv)) xrf_tube(tube_anode, kv=tube_kv, filter=tube_filter) else NULL,
             error=function(e) NULL)
-        # The path angles must go in too, not just the scatter angle: xrf_scatter_peaks and
-        # xrf_scatter_continuum weight their templates through .xrf_scatter_sample_kernel, which reads
-        # geometry$incidence_deg / $takeoff_deg. Dropping them here silently pinned every scatter template to
-        # 45/45 even on runs that had real angles. A blank/invalid value falls back to the xrftools default.
+        # Pass the path angles as well as the scatter angle, because the scatter templates are weighted through .xrf_scatter_sample_kernel, which reads geometry$incidence_deg and $takeoff_deg; a blank or invalid angle falls back to 45, the xrftools default.
         geo_ang <- function(v, d){ v <- suppressWarnings(as.numeric(v))
             if(length(v) == 1 && is.finite(v) && v > 0 && v <= 90) v else d }
         geometry <- tryCatch(xrf_geometry(incidence_deg = geo_ang(incidence_deg, 45),
@@ -11087,17 +10681,12 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
             xrf_add_smooth_filter(filter = xrf_filter_gaussian(width = width, alpha = alpha), .iter = smooth_iter) %>%
             xrf_add_baseline_snip(.values = .spectra$smooth, iterations = snip_iter)
 
-        # E1 (experimental) opt-in: fit the UN-baselined raw cps with a jointly-fitted scatter continuum +
-        # smooth background basis, Poisson-weighted, so the deconvolution models the background ITSELF rather
-        # than pre-subtracting SNIP. CRITICAL: it must be fed raw cps + real Poisson weights (counts = cps *
-        # livetime) -- a smoothed or unweighted input silently destroys traces. Only engaged with a tube, a
-        # valid per-spectrum livetime, and a new-enough xrftools; else the standard SNIP fit runs.
+        # E1 (experimental, opt-in) fits raw cps with a joint scatter continuum and smooth background, Poisson-weighted, instead of subtracting SNIP first; it needs raw cps with real Poisson weights (counts = cps * livetime), a tube, a per-spectrum livetime and a recent xrftools, otherwise the SNIP fit runs.
         gls_formals <- names(formals(xrf_add_deconvolution_gls))
         use_e1 <- isTRUE(scatter_background) && !is.null(tube) &&
                   is.numeric(livetime) && length(livetime) == 1 && is.finite(livetime) && livetime > 0 &&
                   all(c("scatter_continuum", "background") %in% gls_formals)
-        # Full (new-xrftools) call; fall back to the historical minimal signature on any older
-        # xrftools that lacks the added arguments ("unused argument").
+        # Full call for a current xrftools; an older xrftools that rejects the newer arguments with "unused argument" gets the minimal call instead.
         deconvoluted_spectra_tibble <- tryCatch({
             if(use_e1){
                 smoothed_tibble %>%
@@ -11148,16 +10737,13 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
         baseline_spectra <- spectra_frame_baseline_convert(deconvoluted_spectra_tibble)
         deconvoluted_spectra <- spectra_frame_deconvolution_convert(deconvoluted_spectra_tibble)
         deconvoluted_peaks <- intensity_frame_deconvolution_convert(deconvoluted_spectra_tibble$.deconvolution_peaks[[1]], name=spectrum_name)
-        # arPLS baseline: a modern Whittaker-smoother alternative to SNIP, physics-free so always computed.
-        # Run on a SEPARATE pipe off smoothed_tibble (xrf_add_baseline_arpls writes .spectra$baseline, which
-        # the legacy fit reads as .spectra$smooth - .spectra$baseline) so it never clobbers the SNIP baseline.
+        # arPLS baseline, a Whittaker-smoother alternative to SNIP that needs no physics, so it is always computed when available; it runs on a separate pipe from smoothed_tibble because xrf_add_baseline_arpls writes .spectra$baseline and would otherwise replace the SNIP baseline.
         arpls_spectra <- tryCatch({
             if(exists("xrf_add_baseline_arpls")){
                 spectra_frame_baseline_convert(xrf_add_baseline_arpls(smoothed_tibble, .values = .spectra$smooth))
             } else NULL
         }, error=function(e) NULL)
-        # E1 baseline: the fitted background + scatter continuum, extracted from the fit that already ran
-        # (only meaningful when use_e1 fired -- raw-cps response with a fitted background/scatter).
+        # E1 baseline: the fitted background plus scatter continuum from the fit above, only when E1 ran.
         e1_spectra <- if(isTRUE(use_e1))
             tryCatch(spectra_frame_fit_baseline_convert(deconvoluted_spectra_tibble, name=spectrum_name),
                      error=function(e) NULL) else NULL
@@ -11179,23 +10765,14 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     # Use fast QR for single-core, fork-safe lm() for multicore
     use_qr <- (cores == 1)
 
-    # `physics` bundles the optional new xrftools deconvolution arguments (detector_type, excitation,
-    # nonneg, tube_anode/tube_kv, efficiency, escape, tail, ...). Empty list = historical behaviour.
+    # `physics` bundles the optional xrftools deconvolution arguments (detector_type, excitation, nonneg, tube_anode/tube_kv, efficiency, escape, tail, ...); an empty list gives the classic fit.
     if(is.null(physics)) physics <- list()
-    # A caller working from the console can hand in xrftools' own container --
-    # physics=list(geometry=xrf_geometry(incidence_deg=, takeoff_deg=, scatter_angle_deg=)) -- so flatten it
-    # onto the flat scalars BEFORE anything else looks at them: the persisted record, the scatter-angle
-    # inference guard and the do.call splat (which has no `geometry` formal) all read them.
+    # A console caller may pass xrftools' own container, physics=list(geometry=xrf_geometry(...)), so flatten it onto the scalar angle keys before the persisted record, the scatter-angle inference guard and do.call (which has no `geometry` argument) read them.
     physics <- deconvolution_physics_flatten_geometry(physics)
-    # dot-prefixed keys (e.g. .mode) are UI-only metadata: keep them in the persisted Parameters for
-    # restoring the UI, but strip them from the arguments passed to deconvolute_complete.
-    # NB: names() is NULL for an empty/unnamed physics (the default list()), and startsWith(NULL, ".")
-    # errors ("non-character object(s)") -- guard it, since an unnamed bundle has no dot-keys to strip.
+    # Dot-prefixed keys (e.g. .mode) are UI-only metadata, kept in the persisted Parameters but stripped from the deconvolute_complete arguments; an unnamed physics list has NULL names, which startsWith() rejects, and no dot-keys to strip.
     physics_names <- names(physics)
     physics_call <- if (is.null(physics_names)) physics else physics[!startsWith(physics_names, ".")]
-    # Only forward keys deconvolute_complete actually takes, minus the ones safe_deconvolute passes explicitly: do.call
-    # fails EVERY spectrum with "unused argument" on an unknown key, or "matched by multiple actual arguments" on a
-    # duplicate. Keys read only by the $Mass code (e.g. secondary_fluorescence) stay in `physics` for it.
+    # Forward only the keys deconvolute_complete takes, minus those safe_deconvolute passes explicitly, since an unknown or duplicated argument makes do.call fail on every spectrum; keys only the $Mass code reads (e.g. secondary_fluorescence) stay in `physics`.
     if (!is.null(names(physics_call))) {
         explicit_args <- c("spectra_frame", "energy_max", "width", "alpha", "default_sigma", "smooth_iter",
                            "snip_iter", "use_qr", "abundance_prior", "livetime")
@@ -11206,27 +10783,17 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
         physics_call <- physics_call[intersect(names(physics_call), fit_args)]
     }
 
-    # $Mass fidelity, resolved up front so full-FP can regularise the deconvolution itself. The
-    # crustal-abundance NNLS ridge (collinearity-weighted) is applied ONLY for full-FP $Mass -- where
-    # degenerate phantoms most poison the self-absorption solve -- and left off (0) for plain deconvolution
-    # and relative $Mass, so the displayed Areas and legacy behaviour are unchanged outside full mode.
+    # Resolve the $Mass fidelity first so full-FP can regularise the deconvolution: the crustal-abundance NNLS ridge is used only for full-FP $Mass, where degenerate phantoms most poison the self-absorption solve, and is 0 otherwise, so other modes keep unregularised Areas.
     mass_mode <- if(isTRUE(mass)) "relative" else if(is.character(mass) && length(mass)==1) tolower(mass) else "off"
     abundance_prior <- if(identical(mass_mode, "full")) 0.2 else 0
 
-    # Per-angle provenance, recorded whether or not the inference below runs. "supplied" = the value arrived
-    # in the bundle (typed into the UI geometry fields, read off the file's metadata, or passed by a script);
-    # "inferred" = self-calibrated below; "default" = nothing was known, so xrftools' own value stands.
+    # Per-angle provenance, recorded whether or not the inference below runs: "supplied" (in the bundle, from the UI, file metadata or a script), "inferred" (self-calibrated below) or "default" (xrftools' own value).
     geo_src <- c(incidence_deg     = if(!is.null(physics_call$incidence_deg))     "supplied" else "default",
                  takeoff_deg       = if(!is.null(physics_call$takeoff_deg))       "supplied" else "default",
                  scatter_angle_deg = if(!is.null(physics_call$scatter_angle_deg)) "supplied" else "default")
     geo_prov <- list(inferred = FALSE, reason = NA_character_)
 
-    # Self-calibrate the scatter geometry from the anode Rayleigh/Compton splitting: when the anode is known
-    # but the scatter angle was NOT explicitly set, infer the effective angle (and Compton width) from the
-    # highest-scatter spectrum in the batch and apply it to the whole run (same instrument -> same geometry).
-    # xrf_infer_scatter_geometry is conservative -- only a high-count, clean anode-scatter measurement clears
-    # its guards; otherwise it returns confident=FALSE and the assumed angle is kept. Guarded on the function's
-    # existence so an older xrftools install is unaffected.
+    # When the tube is known but the scatter angle is not set, infer the effective angle and Compton width from the anode Rayleigh/Compton splitting in the batch's highest-CPS spectrum and apply them to the whole run; xrf_infer_scatter_geometry is conservative and returns confident=FALSE, keeping the assumed angle, unless the anode scatter is clean and well counted.
     if(is.null(physics_call$scatter_angle_deg) && !is.null(physics_call$tube_anode) && !is.null(physics_call$tube_kv) &&
        exists("xrf_infer_scatter_geometry") && nrow(spectra_frame) > 0){
         geo <- tryCatch({
@@ -11235,19 +10802,12 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
             xrf_infer_scatter_geometry(d$Energy, d$CPS, physics_call$tube_anode, physics_call$tube_kv,
                 detector_type = if(!is.null(physics_call$detector_type)) physics_call$detector_type else "SDD")
         }, error=function(e) NULL)
-        # Keep the decline reason ("insufficient scatter counts", "Compton candidate too narrow", ...) even
-        # when the guards refuse, so the UI can say WHY the assumed angle is still in force.
+        # Keep the decline reason even when the guards refuse, so the UI can say why the assumed angle is still in use.
         if(!is.null(geo) && !is.null(geo$reason)) geo_prov$reason <- as.character(geo$reason)
         if(!is.null(geo) && isTRUE(geo$confident)){
             physics_call$scatter_angle_deg  <- geo$scatter_angle_deg
             physics_call$compton_broadening <- geo$compton_broadening
-            # Persist the inferred geometry into `physics` so $Deconvoluted$Parameters$Physics FAITHFULLY records
-            # the angle actually used, reproducing the calibration exactly on reload (a set scatter_angle_deg then
-            # skips re-inference, which could otherwise drift if the reloaded spectra / confidence guards change).
-            # Two-part record following the dot-key convention: (1) FUNCTIONAL keys (non-dot) that flow to the fit
-            # and are restored on reload; (2) a `.scatter_geometry` PROVENANCE bundle (dot-key -> stripped from the
-            # fit call, kept in the record) so the UI/user can see the angle was auto-inferred from the anode
-            # Rayleigh/Compton split and inspect the evidence (measured line energies, width ratio, band counts).
+            # Store the inferred geometry in `physics` so $Deconvoluted$Parameters$Physics records the angle actually used and a reload reproduces the calibration without re-inferring; the `.scatter_geometry` dot-key bundle stays out of the fit call and lets the UI show that the angle was inferred, with its evidence.
             physics$scatter_angle_deg  <- geo$scatter_angle_deg
             physics$compton_broadening <- geo$compton_broadening
             geo_src["scatter_angle_deg"] <- "inferred"
@@ -11260,8 +10820,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
             geo_prov$band_counts <- geo$band_counts
         }
     }
-    # Close the record with the angles the fit is ACTUALLY about to use -- an absent key means xrftools' own
-    # default (45/45 path angles, 135 deg scatter, broadening 2), which is what the reader needs to see.
+    # Record the angles the fit will actually use, with xrftools' defaults (45/45 path angles, 135 degree scatter, broadening 2) for absent keys.
     geo_prov$incidence_deg      <- if(!is.null(physics_call$incidence_deg))      physics_call$incidence_deg      else 45
     geo_prov$takeoff_deg        <- if(!is.null(physics_call$takeoff_deg))        physics_call$takeoff_deg        else 45
     geo_prov$scatter_angle_deg  <- if(!is.null(physics_call$scatter_angle_deg))  physics_call$scatter_angle_deg  else 135
@@ -11269,13 +10828,10 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     geo_prov$source <- geo_src
     physics$.scatter_geometry <- geo_prov
 
-    # Per-spectrum LiveTime lookup (Poisson weights for the E1 scatter-background fit; falls back to the batch
-    # median when a spectrum's name isn't matched). Accepts three forms:
-    #   * a named numeric vector  (names = Spectrum ids, values = seconds) -- matched per spectrum;
-    #   * a data.frame            (a full metadata frame, or a 2-col Spectrum/LiveTime frame) -- converted
-    #                             here via deconvolution_livetime_lookup(), so a command-line caller can pass
-    #                             metadata directly (livetime = metadata) instead of hand-building the vector;
-    #   * a bare/unnamed numeric  -> batch median for all;   NULL -> no live time (unweighted fit).
+    # Per-spectrum LiveTime for the E1 Poisson weights; a spectrum whose name is not matched gets the batch median. Accepts:
+    # - a named numeric vector (names = Spectrum ids, values = seconds), matched per spectrum;
+    # - a data.frame (a metadata frame or a Spectrum/LiveTime frame), converted by deconvolution_livetime_lookup();
+    # - an unnamed numeric, whose median is used for every spectrum; NULL means no live time (unweighted fit).
     lt_from_df <- is.data.frame(livetime)
     if(lt_from_df) livetime <- deconvolution_livetime_lookup(livetime)
     if(lt_from_df && is.null(livetime))
@@ -11284,10 +10840,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     lt_num <- if(!is.null(livetime)) suppressWarnings(as.numeric(livetime)) else numeric(0)
     lt_named <- if(!is.null(names(livetime))) setNames(lt_num, names(livetime)) else NULL
     lt_med <- suppressWarnings(stats::median(lt_num[is.finite(lt_num)]))
-    # Loudly flag the silent-median trap: a live time was supplied but its names do NOT match this batch's
-    # Spectrum ids (the classic command-line mismatch -- extension / make.names differences), so every spectrum
-    # would quietly inherit the batch median instead of its own -- changing the E1 Poisson weights and the
-    # full-FP count-space LOD, i.e. numbers that silently drift from the app's result.
+    # Warn when a live time was supplied but none of its names match this batch's Spectrum ids (e.g. extension or make.names differences), since every spectrum would then silently get the batch median, changing the E1 Poisson weights and the full-FP LOD.
     if(!is.null(livetime) && length(lt_num) > 0){
         batch_ids <- unique(as.character(spectra_frame$Spectrum))
         matched <- if(!is.null(lt_named)) length(intersect(names(lt_named), batch_ids)) else 0L
@@ -11312,10 +10865,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
 
     spectra_list <- split(spectra_frame, spectra_frame$Spectrum)
 
-    # On error, return the message AS DATA (a classed character) rather than
-    # NULL + warning(): a warning() raised inside an mclapply fork does not
-    # propagate to the parent, so the real reason was being lost. A returned
-    # value survives serialization back from the worker.
+    # On error, return the message as a "decon_error"-classed character rather than calling warning(), because a warning inside an mclapply fork never reaches the parent while a returned value does.
     safe_deconvolute <- function(x){
         tryCatch(
             do.call(deconvolute_complete, c(list(
@@ -11334,19 +10884,14 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
                           spectrum = as.character(unique(x$Spectrum))[1])
         )
     }
-    # A spectrum "failed" if it is NULL (fork died without returning) or a
-    # captured decon_error.
+    # A spectrum failed if it is NULL (its fork died without returning) or a captured decon_error.
     is_decon_fail <- function(z) is.null(z) || inherits(z, "decon_error")
 
     if(cores==1){
         new_spectra_list <- pblapply(spectra_list, safe_deconvolute)
     } else if(cores >= 2){
         new_spectra_list <- pbmclapply(spectra_list, safe_deconvolute, mc.cores = cores)
-        # mclapply masks the real error when a forked worker dies ("scheduled
-        # cores ... did not deliver results" -> NULL). If EVERY spectrum failed
-        # under forking, retry serially in-process: safe_deconvolute's tryCatch
-        # then captures the true error (and it may simply succeed if the failure
-        # was fork-specific, e.g. a non-fork-safe handle).
+        # A dead forked worker returns NULL and hides the real error, so if every spectrum failed under forking, retry serially, where safe_deconvolute captures the true error, or the run succeeds if the failure was fork-specific.
         if(all(vapply(new_spectra_list, is_decon_fail, logical(1)))){
             warning("All spectra failed under multicore deconvolution (cores=", cores,
                     "); retrying serially to surface the underlying error.")
@@ -11381,7 +10926,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     only_areas_list <- list()
     only_background_list <- list()
     only_arpls_list <- list()                        # per-spectrum arPLS baselines (may be NULL)
-    only_e1_list <- list()                           # per-spectrum E1 fitted baselines (NULL in legacy)
+    only_e1_list <- list()                           # per-spectrum E1 fitted baselines (NULL when E1 did not run)
     for(i in seq_along(new_spectra_list)){
         only_spectra_list[[i]] <- new_spectra_list[[i]]$Spectra
         only_areas_list[[i]] <- new_spectra_list[[i]]$Areas
@@ -11392,13 +10937,11 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
         }
     }
     new_spectra_frame <- as.data.frame(rbindlist(only_spectra_list))
-    # Bind by NAME: spectra can carry different template columns (each spectrum's fit window is its own energy
-    # range, and split_series adds "<El>_L" columns only where the K-series is in that window). A positional bind
-    # would put one element's area under another's name; fill leaves a missing template as NA.
+    # Bind by name, since spectra can carry different template columns (each spectrum's fit window is its own energy range); fill leaves a missing template as NA.
     new_area_frame <- as.data.frame(rbindlist(only_areas_list, use.names=TRUE, fill=TRUE))
     new_baseline_frame <- NULL                       # per-channel SNIP baseline (Spectrum/Energy/CPS); feeds the LOD filter
     new_arpls_frame <- NULL                          # per-channel arPLS baseline (physics-free, always built)
-    new_e1_frame <- NULL                             # per-channel E1 fitted baseline (only when off-legacy)
+    new_e1_frame <- NULL                             # per-channel E1 fitted baseline (only when E1 ran)
     if(baseline==TRUE){
         new_baseline_frame <- as.data.frame(rbindlist(only_background_list))
         new_area_frame$Baseline <- aggregate(CPS ~ Spectrum, data = new_baseline_frame[,c("Spectrum", "CPS")], FUN = sum)$CPS
@@ -11407,9 +10950,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
         e1_ok <- Filter(Negate(is.null), only_e1_list)
         if(length(e1_ok)) new_e1_frame <- as.data.frame(rbindlist(e1_ok))
     }
-    # FP mass estimate ($Mass). `mass_mode` (resolved at the top) selects fidelity: "off" = none;
-    # "relative" = fast A/S (sensitivity once per batch); "full" = per-spectrum fundamental parameters
-    # (self-absorption + secondary/tertiary fluorescence + the abundance-regularised deconvolution above).
+    # FP mass estimate ($Mass), with fidelity from `mass_mode`: "off" is none, "relative" a fast A/S estimate with one sensitivity per batch, and "full" a per-spectrum fundamental-parameters solve on the abundance-regularised deconvolution above.
     new_mass_frame <- if(mass_mode %in% c("relative","full")){
         deconvolution_mass_frame(new_area_frame, physics=physics, energy_max=energy_max,
             fallback_energy=suppressWarnings(max(as.numeric(spectra_frame$Energy), na.rm=TRUE)),
@@ -11429,11 +10970,7 @@ deconvolutionIntensityFrame <- function(deconvolution_areas, intensity_frame){
     elements <- colnames(intensity_frame)[!colnames(intensity_frame) %in% "Spectrum"]
     elements <- elements[elements %in% spectralLines]
 
-    # Each requested line reads one Areas column. K lines read the bare element: its K-series template when the fit
-    # split series, otherwise its single template. L and M lines read "<El>_L" (the element's L+M template) when the
-    # fit split it, else the same bare column -- per spectrum, so a row where that element was not split keeps its
-    # bare area. Unsplit elements therefore get today's area on every line name. A line whose element has no Areas
-    # column at all is NA rather than an "undefined columns selected" error.
+    # Each requested line reads one Areas column: K lines read the bare element column, and L and M lines read "<El>_L" where the fit split that element, falling back per spectrum to the bare column. A line whose element has no Areas column is NA.
     areas <- as.data.frame(deconvolution_areas)
     area_of <- function(nm) if(nm %in% names(areas)) areas[[nm]] else rep(NA_real_, nrow(areas))
     reduced_intensities <- data.frame(Spectrum=areas$Spectrum, stringsAsFactors=FALSE)
@@ -11457,10 +10994,7 @@ deconvolutionIntensityFrame <- function(deconvolution_areas, intensity_frame){
     return(deconvoluted_intensities)
 }
 
-# Instrument physics bundle from spectra metadata (PDZ Record-1 / CSV / MCA / TXT headers),
-# with handheld-XRF fallbacks. Used for standalone full-FP quantification so the
-# self-absorption / secondary-fluorescence solve sees the real tube and detector
-# instead of legacy defaults.
+# Instrument physics bundle from spectra metadata (PDZ, CSV, MCA or TXT headers) with handheld-XRF fallbacks, so standalone full-FP quantification models the real tube and detector rather than defaults.
 physicsFromValMetadata <- function(metadata, default_kv=40, default_anode="Rh", default_detector="SDD"){
     kv <- default_kv; anode <- default_anode; det <- default_detector
     if(is.data.frame(metadata) && nrow(metadata) > 0){
@@ -11474,8 +11008,7 @@ physicsFromValMetadata <- function(metadata, default_kv=40, default_anode="Rh", 
         dt_m <- dt_m[!is.na(dt_m) & nzchar(dt_m)]
         if(length(dt_m) > 0) det <- dt_m[1]
     }
-    # Follow the excitation the metadata implies: SEM-EDS has no tube (so no anode is defaulted in) and a vacuum
-    # path; CdTe/HPGe or >60 kV files get the high-energy physics; everything else stays handheld.
+    # Use the excitation the metadata implies: SEM-EDS gets no tube (so no default anode) and a vacuum path, CdTe/HPGe detectors or >60 kV get high-energy physics, and everything else is handheld.
     inf <- deconvolution_infer_from_metadata(metadata)
     mode <- if(!is.null(inf$mode) && inf$mode %in% c("sem", "high_energy")) inf$mode else "handheld"
     phys <- tryCatch(if(mode == "sem"){
@@ -11484,8 +11017,7 @@ physicsFromValMetadata <- function(metadata, default_kv=40, default_anode="Rh", 
             instrument_deconv_defaults(mode=mode, kv=kv, anode=anode, detector_type=det)
         }, error=function(e) list())
     if(is.data.frame(metadata) && nrow(metadata) > 0){
-        # Formats without geometry (CSV, MCA, Hitachi TXT) have no angle columns: NULL[1] -> numeric(0), which
-        # must not reach if().
+        # Formats without geometry have no angle columns, so the value is numeric(0) and must be length-checked before if().
         inc <- suppressWarnings(as.numeric(metadata$IncidenceAngle[1]))
         tko <- suppressWarnings(as.numeric(metadata$TakeoffAngle[1]))
         if(length(inc) == 1 && is.finite(inc)) phys$incidence_deg <- inc
@@ -11495,11 +11027,7 @@ physicsFromValMetadata <- function(metadata, default_kv=40, default_anode="Rh", 
 }
 physicsFromValMetadata <- cmpfun(physicsFromValMetadata)
 
-# Close FP mass estimates to fractions summing to 1 per spectrum. NOT the
-# default presentation: the FP estimate is in grams and deliberately does not
-# sum to 100%, because elements without usable lines (C, O, ...) still hold
-# real mass. Closure is opt-in for users confident the measured elements
-# account for (effectively) the whole sample.
+# Close FP mass estimates to fractions summing to 1 per spectrum. This is opt-in: the FP estimate is in grams and deliberately does not sum to 100%, because elements without usable lines (C, O, ...) still hold real mass.
 fpMassClosure <- function(mass.table){
     elements <- colnames(mass.table)[!colnames(mass.table) %in% "Spectrum"]
     m <- as.matrix(mass.table[, elements, drop=FALSE])
@@ -11513,8 +11041,7 @@ fpMassClosure <- function(mass.table){
 fpMassClosure <- cmpfun(fpMassClosure)
 
 totalCountsGen <- function(spectra_frame){
-    # rowsum() instead of aggregate(): same sorted-by-group result, ~20x faster
-    # on the long-format spectra frame. Mirrors aggregate's na.omit behaviour.
+    # rowsum() gives the same sorted-by-group, NA-omitting result as aggregate(), much faster on the long-format spectra frame.
     cps <- spectra_frame[["CPS"]]
     spec <- as.character(spectra_frame[["Spectrum"]])
     keep <- !is.na(cps)

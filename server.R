@@ -1,46 +1,27 @@
 
 options(shiny.maxRequestSize=500*1024^2)  # 500 MB limit for large calibrations
 
-# --------------------------------------------------------------------------
 # ggplot2 4.0 + Shiny 1.10 brush/click shim
-#
-# When the gg object uses ggplot2 4.0's new internals, Shiny can't introspect
-# its scales/coords. It still emits a brush/click event, but the coordinates
-# come back as 0..1 fractions of the panel and brush$domain reports the
-# normalized [-0.04, 1.04] expanded panel instead of the data range.
-# brush$mapping is an empty list, so brushedPoints()/nearPoints() also fail
-# to identify rows.
-#
-# The helpers below detect that case and rescale to data coordinates using
-# the actual data range the caller passes in. They are no-ops when the
-# environment behaves correctly, so they remain safe once Shiny adds 4.0
-# support and can be removed.
-# --------------------------------------------------------------------------
+# Shiny cannot introspect ggplot2 4.0 plots, so brush and click events arrive as 0..1 panel fractions with an empty brush$mapping, and brushedPoints()/nearPoints() cannot find rows. The helpers below detect that case and rescale to data coordinates from the range the caller passes; they are no-ops otherwise and can be removed once Shiny supports ggplot2 4.0.
 
-# Computed once at load. Only the ggplot2 4.x rewrite triggers the brush bug;
-# on 3.x the rescale must never fire (it could shift legitimate small-range
-# brushes). tryCatch keeps load-time safe if ggplot2 isn't yet installed.
+# Computed once at load: only ggplot2 4.x has the brush bug, and on 3.x the rescale must never fire because it could shift legitimate small-range brushes. tryCatch keeps loading safe if ggplot2 is not installed.
 .ggplot2_is_4plus <- tryCatch(
     utils::packageVersion("ggplot2") >= "4.0.0",
     error = function(e) FALSE
 )
 
 .brush_looks_normalized <- function(brush, vals) {
-    # Belt: only consider rescaling on ggplot2 >= 4.0 where the bug exists.
+    # Only consider rescaling on ggplot2 >= 4.0, where the bug exists.
     if (!.ggplot2_is_4plus) return(FALSE)
 
-    # Suspenders: primary signal is brush$mapping. In a working shiny+ggplot
-    # install it's populated with the x/y aesthetic mapping; when shiny can't
-    # introspect the gg object (ggplot2 4.0 + shiny < some-future-version) it
-    # falls back to an empty mapping.
+    # The primary signal is brush$mapping, which holds the x/y aesthetic mapping when Shiny can introspect the plot and is empty when it cannot.
     mapping_empty <- is.null(brush$mapping) || length(brush$mapping) == 0
     if (!mapping_empty) return(FALSE)
 
     dom <- brush$domain
     if (is.null(dom)) return(FALSE)
     if (!all(is.finite(c(dom$left, dom$right, dom$bottom, dom$top)))) return(FALSE)
-    # The broken case reports dom = list(-0.04, 1.04, -0.04, 1.04) regardless of
-    # data range. Span 1.08 << 1.5 covers it with a small margin.
+    # The broken case reports a -0.04..1.04 domain whatever the data range, so an x span of 1.5 or more rules it out.
     if ((dom$right - dom$left) >= 1.5) return(FALSE)
     if (!all(is.finite(vals))) return(FALSE)
     xs <- vals[seq_len(length(vals)/2)]
@@ -49,11 +30,7 @@ options(shiny.maxRequestSize=500*1024^2)  # 500 MB limit for large calibrations
         all(ys >= dom$bottom - 1e-3) && all(ys <= dom$top + 1e-3)
 }
 
-# When `pre_expanded=TRUE` the caller passes the TRUE panel range (e.g. from
-# ggplot_build()$layout$panel_params, which already includes axis expansion and
-# any layer-driven range extension such as a stat_smooth SE ribbon). In that
-# case we map the normalized click directly onto that range instead of guessing
-# data_range +/- expand, which is inexact whenever extra layers widen the panel.
+# With `pre_expanded=TRUE` the caller passes the true panel range (e.g. from ggplot_build()$layout$panel_params), which already includes axis expansion and layer-widened ranges, so normalized coordinates map straight onto it instead of onto the data range +/- `expand`.
 rescale_brush_coords <- function(brush, x_data_range, y_data_range, expand = 0.05, pre_expanded = FALSE) {
     if (is.null(brush)) return(NULL)
     x <- c(brush$xmin, brush$xmax)
@@ -102,9 +79,7 @@ rescale_click_coords <- function(click, x_data_range, y_data_range, expand = 0.0
     list(x = cx, y = cy)
 }
 
-# Actual panel data-range of a built ggplot, in PLOTTED units (so a y mapped as
-# Concentration*10000 reports the 10000x range). Returns NULL on any failure so
-# callers fall back to the data-range estimate.
+# Panel x/y ranges of a built ggplot in plotted units (so a y mapped as Concentration*10000 reports the scaled range), or NULL on failure so callers fall back to the data range.
 panel_ranges <- function(gg) {
     tryCatch({
         pp <- ggplot2::ggplot_build(gg)$layout$panel_params[[1]]
@@ -114,8 +89,7 @@ panel_ranges <- function(gg) {
     }, error = function(e) NULL)
 }
 
-# brushedPoints replacement: works around empty brush$mapping by taking xvar/yvar
-# explicitly and rescaling the brush coords from the panel-fraction form.
+# brushedPoints replacement that takes xvar/yvar explicitly, since brush$mapping can be empty, and rescales panel-fraction brush coordinates.
 brushedPoints_safe <- function(df, brush, xvar, yvar, allRows = FALSE,
                                x_range = NULL, y_range = NULL, xmul = 1, ymul = 1) {
     if (is.null(brush) || is.null(df) || nrow(df) == 0 ||
@@ -126,8 +100,7 @@ brushedPoints_safe <- function(df, brush, xvar, yvar, allRows = FALSE,
         }
         return(df[0, , drop = FALSE])
     }
-    # Scale the data to the plotted units (e.g. Concentration*10000 for ppm) so
-    # it matches the click/brush coordinates and the supplied panel range.
+    # Scale the data to the plotted units (e.g. Concentration*10000 for ppm) so it matches the brush coordinates and the supplied panel range.
     xv <- suppressWarnings(as.numeric(df[[xvar]])) * xmul
     yv <- suppressWarnings(as.numeric(df[[yvar]])) * ymul
     have_panel <- !is.null(x_range) && !is.null(y_range) && all(is.finite(c(x_range, y_range)))
@@ -145,10 +118,7 @@ brushedPoints_safe <- function(df, brush, xvar, yvar, allRows = FALSE,
     }
 }
 
-# nearPoints replacement: matches points within threshold_frac of the data
-# range in each axis. Default 2% mirrors Shiny's ~5 pixel default on a typical
-# ~600px panel. If maxpoints is set, returns up to that many points ranked by
-# distance (in normalized units).
+# nearPoints replacement: matches points whose distance from the click, normalized by each axis range, is within threshold_frac; with maxpoints set, returns at most that many of the closest points.
 nearPoints_safe <- function(df, click, xvar, yvar,
                             threshold_frac = 0.02, maxpoints = NULL,
                             allRows = FALSE, x_range = NULL, y_range = NULL,
@@ -161,8 +131,7 @@ nearPoints_safe <- function(df, click, xvar, yvar,
         }
         return(df[0, , drop = FALSE])
     }
-    # Scale the data to the plotted units (e.g. Concentration*10000 for ppm) so
-    # it matches the click coordinates and the supplied panel range.
+    # Scale the data to the plotted units (e.g. Concentration*10000 for ppm) so it matches the click coordinates and the supplied panel range.
     xv <- suppressWarnings(as.numeric(df[[xvar]])) * xmul
     yv <- suppressWarnings(as.numeric(df[[yvar]])) * ymul
     have_panel <- !is.null(x_range) && !is.null(y_range) && all(is.finite(c(x_range, y_range)))
@@ -218,12 +187,7 @@ shinyServer(function(input, output, session) {
     
     calMemory <- reactiveValues()
 
-    # input$multicore_behavior comes from a renderUI control; until that control
-    # has rendered (fresh session, hidden sidebar, headless run) the input is
-    # NULL, and every `if(input$multicore_behavior==...)` comparison errored with
-    # "argument is of length zero" - killing whole flushes (notably the Train
-    # button pipeline). Read it through this accessor, which supplies the same
-    # OS default the UI control itself would pick.
+    # input$bayesparameter and input$multicore_behavior come from renderUI controls and are NULL until those render, which breaks comparisons such as `if(input$multicore_behavior==...)`; read them through these accessors, which supply the defaults the controls would pick.
     bayesParameterMode <- reactive({
         bp <- input[["bayesparameter"]]
         if(is.null(bp) || length(bp) != 1) "GridSearch" else bp
@@ -451,10 +415,7 @@ shinyServer(function(input, output, session) {
         as.data.frame(input$file1)
     })
 
-    # Energy calibration mode adapters. Mode comes from input$encalmode:
-    #   "auto"  -> use file's native calibration (readers return real Energy)
-    #   "evch"  -> apply manual eV/channel + offset in myData()
-    #   "peaks" -> fit a model from anchor (channel, energy) pairs in myData()
+    # Energy calibration mode from input$encalmode: "auto" uses the file's native calibration (readers return real Energy), "evch" applies a manual eV/channel and offset in myData(), and "peaks" fits a model to anchor (channel, energy) pairs in myData().
     encal_mode  <- reactive({ if (is.null(input$encalmode)) "auto" else input$encalmode })
     encal_auto  <- reactive({ identical(encal_mode(), "auto") })
     encal_evch  <- reactive({ identical(encal_mode(), "evch") })
@@ -479,9 +440,7 @@ shinyServer(function(input, output, session) {
     
     fullSpectraMetadata <- reactive(label="fullSpectraMetadata", {
         req(input$file1)
-        # Per-file CSV metadata (eVCh, LiveTime + tube kV / filter / anode / detector where the format carries
-        # them: Olympus/Vanta rich, Niton = Ag anode, Bruker/Generic = eVCh+LiveTime). Feeds physics
-        # auto-population via deconvolution_infer_from_metadata. tryCatch so a metadata-less CSV never blocks import.
+        # Per-file CSV metadata (eV/channel, LiveTime, and tube kV, filter, anode and detector where the format carries them) for physics auto-population via deconvolution_infer_from_metadata; tryCatch so a CSV without metadata never blocks import.
         tryCatch(fullSpectraMetadataProcess(inFile=inFile()), error=function(e) NULL)
     })
     
@@ -726,15 +685,13 @@ shinyServer(function(input, output, session) {
 
     })
 
-    # Manual eV/Channel mode: slope (eV/ch) + offset (keV).
-    # Industry convention is eV/ch in the input (e.g. 20 means 0.020 keV/ch).
+    # Manual eV/channel mode: slope in eV/ch, the industry convention (20 means 0.020 keV/ch), and offset in keV.
     manualEvChDefault <- reactive({
         cf <- tryCatch(calFileContents(), error=function(e) NULL)
         if(!is.null(cf) && !is.null(cf$EnergyCal) && !is.null(cf$EnergyCal$evCh_eV)){
             as.numeric(cf$EnergyCal$evCh_eV)          # a loaded .quant's stored value wins
         } else {
-            # else pre-fill from the imported file's own eV/channel (PDZ/CSV/MCA/TXT), normalised to eV/ch;
-            # falls back to 20 when the format carries no calibration. Persists into the .quant on save.
+            # Otherwise pre-fill from the imported file's own eV/channel, normalised to eV/ch, or 20 when the format carries no calibration; the value is saved into the .quant.
             inf <- tryCatch(.deconvInferredMeta(), error=function(e) NULL)
             if(!is.null(inf$evch_ev) && is.finite(inf$evch_ev) && inf$evch_ev > 0) as.numeric(inf$evch_ev) else 20
         }
@@ -868,18 +825,12 @@ shinyServer(function(input, output, session) {
             }
         })
 
-        # Restore the energy-calibration mode (and any saved manual parameters)
-        # from a loaded .quant file. Older bundles without $Mode fall back to
-        # "peaks" when Channel/Energy anchors are present, otherwise "auto".
+        # Restore the energy-calibration mode and any saved manual parameters from a loaded .quant file; bundles without $Mode use "peaks" when Channel/Energy anchors are present, otherwise "auto".
         observeEvent(input$calfileinput, {
             cf <- calFileContents()
             if(is.null(cf)) return()
 
-            # Restore the saved row-shuffle/training seed BEFORE anything reads it,
-            # so the reloaded model frames reproduce the exact seeded standard order
-            # the saved StandardsUsed mask was toggled against (and the same
-            # CV/bagging draws). Older bundles lack RandomizeSeed and keep the
-            # default slider value.
+            # Restore the saved training seed before anything reads it, so the reloaded model frames reproduce the standard order the saved StandardsUsed mask refers to and the same CV/bagging draws; bundles without RandomizeSeed keep the default slider value.
             if(!is.null(cf$RandomizeSeed) && length(cf$RandomizeSeed)==1 && is.finite(as.numeric(cf$RandomizeSeed))){
                 updateSliderInput(session, "randomize", value = as.numeric(cf$RandomizeSeed))
             }
@@ -978,8 +929,7 @@ shinyServer(function(input, output, session) {
                     }  else if(input$filetype=="RData"){
                         readRData()
                     }
-                    # make.names over unique names only: the long frame repeats each
-                    # file name ~2048 times, so this is ~2000x less string work.
+                    # Run make.names on the unique names only, since the long frame repeats each file name once per channel.
                     spec_chr <- as.character(data$Spectrum)
                     u <- unique(spec_chr)
                     data$Spectrum <- make.names(u, unique=FALSE)[match(spec_chr, u)]
@@ -1048,22 +998,18 @@ shinyServer(function(input, output, session) {
             myData()
         })
 
-        # --- Metadata tab (Spectrum page) -------------------------------------------------------
-        # Per-spectrum metadata the deconvolution reads (myMetaData(), or a loaded cal's stored
-        # SpectraMetadata), augmented with the scatter geometry when the deconvolution auto-inferred it
-        # from the anode Rayleigh/Compton split -- so the angle/broadening actually used are recorded here.
+        # Metadata tab (Spectrum page)
+        # Per-spectrum metadata the deconvolution reads (myMetaData(), or a loaded cal's SpectraMetadata), plus the scatter geometry the deconvolution actually used and its source.
         output$metadataTable <- renderDataTable({
             md <- tryCatch(myMetaData(), error=function(e) NULL)
             if(is.null(md)) md <- tryCatch(calMemory$Calibration$SpectraMetadata, error=function(e) NULL)
             if(is.null(md) || !is.data.frame(md))
                 return(data.frame(Message="No metadata parsed for the current source (load spectra or a cal file)."))
-            # Inferred scatter geometry lives in the deconvolution's Parameters$Physics$.scatter_geometry
-            # (batch-level: one value per run). Prefer the live deconvolution, fall back to the committed one.
+            # The scatter geometry is recorded once per run in the deconvolution's Parameters$Physics$.scatter_geometry; prefer the live deconvolution and fall back to the committed one.
             phys <- tryCatch(dataHoldDeconvolution()$Parameters$Physics, error=function(e) NULL)
             if(is.null(phys)) phys <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$Physics, error=function(e) NULL)
             sg <- tryCatch(phys$.scatter_geometry, error=function(e) NULL)
-            # Recorded for EVERY run now, not just inferred ones, so supplied and defaulted angles are
-            # traceable here too. Old calibrations carry only the inferred subset of these fields.
+            # Geometry is recorded for every run, so supplied and default angles show here too; older calibrations carry only the inferred subset of these fields.
             if(!is.null(sg)){
                 if(!is.null(sg$incidence_deg))      md$IncidenceAngle_deg <- round(as.numeric(sg$incidence_deg), 2)
                 if(!is.null(sg$takeoff_deg))        md$TakeoffAngle_deg   <- round(as.numeric(sg$takeoff_deg), 2)
@@ -1090,8 +1036,7 @@ shinyServer(function(input, output, session) {
         comptonmax_d <- debounce(reactive({ input$comptonmaxspectra }), 300)
 
         dataHold <- reactive(label="dataHold", {
-            # Always route through myData() to enable energy calibration for all sources
-            # including .quant files (myDataPre handles .quant spectra at line 616)
+            # Always go through myData() so energy calibration applies to every source, including spectra from a loaded .quant file.
             data <- myData()
 
             # Ensure we have valid data before proceeding
@@ -1099,9 +1044,7 @@ shinyServer(function(input, output, session) {
 
             data$Energy <- data$Energy + energynudge_d()
 
-            # Same operations as before (sort by name, then strip extensions), but
-            # ranked/stripped on the ~40 unique names instead of the full
-            # long-format character column (~2048 rows per spectrum).
+            # Sort by spectrum name, then strip file extensions, working on the unique names rather than the full long-format column.
             spec_chr <- as.character(data$Spectrum)
             u <- unique(spec_chr)
             data <- data[order(match(spec_chr, sort(u))),]
@@ -1133,12 +1076,7 @@ shinyServer(function(input, output, session) {
             }
         })
         
-    # Shared guarded deconvolution runner for both the automatic path and the
-    # Deconvolute button. One retry (forked workers occasionally die under
-    # Shiny), non-finite CPS scrubbed first (a file with LIVE_TIME and
-    # REAL_TIME both 0 yields Inf CPS from the divide-by-time readers, which
-    # aborts the whole batch), cores capped at the batch size, and the REAL
-    # error surfaced in the notification instead of being swallowed.
+    # Shared deconvolution runner for the automatic path and the Deconvolute button: replaces non-finite CPS (from files with zero live time) with 0 so they cannot abort the batch, caps cores at the number of spectra, retries once because forked workers occasionally die, and shows the actual error in a notification.
     runDeconvGuarded <- function(data, width, alpha, sigma, smooth, snip, physics, mass, lt){
         bad <- !is.finite(data$CPS)
         if(any(bad)){
@@ -1162,11 +1100,7 @@ shinyServer(function(input, output, session) {
     }
 
     dataHoldDeconvolution <- reactive({
-        # Gate deconvolution behind the Deconvolute button: take a dependency on the
-        # button (and on the data / loaded cal, which legitimately require a re-run),
-        # but read the deconvolution PARAMETERS with isolate() so editing a width /
-        # alpha / sigma / iteration value does NOT re-run deconvolution or fade the
-        # plot until the user actually presses Deconvolute.
+        # Gate deconvolution behind the Deconvolute button: depend on the button and on the data and loaded calibration, but read the parameters with isolate() so editing them does not re-run deconvolution until Deconvolute is pressed.
         input$deconvolutebutton
 
         width_param  <- isolate(input$deconvolutionwidth)
@@ -1174,17 +1108,14 @@ shinyServer(function(input, output, session) {
         sigma_param  <- isolate(input$deconvolutiondefaultsigma)
         smooth_param <- isolate(input$deconvolutionsmoothiter)
         snip_param   <- isolate(input$deconvolutionsnipiter)
-        # Default any deconvolution parameter whose renderUI control has not
-        # rendered yet (fresh session, headless run) - matches the defaults used
-        # when loading a calibration without stored parameters.
+        # Default any parameter whose renderUI control has not rendered yet, matching the defaults used when a calibration has no stored parameters.
         if(is.null(width_param))  width_param  <- 5
         if(is.null(alpha_param))  alpha_param  <- 2.5
         if(is.null(sigma_param))  sigma_param  <- 0.07
         if(is.null(smooth_param)) smooth_param <- 20
         if(is.null(snip_param))   snip_param   <- 20
 
-        # New physics options (phase b2): instrument mode + optional beam/anode/detector overrides.
-        # isolate() so editing them does not re-run deconvolution until Deconvolute is pressed.
+        # Physics options (instrument mode and optional hardware overrides), isolated so editing them does not re-run deconvolution until Deconvolute is pressed.
         mode_param   <- isolate(input$deconvolutionmode);      if(is.null(mode_param) || mode_param=="") mode_param <- "legacy"
         kv_param     <- isolate(input$deconvolutionbeamenergy)
         anode_param  <- isolate(input$deconvolutiontubeanode); if(!is.null(anode_param) && anode_param %in% c("", "None")) anode_param <- NULL
@@ -1205,14 +1136,12 @@ shinyServer(function(input, output, session) {
         }
         physics_param$scatter_background <- !isFALSE(isolate(input$deconvolutionscatterbg))   # E1 default-ON; off only if unchecked
         physics_param <- deconvolution_apply_split_series(physics_param, isolate(input$deconvolutionsplitseries), mode_param)
-        # Protect the calibration's TARGET elements from the abundance prior, so the full-FP tiebreaker never
-        # penalises an element the user is deliberately measuring (only bites when abundance_prior>0 anyway).
+        # Protect the calibration's target elements from the abundance prior so the full-FP tiebreaker never penalises an element being measured; this only matters when abundance_prior > 0.
         protect_els <- unique(c(isolate(input$show_vars_k_alpha), isolate(input$show_vars_k_beta),
                                 isolate(input$show_vars_l_alpha), isolate(input$show_vars_l_beta), isolate(input$show_vars_m)))
         protect_els <- protect_els[!is.na(protect_els) & nzchar(protect_els)]
         if(length(protect_els)) physics_param$abundance_protect <- protect_els
-        # Per-spectrum LiveTime (named by cleaned Spectrum) for the full-FP $Mass count-space LOD filter.
-        # NULL when metadata carries no LiveTime -> the LOD falls back to the col-max signal filter.
+        # Per-spectrum LiveTime (named by cleaned Spectrum) for the full-FP $Mass count-space LOD filter; NULL when the metadata has no LiveTime, and the LOD then falls back to the col-max signal filter.
         lt_param <- tryCatch(deconvolution_livetime_lookup(isolate(myMetaData())), error=function(e) NULL)
         print("Starting deconvolution")
 
@@ -1238,10 +1167,7 @@ shinyServer(function(input, output, session) {
 
         })
 
-        # Gate the Spectrum-page "Compton Type" selector's E1 option on whether the LIVE deconvolution
-        # actually computed an E1 baseline (scatter-background fit -> needs a tube + LiveTime). Without a
-        # real E1, picking it silently falls back to the SNIP baseline (SNIP==E1). Mirrors the cal-side
-        # ROI Type gate. isolate(input$compton_type) so updating the selector does not re-trigger this.
+        # Offer E1 in the Spectrum page's Compton Type selector only when the live deconvolution computed an E1 baseline (which needs a tube and LiveTime), since without one E1 silently falls back to SNIP; a current E1 selection is kept, as in the calibration-side ROI Type gate. input$compton_type is isolated so updating the selector does not re-trigger this.
         observe({
             decon <- tryCatch(dataHoldDeconvolution(), error=function(e) NULL)
             e1_available <- !is.null(tryCatch(decon$E1, error=function(e) NULL))
@@ -1258,19 +1184,12 @@ shinyServer(function(input, output, session) {
 
         })
 
-        # Per-spectrum baseline (one row per Spectrum/Energy). Source for the
-        # standalone Baseline view (per-spectrum, like Raw/Net) and for the dotted
-        # background overlay drawn under Combo.
+        # Per-spectrum baseline (one row per Spectrum/Energy), used by the Baseline view and the dotted background overlay under Combo.
         dataHoldDeconvolutionBaselinePerSpectrum <- reactive({
             tryCatch(dataHoldDeconvolution()$Baseline, error=function(e) NULL)
         })
 
-        # "Combo" reconstruction: net peaks summed back onto each spectrum's own SNIP
-        # baseline, in RAW CPS, per spectrum. Summing before normalization keeps the
-        # peak-to-baseline ratio intact; the plot then normalizes the whole
-        # reconstruction together. The dotted overlay (comboBaselineLine) marks where
-        # the baseline sits inside this reconstruction, so over/under-subtraction is
-        # visible.
+        # Combo reconstruction: net peaks summed back onto each spectrum's own SNIP baseline in raw CPS. Summing before normalization keeps the peak-to-baseline ratio intact, and the dotted overlay (comboBaselineLine) shows where the baseline sits so over- or under-subtraction is visible.
         dataHoldDeconvolutionCombo <- reactive({
             net  <- dataHoldDeconvolutionSpectra()
             base <- dataHoldDeconvolutionBaselinePerSpectrum()
@@ -1282,11 +1201,7 @@ shinyServer(function(input, output, session) {
                        CPS = m$CPS.net + m$CPS.base, stringsAsFactors = FALSE)
         })
 
-        # Force-regenerate the deconvolution with the current parameters.
-        # Once a calibration is loaded, calMemory$Calibration$Deconvoluted holds
-        # the stored result and dataHoldDeconvolution() returns it unchanged, so
-        # parameter tweaks otherwise have no effect. Overwriting Deconvoluted here
-        # propagates to every downstream consumer (Areas, Baseline, LOD, plots).
+        # Force-regenerate the deconvolution with the current parameters. Once a calibration is loaded, dataHoldDeconvolution() returns the stored calMemory$Calibration$Deconvoluted unchanged, so overwriting it here is what carries new parameters to every downstream consumer (Areas, Baseline, LOD, plots).
         observeEvent(input$deconvolutebutton, {
             req(input$deconvolutionwidth, input$deconvolutionalpha, input$deconvolutiondefaultsigma,
                 input$deconvolutionsmoothiter, input$deconvolutionsnipiter)
@@ -1757,11 +1672,7 @@ shinyServer(function(input, output, session) {
         })
         
         deconvolutionFunnel <- reactive({
-            # Stored deconvolution parameters live under Deconvoluted$Parameters (set by
-            # spectra_gls_deconvolute), not Calibration$Parameters. Read them so the sliders open at the
-            # loaded cal's actual values. NOTE: do NOT req(input$calfileinput) here -- that is only set when a
-            # .quant is LOADED, so gating on it hard-failed this reactive for freshly-built calibrations, which
-            # blanked EVERY deconvolution control (they all funnel through here) the moment you deconvolved.
+            # Reads the stored deconvolution parameters from Deconvoluted$Parameters (set by spectra_gls_deconvolute, not Calibration$Parameters) so the controls open at the calibration's values. Do not req(input$calfileinput) here: it is only set when a .quant is loaded, and every deconvolution control depends on this reactive.
             if("Deconvoluted" %in% names(calMemory$Calibration) &&
                "Parameters" %in% names(calMemory$Calibration$Deconvoluted)){
                 calMemory$Calibration$Deconvoluted$Parameters
@@ -1836,9 +1747,7 @@ shinyServer(function(input, output, session) {
         .deconvPhysics <- reactive({
             if("Deconvoluted" %in% names(calMemory$Calibration)) deconvolution_physics_from_params(deconvolutionFunnel()) else list()
         })
-        # Phase 0 auto-inference: representative instrument settings read from the imported file metadata
-        # (tube kV, beam filter, ...), used to PRE-SEED physics controls when the calibration has no
-        # persisted value yet. Prefers the current import's metadata, falling back to a loaded calibration's.
+        # Instrument settings inferred from the imported file's metadata, used to pre-seed physics controls that have no persisted value; prefers the current import's metadata, falling back to the loaded calibration's.
         .deconvInferredMeta <- reactive({
             md <- tryCatch(myMetaData(), error=function(e) NULL)
             if(is.null(md) || !is.data.frame(md) || nrow(md) == 0)
@@ -1847,9 +1756,7 @@ shinyServer(function(input, output, session) {
         })
         output$deconvolutionmodeui <- renderUI({
             p <- .deconvPhysics(); inf <- .deconvInferredMeta()
-            # persisted mode first; else the mode inferred from the imported file's hardware (so a PDZ/CSV with
-            # a known kV / filter / anode / detector switches OFF "legacy" and its seeded physics takes effect);
-            # else legacy.
+            # Persisted mode first, then the mode inferred from the file's hardware (so a file with a known kV, filter, anode or detector leaves "legacy" and its seeded physics takes effect), then "legacy".
             sel <- if(!is.null(p$.mode)) p$.mode else if(!is.null(inf$mode)) inf$mode else "legacy"
             deconvolutionModeUI(selection=sel)
         })
@@ -1883,15 +1790,12 @@ shinyServer(function(input, output, session) {
         })
         output$deconvolutiongeometryui <- renderUI({
             p <- .deconvPhysics()
-            # Checked if a prior run stored geometry the user SUPPLIED; an auto-inferred scatter angle does not
-            # count (it re-infers on its own), so read the provenance rather than the bare key. Old calibrations
-            # have no `source` -> falls through to the original incidence/take-off test.
+            # Checked when a prior run stored user-supplied geometry. An auto-inferred scatter angle does not count, since it re-infers on its own, so this reads the angle's provenance; calibrations without a `source` rely on the incidence/take-off test alone.
             src <- tryCatch(p$.scatter_geometry$source, error=function(e) NULL)
             deconvolutionGeometryUI(selection = !is.null(p$incidence_deg) || !is.null(p$takeoff_deg) ||
                 (!is.null(src) && identical(unname(src["scatter_angle_deg"]), "supplied")))
         })
-        # The three angle fields: persisted value -> value read off the file -> blank (= let the automatic
-        # chain run). Mirrors the beam-energy / anode / detector controls above.
+        # Incidence and take-off fields: persisted value, then the value read from the file, then blank to let the automatic chain run, like the beam-energy, anode and detector controls.
         output$deconvolutionincidenceui <- renderUI({
             p <- .deconvPhysics(); inf <- .deconvInferredMeta()
             deconvolutionIncidenceUI(selection=if(!is.null(p$incidence_deg)) p$incidence_deg else inf$incidence)
@@ -1902,14 +1806,11 @@ shinyServer(function(input, output, session) {
         })
         output$deconvolutionscatterangleui <- renderUI({
             p <- .deconvPhysics()
-            # Seed ONLY a user-supplied angle. The inference writes its own result back into the persisted
-            # bundle, so seeding blindly would freeze an auto-inferred angle into a manual entry the moment
-            # the calibration is reloaded -- and then it would never re-infer again.
+            # Seed only a user-supplied scatter angle: the inference writes its result into the persisted bundle, so seeding an inferred angle would turn it into a manual entry on reload and it would never re-infer.
             manual <- !isTRUE(tryCatch(p$.scatter_geometry$inferred, error=function(e) FALSE))
             deconvolutionScatterAngleUI(selection=if(manual) p$scatter_angle_deg else NULL)
         })
-        # Read-out of the angles the last deconvolution ACTUALLY used and where each came from. Prefers the
-        # live run, falling back to the committed calibration -- same source pair as the Metadata tab.
+        # Shows the angles the last deconvolution actually used and where each came from, preferring the live run and falling back to the committed calibration, as the Metadata tab does.
         output$deconvolutiongeometryinfo <- renderUI({
             sg <- tryCatch(dataHoldDeconvolution()$Parameters$Physics$.scatter_geometry, error=function(e) NULL)
             if(is.null(sg)) sg <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$Physics$.scatter_geometry, error=function(e) NULL)
@@ -1918,8 +1819,7 @@ shinyServer(function(input, output, session) {
                 "SURFACE. A common convention is scatter ~ 180 - incidence - take-off.")))
             src <- sg$source
             lbl <- function(k, d) if(!is.null(src) && !is.na(src[k])) unname(src[k]) else d
-            # Calibrations written before the path angles were recorded carry only the scatter angle, so fall
-            # back to the xrftools default that run would in fact have used.
+            # Older calibrations record only the scatter angle, so missing angles show the xrftools defaults that run would have used.
             r1 <- function(v, d){ x <- suppressWarnings(as.numeric(v))
                 if(length(x) == 1 && is.finite(x)) round(x, 1) else d }
             msg <- paste0("Using ", r1(sg$incidence_deg, 45), " / ", r1(sg$takeoff_deg, 45), " / ", r1(sg$scatter_angle_deg, 135),
@@ -1953,12 +1853,7 @@ shinyServer(function(input, output, session) {
         })
 
             
-            # Expression that generates a histogram. The expression is
-            # wrapped in a call to renderPlot to indicate that:
-            #
-            #  1) It is "reactive" and therefore should re-execute automatically
-            #     when inputs change
-            #  2) Its output type is a plot
+            # Spectrum plot: ranges holds the zoom window (NULL shows the full range).
             ranges <- reactiveValues(x = NULL, y = NULL)
             
             
@@ -1994,10 +1889,7 @@ shinyServer(function(input, output, session) {
                     )
             })
 
-            # Baseline summary: feed the PER-SPECTRUM baseline so spectra_stats
-            # normalizes each spectrum first (time / total counts / compton), then
-            # builds the population Mean/SD bands -- a normalization-respecting
-            # average background.
+            # Baseline summary from the per-spectrum baselines, so spectra_stats normalizes each spectrum before building the Mean/SD bands, giving a normalization-respecting average background.
             spectraSummaryBaseline <- reactive({
                 spectra_stats(
                     spectra.frame=dataHoldDeconvolutionBaselinePerSpectrum(),
@@ -2009,9 +1901,7 @@ shinyServer(function(input, output, session) {
                     )
             })
 
-            # Combo's main spectra are the reconstruction (net peaks on top of
-            # baseline, per spectrum); the background is delineated separately by the
-            # dotted overlay (comboBaselineLine).
+            # Combo's main spectra are the per-spectrum reconstruction (net peaks on baseline); the background is shown separately by the dotted overlay (comboBaselineLine).
             spectraSummaryCombo <- reactive({
                 spectra_stats(
                     spectra.frame=dataHoldDeconvolutionCombo(),
@@ -2023,18 +1913,14 @@ shinyServer(function(input, output, session) {
                     )
             })
 
-            # Single smoothed background line for the Combo overlay: normalize each
-            # spectrum's baseline first (respects time / total counts / compton), then
-            # average per energy into one readable curve.
+            # Single background line for the Combo overlay: each spectrum's baseline is normalized first, then averaged per energy into one curve.
             comboBaselineLine <- reactive({
                 per <- just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionBaselinePerSpectrum(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=dataHoldDeconvolution())
                 if(is.null(per) || !all(c("Energy", "CPS") %in% names(per)) || nrow(per)==0) return(NULL)
                 aggregate(CPS ~ Energy, data=per[, c("Energy", "CPS")], FUN=mean)
             })
 
-            # ggplot layer (or NULL) for the dotted background line, added to the
-            # spectra plots only when Combo is selected. `ggplot(...) + NULL` is a
-            # valid no-op, so the same expression works in every plot.
+            # ggplot layer for the dotted background line, or NULL unless Combo is selected; `ggplot(...) + NULL` is a no-op, so every spectra plot can add it.
             comboBaselineLayer <- reactive({
                 if(!identical(input$deconvolutespectra, "Combo")) return(NULL)
                 bl <- comboBaselineLine()
@@ -2064,15 +1950,12 @@ shinyServer(function(input, output, session) {
                 just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionSpectra(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=dataHoldDeconvolution())
             })
 
-            # Baseline lines view: per-spectrum, treated exactly like Raw/Net -- each
-            # sample's baseline as its own line (or the variance band in summary mode).
+            # Baseline lines view: each spectrum's baseline as its own line (or the variance band in summary mode), handled like Raw/Net.
             spectraPlotDataBaseline <- reactive({
                 just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionBaselinePerSpectrum(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=dataHoldDeconvolution())
             })
 
-            # Combo lines view: the reconstruction (net + baseline) per spectrum,
-            # normalized as one whole; the dotted background line is added on top via
-            # comboBaselineLayer so you can see where the baseline falls.
+            # Combo lines view: the per-spectrum reconstruction (net + baseline), normalized as a whole, with the dotted background line added by comboBaselineLayer.
             spectraPlotDataCombo <- reactive({
                 just_spectra_summary_apply(spectra.frame=dataHoldDeconvolutionCombo(), compress=input$compressplot, normalization=input$normspectra, min=comptonmin_d(), max=comptonmax_d(), compton.type=input$compton_type, energy.range=energyRangeCache(), deconvolution=dataHoldDeconvolution())
             })
@@ -2236,7 +2119,7 @@ shinyServer(function(input, output, session) {
             plotInput <- reactive({
 
                 #"Starting spectral plot"
-                # Check inputs exist (not NULL) - don't use req() on booleans as FALSE is falsy
+                # Check these logical inputs are not NULL rather than req() them, since req() treats FALSE as missing.
                 req(!is.null(input$showlegend), !is.null(input$variancespectrum))
 
                 if(input$showlegend == TRUE){
@@ -2264,14 +2147,7 @@ shinyServer(function(input, output, session) {
                 
             })
             
-            # Zoom to the current brush when the Zoom button is clicked.
-            # The brush comes back as 0..1 panel fractions under the ggplot2 4.0
-            # shim, so we map it onto the TRUE built-plot panel range
-            # (panel_ranges + pre_expanded=TRUE) rather than guessing
-            # range(CPS) +/- 5%. The naive guess matched x (Energy fully drives
-            # the x panel) but not y, because the element-line segments (y=0..)
-            # and baseline layer extend the y panel beyond the CPS range - that
-            # was the mismatched-y-scale bug.
+            # Zoom to the current brush when the Zoom button is clicked, or reset the zoom if there is none. The brush arrives as 0..1 panel fractions, so it is mapped onto the built plot's actual panel range (panel_ranges with pre_expanded=TRUE) rather than the data range, because the element-line segments and baseline layer extend the y panel beyond the CPS range.
             observeEvent(input$cropspectra, {
                 brush <- input$plot1_brush
                 if (is.null(brush)) {
@@ -2295,9 +2171,7 @@ shinyServer(function(input, output, session) {
 
                 ranges$x <- c(coords$xmin, coords$xmax)
 
-                # Auto-scale Y: fit the y axis to the spectra data inside the
-                # brushed x window so a small peak fills the frame vertically.
-                # Toggle off to keep the exact height you dragged.
+                # Auto-scale Y fits the y axis to the spectra inside the brushed x window so a small peak fills the frame; with it off, the brushed height is kept.
                 auto_y <- isTRUE(input$autoscaley) &&
                     !is.null(plot_data) &&
                     all(c("Energy", "CPS") %in% names(plot_data)) &&
@@ -2321,8 +2195,7 @@ shinyServer(function(input, output, session) {
                 }
             })
 
-            # Double-click the spectrum to reset the zoom (wired in the UI as
-            # plot1_dblclick but previously unhandled).
+            # Double-click the spectrum to reset the zoom.
             observeEvent(input$plot1_dblclick, {
                 ranges$x <- NULL
                 ranges$y <- NULL
@@ -2546,16 +2419,11 @@ shinyServer(function(input, output, session) {
             } else {
                 DF <- lineTableInput()
             }
-            # Only write on real change: unconditional writes re-render the Element
-            # dropdown (outVar -> inVar2) every time the line table widget re-emits
-            # (e.g. every visit to the Counts page). dfSame (not identical) so
-            # round-trip artifacts (rownames/attributes) don't count as changes.
+            # Only write on a real change, since each write re-renders the Element dropdown (outVar -> inVar2); dfSame rather than identical so round-trip artifacts such as rownames or attributes do not count as changes.
             if (!dfSame(DF, isolate(linevalues[["DF"]]))) linevalues[["DF"]] <- DF
         })
 
-        # Warn (once per distinct set) about custom line definitions whose energy
-        # window lies entirely above the loaded spectra - those lines yield no
-        # counts and are skipped by the extractors rather than crashing the app.
+        # Warn once per distinct set about custom line definitions whose energy window lies entirely above the loaded spectra; those lines yield no counts and are skipped by the extractors.
         outOfRangeWarned <- reactiveVal(character(0))
         observe({
             df <- linevalues[["DF"]]
@@ -2573,12 +2441,7 @@ shinyServer(function(input, output, session) {
             }
         })
 
-        # Warn (once per distinct axis) when the loaded spectra's energy axis is
-        # clearly not in keV - files without a native energy calibration (e.g.
-        # Amptek .mca exports missing the <<CALIBRATION>> block) fall back to raw
-        # channel numbers (1-2048/4096) or arrive in eV. No real XRF axis exceeds
-        # ~300 keV, so anything above that means line extraction and deconvolution
-        # would run against a meaningless axis.
+        # Warn once per distinct axis when the energy axis exceeds 300, which no real XRF axis in keV does: the file likely has no energy calibration and is in channel numbers or eV, so line extraction and deconvolution would be meaningless.
         uncalibratedAxisWarned <- reactiveVal("")
         observe({
             data_max <- tryCatch(suppressWarnings(max(as.numeric(dataHold()$Energy), na.rm=TRUE)), error=function(e) NULL)
@@ -2599,7 +2462,7 @@ shinyServer(function(input, output, session) {
         })
         
         
-        ## Handsontable
+        # Handsontable
         
         output$hotline <- renderRHandsontable({
             
@@ -2802,9 +2665,7 @@ shinyServer(function(input, output, session) {
 
             spectra_stuff <- totalCountsGen(spectra)
 
-            # Safely get deconvoluted data with defensive checks. Pull the special (non-element) channels --
-            # Baseline plus the tube-scatter Compton / Rayleigh areas -- so they can serve as calibration
-            # slope/intercept covariates.
+            # Merge in the deconvolution's non-element channels (Baseline and the Compton/Rayleigh scatter areas), when present, so they can serve as slope/intercept covariates.
             deconvoluted <- calMemory$Calibration$Deconvoluted
             extra_cols <- if (!is.null(deconvoluted)) deconvolution_extra_cols(deconvoluted$Areas) else character(0)
             if (length(extra_cols) > 0) {
@@ -3034,10 +2895,7 @@ shinyServer(function(input, output, session) {
         observeEvent(input$linecommit, priority = 2, {
 
             calMemory$Calibration$LineDefaults <- isolate(list(GausBuffer=bufferGaus(), SplitBuffer=bufferSplit()))
-            # tryCatch: a deconvolution failure (e.g. its parameter controls have
-            # not rendered yet) previously aborted this observer wholesale, so a
-            # commit built NO intensity tables at all. Keep whatever deconvolution
-            # we already have and continue with the table builds.
+            # If deconvolution fails, keep the existing result so the commit still builds the intensity tables.
             calMemory$Calibration$Deconvoluted <- isolate(tryCatch(dataHoldDeconvolution(),
                 error=function(e) calMemory$Calibration$Deconvoluted))
 
@@ -3216,7 +3074,6 @@ shinyServer(function(input, output, session) {
 
             energy.min <-  0.7
 
-            # Use already-cached spectra instead of calling dataHold() again
             max_energy <- my.max(spectra$Energy)
             energy.max <- if(max_energy < 42){
                 37
@@ -3675,12 +3532,7 @@ shinyServer(function(input, output, session) {
             scatter_cols <- intersect(c("Compton", "Rayleigh"), deconvolution_extra_cols(calMemory$Calibration$Deconvoluted$Areas))
             myelements <- c(elementallinestouse(), "Baseline", "Total", scatter_cols)
             
-            # Offer only lines that exist as columns in the intensity table the model
-            # frames select from. Compton/Rayleigh appear here the moment a deconvolution
-            # is re-run, while the intensity tables are only rebuilt on Commit - offering a
-            # name from the first that is missing from the second is what produced
-            # "undefined columns selected" downstream. An empty intersection means the
-            # table is not loaded yet, so leave the list alone rather than blanking it.
+            # Offer only lines that exist as columns in the intensity table the model frames select from: Compton/Rayleigh appear as soon as a deconvolution is re-run, but the intensity tables are only rebuilt on Commit. An empty intersection means the table is not loaded yet, so the list is left unchanged.
             available <- tryCatch(colnames(calIntensityTable()), error=function(e) NULL)
             if(length(intersect(myelements, available)) > 0){
                 myelements <- intersect(myelements, available)
@@ -3702,12 +3554,7 @@ shinyServer(function(input, output, session) {
             scatter_cols <- intersect(c("Compton", "Rayleigh"), deconvolution_extra_cols(calMemory$Calibration$Deconvoluted$Areas))
             myelements <- c(elementallinestouse(), "Baseline", "Total", scatter_cols)
             
-            # Offer only lines that exist as columns in the intensity table the model
-            # frames select from. Compton/Rayleigh appear here the moment a deconvolution
-            # is re-run, while the intensity tables are only rebuilt on Commit - offering a
-            # name from the first that is missing from the second is what produced
-            # "undefined columns selected" downstream. An empty intersection means the
-            # table is not loaded yet, so leave the list alone rather than blanking it.
+            # Offer only lines that exist as columns in the intensity table the model frames select from: Compton/Rayleigh appear as soon as a deconvolution is re-run, but the intensity tables are only rebuilt on Commit. An empty intersection means the table is not loaded yet, so the list is left unchanged.
             available <- tryCatch(colnames(calIntensityTable()), error=function(e) NULL)
             if(length(intersect(myelements, available)) > 0){
                 myelements <- intersect(myelements, available)
@@ -3722,10 +3569,7 @@ shinyServer(function(input, output, session) {
             
         })
         
-        # Deduplicated choices: outVar() can recompute (line-table widget re-emits,
-        # commit presses) without the choice list actually changing. Only a REAL
-        # change may re-render the Element dropdown, otherwise every recompute
-        # rebuilds the widget and risks resetting the user's selection.
+        # Deduplicated Element choices: outVar() can recompute without its list changing, so only a real change re-renders the dropdown, which would otherwise risk resetting the user's selection.
         outVarStable <- reactiveVal(NULL)
         observe({
             ch <- outVar()
@@ -3740,10 +3584,7 @@ shinyServer(function(input, output, session) {
         })
         
         
-        # Zeroed concentration-template columns for the requested element lines.
-        # Lines just committed in the Definitions table may not exist yet as
-        # Intensities columns (or may be out-of-range placeholders) - create
-        # those as zero columns instead of erroring on the column select.
+        # Zeroed concentration-template columns for the requested element lines; lines not yet in the intensity table (just committed, or out-of-range placeholders) are created as zero columns instead of failing the column select.
         zeroLineTemplate <- function(spectra.line.table, elements){
             elements <- unique(as.character(elements))
             avail <- intersect(elements, colnames(spectra.line.table))
@@ -3878,16 +3719,12 @@ shinyServer(function(input, output, session) {
         
         values <- reactiveValues()
 
-        # Last content reported by the concentrations widget itself. Lets the
-        # renderer skip the echo re-render after a user edit (the widget already
-        # shows that content), so a cell edit no longer rebuilds the whole table.
+        # Last content reported by the concentrations widget itself, so the renderer can skip re-rendering what the widget already shows after a user edit.
         hotEcho <- reactiveVal(NULL)
 
         observe({
             if (!is.null(input$hot)) {
-                # Pasted blocks (e.g. from Excel) can arrive in shapes hot_to_r
-                # cannot parse; keep the last good table and warn instead of
-                # crashing the widget.
+                # Pasted blocks can arrive in shapes hot_to_r cannot parse, so keep the last good table and warn instead of crashing the widget.
                 DF <- tryCatch(hot_to_r(input$hot), error=function(e){
                     showNotification(paste("Could not read the pasted/edited table:", conditionMessage(e),
                         "- reverting to the previous values."), type="error", duration=8)
@@ -3900,11 +3737,7 @@ shinyServer(function(input, output, session) {
                 else
                 DF <- isolate(values[["DF"]])
             }
-            # Only write on real change: an unconditional write invalidates every
-            # downstream consumer (concentrationTable -> holdFrame -> models -> plots)
-            # on every firing, and the self-read branch above otherwise re-triggers
-            # this observer on each flush. dfSame (not identical) so handsontable
-            # round-trip artifacts (rownames/attributes) don't count as changes.
+            # Only write on a real change, since each write invalidates every downstream consumer (concentrationTable -> holdFrame -> models -> plots); dfSame rather than identical so handsontable round-trip artifacts such as rownames do not count as changes.
             if (!dfSame(DF, isolate(values[["DF"]]))) values[["DF"]] <- DF
         })
         
@@ -3915,7 +3748,7 @@ shinyServer(function(input, output, session) {
         })
         
         
-        ## Handsontable
+        # Handsontable
         
         output$hot <- renderRHandsontable({
 
@@ -3924,17 +3757,13 @@ shinyServer(function(input, output, session) {
 
             DF <- DF[order(as.character(DF$Spectrum)),]
 
-            # Echo suppression: when this render was triggered by the widget's own
-            # edit round-trip, the browser already displays exactly this content -
-            # keep the existing widget (cursor, scroll, selection) instead of
-            # rebuilding it.
+            # When this render comes from the widget's own edit round-trip, the browser already shows this content, so keep the existing widget (cursor, scroll, selection) instead of rebuilding it.
             echo <- isolate(hotEcho())
             if(!is.null(echo) && dfSame(DF, echo[order(as.character(echo$Spectrum)), , drop=FALSE])){
                 req(FALSE, cancelOutput = TRUE)
             }
 
-            # fixedColumnsLeft keeps the Spectrum names visible while scrolling
-            # across wide concentration tables.
+            # fixedColumnsLeft keeps the Spectrum names visible while scrolling across wide concentration tables.
             rhandsontable(DF, digits=12) %>%
                 hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer")) %>%
                 hot_cols(fixedColumnsLeft = 1)
@@ -4058,18 +3887,13 @@ shinyServer(function(input, output, session) {
         
         
         
-        # Debounced view of the concentrations table for the modelling chain:
-        # while the user types in the Add Concentrations widget, every cell edit
-        # used to re-trigger concentrationTable -> holdFrame -> model refit ->
-        # plots immediately. Let edits settle briefly, then recompute once.
+        # Debounced view of the concentrations table, so edits in the Add Concentrations widget settle before the model chain (concentrationTable -> holdFrame -> model refit -> plots) recomputes once.
         valuesSettled <- debounce(reactive(values[["DF"]]), 600)
 
         concentrationTable <- reactive({
 
             DF <- valuesSettled()
-            # Until the debounce timer first fires (session start, headless use)
-            # the settled view is NULL while the live table already has content -
-            # fall back so the model chain is usable immediately.
+            # The debounced view is NULL until its timer first fires, so fall back to the live table to keep the model chain usable immediately.
             if(is.null(DF)) DF <- values[["DF"]]
             req(is.data.frame(DF), nrow(DF) > 0)
             concentration.table <- as.data.frame(DF, stringsAsFactors=FALSE)
@@ -4171,15 +3995,9 @@ shinyServer(function(input, output, session) {
         #})
         
         
-        # The intensity table the calibration page is currently reading, chosen by the
-        # line-preference / line-structure controls. Lifted out of holdFrame() so the
-        # Slope and Intercept choice lists can be intersected against exactly the
-        # columns the model frames will later select by name.
+        # The intensity table chosen by the line-preference and line-structure controls, shared by holdFrame() and the Slope and Intercept choice lists so those lists offer exactly the columns the model frames select by name.
         calIntensityTable <- reactive({
-            # Both controls are rendered, so they are NULL until they mount and the
-            # comparisons below would be `if(logical(0))`. holdFrame()'s own req()
-            # used to short-circuit before this switch was reached; now that the
-            # choice lists read it too, it needs the guard itself.
+            # Both controls come from renderUI and are NULL until they mount, which would make the comparisons below `if(logical(0))`; the choice lists read this reactive directly, so it needs its own guard.
             req(input$linepreferenceelement, input$linestructureelement)
             if(input$linepreferenceelement=="Narrow"){
                 if(input$linestructureelement=="gaussian"){
@@ -4274,11 +4092,11 @@ shinyServer(function(input, output, session) {
         
         
         
-        #####Set Defaults
+        # Set Defaults
         
         
         
-        ####Set up Standards
+        # Set up Standards
         elementHold <- reactive({
             
             if(is.null(input$calcurveelement)==TRUE){
@@ -4318,9 +4136,7 @@ shinyServer(function(input, output, session) {
         
 
         calConditions <- reactiveValues()
-        # Number of standards, derived from the loaded calibration so it never
-        # depends on dataCount()/req(input$file1) (which halts when a cal is loaded
-        # without importing new spectra).
+        # Number of standards, taken from the loaded calibration first so it works when a calibration is loaded without importing spectra (when dataCount() halts); falls back to dataCount() and finally 1.
         robustStandardCount <- reactive({
             n <- tryCatch(nrow(calMemory$Calibration$Values), error=function(e) NA_integer_)
             if(is.null(n) || is.na(n) || n < 1){
@@ -4333,11 +4149,7 @@ shinyServer(function(input, output, session) {
             n
         })
 
-        # Runs first (high priority) on every element switch: guarantee the selected
-        # element has a calList entry BEFORE any per-element reactive reads
-        # calSettings$calList[[element]][[1]]. Without an entry, those reads hit
-        # NULL[[1]] ("subscript out of bounds"), which aborts the reset observers and
-        # freezes slope/normalization/etc. on the previously selected element.
+        # Runs first on every element switch, so the selected element has a calList entry before any per-element reactive reads calSettings$calList[[element]][[1]].
         observeEvent(input$calcurveelement, priority=200, {
             req(input$calcurveelement)
             if(!is.null(calSettings$calList) && !(input$calcurveelement %in% names(calSettings$calList))){
@@ -4360,8 +4172,7 @@ shinyServer(function(input, output, session) {
         observeEvent(input$radiocal, {
             calConditions$hold[["CalTable"]]$CalType <<- as.numeric(input$radiocal)
 
-            # For ML intensity models (Forest, Neural Intensities, XGBoost Intensities, SVM Intensities, Bayes Intensities),
-            # default to all slopes (opt-out) unless an existing model with saved slopes exists
+            # ML and chemometric intensity models default to all slopes (opt-out) unless the element already has a saved model with more than one slope.
             if(isTRUE(input$radiocal %in% c(4, 6, 8, 10, 12, chemIntensityTypes)) && !is.null(input$calcurveelement)){
                 existing_slopes <- tryCatch(calSettings$calList[[input$calcurveelement]][[1]]$Slope, error = function(e) NULL)
                 # Only default to all slopes if no existing model or existing model has <= 1 slope
@@ -4372,10 +4183,7 @@ shinyServer(function(input, output, session) {
                         updateSelectInput(session, "slope_vars", selected = new_slopes)
                     }
                 } else {
-                    # Restore the saved set, mirroring the element-switch resync. The
-                    # slope selector unmounts on every Spectra type and the
-                    # ignoreNULL=FALSE write-back nulls lucashold$slope as it goes, so
-                    # switching back to an Intensities type has to put it back.
+                    # Restore the saved slopes, as the element-switch resync does: the slope selector unmounts on Spectra types and its ignoreNULL=FALSE write-back nulls lucashold$slope, so switching back to an Intensities type must put them back.
                     lucashold$slope <- existing_slopes
                     updateSelectInput(session, "slope_vars", selected = existing_slopes)
                 }
@@ -4502,18 +4310,7 @@ shinyServer(function(input, output, session) {
         calFileStandards <- reactive({
             if(is.null(input$calcurveelement)) return(NULL)
 
-            # Number of standards. Prefer the per-element MODEL FRAME row count
-            # (holdFrame = standards with valid intensity AND finite concentration
-            # AND Include) because that is the frame the StandardsUsed mask is
-            # toggled/consumed against. Sizing to nrow(Values) instead mis-fit
-            # ragged/per-element calibrations: a length-nrow(Values) mask
-            # over-indexed the shorter model frame (phantom NA rows on consume)
-            # and the xor point-toggle recycled onto the wrong standards.
-            # Everything below falls back to calibration-derived counts (never
-            # dataCount()/req(input$file1), which halt when a cal is loaded without
-            # new spectra and would leave vals$keeprows NULL -> 0-row models);
-            # holdFrame()'s own req() is swallowed by tryCatch (shiny.silent.error
-            # inherits from error) so a not-ready frame just uses the fallback.
+            # Number of standards: holdFrame()'s row count, since the StandardsUsed mask is applied to that frame; when it is not ready (tryCatch also catches req()), fall back to calibration-derived counts and last to dataCount(), whose req(input$file1) halts when a calibration is loaded without new spectra.
             n_standards <- tryCatch({ hn <- nrow(holdFrame()); if(is.finite(hn) && hn >= 1) hn else NA_integer_ }, error=function(e) NA_integer_)
             if(is.null(n_standards) || is.na(n_standards) || n_standards < 1){
                 n_standards <- tryCatch(nrow(calMemory$Calibration$Values), error=function(e) NA_integer_)
@@ -4528,11 +4325,7 @@ shinyServer(function(input, output, session) {
             has_su <- !is.null(calSettings$calList) &&
                       "StandardsUsed" %in% names(calSettings$calList[[input$calcurveelement]][[1]])
 
-            # Spectrum ids for the full standard set. Keying the mask by Spectrum
-            # (rather than row position) lets a selection survive row reorder / a
-            # same-count membership change; alignKeep() projects it onto each frame
-            # at consume. NULL when unavailable or non-unique -> mask stays unnamed
-            # and is used positionally (legacy behavior).
+            # Spectrum ids for the full standard set. Keying the mask by Spectrum rather than row position lets a selection survive reordering or membership changes, and alignKeep() projects it onto each frame; when ids are unavailable or not unique the mask stays unnamed and is used by position.
             standard.spectra <- tryCatch({
                 s <- as.character(calMemory$Calibration$Values$Spectrum)
                 if(length(s) >= 1 && !anyDuplicated(s)) s else NULL
@@ -4542,12 +4335,7 @@ shinyServer(function(input, output, session) {
             } else rep(TRUE, n_standards)
 
             if(has_su){
-                # Coerce a stored StandardsUsed (may be character/list/numeric/factor)
-                # to a clean logical mask. A mask saved AFTER the Spectrum-keying
-                # change carries Spectrum names -> keep them (length need not match
-                # n_standards; alignKeep projects by identity). A legacy unnamed mask
-                # that fits the model frame is used positionally; anything stale or
-                # malformed falls back to all-standards-ON (named when possible).
+                # Coerce a stored StandardsUsed (character, list, numeric or factor) to a logical mask. A named mask keeps its Spectrum names whatever its length, since alignKeep() matches by name; an unnamed mask of length n_standards is used by position; anything else falls back to all standards on.
                 su <- calSettings$calList[[input$calcurveelement]][[1]]$StandardsUsed
                 nm <- names(su)
                 if(is.list(su)) su <- unlist(su, use.names = FALSE)
@@ -4594,9 +4382,7 @@ shinyServer(function(input, output, session) {
         
         calSlopeSelectionPre <- reactive({
             req(input$radiocal, input$calcurveelement)
-            # Safely fetch this element's stored Parameters; NULL when the element
-            # has no calList entry yet (no pre-existing model). Reading [[1]] off a
-            # missing entry would throw and freeze the per-element reset.
+            # This element's stored parameters, or NULL when it has no calList entry yet; reading [[1]] off a missing entry would throw and stop the per-element reset.
             params <- tryCatch(calSettings$calList[[input$calcurveelement]][[1]], error=function(e) NULL)
             if(input$radiocal==3){
                 sl <- if(!is.null(params)) params$Slope else NULL
@@ -4614,9 +4400,7 @@ shinyServer(function(input, output, session) {
             }
         })
 
-        # Classic Lucas-Tooth fields. Old .quants load raw calLists that predate the
-        # LTCross/LTWeight columns, so these must self-default rather than lean on
-        # calConditions$hold (which is seeded from the same old entry).
+        # Classic Lucas-Tooth fields. Older .quant files have no LTCross/LTWeight columns, so these default themselves rather than rely on calConditions$hold, which is seeded from the same entry.
         calLTCrossSelectionPre <- reactive({
             req(input$calcurveelement)
             ct <- tryCatch(calSettings$calList[[input$calcurveelement]][[1]]$CalTable, error=function(e) NULL)
@@ -4634,7 +4418,7 @@ shinyServer(function(input, output, session) {
 
 
 
-        ########Machine Learning: Normalization
+        # Machine Learning: Normalization
         
         normMinPre <- reactive({
             if(!"Min" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
@@ -4718,9 +4502,7 @@ shinyServer(function(input, output, session) {
                 extractAIC(lm(concentration.table[, input$calcurveelement]~simple_tc_prep_xrf_net(data, spectra.line.table, input$calcurveelement)$Intensity, na.action=na.exclude), k=log(length(1)))[2]
             }
             
-            # The sweep returns the winning Compton window's index with that window's AIC attached: weigh the AIC
-            # (not the index) against Time / Total Counts, and report the window that actually won. Net counts
-            # have no spectrum to sweep, so Compton can't win there.
+            # The sweep returns the winning Compton window's index with its AIC attached; compare that AIC (not the index) with Time and Total Counts and report the winning window. Net counts have no spectrum to sweep, so Compton cannot win there.
             comp.best <- if(data_type=="Spectra"){
                 optimal_norm_chain_xrf(data=data, element=element, spectra.line.table=spectra.line.table, values=concentration.table, possible.mins=norm.list[["Min"]], possible.maxs=norm.list[["Max"]])
             } else {
@@ -4748,9 +4530,7 @@ shinyServer(function(input, output, session) {
         })
         
         
-        # priority 96: run the normalization + intercept sweep BEFORE the
-        # best-model trainer (priority 95), so its results apply even if a
-        # model type in that sweep fails.
+        # Priority 96 runs the normalization and intercept sweep before the best-model trainer (priority 95), so its results apply even if a model type in that trainer fails.
         observeEvent(input$trainslopes, ignoreInit = TRUE, priority = 96, {
           programmatic(TRUE)
           bn <- bestNormVars()
@@ -4761,8 +4541,7 @@ shinyServer(function(input, output, session) {
           basichold$normmin <- bn[["Compton"]][1]
           basichold$normmax <- bn[["Compton"]][2]
 
-          # Intercept sweep (was disconnected): pick the likely-intercept combo
-          # with the best AIC under the trained normalization and apply it.
+          # Intercept sweep: pick the likely-intercept combination with the best AIC under the trained normalization and apply it.
           best_int <- tryCatch(bestInterceptVars(),
               error = function(e){ print(paste("TRAIN intercept sweep error:", conditionMessage(e))); NULL })
           print(paste0("TRAIN ", input$calcurveelement, ": norm=", bn[["Type"]],
@@ -4850,18 +4629,9 @@ shinyServer(function(input, output, session) {
         
         output$comptonType <- renderUI({
             req(input$radiocal, input$calcurveelement)
-            # isolate: observeEvent(input$comptontype) writes the same stored value this
-            # reads, so a live read makes the control re-render itself. The choices below
-            # stay reactive so the E1 gate still tracks the loaded deconvolution.
+            # isolate() because observeEvent(input$comptontype) writes the stored value read here, so a live read would make the control re-render itself; the choices stay reactive so the E1 gate still tracks the loaded deconvolution.
             sel <- isolate(comptonTypeSelection())
-            # "SNIP" is the display label for the stored value "Baseline" (backward-compatible). arPLS is
-            # physics-free so always computed and always offered. E1 is offered ONLY when the loaded
-            # deconvolution actually CARRIES a computed E1 baseline: E1 needs the scatter-background fit
-            # (a tube (anode+kV) + per-spectrum LiveTime), which a non-legacy MODE alone does NOT guarantee
-            # -- $Mass and $arPLS populate without it. Offering E1 on mode-alone let a user pick E1 and get
-            # the SNIP baseline via the never-return-NULL fallback (SNIP==E1, byte-identical). Gate on real
-            # E1 presence instead. Keep it if it is the STORED selection so a saved cal's normalization
-            # choice is never silently switched out from under it (that cal already resolves E1->SNIP).
+            # "SNIP" is the label for the stored value "Baseline", and arPLS is always offered. E1 is offered only when the loaded deconvolution carries a computed E1 baseline (it needs a tube and per-spectrum LiveTime, not just a non-legacy mode), since otherwise it silently falls back to SNIP; a stored E1 selection is kept so a saved calibration's choice is never switched.
             e1_available <- !is.null(tryCatch(calMemory$Calibration$Deconvoluted$E1, error=function(e) NULL))
             ch <- c("Raw"="Raw", "SNIP"="Baseline", "arPLS"="arPLS")
             if(isTRUE(e1_available) || identical(as.character(sel), "E1")) ch <- c(ch, "E1"="E1")
@@ -4871,7 +4641,7 @@ shinyServer(function(input, output, session) {
         })
         
         
-        #####Machine Learning: Intercepts
+        # Machine Learning: Intercepts
         
         
         
@@ -4881,11 +4651,7 @@ shinyServer(function(input, output, session) {
 
                 so <- seq(from=1, to=length(a.vector), by=1)
 
-                # utils::combn replaces the commented-out gRbase::combnPrim; with it
-                # gone, `long` was undefined and this errored for every element that
-                # HAS likely intercepts, silently breaking the Train intercept
-                # sweep. Plain lapply: the candidate lists are 2-3 items (<= 7
-                # combos), so forked pblapply cost more than the work.
+                # All combinations of the candidate intercept lines; plain lapply because the lists are 2-3 items (at most 7 combinations), so forking would cost more than the work.
                 long <- lapply(so, function(x) utils::combn(a.vector, m=x))
                 and <- lapply(long, function(x) plyr::alply(x, 2))
                 thanks.for.all.the.fish <- do.call(list, unlist(and, recursive=FALSE))
@@ -4905,9 +4671,7 @@ shinyServer(function(input, output, session) {
         })
         
         
-        # Plain function, not a reactive: it runs exactly once per Train press
-        # from inside the observer (reactive caching here served no purpose and
-        # a cached silent-error state could shadow a later valid computation).
+        # Plain function rather than a reactive: it runs once per Train press inside the observer, and a cached error state could hide a later valid result.
         bestInterceptVars <- function(){
 
             element <- input$calcurveelement
@@ -4919,10 +4683,7 @@ shinyServer(function(input, output, session) {
             ceph_cached <- cephlopodVector()
             slt_cols <- colnames(slt_cached)
 
-            # Compute intensities for candidate intercept lines the calibration
-            # does not carry (the old condition was inverted: it merged the
-            # candidates already present and never computed the missing ones,
-            # so any combo with an absent line errored downstream).
+            # Compute intensities for candidate intercept lines the calibration does not carry, so every combination has its columns.
             cand_lines <- unique(as.character(unlist(ceph_cached)))
             missing_lines <- setdiff(cand_lines, slt_cols)
             spectra.line.table <- if(length(missing_lines) == 0){
@@ -4946,9 +4707,7 @@ shinyServer(function(input, output, session) {
 
             spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% holdFrame()$Spectrum, ]
 
-            # Train with the normalization the norm sweep just chose (reading
-            # input$normcal here would race the client round-trip of the
-            # updateSelectInput that bestNormVars triggers).
+            # Use the normalization the norm sweep just chose; reading input$normcal here would race the client round-trip of the updateSelectInput driven by bestNormVars.
             bn <- bestNormVars()
             norm_type <- bn[["Type"]]
             norm_win <- bn[["Compton"]]
@@ -4961,8 +4720,7 @@ shinyServer(function(input, output, session) {
                 lapply(ceph_cached, function(x) lucas_comp_prep_xrf(data=data, spectra.line.table=spectra.line.table, element.line=element, slope.element.lines=element, intercept.element.lines=c(element, x), norm.min=norm_win[1], norm.max=norm_win[2]))
             }
 
-            # Concentrations aligned row-for-row to the intensity frames (which
-            # inherit spectra.line.table's row order), then pick the winning combo.
+            # Align concentrations row-for-row with the intensity frames (which follow spectra.line.table's row order), then pick the winning combination.
             conc_aligned <- concentration.table[match(spectra.line.table$Spectrum, concentration.table$Spectrum), element]
             best_idx <- optimal_intercept_chain_xrf(element=element, intensities=predict.intensity.list, values=conc_aligned, keep=alignKeep(vals$keeprows, spectra.line.table))
             if(is.na(best_idx)) NULL else as.character(unlist(ceph_cached[[best_idx]]))
@@ -4988,9 +4746,7 @@ shinyServer(function(input, output, session) {
         output$inVar3 <- renderUI({
             req(input$radiocal)
 
-            # The classic 1961 equation has no additive intercept-line terms, so the
-            # selector is hidden while the cross-product mode is on (the stored
-            # selection survives in lucashold$intercept for when it is unchecked).
+            # The classic 1961 equation has no intercept-line terms, so the selector is hidden in cross-product mode; the stored selection stays in lucashold$intercept.
             if(input$radiocal==3 && lt_is_classic(lucasLTCross())){
                 NULL
             } else if(input$radiocal %in% c(3, 4, 6, 8, 10, 12, chemIntensityTypes)){
@@ -5005,8 +4761,7 @@ shinyServer(function(input, output, session) {
         output$ltCrossUI <- renderUI({
             req(input$radiocal, input$calcurveelement)
             if(input$radiocal==3){
-                # Element switches re-render this (calcurveelement dependency) so the
-                # box reflects the stored per-element LTCross rather than a stale hold.
+                # Re-renders on element switches so the box shows the stored per-element LTCross rather than a stale hold.
                 checkboxInput("ltcross", "Cross-product matrix correction (Lucas-Tooth 1961)",
                     value = lt_is_classic(calLTCrossSelectionPre()))
             } else {
@@ -5026,13 +4781,10 @@ shinyServer(function(input, output, session) {
         
         
         
-        ####Machine Learning: Slope
+        # Machine Learning: Slope
         
         output$multicore_behavior_ui <- renderUI({
-            # input$radiocal comes from a renderUI (output$calTypeInput), so it is NULL
-            # until that control mounts - and `if(NULL[1]==1)` below is `if(logical(0))`,
-            # which errors with "argument is of length zero" and kills the flush. Every
-            # neighbouring renderUI already guards this way.
+            # input$radiocal comes from a renderUI (output$calTypeInput) and is NULL until it mounts, which would make the comparisons below `if(logical(0))` and error.
             req(input$radiocal)
             default.behavior <- if(get_os()=="windows"){
                 "Serialize"
@@ -5186,8 +4938,7 @@ shinyServer(function(input, output, session) {
             
         })
         
-        # When a double-click happens, check if there's a brush on the plot.
-        # If so, zoom to the brush bounds; if not, reset the zoom.
+        # When the Zoom button is clicked, zoom to the brush if there is one, otherwise reset the zoom.
         observeEvent(input$cropvar, {
             brush <- input$plot_var_brush
             if (!is.null(brush)) {
@@ -5313,9 +5064,7 @@ shinyServer(function(input, output, session) {
         
         # Return the requested dataset
         datasetInputVar <- reactive({
-            # elementvar comes from output$varelementui, so it is NULL until that control
-            # mounts - and switch(NULL, ...) errors with "EXPR must be a length 1 vector",
-            # which took out the whole importance plot.
+            # elementvar comes from output$varelementui and is NULL until that control mounts, and switch() errors on NULL.
             req(input$elementvar)
             switch(input$elementvar,
             "H" = H.table,
@@ -5430,8 +5179,7 @@ shinyServer(function(input, output, session) {
                 point <- nearPoints_safe(point.table, hover, xvar = "Energy", yvar = "Importance", maxpoints = 1)
                 if (nrow(point) == 0) return(NULL)
                 
-                # calculate point position INSIDE the image as percent of total dimensions
-                # from left (horizontal) and from top (vertical)
+                # Hover point position as a fraction of the plot domain, from the left and from the top.
                 left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
                 top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
                 
@@ -5440,9 +5188,7 @@ shinyServer(function(input, output, session) {
                 top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
                 
                 
-                # create style property fot tooltip
-                # background color is set so tooltip is a bit transparent
-                # z-index is set so we are sure are tooltip will be on top
+                # Tooltip style: semi-transparent background, and a z-index that keeps it on top.
                 style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
                 "left:", left_px + 2, "px; top:", top_px + 2, "px;")
                 
@@ -5515,7 +5261,6 @@ shinyServer(function(input, output, session) {
 
             #index <- complete.cases(concentration.table[,input$calcurveelement])
 
-            # Use already-cached spectra.line.table instead of calling spectraLineTable() again
             hold_spectra <- holdFrame()$Spectrum
             spectra.line.table <- spectra.line.table[spectra.line.table$Spectrum %in% hold_spectra, ]
 
@@ -5618,7 +5363,7 @@ shinyServer(function(input, output, session) {
         
     
         
-        #####Machine Learning: Cal Type
+        # Machine Learning: Cal Type
         
         
         
@@ -8902,13 +8647,7 @@ shinyServer(function(input, output, session) {
         })
         
         
-        # SVM kernel dispatch. The five numeric kernels (Linear, Polynomial,
-        # Radial, Radial Cost, Radial Sigma) are offered in the UI and verified
-        # working (tests/model_check.R sweeps them). The remaining branches -
-        # Exponential (svmExpoString), Boundrange String and Spectrum String -
-        # are kernlab STRING kernels: they operate on text sequences and cannot
-        # accept numeric intensity/spectra frames, so they are intentionally
-        # absent from the UI choices and kept here only for completeness.
+        # SVM kernel dispatch for the five numeric kernels offered in the UI (Linear, Polynomial, Radial, Radial Cost, Radial Sigma). The kernlab string kernels (Exponential/svmExpoString, Boundrange String, Spectrum String) work on text sequences and cannot take numeric intensity or spectra frames, so they are not offered.
         svmIntensityModelSet <- reactive(label="svmIntensityModelSet", {
             if(xgboosthold$xgbtype=="Linear"){
                 svmLinearIntensityModelSet()
@@ -9245,14 +8984,8 @@ shinyServer(function(input, output, session) {
 
         })
 
-        # ================= Chemometric models (cal types 14-21) =================
-        # PLS (14/15), Cubist (16/17), glmnet/Elastic Net (18/19), MARS/earth
-        # (20/21), each on Intensities (like cal type 12) or Spectra (like 13).
-        # Each family follows the same verbose modular scaffolding as the other
-        # model types - its own hold, Parameters/ModelData/ModelSet/Model and
-        # Randomized reactives - so per-family settings and normalization
-        # choices stay sandboxed and experimenting with one model never
-        # disturbs another.
+        # Chemometric models (cal types 14-21)
+        # PLS (14/15), Cubist (16/17), glmnet/Elastic Net (18/19) and MARS/earth (20/21), each on Intensities (like cal type 12) or Spectra (like 13). Each family has its own hold and Parameters/ModelData/ModelSet/Model/Randomized reactives, so its settings never affect another family.
 
         plsIntensityParameters <- reactive(label="plsIntensityParameters", {
             plsncomp.sel <- plsNCompSelection()
@@ -10306,14 +10039,7 @@ shinyServer(function(input, output, session) {
                 mars.grid <- mars.grid[ceiling(nrow(mars.grid)/2), , drop=FALSE]
             }
 
-            # MARS trains single-core regardless of the multicore setting: earth
-            # fits in well under a second on calibration-sized data, and caret's
-            # earth submodel loop is unreliable in forked/PSOCK workers once
-            # xgboost's libomp is resident (order-dependent all-NA resamples; a
-            # forked child of a GUI R session on macOS can deadlock outright).
-            # single-core on purpose: also keep caret away from any doParallel
-            # backend a previous model registered (stopCluster leaves it pointing
-            # at dead workers, and train would error with "invalid connection")
+            # MARS always trains single-core: earth is fast, caret's earth loop is unreliable in forked or PSOCK workers once xgboost's OpenMP runtime is loaded, and this keeps caret away from a stale doParallel backend left by an earlier model.
             tune_control$allowParallel <- FALSE
             mars_model <- caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit)
             mars_model
@@ -10384,14 +10110,7 @@ shinyServer(function(input, output, session) {
                 mars.grid <- mars.grid[ceiling(nrow(mars.grid)/2), , drop=FALSE]
             }
 
-            # MARS trains single-core regardless of the multicore setting: earth
-            # fits in well under a second on calibration-sized data, and caret's
-            # earth submodel loop is unreliable in forked/PSOCK workers once
-            # xgboost's libomp is resident (order-dependent all-NA resamples; a
-            # forked child of a GUI R session on macOS can deadlock outright).
-            # single-core on purpose: also keep caret away from any doParallel
-            # backend a previous model registered (stopCluster leaves it pointing
-            # at dead workers, and train would error with "invalid connection")
+            # MARS always trains single-core: earth is fast, caret's earth loop is unreliable in forked or PSOCK workers once xgboost's OpenMP runtime is loaded, and this keeps caret away from a stale doParallel backend left by an earlier model.
             tune_control$allowParallel <- FALSE
             mars_model <- caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit)
             mars_model
@@ -10431,14 +10150,7 @@ shinyServer(function(input, output, session) {
                 mars.grid <- mars.grid[ceiling(nrow(mars.grid)/2), , drop=FALSE]
             }
 
-            # MARS trains single-core regardless of the multicore setting: earth
-            # fits in well under a second on calibration-sized data, and caret's
-            # earth submodel loop is unreliable in forked/PSOCK workers once
-            # xgboost's libomp is resident (order-dependent all-NA resamples; a
-            # forked child of a GUI R session on macOS can deadlock outright).
-            # single-core on purpose: also keep caret away from any doParallel
-            # backend a previous model registered (stopCluster leaves it pointing
-            # at dead workers, and train would error with "invalid connection")
+            # MARS always trains single-core: earth is fast, caret's earth loop is unreliable in forked or PSOCK workers once xgboost's OpenMP runtime is loaded, and this keeps caret away from a stale doParallel backend left by an earlier model.
             tune_control$allowParallel <- FALSE
             mars_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit), error=function(e) NULL)
             mars_model
@@ -10478,23 +10190,14 @@ shinyServer(function(input, output, session) {
                 mars.grid <- mars.grid[ceiling(nrow(mars.grid)/2), , drop=FALSE]
             }
 
-            # MARS trains single-core regardless of the multicore setting: earth
-            # fits in well under a second on calibration-sized data, and caret's
-            # earth submodel loop is unreliable in forked/PSOCK workers once
-            # xgboost's libomp is resident (order-dependent all-NA resamples; a
-            # forked child of a GUI R session on macOS can deadlock outright).
-            # single-core on purpose: also keep caret away from any doParallel
-            # backend a previous model registered (stopCluster leaves it pointing
-            # at dead workers, and train would error with "invalid connection")
+            # MARS always trains single-core: earth is fast, caret's earth loop is unreliable in forked or PSOCK workers once xgboost's OpenMP runtime is loaded, and this keeps caret away from a stale doParallel backend left by an earlier model.
             tune_control$allowParallel <- FALSE
             mars_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit), error=function(e) NULL)
             mars_model
 
         })
 
-        # Dispatchers used by the generic radiocal chains (predictFrame,
-        # modelParameters, elementModelGen, cross-validation, ...), analogous
-        # to the svmIntensityModelSet / svmSpectraModelSet dispatchers.
+        # Route chemometric cal types 14-21 to the matching family's model set, model and randomized model for the generic radiocal chains (predictFrame, modelParameters, elementModelGen, cross-validation).
         chemModelSet <- reactive(label="chemModelSet", {
             switch(as.character(input$radiocal),
                 "14"=plsIntensityModelSet(),    "15"=plsSpectraModelSet(),
@@ -10517,8 +10220,7 @@ shinyServer(function(input, output, session) {
                 "20"=marsIntensityModelRandomized(),   "21"=marsSpectraModelRandomized())
         })
 
-        # Tuning-range selections: sliders sync into the per-family holds;
-        # chemRange supplies the defaults when nothing is stored yet.
+        # Tuning-range selections read the per-family holds that the sliders sync into, with chemRange supplying defaults when nothing is stored yet.
         plsNCompSelection <- reactive(label="plsNCompSelection", {
             chemRange(plshold$plsncomp, c(1, 12))
         })
@@ -10832,9 +10534,7 @@ shinyServer(function(input, output, session) {
             xgboosthold$xgbtype <- "Linear"
             calMemory$Calibration$calList[[input$calcurveelement]] <- list(Parameters=defaultCalConditions(element=input$calcurveelement, number.of.standards=length(holdFrame()$Spectrum)), Model=NULL)
 
-            # tryCatch: an error while evaluating one candidate model type used to
-            # propagate out of this observer and abort the remaining Train
-            # observers in the flush (the norm/intercept sweep never ran).
+            # Errors are caught and reported so a failing candidate model type cannot abort the remaining Train observers, such as the normalization and intercept sweep.
             tryCatch({
                 bestCalHold[[input$calcurveelement]] <- bestCalTypeFrame()
                 calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=bestParameters(), model=bestModel(), table=calValTable(), compress=TRUE))
@@ -10945,10 +10645,7 @@ shinyServer(function(input, output, session) {
         
         output$energyrangeui <- renderUI({
             req(input$radiocal, input$calcurveelement)
-            # compress is passed live (not isolated): it is a different control, so it
-            # cannot feed this one back, and the slider step should track the binning the
-            # model actually uses. It was never passed before, so the step was stuck at
-            # 0.1 even at 50/25 eV.
+            # compress is passed live, not isolated, so the slider step tracks the model's binning; it is a separate control, so it cannot feed back into this one.
             energyRangeUI(radiocal=input$radiocal, selection=isolate(calEnergyRangePre()), compress=input$compress)
         })
         
@@ -10969,7 +10666,7 @@ shinyServer(function(input, output, session) {
         
 
         
-        ###Machine Learning Parameters
+        # Machine Learning Parameters
         
         maxSample <- reactive(label="maxSample", {
             req(input$radiocal)
@@ -11376,9 +11073,7 @@ shinyServer(function(input, output, session) {
             }
         })
 
-        # Chemometric tuning-range restore (cal types 14-21), same pattern as
-        # the SVM restores. Pre-chem .quants have none of these columns, so the
-        # fallback reads calConditions$hold, whose default CalTable carries them.
+        # Restore the chemometric tuning ranges (cal types 14-21) like the SVM restores; .quant files without these columns fall back to the defaults in calConditions$hold.
         calPLSNCompSelectionpre <- reactive(label="calPLSNCompSelectionpre", {
             if(!"plsNComp" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["plsNComp"]), "-")))
@@ -11750,7 +11445,7 @@ shinyServer(function(input, output, session) {
           updateNumericInput(session, "comptonmin", value = normMinPre())
           updateNumericInput(session, "comptonmax", value = normMaxPre())
 
-          # For ML intensity models, default to all slopes for new elements unless existing model has saved slopes
+          # For ML intensity models, default to all slopes unless the element already has more than one saved slope.
           if(isTRUE(input$radiocal %in% c(4, 6, 8, 10, 12, chemIntensityTypes))){
               existing_slopes <- tryCatch(calSettings$calList[[input$calcurveelement]][[1]]$Slope, error = function(e) NULL)
               if(is.null(existing_slopes) || length(existing_slopes) <= 1){
@@ -11765,10 +11460,7 @@ shinyServer(function(input, output, session) {
               }
           }
 
-          # Lucas-Tooth (radiocal 3) shares the slope_vars selector with the ML
-          # models (4/6/8/10/12) handled above, but differs in its default: a single
-          # slope (the element's own line) rather than all lines. Re-sync it here so
-          # the previously selected element's line doesn't stay shown and get used.
+          # Lucas-Tooth (radiocal 3) shares slope_vars with the ML models but defaults to a single slope, the element's own line, so re-sync it to avoid keeping the previous element's line.
           if(isTRUE(input$radiocal == 3)){
               new_slope <- tryCatch(calSlopeSelectionPre(), error = function(e) input$calcurveelement)
               if(is.null(new_slope) || length(new_slope) == 0) new_slope <- input$calcurveelement
@@ -11779,13 +11471,7 @@ shinyServer(function(input, output, session) {
           programmatic(FALSE)
         })
         
-        # These observers receive both real user edits and the echoes of the
-        # programmatic updateSelectInput/updateNumericInput calls made when
-        # switching elements. The programmatic() flag alone cannot catch the
-        # echoes - they arrive on a later flush, after the flag was reset - so
-        # each also skips when the value matches what is already held. Without
-        # that, every element switch replayed up to six "edits", each of which
-        # invalidated the model/plot chain again.
+        # These observers see both user edits and the echoes of the programmatic updates made on an element switch; the echoes arrive after programmatic() is reset, so each observer also skips a value that matches what is already held, to avoid invalidating the model chain again.
         observeEvent(input$normcal, {
           if (programmatic()) return()
           if (isTRUE(as.numeric(input$normcal) == as.numeric(basichold$normtype))) return()
@@ -11807,8 +11493,7 @@ shinyServer(function(input, output, session) {
           calConditions$hold[["CalTable"]]$Max <- as.numeric(input$comptonmax)
         }, ignoreInit = TRUE)
 
-        # Note: LineType/LineStructure are character settings ("Narrow", "gaussian");
-        # they were previously stored through as.numeric(), which coerced them to NA.
+        # LineType/LineStructure are character settings ("Narrow", "gaussian"), so they are stored as-is, not through as.numeric().
         observeEvent(input$linepreferenceelement, {
           if (programmatic()) return()
           if (isTRUE(input$linepreferenceelement == basichold$linepreferenceelement)) return()
@@ -11839,10 +11524,7 @@ shinyServer(function(input, output, session) {
             basichold$deptransformation <- input$deptransformation
         })
         
-        # Same no-op guard the normcal / comptonmin / comptonmax observers carry: a
-        # re-rendered slider re-announces its value, and writing it back unchanged
-        # invalidated the whole model/plot chain for nothing. The `programmatic` flag
-        # covers values this app pushed into the widget itself.
+        # Skip unchanged values like the normcal/comptonmin/comptonmax observers: a re-rendered slider re-announces its value, and writing it back would invalidate the model chain; the programmatic flag covers values the app pushed itself.
         observeEvent(input$energyrange, {
             if (programmatic()) return()
             if (isTRUE(all(as.numeric(input$energyrange) == as.numeric(basichold$energyrange)))) return()
@@ -11850,10 +11532,7 @@ shinyServer(function(input, output, session) {
         })
         
         observeEvent(input$slope_vars, {
-            # Skip no-op echoes: when the slope selector re-renders on an element
-            # switch it briefly reports its old value (or NULL) before the real
-            # selection arrives; unconditionally writing those invalidated the
-            # model chain with a stale/empty slope configuration each time.
+            # Skip echoes of the held value: the slope selector re-reports its selection when it re-renders on an element switch, and writing it back would invalidate the model chain.
             if (identical(input$slope_vars, isolate(lucashold$slope))) return()
             lucashold$slope <- input$slope_vars
         }, ignoreNULL = FALSE)
@@ -12489,22 +12168,25 @@ shinyServer(function(input, output, session) {
         #})
         
         
-        # This is an observer, so an unhandled error is fatal to the whole session -
-        # Shiny confines render-function errors to their output slot, but an observer
-        # that throws ends the session and the app greys out. One click fans the entire
-        # model chain out from here (modelParameters(), elementModelGen(), and
-        # calValTable() -> calValFrame() -> valFrame() -> predictFrame()), so the guard
-        # wraps the body rather than just the modelPack calls. Same notify-on-failure
-        # idiom as observeEvent(input$trainslopes) above.
-        # The packs are also built into locals first: the old code cleared the element's
-        # calList entry before rebuilding it, so a failed Update destroyed the model the
-        # user already had. modelPack() returns NULL when its parameters could not be
-        # assembled, which would otherwise delete the entry just as silently.
+        # Guard the whole body: an error in an observer ends the session, and this click runs the entire model chain.
+        # Both packs are built before anything is stored, so a failed build or a NULL from modelPack() keeps the element's existing model.
+        # Use Cross-Validated Model swaps in the average of the leave-one-out refits, with their left-out estimates as the standards table.
         observeEvent(input$createcalelement, priority=100, {
             tryCatch({
                 element <- input$calcurveelement
-                cal.pack <- isolate(modelPack(parameters=modelParameters(), model=elementModelGen(), table=calValTable(), compress=TRUE))
-                settings.pack <- isolate(modelPack(parameters=modelParameters(), model=NULL, table=calValTable(), compress=TRUE))
+                model <- isolate(elementModelGen())
+                table <- isolate(calValTable())
+                if(isTRUE(input$useloomodel)){
+                    loo <- isolate(looSaved())
+                    if(is.null(loo$Model)){
+                        showNotification(loo$Note, type="warning", duration=10)
+                    } else {
+                        model <- loo$Model
+                        table <- loo$Table
+                    }
+                }
+                cal.pack <- isolate(modelPack(parameters=modelParameters(), model=model, table=table, compress=TRUE))
+                settings.pack <- isolate(modelPack(parameters=modelParameters(), model=NULL, table=table, compress=TRUE))
 
                 if(is.null(cal.pack) || is.null(settings.pack)){
                     print("UPDATE model build failed: model settings could not be assembled")
@@ -12560,12 +12242,7 @@ shinyServer(function(input, output, session) {
         #    valFrameVal$val.frame <- valFrame()
         #})
         
-        # Debounced trigger: modelParameters() invalidates several times during an
-        # element switch (per-element holds sync one field at a time, then the
-        # re-rendered sidebar controls echo back). This observer is eager, so each
-        # invalidation used to force the full model chain (elementModel refit ->
-        # mclValGen) mid-cascade. Let the parameters settle, then update the cache
-        # once.
+        # Debounced because modelParameters() invalidates several times during an element switch; the val frame cache is updated once the parameters settle instead of refitting the model chain at each step.
         modelParametersSettled <- debounce(modelParameters, 300)
         observeEvent(modelParametersSettled(), priority=77, {
             #req(input$calcurveelement, input$radiocal)
@@ -12645,11 +12322,7 @@ shinyServer(function(input, output, session) {
             val_data <- valFrame()
             val_frame_val_data <- valFrameVal$val.frame
 
-            # Normalize the standards mask before subsetting. A stored StandardsUsed
-            # can be character/list/numeric, NULL, or a length that no longer matches
-            # a given frame; any of those makes `!keep` error out ("invalid argument
-            # type") and kills the plot. Coerce to a clean logical and fall back to
-            # "keep all standards" per-frame when the mask is malformed or stale.
+            # Normalize the standards mask for each frame: a stored StandardsUsed can be non-logical, NULL or the wrong length, so it is coerced to logical and falls back to keeping all standards when malformed or stale.
             keep_for <- function(df){
                 if(is.null(df)) return(NULL)
                 k <- alignKeep(vals$keeprows, df)
@@ -12689,11 +12362,7 @@ shinyServer(function(input, output, session) {
                 10000
             }
 
-            # Spectra-based models (5/7/9/11/13 and the chemometric 15/17/19/21) draw the
-            # val frame's predicted Intensity: predictFrame() is the binned spectrum there
-            # and carries no Intensity column at all, so my.min() saw NULL and the equation
-            # label was positioned at NA. Fall back to the frame actually being drawn, then
-            # to the left edge (-Inf pairs with hjust=0 the way Inf/vjust=1 does for y).
+            # Spectra-based models have no Intensity column in predictFrame() (it is the binned spectrum), so the label's x position falls back to the val frames' Intensity, then to the left edge (-Inf pairs with hjust=0).
             x_hold <- if(input$radiocal==3){
                 0
             } else {
@@ -13029,7 +12698,6 @@ shinyServer(function(input, output, session) {
             }
         })
 
-        # Note: processingCalCurve was removed - it was identical to emptyCalCurve and never used
         
         calCurvePlot <- reactive(label="calCurvePlot", {
             if(isMCL()==FALSE){
@@ -13083,45 +12751,17 @@ shinyServer(function(input, output, session) {
         
         reac <- reactive(list(bins = input$bins, column  = input$column))
         
-        # Debounced views for the displayed plots: one element switch invalidates the
-        # plot chain several times in a row (element input, keeprows reset, stored
-        # cal settings, radiocal/normcal arriving from re-rendered sidebar controls),
-        # and each invalidation used to redraw both plots (~0.5 s each). Debouncing
-        # collapses the cascade into a single redraw once the inputs settle.
-        # Interactive consumers (zoom/click/hover ranges) keep using calCurvePlot()
-        # directly - it is cached, so reads stay cheap.
+        # The displayed plots are debounced so the several invalidations of one element switch cause a single redraw; zoom, click and hover handlers use the cached calCurvePlot() directly.
         calCurvePlotView <- debounce(calCurvePlot, 250)
 
         output$calcurveplots <- renderPlot({
             calCurvePlotView()
         })
 
-        ## Limit of Detection / Quantification. Two different bases, one number each -
-        ## the panel shows just the two values and the definitions live in the hover
-        ## text, so the Cal Curves page stays uncluttered.
-        ##  - LOD = 3-sigma BLANK: the instrumental single-line counting noise on the
-        ##    bare line from baseline_lod_estimate() (peak-free shoulder noise, cross
-        ##    checked against Currie sqrt(background)/LiveTime when LiveTime is known),
-        ##    converted to concentration by the raw/linear sensitivity. The smallest
-        ##    amount separable from background; model-independent.
-        ##  - LOQ = 5-sigma MODEL MEASUREMENT: 5 * a robust scale (MAD) of the
-        ##    residuals of ONLY the LOWEST-concentration standards to the SELECTED
-        ##    model's fit, in concentration units. That is a measurement limit rather
-        ##    than a blank limit: above what concentration does this calibration return
-        ##    a usable number. Residuals come from valFrame() (the chosen model's
-        ##    predicted-vs-actual concentration, which is what the Cal Curves plot's
-        ##    r-squared reflects for Lucas-Tooth/ML and is transform-safe via
-        ##    mclValGen), so it conforms to the selected model. Using only the
-        ##    near-blank subset (not the whole-range residual SE) keeps it valid across
-        ##    wide dynamic ranges: the pooled residual SE is dominated by the large
-        ##    absolute scatter of high-concentration standards (heteroscedasticity) and
-        ##    grossly overstates the limit (e.g. Nd 8.5-314 ppm gave a farcical
-        ##    160 ppm). sigma_model is floored at the single-line counting noise - a
-        ##    model cannot measure better than counting statistics - which also guards
-        ##    a degenerate near-tied low subset from collapsing the estimate and keeps
-        ##    LOQ above LOD.
-        ## Either basis falls back to the other when its own inputs are missing;
-        ## lod_basis / loq_basis record which one produced each displayed number.
+        # Limit of detection and quantification, one number each; the definitions are in the hover text.
+        # - LOD = 3 sigma of the blank: the single-line counting noise from baseline_lod_estimate(), converted to concentration by the linear sensitivity; it does not depend on the model.
+        # - LOQ = 5 sigma of the selected model: 5 x a robust scale (MAD) of the valFrame() residuals of the lowest-concentration standards only, because residuals pooled over a wide range are dominated by the high standards and overstate the limit; sigma is floored at the counting noise, which keeps LOQ above LOD.
+        # Either basis falls back to the other when its inputs are missing; lod_basis / loq_basis record which one was used.
         lodEstimate <- reactive(label="lodEstimate", {
             req(input$calcurveelement)
             tryCatch({
@@ -13156,21 +12796,19 @@ shinyServer(function(input, output, session) {
                     slope           = slope,
                     range.table     = calMemory$Calibration$Definitions)
 
-                ## --- 3-sigma blank (LOD) ---------------------------------------
+                # 3-sigma blank (LOD)
                 blank_lod <- if(isTRUE(inst$note=="ok") && is.finite(inst$lod)) inst$lod else NA_real_
 
-                ## --- near-blank model measurement scatter (drives LOQ) ----------
+                # near-blank model measurement scatter (drives LOQ)
                 sigma_model <- NA_real_; n_cal <- 0L; n_low_cal <- 0L
 
-                ## Model-conforming residuals in concentration units: prefer valFrame()
-                ## (selected model's predicted vs actual concentration; transform-safe),
-                ## fall back to the displayed linear cal line if valFrame is degenerate.
+                # Residuals in concentration units from the selected model via valFrame(), which is transform-safe, falling back to the linear calibration line if valFrame is degenerate.
                 resid_conc <- NULL
                 vf <- tryCatch(valFrame(), error=function(e) NULL)
                 if(!is.null(vf) && all(c("Concentration", "Prediction") %in% names(vf))){
                     kv <- if(length(keep)==nrow(vf)) vf[keep, , drop=FALSE] else vf
                     kv <- kv[is.finite(kv$Concentration) & is.finite(kv$Prediction), , drop=FALSE]
-                    ## reject the all-zero prediction fallback (models valFrame can't predict)
+                    # reject the all-zero prediction fallback (models valFrame can't predict)
                     if(nrow(kv) >= 5 && stats::sd(kv$Prediction) > 0){
                         vfit <- tryCatch(lm(Concentration ~ Prediction, data=kv), error=function(e) NULL)
                         if(!is.null(vfit)) resid_conc <- data.frame(conc=kv$Concentration, resid=residuals(vfit))
@@ -13196,16 +12834,14 @@ shinyServer(function(input, output, session) {
                     unbias <- 1 / (1 - 3/(4*n_low))
                     s0 <- stats::mad(e_low) * unbias
                     if(!is.finite(s0) || s0 == 0) s0 <- stats::sd(e_low) * unbias
-                    ## Physical floor: a model cannot measure better than single-line
-                    ## counting statistics; also guards a near-tied low subset from
-                    ## collapsing, and keeps 5*sigma_model above the 3-sigma blank.
+                    # Floor sigma at the single-line counting noise: a model cannot measure better than counting statistics, and the floor stops a near-tied low subset from collapsing and keeps LOQ above LOD.
                     if(is.finite(blank_lod)) s0 <- max(s0, blank_lod/3)
                     if(is.finite(s0) && s0 > 0){
                         sigma_model <- s0; n_cal <- n_r; n_low_cal <- n_low
                     }
                 }
 
-                ## One number per basis; each falls back to the other when unavailable.
+                # One number per basis; each falls back to the other when unavailable.
                 lod <- blank_lod; lod_basis <- "blank"
                 if(!is.finite(lod) && is.finite(sigma_model)){
                     lod <- 3 * sigma_model; lod_basis <- "model"
@@ -13228,9 +12864,7 @@ shinyServer(function(input, output, session) {
             }, error=function(e) list(inst_note="not_estimable", lod=NA_real_, loq=NA_real_))
         })
 
-        # Debounced like the plots: the LOD estimate is the single most expensive
-        # reactive on an element switch (~0.6 s); let the input cascade settle and
-        # compute it once.
+        # Debounced like the plots: the LOD estimate is the most expensive reactive on an element switch, so it is computed once the inputs settle.
         lodEstimateView <- debounce(lodEstimate, 400)
 
         output$lodtext <- renderUI({
@@ -13256,8 +12890,7 @@ shinyServer(function(input, output, session) {
                 return(HTML(paste0("<em>", msg, "</em>")))
             }
 
-            ## Definitions ride in the hover text rather than a caption block, so the
-            ## panel is two numbers and nothing else.
+            # The definitions go in the hover text so the panel shows only the two numbers.
             n_blank <- if(is.null(est$n)) 0L else est$n
             n_low   <- if(is.null(est$n_low) || est$n_low==0) est$n_cal else est$n_low
             n_low   <- if(is.null(n_low)) 0L else n_low
@@ -13286,11 +12919,7 @@ shinyServer(function(input, output, session) {
                     "Above this concentration the calibration returns a usable number, not just a detection.")
             }
 
-            ## Pure-CSS hover card rather than a title= attribute: native tooltips are
-            ## suppressed in some Shiny hosts (the RStudio viewer pane among them), and
-            ## a card also appears instantly and can wrap to several lines. The <style>
-            ## travels with the output so it does not depend on the ui.R head block;
-            ## the div is replaced wholesale on each render, so it cannot pile up.
+            # A pure-CSS hover card instead of a title= attribute, because some Shiny hosts suppress native tooltips; the <style> ships with the output, so it does not depend on ui.R and is replaced on each render rather than piling up.
             tipcss <- paste0("<style>",
                 ".lodwrap{position:relative;}",
                 ".lodtip{border-bottom:1px dotted #888; cursor:help;}",
@@ -13304,9 +12933,7 @@ shinyServer(function(input, output, session) {
                 "</style>")
 
             tip <- function(label, txt){
-                ## the box is a child of the label span (so :hover reveals it) but is
-                ## positioned against .lodwrap, so both cards drop from the same left
-                ## edge and neither can run off the panel.
+                # The box is a child of the label span so :hover reveals it, but is positioned against .lodwrap so both cards start from the same left edge and stay inside the panel.
                 paste0("<span class=\"lodtip\">", label, "<span class=\"lodtipbox\">",
                     gsub("\n", "<br>", htmltools::htmlEscape(txt), fixed=TRUE), "</span></span>")
             }
@@ -13330,11 +12957,7 @@ shinyServer(function(input, output, session) {
             tryCatch(val.frame$Concentration <- val.frame$Concentration*multiplier, error=function(e) NULL)
             tryCatch(val.frame$Prediction <- val.frame$Prediction*multiplier, error=function(e) NULL)
 
-            # Normalize the standards mask before subsetting. A stored StandardsUsed
-            # can be character/list/numeric, NULL, or a length that no longer matches
-            # the current value frame; any of those makes `!keep` error out ("invalid
-            # argument type") and kills the plot. Coerce to a clean logical and fall
-            # back to "keep all standards" when the mask is malformed or stale.
+            # Normalize the standards mask: a stored StandardsUsed can be non-logical, NULL or the wrong length for this frame, so it is coerced to logical and falls back to keeping all standards when malformed or stale.
             keep <- alignKeep(vals$keeprows, val.frame)
             if(is.list(keep)) keep <- unlist(keep, use.names = FALSE)
             keep <- suppressWarnings(as.logical(keep))
@@ -13420,7 +13043,6 @@ shinyServer(function(input, output, session) {
             }
         })
 
-        # Note: processingValCurve was removed - it was identical to emptyValCurve and never used
         
         valCurvePlot <- reactive(label="valCurvePlot", {
             if(isMCL()==FALSE){
@@ -13542,9 +13164,7 @@ shinyServer(function(input, output, session) {
         randomizeData <- reactive(label="randomizeData",{
 
             cal.frame <- holdFrame()[complete.cases(holdFrame()[,"Concentration"]),]
-            # Normalize the standards mask like the plot reactives do: a NULL /
-            # stale / wrong-length keeprows otherwise empties the frame and the
-            # whole Cross Validation tab silently collapses to zero rows.
+            # Normalize the standards mask like the plot reactives do, so a NULL, stale or wrong-length keeprows keeps all standards instead of emptying the frame.
             keep <- alignKeep(vals$keeprows, cal.frame)
             if(is.list(keep)) keep <- unlist(keep, use.names = FALSE)
             keep <- suppressWarnings(as.logical(keep))
@@ -13591,8 +13211,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
 
             predict.frame <- calCurveFrameRandomized()
-            # lucasToothFit drops the Spectrum linkage column and, in classic 1961
-            # mode, recomputes the 1/I^2 weights from this randomized subset.
+            # lucasToothFit drops the Spectrum column and, with the classic form and 1961 weighting, recomputes the 1/I^2 weights from this randomized subset.
             lc.fit <- lucasToothFit(predict.frame, lt.cross=lucasToothModelSet()$parameters$CalTable$LTCross, lt.weight=lucasToothModelSet()$parameters$CalTable$LTWeight)
             lc.fit$Model
         })
@@ -16281,11 +15900,7 @@ shinyServer(function(input, output, session) {
             val.frame <- tryCatch(mclValGen(model=elementModelRandom(), data=predictIntensity()[ keep, , drop = FALSE], predict.frame=predictFrame()[ keep, , drop = FALSE], dependent.transformation=basichold$deptransformation), error=function(e) NULL)
             
             val.frame <- if(is.null(val.frame)){
-                # Fallback when the model cannot produce predictions yet (e.g.
-                # visiting Cross Validation before Run Model). Concentration is a
-                # plain vector, so subset it with 1-D indexing - the previous
-                # matrix-style `[keep, , drop=FALSE]` threw "incorrect number of
-                # dimensions" and blanked the tab with an error.
+                # Fallback when the model cannot predict yet, such as Cross Validation before Run Model; Concentration is a plain vector, so it is subset with 1-D indexing.
                 tryCatch({
                     conc <- predictFrame()$Concentration
                     keep <- alignKeep(vals$keeprows, predictFrame())
@@ -17116,6 +16731,367 @@ shinyServer(function(input, output, session) {
         }
         )
         
+
+        # Standards > Validation table for the held-out standards, each predicted by the model fitted on the rest of the random split.
+        randomValTable <- reactive(label="randomValTable", {
+            val.frame <- valFrameRandomized()
+            shiny::validate(shiny::need(is.data.frame(val.frame) && "Spectrum" %in% colnames(val.frame) && nrow(val.frame) > 0,
+                "No held-out estimates yet: the random-split model could not be fitted."))
+            standard.table <- val.frame[complete.cases(val.frame$Concentration), c("Spectrum", "Concentration", "Prediction"), drop=FALSE]
+            standard.table$Difference <- as.numeric(standard.table$Concentration - standard.table$Prediction)
+            standard.table$Relative <- (standard.table$Concentration - standard.table$Prediction) / standard.table$Concentration
+            rownames(standard.table) <- NULL
+            standard.table
+        })
+
+        output$randomstandards <- DT::renderDataTable({
+            standard.table.summary <- randomValTable()
+            standard.table.summary[,-1] <-round(standard.table.summary[,!colnames(standard.table.summary) %in% "Spectrum"],7)
+            standard.table.summary[,5] <- as.character(percent(standard.table.summary$Relative))
+            standard.table.summary
+        }, options =list(aoColumnDefs = list(list(sClass="alignRight",aTargets=c(list(2), list(3),list(4),list(5))))  ))
+
+        output$downloadRandomStandards <- downloadHandler(
+        filename = function() { paste0(input$calname, "_", input$calcurveelement, "_RandomSplit", '.csv') },
+        content = function(file) {
+            write.csv(randomValTable(), file)
+        }
+        )
+
+
+        # Leave-one-out validation (Linear, Non-Linear, Lucas-Tooth)
+
+        looMultiplier <- reactive({
+            if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
+        })
+
+        looElementName <- reactive({
+            req(input$calcurveelement)
+            if(input$calcurveelement %in% spectralLines){
+                gsub("[.]", "", substr(input$calcurveelement, 1, 2))
+            } else {
+                input$calcurveelement
+            }
+        })
+
+        looCurrentKey <- reactive({
+            req(input$radiocal)
+            switch(as.character(input$radiocal),
+                "1"="linear",
+                "2"="nonlinear",
+                "3"="lucastooth",
+                NULL)
+        })
+
+        # Spectrum ids of the standards the current model is fitted on; legacy masks are positional, so the mask is resolved once against predictFrame() (the Cal Curves frame) and the refits select standards by id.
+        looStandardIds <- reactive(label="looStandardIds", {
+            frame <- tryCatch(predictFrame(), error=function(e) NULL)
+            if(!is.data.frame(frame) || !"Spectrum" %in% colnames(frame)) frame <- holdFrameCal()
+            keep <- alignKeep(vals$keeprows, frame)
+            if(is.null(keep) || length(keep) != nrow(frame)) keep <- rep(TRUE, nrow(frame))
+            as.character(frame$Spectrum[keep %in% TRUE])
+        })
+
+        # Leave-one-out refits of the Cal Curves model with the same type, lines, normalization, Lucas-Tooth form and weighting, and standards; n standards cost n small lm fits.
+        looCurrentFits <- reactive(label="looCurrentFits", {
+            key <- looCurrentKey()
+            shiny::validate(shiny::need(!is.null(key), "Leave-one-out covers Linear, Non-Linear and Lucas-Tooth calibrations. For this model type, use the Random Split tab."))
+            model.set <- switch(key, linear=linearModelSet(), nonlinear=nonLinearModelSet(), lucastooth=lucasToothModelSet())
+            fit.fun <- switch(key,
+                linear=function(f) lm(Concentration~Intensity, data=f, na.action=na.omit),
+                nonlinear=function(f) lm(Concentration~Intensity + I(Intensity^2), data=f, na.action=na.omit),
+                lucastooth=function(f) lucasToothFit(f, lt.cross=model.set$parameters$CalTable$LTCross, lt.weight=model.set$parameters$CalTable$LTWeight)$Model)
+            frame <- model.set$data
+            frame <- frame[as.character(frame$Spectrum) %in% looStandardIds(), , drop=FALSE]
+            fits <- looFits(frame, fit.fun, dependent.transformation=dependentTransformation(), y_min=yMin(), y_max=yMax())
+            shiny::validate(shiny::need(!is.null(fits$Full) && sum(is.finite(fits$Table$LOO)) >= 3, "Leave-one-out needs at least three standards with a usable fit."))
+            fits
+        })
+
+        # What Use Cross-Validated Model saves: the refits averaged into one model.
+        looCVModel <- reactive(label="looCVModel", {
+            looAverageModel(looCurrentFits())
+        })
+
+        # Standards > Validation table for the leave-one-out estimates: each standard as predicted by the refit that left it out.
+        looValTable <- reactive(label="looValTable", {
+            tab <- looCurrentFits()$Table
+            standard.table <- data.frame(Spectrum=tab$Spectrum, Concentration=tab$Concentration, Prediction=tab$LOO, stringsAsFactors=FALSE)
+            standard.table$Difference <- as.numeric(standard.table$Concentration - standard.table$Prediction)
+            standard.table$Relative <- (standard.table$Concentration - standard.table$Prediction) / standard.table$Concentration
+            standard.table
+        })
+
+        output$loostandards <- DT::renderDataTable({
+            standard.table.summary <- looValTable()
+            standard.table.summary[,-1] <-round(standard.table.summary[,!colnames(standard.table.summary) %in% "Spectrum"],7)
+            standard.table.summary[,5] <- as.character(percent(standard.table.summary$Relative))
+            standard.table.summary
+        }, options =list(aoColumnDefs = list(list(sClass="alignRight",aTargets=c(list(2), list(3),list(4),list(5))))  ))
+
+        output$downloadLooStandards <- downloadHandler(
+        filename = function() { paste0(input$calname, "_", input$calcurveelement, "_LeaveOneOut", '.csv') },
+        content = function(file) {
+            write.csv(looValTable(), file)
+        }
+        )
+
+        # Called by the Update button when Use Cross-Validated Model is ticked; model types other than Linear, Non-Linear and Lucas-Tooth, or too few standards, keep the model fit on all standards and return a note saying so.
+        looSaved <- function(){
+            if(is.null(looCurrentKey())){
+                return(list(Note="Use Cross-Validated Model covers Linear, Non-Linear and Lucas-Tooth calibrations, so this element was saved with the model fit on all standards."))
+            }
+            loo <- tryCatch(list(Model=looCVModel(), Table=looValTable()), error=function(e) NULL)
+            if(is.null(loo) || is.null(loo$Model)){
+                return(list(Note="The leave-one-out model needs at least three standards with a usable fit, so this element was saved with the model fit on all standards."))
+            }
+            loo
+        }
+
+        looCalCurveFrame <- reactive(label="looCalCurveFrame", {
+            looCurveFrame(looCurrentFits(), looCVModel(), corrected=identical(looCurrentKey(), "lucastooth"))
+        })
+
+        rangescalcurveloo <- reactiveValues(x = NULL, y = NULL)
+
+        # Calibration curve drawn as one thin grey line per leave-one-out refit, so a straying refit stands out, with the cross-validated model in blue; no points, since each standard is in all but one refit.
+        looCalCurvePlot <- reactive(label="looCalCurvePlot", {
+            req(input$plotunit, input$loglinear)
+            curve <- looCalCurveFrame()
+            shiny::validate(shiny::need(is.list(curve) && nrow(curve$Average) > 1, "Leave-one-out needs at least three standards with a usable fit."))
+            key <- looCurrentKey()
+            element.name <- looElementName()
+            multiplier <- looMultiplier()
+
+            intens <- if(input$normcal==1){
+                "Counts per Second"
+            } else if(input$normcal==2){
+                "% Counts Normalized"
+            } else if(input$normcal==3){
+                "ROI Normalized Counts"
+            }
+            conen <- paste0(" ", input$plotunit)
+
+            # Equation of the cross-validated model; Lucas-Tooth has no single slope, so its label regresses certified concentration on the corrected intensity shown on the x-axis.
+            eqn <- if(key=="lucastooth"){
+                fits <- looCurrentFits()
+                corrected <- data.frame(Concentration=fits$Table$Concentration*multiplier,
+                    Intensity=looEstimates(looCVModel(), fits$Frame, fits$DepTrans, fits$YMin, fits$YMax))
+                tryCatch(lm_eqn(lm(Concentration~Intensity, corrected)), error=function(e) NULL)
+            } else {
+                cv <- looCVModel()
+                cv$coefficients <- cv$coefficients*multiplier
+                cv$fitted.values <- cv$fitted.values*multiplier
+                cv$residuals <- cv$residuals*multiplier
+                tryCatch(if(key=="nonlinear") lm_eqn_poly(cv) else lm_eqn(cv), error=function(e) NULL)
+            }
+
+            x_label_pos <- if(is.null(rangescalcurveloo$x[1])){
+                if(key=="lucastooth") 0 else min(curve$Average$Intensity, na.rm=TRUE)
+            } else {
+                rangescalcurveloo$x[1]
+            }
+
+            y_label_pos <- if(is.null(rangescalcurveloo$y[2])){
+                Inf
+            } else {
+                rangescalcurveloo$y[2]
+            }
+
+            calcurve.plot <- ggplot() +
+                theme_light(base_size = 15) +
+                geom_line(data=curve$Refits, aes(x=Intensity, y=Estimate*multiplier, group=Refit), colour="grey35", alpha=0.5, linewidth=0.5) +
+                geom_line(data=curve$Average, aes(x=Intensity, y=Estimate*multiplier), colour="#3366FF", linewidth=1)
+            if(!is.null(eqn)){
+                calcurve.plot <- calcurve.plot +
+                    annotate("text", label=eqn, x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)
+            }
+            calcurve.plot <- if(input$loglinear=="Log"){
+                calcurve.plot +
+                    scale_x_log10(paste("Log ", element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks())
+            } else {
+                calcurve.plot +
+                    scale_x_continuous(paste(element.name, intens), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks())
+            }
+            calcurve.plot +
+                coord_cartesian(xlim = rangescalcurveloo$x, ylim = rangescalcurveloo$y, expand = TRUE)
+        })
+
+        observeEvent(input$cropcalloo, {
+            brush <- input$plot_cal_brush_loo
+            if (!is.null(brush)) {
+                curve <- tryCatch(looCalCurveFrame(), error = function(e) NULL)
+                mult <- looMultiplier()
+                x_range <- if (is.list(curve))
+                    range(curve$Average$Intensity, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (is.list(curve))
+                    range(curve$Refits$Estimate * mult, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                rangescalcurveloo$x <- c(coords$xmin, coords$xmax)
+                rangescalcurveloo$y <- c(coords$ymin, coords$ymax)
+            } else {
+                rangescalcurveloo$x <- NULL
+                rangescalcurveloo$y <- NULL
+            }
+        })
+
+        observeEvent(input$zerocalloo, {
+            curve <- looCalCurveFrame()
+
+            rangescalcurveloo$x <- c(0, max(curve$Average$Intensity, na.rm = TRUE))
+            rangescalcurveloo$y <- c(0, max(curve$Refits$Estimate * looMultiplier(), na.rm = TRUE))
+        })
+
+        output$calcurveplotsloo <- renderPlot({
+            looCalCurvePlot()
+        })
+
+        # Names the standard a refit's line leaves out.
+        output$hover_infocal_loo <- renderUI({
+            hover <- input$plot_hovercal_loo
+            if (is.null(hover)) return(NULL)
+            curve <- tryCatch(looCalCurveFrame(), error = function(e) NULL)
+            if (!is.list(curve)) return(NULL)
+
+            point <- nearPoints_safe(curve$Refits, hover, xvar="Intensity", yvar="Estimate", maxpoints = 1, ymul=looMultiplier())
+            if (nrow(point) == 0) return(NULL)
+
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
+            style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
+            "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+
+            wellPanel(
+            style = style,
+            p(HTML(paste0("Without ", htmltools::htmlEscape(point$Refit))))
+            )
+        })
+
+
+        rangesvalcurveloo <- reactiveValues(x = NULL, y = NULL)
+
+        # Each standard's leave-one-out estimate against its certified value, drawn like the Cal Curves validation plot.
+        looValCurvePlot <- reactive(label="looValCurvePlot", {
+            req(input$plotunit, input$loglinear)
+            val.frame <- looValTable()
+            val.frame <- val.frame[is.finite(val.frame$Concentration) & is.finite(val.frame$Prediction), , drop = FALSE]
+            multiplier <- looMultiplier()
+            val.frame$Concentration <- val.frame$Concentration*multiplier
+            val.frame$Prediction <- val.frame$Prediction*multiplier
+
+            element.name <- looElementName()
+            conen <- paste0(" ", input$plotunit)
+            predi <- paste0(" Estimate ", input$plotunit)
+
+            x_label_pos <- if(is.null(rangesvalcurveloo$x[1])){
+                0
+            } else {
+                rangesvalcurveloo$x[1]
+            }
+
+            y_label_pos <- if(is.null(rangesvalcurveloo$y[2])){
+                Inf
+            } else {
+                rangesvalcurveloo$y[2]
+            }
+
+            # The fitted line's r2 can stay high when one standard at the end of the range is badly missed, so the estimates are also scored against the 1:1 line as 1 - SSE/SST.
+            loo.r2 <- 1 - sum((val.frame$Prediction - val.frame$Concentration)^2)/sum((val.frame$Concentration - mean(val.frame$Concentration))^2)
+            loo.label <- paste0("\"leave-one-out\"~italic(r)^2~\"=\"~\"", format(loo.r2, digits=3), "\"")
+
+            valcurve.plot <- ggplot(data=val.frame, aes(Prediction, Concentration)) +
+                theme_light(base_size = 15) +
+                annotate("text", label=lm_eqn_val(lm(Concentration~Prediction, val.frame)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                annotate("text", label=loo.label, x=x_label_pos, y=y_label_pos, hjust=0, vjust=2.6, parse=TRUE)+
+                geom_abline(intercept=0, slope=1, lty=2) +
+                stat_smooth(method="lm", formula=y~x) +
+                geom_point()
+            valcurve.plot <- if(input$loglinear=="Log"){
+                valcurve.plot +
+                    scale_x_log10(paste("Log ", element.name, predi), breaks=scales::pretty_breaks()) +
+                    scale_y_log10(paste("Log ", element.name, conen), breaks=scales::pretty_breaks())
+            } else {
+                valcurve.plot +
+                    scale_x_continuous(paste(element.name, predi), breaks=scales::pretty_breaks()) +
+                    scale_y_continuous(paste(element.name, conen), breaks=scales::pretty_breaks())
+            }
+            valcurve.plot +
+                coord_cartesian(xlim = rangesvalcurveloo$x, ylim = rangesvalcurveloo$y, expand = TRUE)
+        })
+
+        observeEvent(input$cropvalloo, {
+            brush <- input$plot_val_brush_loo
+            if (!is.null(brush)) {
+                vl <- tryCatch(looValTable(), error = function(e) NULL)
+                mult <- looMultiplier()
+                x_range <- if (is.data.frame(vl))
+                    range(vl$Prediction * mult, na.rm = TRUE) else c(NA, NA)
+                y_range <- if (is.data.frame(vl))
+                    range(vl$Concentration * mult, na.rm = TRUE) else c(NA, NA)
+                coords <- rescale_brush_coords(brush, x_range, y_range)
+                rangesvalcurveloo$x <- c(coords$xmin, coords$xmax)
+                rangesvalcurveloo$y <- c(coords$ymin, coords$ymax)
+            } else {
+                rangesvalcurveloo$x <- NULL
+                rangesvalcurveloo$y <- NULL
+            }
+        })
+
+        observeEvent(input$zerovalloo, {
+            val.frame <- looValTable()
+            mult <- looMultiplier()
+
+            rangesvalcurveloo$x <- c(0, max(val.frame$Prediction * mult, na.rm = TRUE))
+            rangesvalcurveloo$y <- c(0, max(val.frame$Concentration * mult, na.rm = TRUE))
+        })
+
+        output$valcurveplotsloo <- renderPlot({
+            looValCurvePlot()
+        })
+
+        output$hover_infoval_loo <- renderUI({
+            hover <- input$plot_hoverval_loo
+            if (is.null(hover)) return(NULL)
+            point.table <- tryCatch(looValTable(), error = function(e) NULL)
+            if (is.null(point.table)) return(NULL)
+
+            mult <- looMultiplier()
+            point <- nearPoints_safe(point.table, hover, xvar="Prediction", yvar="Concentration", maxpoints = 1, xmul=mult, ymul=mult)
+            if (nrow(point) == 0) return(NULL)
+
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
+            style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
+            "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+
+            wellPanel(
+            style = style,
+            p(HTML(paste0(point$Spectrum)))
+            )
+        })
+
+
+        calPlotLooDownload <- reactive({
+            arrangeGrob(looCalCurvePlot(), looValCurvePlot(), ncol=2)
+        })
+
+        plotDimensionsLoo <- reactive({
+            if(input$imagesizeloo=="Small"){
+                c(7, 4)
+            } else if(input$imagesizeloo=="Large"){
+                c(14, 8)
+            }
+        })
+
+        output$downloadcloudplotloo <- downloadHandler(
+        filename = function() { paste0(input$calname, "_", input$calcurveelement, "_LeaveOneOut", '.tiff') },
+        content = function(file) {
+            ggsave(file, calPlotLooDownload(), device="tiff", compression="lzw", dpi=300, width=plotDimensionsLoo()[1], height=plotDimensionsLoo()[2])
+        }
+        )
+
         bad <- reactive({
             
             concentration.table <- holdFrame()
@@ -17138,7 +17114,7 @@ shinyServer(function(input, output, session) {
             
         })
         
-        ####CalCurves
+        # CalCurves
         
         # Float over info
         output$hover_infocal <- renderUI({
@@ -17164,8 +17140,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -17174,9 +17149,7 @@ shinyServer(function(input, output, session) {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: a slightly transparent background, and a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -17218,8 +17191,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -17228,9 +17200,7 @@ shinyServer(function(input, output, session) {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: a slightly transparent background, and a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -17313,7 +17283,7 @@ shinyServer(function(input, output, session) {
         
         
         
-        ####ValCurves
+        # ValCurves
         
         
         
@@ -17334,8 +17304,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -17346,9 +17315,7 @@ shinyServer(function(input, output, session) {
             left_px <- hover$coords_css$x
             top_px <- hover$coords_css$y
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: a slightly transparent background, and a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -17381,8 +17348,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -17391,9 +17357,7 @@ shinyServer(function(input, output, session) {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: a slightly transparent background, and a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -17453,9 +17417,7 @@ shinyServer(function(input, output, session) {
             
             model.frame$seq.cooksd <- seq_along(model.frame$.cooksd)
             
-# Attach Spectrum (guarded on matching row count: augment() may drop NA rows)
-            # so the diagnostic mask aligns by identity and the click-toggle flips
-            # the right standard; falls back to positional when it can't attach.
+            # Attach Spectrum when the row counts match (augment() may drop NA rows), so the diagnostic mask aligns by identity and a click toggles the right standard; otherwise the mask is applied by position.
             if(!is.null(sp_src) && !is.null(sp_src$Spectrum) && nrow(model.frame) == nrow(sp_src)) model.frame$Spectrum <- sp_src$Spectrum
             
             
@@ -17479,9 +17441,7 @@ shinyServer(function(input, output, session) {
             
             model.frame$seq.cooksd <- seq_along(model.frame$.cooksd)
             
-# Attach Spectrum (guarded on matching row count: augment() may drop NA rows)
-            # so the diagnostic mask aligns by identity and the click-toggle flips
-            # the right standard; falls back to positional when it can't attach.
+            # Attach Spectrum when the row counts match (augment() may drop NA rows), so the diagnostic mask aligns by identity and a click toggles the right standard; otherwise the mask is applied by position.
             if(!is.null(sp_src) && !is.null(sp_src$Spectrum) && nrow(model.frame) == nrow(sp_src)) model.frame$Spectrum <- sp_src$Spectrum
             
             
@@ -17701,9 +17661,9 @@ shinyServer(function(input, output, session) {
         }
         )
         
-        #########Diagnostic Plot Controls#######
-        ####Residuals Fitted
-        # Float over info
+        # Diagnostic Plot Controls
+        # Residuals Fitted
+        # Hover tooltip
         output$hover_inforesidualsfitted <- renderUI({
             req(input$radiocal)
             point.table <- modelFrame()
@@ -17716,8 +17676,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -17726,9 +17685,7 @@ shinyServer(function(input, output, session) {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: a slightly transparent background, and a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -17765,8 +17722,8 @@ shinyServer(function(input, output, session) {
         })
         
         
-        ####QQ Norm
-        # Float over info
+        # QQ Norm
+        # Hover tooltip
         output$hover_infoqq <- renderUI({
             req(input$radiocal)
             point.table <- modelFrame()
@@ -17779,8 +17736,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -17789,9 +17745,7 @@ shinyServer(function(input, output, session) {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: a slightly transparent background, and a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -17828,8 +17782,8 @@ shinyServer(function(input, output, session) {
         })
         
         
-        ####Scaled Residuals
-        # Float over info
+        # Scaled Residuals
+        # Hover tooltip
         output$hover_infoscalelocation <- renderUI({
             req(input$radiocal)
             point.table <- modelFrame()
@@ -17842,8 +17796,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -17852,9 +17805,7 @@ shinyServer(function(input, output, session) {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: a slightly transparent background, and a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -17891,8 +17842,8 @@ shinyServer(function(input, output, session) {
         })
         
         
-        ####Residuals Leverage
-        # Float over info
+        # Residuals Leverage
+        # Hover tooltip
         output$hover_inforesidualleverage <- renderUI({
             req(input$radiocal)
             point.table <- modelFrame()
@@ -17905,8 +17856,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -17915,9 +17865,7 @@ shinyServer(function(input, output, session) {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: a slightly transparent background, and a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -17954,8 +17902,8 @@ shinyServer(function(input, output, session) {
         })
         
         
-        ####Cooks Leverage
-        # Float over info
+        # Cooks Leverage
+        # Hover tooltip
         output$hover_infocooksleverage <- renderUI({
             req(input$radiocal)
             point.table <- modelFrame()
@@ -17968,8 +17916,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -17978,9 +17925,7 @@ shinyServer(function(input, output, session) {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: a slightly transparent background, and a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -18039,7 +17984,7 @@ shinyServer(function(input, output, session) {
         
         
         
-        ####alternative take
+        # alternative take
         
         nullList <- reactive({
             
@@ -18156,8 +18101,7 @@ shinyServer(function(input, output, session) {
                 new.cal$EnergyCal$Mode   <- "evch"
                 new.cal$EnergyCal$evCh_eV <- as.numeric(evch_eV)
                 new.cal$EnergyCal$Offset  <- as.numeric(offset_keV)
-                # Synthesize backwards-compatible anchor points so older loaders
-                # still see a usable two-point linear calibration.
+                # Also store two anchor points so older loaders still see a two-point linear calibration.
                 if(!is.na(n_chan) && n_chan > 0){
                     slope_keV <- evch_eV / 1000
                     new.cal$EnergyCal$Channel <- as.numeric(c(0, n_chan))
@@ -18165,11 +18109,7 @@ shinyServer(function(input, output, session) {
                 }
             }
             
-            # Persist the row-shuffle / training seed. The model builders shuffle
-            # standard order via set.seed(input$randomize) (predictFrame*Gen), and
-            # the positional StandardsUsed mask is toggled/consumed against that
-            # shuffled order. Saving the seed lets a reload reproduce the identical
-            # standard order (so the mask realigns) and the same CV/bagging draws.
+            # Save the shuffle seed: the model builders order the standards with set.seed(input$randomize) and positional StandardsUsed masks follow that order, so a reload needs the same seed to realign the mask and repeat the resampling draws.
             new.cal$RandomizeSeed <- if(is.null(input$randomize) || length(input$randomize)!=1 || is.na(as.numeric(input$randomize))) 1 else as.numeric(input$randomize)
             new.cal
         })
@@ -18237,7 +18177,7 @@ shinyServer(function(input, output, session) {
             })
     
     
-    ####Multiplots Here
+    # Multiplots Here
     
     
     observeEvent(input$actionprocess_multi, {
@@ -18602,9 +18542,7 @@ shinyServer(function(input, output, session) {
 
         })
 
-        # Restore ported chem-family hyperparameters from a saved multi .quant. Each stored
-        # as a "lo-hi" string in the per-element CalTable; chemRange() (global.R) parses it
-        # back to c(lo,hi) for the range slider, falling back to the core default when absent.
+        # Restore chem-family hyperparameters from a saved multi .quant: each is a "lo-hi" string in the element's CalTable that chemRange() parses to c(lo, hi), with a default when absent.
         chemCalTableMulti <- function(col){
             calListMulti[[input$defaultcal]][["calList"]][[input$calcurveelement_multi]][[1]]$CalTable[[col]]
         }
@@ -18659,8 +18597,7 @@ shinyServer(function(input, output, session) {
         
         output$forestmetricui_multi <- renderUI({
 
-            # Metric / train-control / #folds are generic caret trainControl settings read by
-            # EVERY ported family (not just rf) -> render for all caret families (cal types >=4).
+            # Metric, train control and number of folds are caret trainControl settings used by every caret family, so they render for all cal types except 1-3.
             if(input$radiocal_multi %in% c(1,2,3)){
                 NULL
             } else {
@@ -18721,8 +18658,7 @@ shinyServer(function(input, output, session) {
 
         })
 
-        # Ported chem-family hyperparameter widgets (range sliders). Each renders only for its
-        # cal type(s); the model builders read input$<param>_multi (a c(lo,hi) numeric) directly.
+        # Range sliders for the chem-family hyperparameters, each shown only for its cal types; the model builders read input$<param>_multi as c(lo, hi) directly.
         output$plsNCompUi_multi <- renderUI({
             if(input$radiocal_multi %in% c(14,15)){
                 sliderInput('plsncomp_multi', label="PLS Components", min=1, max=30, value=plsNCompSelectionMulti(), step=1)
@@ -18890,12 +18826,7 @@ observeEvent(input$actionprocess2_multi, {
         calFileStandardsMulti <- reactive({
             
             calstandardmulticheck <- function(cal, vals, element){
-                # Per-instrument mask, keyed by Spectrum so the selection survives
-                # reorder / same-count membership change (alignKeepMulti projects it
-                # by (Instrument,Spectrum) on the combined frame; alignKeep per
-                # instrument). Fixes the old `length(vals[element])`==1 count bug and
-                # the as.vector() name-strip. Legacy unnamed masks fall back to
-                # positional. `vals` is quantValues()[[x]] (has a Spectrum column).
+                # Per-instrument standards mask keyed by Spectrum, so the selection survives reordering; legacy unnamed masks are applied by position when the length matches, otherwise all standards are kept. `vals` is quantValues()[[x]], which has a Spectrum column.
                 sp <- tryCatch({
                     s <- as.character(vals$Spectrum)
                     if(length(s) >= 1 && !anyDuplicated(s)) s else NULL
@@ -19365,18 +19296,8 @@ observeEvent(input$actionprocess2_multi, {
         })
         
         
-        # (removed dead stub neuralNetworkIntensitShallowyModelMulti - it trained rf and read
-        #  nonexistent single-instrument vars; superseded by neuralModelMulti below.)
 
-        # ===================================================================
-        # Ported chem model families (cal types 14-21): PLS / Cubist / glmnet / MARS.
-        # Each mirrors rainforestModelMulti's cluster wrapper (one instrument per lapply
-        # step, resampling parallelised across cores) but swaps method="rf" for the
-        # family's caret method + a per-instrument tuneGrid capped at that instrument's
-        # data rank. Intensities variants read predictFrameForestMulti(); Spectra variants
-        # read rainforestDataMulti() (frame chosen by the intensity/spectra type group).
-        # Verbose-per-family by design (see verbose-modular-scaffolding): no shared helper.
-        # ===================================================================
+        # Multi-instrument chem models (cal types 14-21: PLS, Cubist, glmnet, MARS) follow rainforestModelMulti's per-instrument cluster wrapper with their own caret method and a tuneGrid capped at each instrument's data rank, reading predictFrameForestMulti() for Intensities or rainforestDataMulti() for Spectra; each family is written out separately by design.
 
         plsModelMulti <- reactive({
             frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
@@ -19455,8 +19376,7 @@ observeEvent(input$actionprocess2_multi, {
         })
 
         marsModelMulti <- reactive({
-            # MARS trains SINGLE-CORE (no cluster): caret's earth submodel loop is unreliable
-            # in forked/PSOCK workers (all-NA resamples / deadlock) - mirrors core server.R:10068.
+            # MARS trains single-core without a cluster, as in the single-instrument builder, because caret's earth loop is unreliable in forked or PSOCK workers.
             frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
             pvec <- round(suppressWarnings(as.numeric(input$marsprune_multi))); if(length(pvec) < 2) pvec <- c(2, 12)
             dvec <- round(suppressWarnings(as.numeric(input$marsdegree_multi))); if(length(dvec) < 2) dvec <- c(1, 2)
@@ -19473,12 +19393,7 @@ observeEvent(input$actionprocess2_multi, {
             cal.lm
         })
 
-        # ===================================================================
-        # Ported SVM (12/13) and Neural Network (6/7) families. SVM sub-dispatches on the shared
-        # input$xgbtype_multi kernel selector (Linear/Polynomial/Radial/Radial Cost/Radial Sigma);
-        # Neural sub-dispatches on input$neuralhiddenlayers_multi (1 -> shallow nnet, 2/3 -> deep
-        # neuralnet). Same cluster wrapper + frame-by-type-group as the chem builders.
-        # ===================================================================
+        # SVM (12/13) and Neural Network (6/7) families, built like the chem families: SVM takes its kernel from input$xgbtype_multi, and Neural fits nnet for one hidden layer or neuralnet for two or three (input$neuralhiddenlayers_multi).
 
         svmModelMulti <- reactive({
             frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
@@ -19558,15 +19473,8 @@ observeEvent(input$actionprocess2_multi, {
             cal.lm
         })
 
-        # ===================================================================
-        # Ported XGBoost (8/9) and Bayes (10/11) families. Both sub-dispatch on the shared
-        # input$xgbtype_multi selector. XGBoost uses the caret wrappers xgbTree/xgbLinear/xgbDART
-        # (NOT the core's native xgb.train engine - keeps predict-compatible with the multi val
-        # path). Bayes: Tree->bartMachine, Linear->bayesglm (no tuneGrid), Neural Net->brnn.
-        # Primary hyperparameters are exposed (rounds/depth/eta, lambda/alpha, bart k, brnn neurons);
-        # secondary xgb knobs (gamma/subsample/colsample/min_child/rate_drop/skip_drop) + bart
-        # alpha/beta/nu use sensible fixed defaults rather than the core's Bayesian generate_grid.
-        # ===================================================================
+        # XGBoost (8/9) and Bayes (10/11) families, both dispatching on input$xgbtype_multi: XGBoost uses caret's xgbTree/xgbLinear/xgbDART rather than native xgb.train so its models predict through the multi validation path, and Bayes uses bartMachine (Tree), bayesglm (Linear, no tuneGrid) or brnn (Neural Net).
+        # Only the main hyperparameters come from the UI; secondary xgb settings and bart alpha/beta/nu use fixed defaults.
 
         xgboostModelMulti <- reactive({
             frm <- if(input$radiocal_multi %in% multiIntensityTypes) predictFrameForestMulti() else rainforestDataMulti()
@@ -19722,7 +19630,7 @@ observeEvent(input$actionprocess2_multi, {
         
         
         
-        ####Machine Learning: Slopes
+        # Machine Learning: Slopes
         
         caretSlopeMulti <- reactive({
             
@@ -19785,9 +19693,7 @@ observeEvent(input$actionprocess2_multi, {
         
         slopeImportanceMulti <- reactive({
 
-            # Use the ACTIVE model per instrument (was hardcoded forestModelMulti, which
-            # spuriously trained a forest for non-forest families); varImp wrapped so a
-            # model type without a varImp method degrades to an empty bar instead of erroring.
+            # Use the active model for each instrument; varImp is wrapped so a model type without a varImp method gives an empty bar instead of an error.
             forest.imp <- lapply(quantNames(), function(x) tryCatch(varImp(elementModelMulti()[[x]], scale=FALSE)$importance, error=function(e) data.frame(Overall=numeric(0))))
             names(forest.imp) <- quantNames()
             
@@ -19874,8 +19780,7 @@ observeEvent(input$actionprocess2_multi, {
 
         })
         
-        # When a double-click happens, check if there's a brush on the plot.
-        # If so, zoom to the brush bounds; if not, reset the zoom.
+        # The Zoom button zooms to the brushed area if there is a brush, otherwise it resets the zoom.
         observeEvent(input$cropvar_multi, {
             brush <- input$plot_var_brush_multi
             if (!is.null(brush)) {
@@ -20110,8 +20015,7 @@ observeEvent(input$actionprocess2_multi, {
                 point <- nearPoints_safe(point.table, hover, xvar = "Energy", yvar = "Importance", maxpoints = 1)
                 if (nrow(point) == 0) return(NULL)
                 
-                # calculate point position INSIDE the image as percent of total dimensions
-                # from left (horizontal) and from top (vertical)
+                # Point position inside the image as a fraction of its width from the left and of its height from the top.
                 left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
                 top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
                 
@@ -20120,9 +20024,7 @@ observeEvent(input$actionprocess2_multi, {
                 top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
                 
                 
-                # create style property fot tooltip
-                # background color is set so tooltip is a bit transparent
-                # z-index is set so we are sure are tooltip will be on top
+                # Tooltip style: semi-transparent background, with a z-index that keeps it on top.
                 style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
                 "left:", left_px + 2, "px; top:", top_px + 2, "px;")
                 
@@ -20155,8 +20057,7 @@ observeEvent(input$actionprocess2_multi, {
             cal.frame <- predictFrameMulti()
             hf <- holdFrameMulti()
 
-            # Add Spectrum (from the row-aligned holdFrameMulti sibling) alongside
-            # Instrument so the flattened mask/toggle can key by (Instrument,Spectrum).
+            # Add Spectrum from the row-aligned holdFrameMulti alongside Instrument, so the flattened mask/toggle can key by (Instrument, Spectrum).
             cal.frame <- lapply(quantNames(),function(x){
                 d <- data.frame(cal.frame[[x]], Instrument=x)
                 if(!is.null(hf[[x]]) && nrow(d) == nrow(hf[[x]])) d$Spectrum <- as.character(hf[[x]]$Spectrum)
@@ -20785,9 +20686,7 @@ observeEvent(input$actionprocess2_multi, {
                 stopCluster
             }
 
-            # --- Cross-validation re-train for the ported chem families ---
-            # predict.list[[x]] is already the mask-applied training split (predictFrameRandomMulti),
-            # so train on it directly (no re-index) and na.omit any residual NA rows.
+            # Cross-validation re-train for the caret model families below: predict.list[[x]] is already the mask-applied training split (predictFrameRandomMulti), so train on it directly and na.omit any remaining NA rows.
             if (input$radiocal_multi %in% c(14,15)){
                 v <- suppressWarnings(as.numeric(input$plsncomp_multi)); if(length(v) < 2) v <- c(1, 12)
                 cl <- if(get_os()=="windows"){ parallel::makePSOCKcluster(as.numeric(my.cores)) } else { parallel::makeForkCluster(as.numeric(my.cores)) }
@@ -21534,7 +21433,7 @@ observeEvent(input$actionprocess2_multi, {
         
         
         
-        ####CalCurves
+        # CalCurves
         
         # Float over info
         output$hover_infocal_multi <- renderUI({
@@ -21558,8 +21457,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -21568,9 +21466,7 @@ observeEvent(input$actionprocess2_multi, {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: semi-transparent background, with a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -21607,8 +21503,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -21617,9 +21512,7 @@ observeEvent(input$actionprocess2_multi, {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: semi-transparent background, with a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -21704,7 +21597,7 @@ observeEvent(input$actionprocess2_multi, {
         
         
         
-        ####ValCurves Multiplot
+        # ValCurves Multiplot
         
         
         
@@ -21723,8 +21616,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -21733,9 +21625,7 @@ observeEvent(input$actionprocess2_multi, {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: semi-transparent background, with a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -21764,8 +21654,7 @@ observeEvent(input$actionprocess2_multi, {
             
             
             
-            # calculate point position INSIDE the image as percent of total dimensions
-            # from left (horizontal) and from top (vertical)
+            # Point position inside the image as a fraction of its width from the left and of its height from the top.
             left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
             top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
             
@@ -21774,9 +21663,7 @@ observeEvent(input$actionprocess2_multi, {
             top_px <- hover$coords_css$y
             
             
-            # create style property fot tooltip
-            # background color is set so tooltip is a bit transparent
-            # z-index is set so we are sure are tooltip will be on top
+            # Tooltip style: semi-transparent background, with a z-index that keeps it on top.
             style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
             "left:", left_px + 2, "px; top:", top_px + 2, "px;")
             
@@ -21915,8 +21802,7 @@ observeEvent(input$createcalelement_multi, {
         as.numeric(15)
     }
 
-    # Ported chem-family tuning ranges, stored as "lo-hi" strings; active family only, else
-    # the core default. Read back by the *SelectionMulti reactives via chemRange().
+    # Chem-family tuning ranges, stored as "lo-hi" strings: the active family's inputs, otherwise the default range. The *SelectionMulti reactives read them back via chemRange().
     lohi <- function(v, dflt="") if(is.null(v) || length(v) < 2 || anyNA(suppressWarnings(as.numeric(v)))) dflt else paste0(v[1], "-", v[2])
     plsncomp         <- if(input$radiocal_multi %in% c(14,15)) lohi(input$plsncomp_multi, "1-12") else "1-12"
     cubistcommittees <- if(input$radiocal_multi %in% c(16,17)) lohi(input$cubistcommittees_multi, "1-10") else "1-10"
@@ -22180,15 +22066,12 @@ content = function(file){
         }
     })
 
-    # Energy-calibration mode carried by the loaded cal bundle.
-    # When a cal saved with manual settings is applied, the val-side readers
-    # must emit channel indices instead of native energies so myValData() can
-    # re-apply the saved transform (peaks model or evCh slope+offset).
+    # Energy-calibration mode of the loaded calibration; in a manual mode ("evch" or "peaks") the validation readers emit channel indices instead of native energies, so myValData() can re-apply the saved transform.
     valEncalMode <- reactive({
         ec <- calFileContents2()$EnergyCal
         if(is.null(ec)) return("auto")
         if(!is.null(ec$Mode) && ec$Mode %in% c("auto", "evch", "peaks")) return(ec$Mode)
-        # Back-compat: legacy bundles only stored Channel/Energy anchors (peak fit)
+        # Older bundles have no Mode, only a peak-fit Model or Channel/Energy anchors, so treat them as "peaks".
         if(!is.null(ec$Model) || (!is.null(ec$Channel) && !is.null(ec$Energy))) return("peaks")
         "auto"
     })
@@ -22328,7 +22211,6 @@ content = function(file){
         })
         
         readValSPE <- reactive({
-            # Fixed: was using input$dfl_val_path but UI defines input$dfl_val_eds
             readSPEProcess(inFile=input$loadvaldata, inEn=input$dfl_val_eds, use_native_calibration=valEncalAuto())
 
         })
@@ -22404,8 +22286,7 @@ content = function(file){
             mode <- valEncalMode()
 
             if(identical(mode, "evch") && !is.null(ec)){
-                # Val readers emitted channel indices in $Energy; apply saved
-                # eV/channel slope and offset per-spectrum.
+                # The validation readers emitted channel indices, so convert each spectrum's channel numbers to energy with the saved eV/channel slope and offset.
                 dt <- as.data.table(spectra)
                 dt[, channel := seq_len(.N), by = Spectrum]
                 slope_keV  <- (ec$evCh_eV %||% 20) / 1000
@@ -22423,8 +22304,7 @@ content = function(file){
 
         })
         
-        # Metadata for the validation spectra (PDZ Record-1 and CSV/MCA/TXT headers carry
-        # tube/detector/LiveTime information usable for FP physics).
+        # Metadata for the validation spectra: tube, detector and LiveTime information from the file headers, used for FP physics.
         myValMetaData <- reactive({
             if(identical(input$valfiletype, "PDZ")){
                 tryCatch(readPDZMetadataProcess(inFile=input$loadvaldata), error=function(e) NULL)
@@ -22439,11 +22319,7 @@ content = function(file){
             } else NULL
         })
 
-        # Standalone full-FP deconvolution for the "FP (no calibration)" mode:
-        # instrument physics recognized from the loaded files' metadata plus
-        # per-spectrum LiveTime. Kept separate from myDeconvolutedValData so the
-        # calibrated prediction path continues to mirror the calibration's own
-        # deconvolution settings (train/predict symmetry).
+        # Full-FP deconvolution for the "FP (no calibration)" mode, using instrument physics from the files' metadata and per-spectrum LiveTime. Kept separate from myDeconvolutedValData so calibrated predictions keep using the calibration's own deconvolution settings.
         myValDataFullFP <- reactive({
             spectra <- myValData()
             md <- myValMetaData()
@@ -22465,8 +22341,7 @@ content = function(file){
             
             
             deconvolution_physics <- deconvolution_physics_from_params(deconvolution_parameters)
-            # Same fit model as training: a calibration deconvolved with E1 needs a LiveTime here too, or E1 silently
-            # falls back to SNIP and the models see differently-fitted areas than they were trained on.
+            # Match the training fit: a calibration deconvolved with E1 needs a LiveTime here too, otherwise E1 falls back to SNIP and the models see areas fitted differently from training.
             trained_e1 <- !is.null(calFileContents2()$Deconvoluted$E1)
             val_livetime <- deconvolution_prediction_livetime(calFileContents2()$Deconvoluted, myValMetaData(),
                                                               calFileContents2()$SpectraMetadata)
@@ -22954,8 +22829,7 @@ content = function(file){
 
         })
 
-        # Validation FP mass estimate ($Mass): the validation deconvolution runs with mass = TRUE, so this is
-        # populated whenever a deconvoluted validation set exists. Small relative-mass values -> signif(4).
+        # FP mass estimate ($Mass) of the validation deconvolution, which runs with mass = TRUE; the small relative masses are rounded to 4 significant digits.
         valTableDeconvolutedMass <- reactive({
             mass.table <- tryCatch(myDeconvolutedValData()$Mass, error=function(e) NULL)
             if(is.null(mass.table)){
@@ -22978,11 +22852,7 @@ content = function(file){
         
         
         countList <- reactive({
-            # Build only the count-table variants the loaded calibration's
-            # elements actually use (each key is a full table build over the
-            # validation spectra; the Area keys additionally require the GLS
-            # deconvolution). Narrow_gaussian is always included - cloudCalPredict
-            # uses it as the element roster.
+            # Build only the count-table variants the calibration's elements use, since each is a full table build over the validation spectra (Area variants also need the GLS deconvolution). Narrow_gaussian is always built because cloudCalPredict uses it as the element roster.
             builders <- list(
                 Narrow_gaussian = fullInputValCounts,
                 Narrow_split    = fullInputValCountsSplit,
@@ -23024,19 +22894,9 @@ content = function(file){
         })
         
         
-        # Standardless FP quantification: the validation deconvolution already
-        # runs xrftools' fundamental-parameters mass estimation (mass=TRUE).
-        # Default presentation is the raw FP estimate (grams) - it deliberately
-        # does NOT sum to 100%, since elements without usable lines (C, O, ...)
-        # still hold real mass. The 'Normalize to 100%' checkbox opts into
-        # closure (fpMassClosure) for users confident the measured elements
-        # cover the sample. Works with no .quant loaded - deconvolution then
-        # uses default parameters.
+        # Standardless FP quantification from the xrftools mass estimate. The raw estimate deliberately does not sum to 100%, since elements without usable lines (C, O, ...) still hold mass; the 'Normalize FP results to 100%' checkbox applies fpMassClosure. Works without a .quant loaded, using default deconvolution parameters.
         fpQuantResults <- reactive({
-            # Prefer the full-FP estimate (metadata physics + LiveTime): with the
-            # total held at 1 its mass fractions are comparable to certified
-            # values, whereas relative-mode closures are dominated by phantom
-            # elements. Fall back to the shared relative-mode Mass if full-FP fails.
+            # Prefer the full-FP estimate (metadata physics + LiveTime), whose mass fractions are comparable to certified values; relative-mode closures are dominated by phantom elements, so the relative-mode Mass is only a fallback.
             mass <- tryCatch(myValDataFullFP()$Mass, error=function(e) NULL)
             if(is.null(mass)) mass <- tryCatch(myDeconvolutedValData()$Mass, error=function(e) NULL)
             if(is.null(mass) || !"Spectrum" %in% names(mass)){

@@ -1,21 +1,8 @@
 # CloudCal model-redundancy benchmark
-# ===================================
-# Empirically measures how redundant candidate caret models (PLS, Cubist,
-# glmnet, MARS/earth, Gaussian process) are against the forest/SVM-style
-# learners already in CloudCal (rf, svmRadial, xgbTree, bartMachine).
-#
-# Method: identical CV folds for every model; collect out-of-fold predictions;
-# redundancy = correlation of OUT-OF-FOLD RESIDUALS with each incumbent (what
-# two models get wrong together is what makes one of them unnecessary). Also
-# compares model-specific feature-importance rankings (Spearman) against the
-# random forest's, where the model family defines its own importance (caret
-# falls back to a model-agnostic filter for SVM/GP - excluded, it would fake
-# similarity).
-#
-# Output: per data shape (Intensities / Spectra), OOF R2 per model, residual
-# correlation vs the incumbent cluster, and an empirical non-redundancy score
-# (1 - max residual correlation with any incumbent), averaged over elements.
-#
+# Measures how redundant candidate caret models (PLS, Cubist, glmnet, MARS/earth, Gaussian process) are against the learners already in CloudCal (rf, svmRadial, xgbTree, bartMachine).
+# Method: every model uses the same CV folds, and redundancy is the correlation of out-of-fold residuals with each incumbent, since errors two models share make one of them unnecessary.
+# Feature-importance rankings are also compared (Spearman) with the random forest's where the model family defines its own importance; SVM and GP are excluded because caret's model-agnostic fallback would fake similarity.
+# Output: per data shape (Intensities / Spectra), out-of-fold R2 per model, residual correlation with the incumbents, and a non-redundancy score (1 - max residual correlation with any incumbent), averaged over elements.
 # Usage: Rscript tests/redundancy_benchmark.R [quant] [n_elements] [seed]
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -29,15 +16,14 @@ if (!file.exists(file.path(APP_DIR, "global.R"))) APP_DIR <- getwd()
 setwd(APP_DIR)
 
 options(java.parameters = "-Xmx2g")
-# macOS: xgboost's libomp clashes with earth/plotmo's OpenMP after both load
-# (OMP Error #13 assertion). Single-threaded OMP sidesteps it; n=40 doesn't care.
+# Single-threaded OpenMP avoids a macOS clash between xgboost's libomp and earth/plotmo's OpenMP once both are loaded; these small fits do not need the threads.
 Sys.setenv(OMP_NUM_THREADS = "1", KMP_DUPLICATE_LIB_OK = "TRUE")
 suppressMessages(suppressWarnings(source("global.R")))
 suppressMessages(library(caret))
 
 cal <- calRDS(QUANT, xgb_raw = FALSE, sort = TRUE)
 
-## ------------------------------------------------------------------ targets
+# targets
 finite_n <- function(el) sum(is.finite(suppressWarnings(as.numeric(cal$Values[[el]]))))
 els <- names(cal$calList)[names(cal$calList) %in% colnames(cal$Values)]
 els <- els[order(-vapply(els, finite_n, numeric(1)))]
@@ -45,7 +31,7 @@ preferred <- c("Y.K.alpha", "Rb.K.alpha", "Sr.K.alpha", "Zr.K.alpha", "Fe.K.alph
 els <- unique(c(intersect(preferred, els), els))[seq_len(min(N_EL, length(els)))]
 message("elements: ", paste(els, collapse = ", "))
 
-## ------------------------------------------------------------------ features
+# features
 lines_avail <- intersect(colnames(cal$Intensities), spectralLines)
 X_int <- cal$Intensities[, c("Spectrum", lines_avail,
                              intersect(c("Total", "Baseline"), colnames(cal$Intensities)))]
@@ -54,10 +40,7 @@ X_spec <- rainforestDataPreGen(spectra = cal$Spectra, compress = "100 eV",
                                norm.type = 2, data.type = "Spectra")
 shapes <- list(Intensities = X_int, Spectra = X_spec)
 
-## ------------------------------------------------------------------ models
-# incumbents (the forest-SVM learning cluster + the two known outliers)
-# vs candidates. Small fixed/short grids: the question is representation,
-# not squeezing the last decimal of RMSE.
+# Models: incumbents (the forest/SVM cluster plus the two known outliers) vs candidates, on small fixed grids since the question is representation, not the last decimal of RMSE.
 MODELS <- list(
     rf      = list(method = "rf",           cand = FALSE, imp = TRUE,
                    grid = data.frame(mtry = 2), extra = list(ntree = 200)),
@@ -97,7 +80,7 @@ oof_pred <- function(fit, n){
     out
 }
 
-## ------------------------------------------------------------------ run
+# run
 res_rows <- list(); imp_rows <- list()
 for (shape_nm in names(shapes)) {
     Xf <- shapes[[shape_nm]]
@@ -158,7 +141,7 @@ for (shape_nm in names(shapes)) {
     }
 }
 
-## ------------------------------------------------------------------ report
+# report
 res <- do.call(rbind, res_rows)
 imp <- if (length(imp_rows)) do.call(rbind, imp_rows) else NULL
 inc_cols <- intersect(c("rf", "svm", "xgb", "bart"), colnames(res))

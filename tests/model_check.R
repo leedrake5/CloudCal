@@ -1,36 +1,13 @@
 # CloudCal model-pipeline check
-# =============================
-# Exercises the data pipeline and fit for EVERY calibration model type with
-# minimal hyperparameters (tiny grids / trees / neurons / iterations - the goal
-# is pipeline correctness, not model quality):
-#   1 Linear, 2 Non-Linear, 3 Lucas-Tooth        -> classic element (+ intercept)
-#   4 Forest, 5 Rainforest, 6 NN Intensities, 7 NN Spectra,
-#   8 XGBoost Intensities, 9 XGBoost Spectra, 10 Bayes Intensities,
-#   11 Bayes Spectra, 12 SVM Intensities, 13 SVM Spectra,
-#   14/15 PLS, 16/17 Cubist, 18/19 Elastic Net (glmnet), 20/21 MARS (earth)
-#     (chemometric additions; Intensities/Spectra pairs) -> ML element, all slopes
-#
-# For each type: build the model frame, fit, predict the training standards and
-# require finite predictions correlated with the known concentrations.
-#
-# After the per-model pass, customization sweeps re-fit representative models
-# under every user-selectable data option:
-#   - normalization (Time / Total Counts / ROI, incl. Baseline/Net ROI when the
-#     quant carries a Deconvoluted slot) for the three intensity frame builders
-#     and the spectra frame builder
-#   - concentration transformation (Log / e / Scale) on intensity + spectra paths
-#   - spectra transformation x compression (None/Log/e/Velocity x 100/50/25 eV)
-#     on Rainforest, with NN / XGBoost / SVM spectra spot checks
-# This is the slow, intermittent, "smoke out user customizations" pass.
-#
-# A final regression block covers the Cubist Spectra -> Cubist Intensities crash:
-# modelPack tolerating a NULL parameter set, slope names that no longer exist as
-# intensity columns, and the 17 -> 16 switch itself.
-#
-# Usage:
-#   Rscript tests/model_check.R [quant] [classic_el] [intercept_el] [ml_el]
-# Defaults: farWest50kV.quant, Y.K.alpha with Rb.K.alpha intercept, Dy.K.alpha
-# (substituted automatically if absent from the calibration).
+# Fits every calibration model type (1-21) with minimal hyperparameters (the goal is pipeline correctness, not model quality), predicts the training standards and requires finite predictions correlated with the known concentrations.
+# Types 1-3 (Linear, Non-Linear, Lucas-Tooth) use the classic element with an intercept; types 4-21 use the ML element with all slopes.
+# Customization sweeps then re-fit representative models under every user-selectable data option:
+# - normalization (Time / Total Counts / ROI, plus Baseline/Net ROI when the quant has a Deconvoluted slot)
+# - concentration transformation (Log / e / Scale)
+# - spectra transformation x compression (None/Log/e/Velocity x 100/50/25 eV) on Rainforest, with NN / XGBoost / SVM spot checks
+# A final regression block covers switching Cubist Spectra -> Cubist Intensities.
+# Usage: Rscript tests/model_check.R [quant] [classic_el] [intercept_el] [ml_el]
+# [quant] is required; the elements default to Y.K.alpha with Rb.K.alpha intercept and Dy.K.alpha, which is replaced automatically when the calibration has too few values for it.
 
 args <- commandArgs(trailingOnly = TRUE)
 QUANT <- if (length(args) >= 1) args[1] else
@@ -46,9 +23,7 @@ setwd(APP_DIR)
 message("CloudCal model-pipeline check")
 message("  quant: ", QUANT)
 
-# macOS: xgboost's libomp intermittently asserts (OMP Error #13) when other
-# OpenMP-linked model packages (earth/pls) share the process. Single-threaded
-# OMP sidesteps it; these tiny fits don't need the threads.
+# Single-threaded OpenMP avoids intermittent aborts on macOS when xgboost's libomp shares the process with other OpenMP-linked packages (earth, pls); these small fits do not need the threads.
 Sys.setenv(OMP_NUM_THREADS = "1", KMP_DUPLICATE_LIB_OK = "TRUE")
 suppressMessages(suppressWarnings(source("global.R")))
 suppressMessages(library(shiny))
@@ -164,8 +139,7 @@ try(testServer(app, {
                               normcal = 2, comptonmin = 0, comptonmax = 0)
             if (m$id <= 3) minimal_holds(m$el, slopes = m$el, intercepts = INTERCEPT_EL)
             else           minimal_holds(m$el, slopes = all_slopes_on, intercepts = NULL)
-            # bayesglm has no tuning parameters and cannot resample 46 predictors
-            # on 20-row folds - a single unresampled fit is the minimal valid setup.
+            # bayesglm has no tuning parameters and cannot resample this many predictors on small folds, so a single unresampled fit is the minimal valid setup.
             if (m$id %in% c(10, 11)) foresthold$foresttrain <- "none"
             vals$keeprows <- rep(TRUE, nrow(cal$Values))
 
@@ -190,8 +164,7 @@ try(testServer(app, {
             okp <- is.finite(preds) & is.finite(dat$Concentration)
             stopifnot(sum(okp) >= 0.8 * nrow(dat))
             r <- if (sd(preds[okp]) > 0) suppressWarnings(cor(preds[okp], dat$Concentration[okp])) else NA_real_
-            # tiny nets can legitimately predict a constant - finite predictions
-            # prove the pipeline; r is reported when meaningful.
+            # Tiny nets can legitimately predict a constant, so finite predictions are enough to pass; r is reported only when the predictions vary.
             res$ok <- TRUE
             res$note <- sprintf("n=%d cols=%d r=%s (%.1fs)", nrow(dat), ncol(X),
                                 if (is.finite(r)) sprintf("%.2f", r) else "const",
@@ -204,9 +177,7 @@ try(testServer(app, {
         message(sprintf("    %-22s %s", m$name, if (res$ok) paste("ok ", res$note) else res$note))
     }
 
-    # SVM kernel sweep: the five numeric kernels on both data shapes. (The
-    # Exponential/Boundrange/Spectrum String branches are kernlab text kernels
-    # and are intentionally not offered for numeric spectra.)
+    # SVM kernel sweep: the four other numeric kernels on both data shapes (Linear runs in the per-model pass). The Exponential/Boundrange/Spectrum String kernels are kernlab text kernels and are not offered for numeric spectra.
     for (rc in c(12, 13)) {
         session$setInputs(calcurveelement = ML_EL, radiocal = rc, normcal = 2,
                           comptonmin = 0, comptonmax = 0)
@@ -231,15 +202,12 @@ try(testServer(app, {
         xgboosthold$xgbtype <- "Linear"
     }
 
-    # Chem metadata round trip: pack a fitted PLS model the way the save
-    # button does, re-derive its tuning range through the .quant import path
-    # (bestTune wins), and predict from the packed model.
+    # Chem metadata round trip: pack a fitted PLS model as the save button does, re-derive its tuning range through the .quant import path (bestTune wins), and predict from the packed model.
     rt <- list(name = "Chem CalTable round-trip", ok = FALSE, note = "")
     tryCatch({
         session$setInputs(calcurveelement = ML_EL, radiocal = 14, normcal = 2,
                           comptonmin = 0, comptonmax = 0, comptontype = "Raw")
-        # line slopes only (no Total/Baseline): the Apply page reconstructs
-        # predictors from calVariableElements(), which carries just the lines
+        # Line slopes only (no Total/Baseline), because the Apply page rebuilds predictors from calVariableElements(), which carries just the lines.
         minimal_holds(ML_EL, slopes = lines_avail, intercepts = NULL)
         vals$keeprows <- rep(TRUE, nrow(cal$Values))
         mset <- plsIntensityModelSet()
@@ -261,9 +229,7 @@ try(testServer(app, {
     env$out[[rt$name]] <- rt
     message(sprintf("    %-34s %s", rt$name, rt$note))
 
-    # Apply-page inference with a chem model: install the packed PLS model in
-    # the calList and predict the calibration spectra through cloudCalPredict
-    # (exercises the cal_type 14 -> SVM-intensity alias + mclPred).
+    # Apply-page inference with a chem model: put the packed PLS model in the calList and predict the calibration spectra through cloudCalPredict, which exercises the cal_type 14 -> SVM-intensity alias and mclPred.
     ap <- list(name = "Chem cloudCalPredict apply", ok = FALSE, note = "")
     tryCatch({
         cal2 <- cal
@@ -284,13 +250,7 @@ try(testServer(app, {
     env$out[[ap$name]] <- ap
     message(sprintf("    %-34s %s", ap$name, ap$note))
 
-    # ------------------------------------------------------------------
-    # Classic Lucas-Tooth (1961) cross-product mode: the LTCross/LTWeight
-    # checkbox path. Covers frame construction under each normalization,
-    # the 1961 weighting, alias-dropping, CalTable round-trip, and apply
-    # parity through cloudCalPredict. The additive default is asserted
-    # first so the legacy path stays pinned.
-    # ------------------------------------------------------------------
+    # Classic Lucas-Tooth (1961) cross-product mode (LTCross/LTWeight): frame construction under each normalization, the 1961 weighting, alias dropping, CalTable round trip and apply parity through cloudCalPredict. The additive default is asserted first so that path stays pinned.
     message("  -- classic Lucas-Tooth (1961) --")
     lt_case <- function(nm, fun){
         res <- list(name = nm, ok = FALSE, note = "")
@@ -381,8 +341,7 @@ try(testServer(app, {
     })
 
     if ("Total" %in% colnames(cal$Intensities)) lt_case("LT classic alias drop", function(){
-        # Under Total Counts, Slope_Total = I*(Total/Total) = I duplicates Intensity;
-        # the fit must drop it and keep a full-rank coefficient vector.
+        # Under Total Counts, Slope_Total = I*(Total/Total) = I duplicates Intensity, so the fit must drop it and keep a full-rank coefficient vector.
         lt_setup(slopes = c(CLASSIC_EL, "Total"), normtype = 2)
         fit <- lucasToothModel()
         stopifnot(!any(is.na(coef(fit))), !"Slope_Total" %in% names(coef(fit)))
@@ -438,14 +397,77 @@ try(testServer(app, {
         "finite lwr/upr"
     })
 
-    # restore additive defaults so the sweeps below run the legacy path
+    # Leave-one-out page (Cross Validation > Leave-One-Out): refits match an independent loop, the cross-validated model is their average, the standards are the Cal Curves model's even under a legacy positional mask, and the band, both plots and the standards table build for all three model types.
+    message("  -- leave-one-out page --")
+    lt_case("LOO refits match independent loop", function(){
+        lt_setup(slopes = c(CLASSIC_EL, INTERCEPT_EL), ltcross = "Classic", ltweight = "1961", normtype = 1)
+        fits <- looCurrentFits()
+        dat <- lucasToothModelSet()$data
+        dat <- dat[as.character(dat$Spectrum) %in% looStandardIds(), ]
+        ref <- vapply(seq_len(nrow(dat)), function(i){
+            m <- lucasToothFit(dat[-i, ], lt.cross = "Classic", lt.weight = "1961")$Model
+            as.numeric(suppressWarnings(predict(m, newdata = dat[i, , drop = FALSE])))
+        }, numeric(1))
+        got <- fits$Table$LOO[match(as.character(dat$Spectrum), fits$Table$Spectrum)]
+        stopifnot(isTRUE(all.equal(got, ref, tolerance = 1e-8)))
+        sprintf("n=%d", nrow(dat))
+    })
+
+    lt_case("LOO cross-validated model = average of refits", function(){
+        lt_setup(slopes = c(CLASSIC_EL, INTERCEPT_EL), ltcross = "Classic", ltweight = "1961", normtype = 1)
+        fits <- looCurrentFits()
+        cv <- looCVModel()
+        est <- vapply(fits$Models, function(m) as.numeric(suppressWarnings(predict(m, newdata = fits$Frame))), numeric(nrow(fits$Frame)))
+        stopifnot(isTRUE(all.equal(as.numeric(suppressWarnings(predict(cv, newdata = fits$Frame))), rowMeans(est), tolerance = 1e-9)))
+        # One line per refit, named for the standard it leaves out, and the average line lies between the lowest and highest refit everywhere.
+        curve <- looCalCurveFrame()
+        stopifnot(setequal(unique(curve$Refits$Refit), fits$Table$Spectrum),
+                  nrow(curve$Average) == nrow(fits$Frame))
+        lo <- tapply(curve$Refits$Estimate, curve$Refits$Intensity, min)
+        hi <- tapply(curve$Refits$Estimate, curve$Refits$Intensity, max)
+        at <- as.character(curve$Average$Intensity)
+        tol <- 1e-9 * max(abs(hi), na.rm = TRUE)
+        stopifnot(all(lo[at] <= curve$Average$Estimate + tol & curve$Average$Estimate <= hi[at] + tol))
+        # packed the way Update packs it (strip()), it still predicts with intervals
+        packed <- modelPack(parameters = modelParameters(), model = cv, table = looValTable(), compress = TRUE)
+        stopifnot(all(is.finite(predict(packed$Model, newdata = fits$Frame[1:3, ], interval = "confidence"))))
+        sprintf("largest coefficient shift from the full fit %.2g",
+                max(abs(coef(cv) - coef(fits$Full)) / pmax(abs(coef(fits$Full)), 1e-12), na.rm = TRUE))
+    })
+
+    lt_case("LOO uses the Cal Curves standards", function(){
+        # Legacy masks are unnamed and positional, so the page resolves the mask against the current model's own frame and drops that standard from every refit.
+        lt_setup(slopes = CLASSIC_EL, ltcross = "Additive", normtype = 1)
+        n <- nrow(lucasToothModelSet()$data)
+        mask <- rep(TRUE, n); mask[3] <- FALSE
+        vals$keeprows <- mask
+        dropped <- as.character(lucasToothModelSet()$data$Spectrum[3])
+        tab <- looCurrentFits()$Table
+        vals$keeprows <- rep(TRUE, nrow(cal$Values))
+        stopifnot(nrow(tab) == n - 1, !dropped %in% tab$Spectrum)
+        sprintf("drops %s", dropped)
+    })
+
+    # This session's startup leaves output observers idle, so the page is checked through its reactives; rendered outputs and the Update button are covered in release_check.R section 10.
+    lt_case("LOO plots and standards table build (Linear, Non-Linear, Lucas-Tooth)", function(){
+        out <- character(0)
+        for (rc in 1:3){
+            lt_setup(slopes = CLASSIC_EL, ltcross = "Classic", ltweight = "1961", normtype = 1)
+            session$setInputs(radiocal = rc)
+            for (p in list(looCalCurvePlot(), looValCurvePlot())) stopifnot(inherits(p, "ggplot"), !is.null(ggplot2::ggplot_build(p)))
+            vt <- looValTable()
+            stopifnot(identical(colnames(vt), c("Spectrum", "Concentration", "Prediction", "Difference", "Relative")),
+                      isTRUE(all.equal(vt$Prediction, looCurrentFits()$Table$LOO)))
+            out <- c(out, sprintf("type %d: %d standards", rc, nrow(vt)))
+        }
+        session$setInputs(radiocal = 3)
+        paste(out, collapse = "; ")
+    })
+
+    # Restore the additive defaults so the sweeps below run the additive path.
     lucashold$ltcross <- "Additive"; lucashold$ltweight <- "1961"
 
-    # ------------------------------------------------------------------
-    # Customization sweeps: users can combine any normalization with any
-    # model type, and (for spectra models) any transformation x compression.
-    # Each combo rebuilds the model frame from scratch and fits.
-    # ------------------------------------------------------------------
+    # Customization sweeps: users can combine any normalization with any model type and, for spectra models, any transformation x compression; each combination rebuilds the model frame from scratch and fits.
     emax <- max(cal$Spectra$Energy, na.rm = TRUE)
     roi_win <- round(c(0.38, 0.48) * emax, 2)   # backscatter/Compton region: always has counts
 
@@ -477,7 +499,7 @@ try(testServer(app, {
         message(sprintf("    %-34s %s", nm, res$note))
     }
 
-    # -- intensity-model normalizations (Total Counts was exercised above) --
+    # intensity-model normalizations (Total Counts was exercised above)
     message("  -- sweep: intensity normalizations --")
     for (mm in list(list(rc = 1, set = "linearModelSet",     fit = "linearModel",     lab = "Linear"),
                     list(rc = 3, set = "lucasToothModelSet", fit = "lucasToothModel", lab = "Lucas-Tooth"),
@@ -504,9 +526,7 @@ try(testServer(app, {
         }
     } else message("    (skipping ROI Baseline/Net - quant has no Deconvoluted slot)")
 
-    # -- concentration (dependent) transformations --
-    # Log needs strictly positive values; e needs values small enough that
-    # exp() stays finite. Pick a suitable element rather than silently skip.
+    # Concentration (dependent) transformations: Log needs strictly positive values and e needs values small enough that exp() stays finite, so pick an element that allows both rather than skip.
     message("  -- sweep: concentration transformations --")
     dep_ok <- vapply(names(cal$calList), function(e){
         if (!e %in% colnames(cal$Values)) return(FALSE)
@@ -529,8 +549,7 @@ try(testServer(app, {
         }
     }
 
-    # -- spectra transformation x compression (Rainforest carries the grid; the
-    #    other spectra models share rainforestDataGen, spot-checked below) --
+    # Spectra transformation x compression: Rainforest carries the full grid, and the other spectra models, which share rainforestDataGen, are spot-checked below.
     message("  -- sweep: spectra transformation x compression --")
     for (tr in c("None", "Log", "e", "Velocity")) {
         for (cp in c("100 eV", "50 eV", "25 eV")) {
@@ -542,7 +561,7 @@ try(testServer(app, {
         }
     }
 
-    # -- spectra-model normalizations --
+    # spectra-model normalizations
     message("  -- sweep: spectra normalizations --")
     run_combo("Rainforest norm=Time", ML_EL, 5, "rainforestModelSet", "rainforestModel",
               function(){ basichold$normtype <- 1; session$setInputs(normcal = 1) })
@@ -553,8 +572,7 @@ try(testServer(app, {
         session$setInputs(normcal = 3, comptonmin = roi_win[1], comptonmax = roi_win[2])
     })
 
-    # -- cross-model spectra spot checks under non-default transforms --
-    # (50 eV for the NN keeps nnet under its default MaxNWts weight cap.)
+    # Spectra spot checks for other models under non-default transforms; the NN uses 50 eV to stay under nnet's default MaxNWts weight cap.
     message("  -- sweep: spectra-model spot checks --")
     run_combo("NN Spectra Log/50eV", ML_EL, 7,
               "neuralNetworkSpectraShallowModelSet", "neuralNetworkSpectraModel",
@@ -568,11 +586,7 @@ try(testServer(app, {
         xgboosthold$xgbtype <- "Radial"
     })
 
-    # ------------------------------------------------------------------
-    # Crash regressions: switching Cubist Spectra (17) -> Cubist Intensities
-    # (16) and pressing Update killed the session outright. Three separate
-    # defects lined up, one per case below.
-    # ------------------------------------------------------------------
+    # Model-switch regressions: switching Cubist Spectra (17) -> Cubist Intensities (16) and pressing Update must not end the session; each case below covers one cause.
     message("  -- regression: model-switch crash --")
     basichold$transformation <- "None"; basichold$compress <- "100 eV"
     basichold$deptransformation <- "None"
@@ -590,10 +604,7 @@ try(testServer(app, {
         message(sprintf("    %-34s %s", nm, res$note))
     }
 
-    # 1. modelPack is called straight from observeEvent(input$createcalelement),
-    #    where an unhandled error ends the Shiny session. modelParameters() turns
-    #    any upstream failure into NULL, so modelPack must tolerate NULL rather
-    #    than erroring on `if(NULL$CalTable$CalType == 8)`.
+    # 1. modelPack runs directly in observeEvent(input$createcalelement), where an unhandled error ends the session, and modelParameters() turns upstream failures into NULL, so modelPack must tolerate NULL parameters.
     check("modelPack tolerates NULL params", function(){
         stopifnot(is.null(modelPack(parameters = NULL, model = NULL, table = NULL, compress = TRUE)))
         stopifnot(is.null(modelPack(parameters = list(CalTable = data.frame(Other = 1)),
@@ -607,11 +618,7 @@ try(testServer(app, {
         "NULL/NA/unknown CalType all handled without error"
     })
 
-    # 2. Slope names go stale when a deconvolution is re-run without pressing
-    #    Commit: outVaralt() offers Compton/Rayleigh immediately, the intensity
-    #    tables do not carry them until the rebuild. The lucas_* preps select
-    #    slopes by name, so an absent one used to error the whole model chain
-    #    with "undefined columns selected".
+    # 2. Slope names go stale when a deconvolution is re-run without pressing Commit (outVaralt() offers Compton/Rayleigh before the intensity tables carry them), so the lucas_* preps, which select slopes by name, must ignore missing ones.
     for (rc in c(4, 16)) {
         lab <- if (rc == 4) "Forest" else "Cubist Intens"
         check(sprintf("stale slopes ignored (%s)", lab), function(){
@@ -630,9 +637,7 @@ try(testServer(app, {
         })
     }
 
-    # 3. The reported sequence end to end: fit Cubist Spectra, switch to Cubist
-    #    Intensities, and confirm modelParameters() still yields a packable
-    #    parameter set instead of the NULL that reached modelPackPre.
+    # 3. The full sequence: fit Cubist Spectra, switch to Cubist Intensities, and confirm modelParameters() still yields a packable parameter set.
     check("Cubist Spectra -> Intensities switch", function(){
         session$setInputs(calcurveelement = ML_EL, radiocal = 17, normcal = 2,
                           comptonmin = 0, comptonmax = 0, comptontype = "Raw")

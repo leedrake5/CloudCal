@@ -1,4 +1,4 @@
-######Load lines
+# Load lines
 
 k.lines.directory <- if(file.exists("data/K Line.csv")){
     "data/K Line-Table 1.csv"
@@ -819,7 +819,7 @@ Narrow <- list(H=H.table, He=He.table, Li=Li.table, Be=Be.table, B=B.table, C=C.
 Tables <- list(H.table=H.table, He.table=He.table, Li.table=Li.table, Be.table=Be.table, B.table=B.table, C.table=C.table, N.table=N.table, O.table=O.table, F.table=F.table, Ne.table=Ne.table, Na.table=Na.table, Mg.table=Mg.table, Al.table=Al.table, Si.table=Si.table, P.table=P.table, S.table=S.table, Cl.table=Cl.table, Ar.table=Ar.table, K.table=K.table, Ca.table=Ca.table, Sc.table=Sc.table, Ti.table=Ti.table, V.table=V.table, Cr.table=Cr.table, Mn.table=Mn.table, Fe.table=Fe.table, Co.table=Co.table, Ni.table=Ni.table, Cu.table=Cu.table, Zn.table=Zn.table, Ga.table=Ga.table, Ge.table=Ge.table, As.table=As.table, Se.table=Se.table, Br.table=Br.table, Kr.table=Kr.table, Rb.table=Rb.table, Sr.table=Sr.table, Y.table=Y.table, Zr.table=Zr.table, Nb.table=Nb.table, Mo.table=Mo.table, Tc.table=Tc.table, Ru.table=Ru.table, Rh.table=Rh.table, Pd.table=Pd.table, Ag.table=Ag.table, Cd.table=Cd.table, In.table=In.table, Sn.table=Sn.table, Sb.table=Sb.table, Te.table=Te.table, I.table=I.table, Xe.table=Xe.table, Cs.table=Cs.table, Ba.table=Ba.table, La.table=La.table, Ce.table=Ce.table, Pr.table=Pr.table, Nd.table=Nd.table, Pm.table=Pm.table, Sm.table=Sm.table, Eu.table=Eu.table, Gd.table=Gd.table, Tb.table=Tb.table, Dy.table=Dy.table, Ho.table=Ho.table, Er.table=Er.table, Tm.table=Tm.table, Yb.table=Yb.table, Lu.table=Lu.table, Hf.table=Hf.table, Ta.table=Ta.table, W.table=W.table, Re.table=Re.table, Os.table=Os.table, Ir.table=Ir.table, Pt.table=Pt.table, Au.table=Au.table, Hg.table=Hg.table, Tl.table=Tl.table, Pb.table=Pb.table, Bi.table=Bi.table, Po.table=Po.table, At.table=At.table, Rn.table=Rn.table, Fr.table=Fr.table, Ra.table=Ra.table, Ac.table=Ac.table, Th.table=Th.table, Pa.table=Pa.table, U.table=U.table, Pu.table=Pu.table)
 
 
-#####Other Set
+# Other Set
 
 
 library(XLConnect)

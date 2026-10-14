@@ -606,6 +606,45 @@ tabPanel("Cal Curves",
 ),
 
 tabPanel("Cross Validation",
+tabsetPanel(id = "crossvalidationtabs", selected = "Leave-One-Out",
+tabPanel("Leave-One-Out",
+tabsetPanel(id = "crossvalidationlootabs",
+tabPanel("Plots",
+    splitLayout(cellWidths = c("50%", "50%"),
+        column(width=12,
+        div(
+        style = "position:relative",
+        plotOutput("calcurveplotsloo", height = 455,
+            brush = brushOpts(id = "plot_cal_brush_loo", resetOnNew = TRUE),
+            hover = hoverOpts("plot_hovercal_loo", delay = 100, delayType = "debounce")),
+            uiOutput("hover_infocal_loo")),
+        actionButton("cropcalloo", "Zoom"),
+        actionButton("zerocalloo", "Zero")
+
+        ),
+        column(width=12,
+        div(
+        style = "position:relative",
+        plotOutput("valcurveplotsloo", height = 455,
+            brush = brushOpts(id = "plot_val_brush_loo", resetOnNew = TRUE),
+            hover = hoverOpts("plot_hoverval_loo", delay = 100, delayType = "debounce")),
+            uiOutput("hover_infoval_loo")),
+        actionButton("cropvalloo", "Zoom"),
+        actionButton("zerovalloo", "Zero")
+
+)),
+        tags$hr(),
+        checkboxInput('useloomodel', "Use Cross-Validated Model", value=FALSE),
+        helpText("Each standard is estimated by the model refit without it. Left: one grey line per refit, each leaving out one standard (hover over a line to see which), and the blue line is their average, the cross-validated model. Lucas-Tooth draws the lines through each standard's corrected intensity. Right: each standard's left-out estimate. Its r\u00b2 belongs to the line through the points; leave-one-out r\u00b2 scores the estimates against the dashed 1:1 line, so one standard missed by a long way pulls it down even when the points line up. With the box ticked, Update saves the cross-validated model, with the left-out estimates as its standards table."),
+        tags$hr(),
+        downloadButton('downloadcloudplotloo', "Plot"),
+        selectInput('imagesizeloo', "Image Size", choices=c("Small", "Large"), selected="Large")
+
+),
+tabPanel("Standards", dataTableOutput("loostandards"), tags$hr(), downloadButton("downloadLooStandards")))),
+tabPanel("Random Split",
+tabsetPanel(id = "crossvalidationrandomtabs",
+tabPanel("Plots",
     splitLayout(cellWidths = c("50%", "50%"),
         column(width=12,
         div(
@@ -632,11 +671,12 @@ tabPanel("Cross Validation",
 
 )),
         tags$hr(),
-        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=0.2), checkboxInput('userandom', "Use Cross-Validated Model", value=FALSE),        tags$hr(),
+        sliderInput('percentrandom', "Randomize", min=.01, max=.99, value=0.2),        tags$hr(),
         downloadButton('downloadcloudplotrandom', "Plot"),
         selectInput('imagesizerandom', "Image Size", choices=c("Small", "Large"), selected="Large")
 
 ),
+tabPanel("Standards", dataTableOutput("randomstandards"), tags$hr(), downloadButton("downloadRandomStandards")))))),
 
 tabPanel("Models", dataTableOutput("models")),
 

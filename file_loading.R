@@ -1,6 +1,6 @@
 fileloading <- "loaded"
 
-###Lines
+# Lines
 
 
 standard <- c("Spectrum", "Ca.K.alpha", "Ti.K.alpha", "Fe.K.alpha")
@@ -48,7 +48,7 @@ get_filetype <- function(path){
   return(toupper(ext))
 }
 
-###Spectra Loading
+# Spectra Loading
 read_csv_filename_x <- function(filename){
     ret <- read.csv(file=filename, sep=",", header=FALSE)
     return.res <- as.numeric(as.vector(ret[ret$V1 %in% "eV per channel",]$V2))/1000
@@ -198,7 +198,7 @@ csvFrameMetadata <- function(filepath, filename=NULL){
         }
         s <- slope[is.finite(slope) & slope > 0]; if(length(s)) base$eVCh <- s[1]   # keV per channel
     } else if(inst == "Niton"){
-        # Niton carries no hardware block; the win is anode = Ag (already set). eVCh from the keV column spacing.
+        # Niton CSVs carry no hardware block, so only the anode (Ag, set above from the instrument) is known; eVCh comes from the keV column spacing.
         kev <- suppressWarnings(as.numeric(as.character(ret[[1]])))
         d <- suppressWarnings(stats::median(diff(kev[is.finite(kev)]), na.rm=TRUE))
         if(is.finite(d) && d > 0) base$eVCh <- d
@@ -210,23 +210,18 @@ csvFrameMetadata <- function(filepath, filename=NULL){
     base
 }
 
-# Amptek PMCA (.mca) metadata. The tube/anode is NOT in the file (benchtop DPP), so anode is left blank; the
-# detector is taken from the filename (sdd / cdte / hpge, since Amptek setups vary), LiveTime from LIVE_TIME,
-# and eVCh from a "<<CALIBRATION>> / LABEL - keV" block if one is present (often absent on these exports).
+# Amptek PMCA (.mca) metadata: the tube is not in the file, so the anode is left blank; the detector comes from the filename (CdTe, HPGe, else SDD), LiveTime from LIVE_TIME and eVCh from a "<<CALIBRATION>>" / "LABEL - keV" block when present.
 mcaFrameMetadata <- function(filepath, filename=NULL){
     if(is.null(filename)) filename <- basename(filepath)
     fn <- make.names(gsub("[.]mca$", "", filename, ignore.case=TRUE))
     lines <- tryCatch(suppressWarnings(readLines(filepath, warn=FALSE, encoding="latin1")), error=function(e) character(0))
-    # Tolerate any KEY/VALUE separator ("LIVE_TIME - 100", "LIVE_TIME: 100", "LIVE_TIME 100"):
-    # take the LAST numeric token on the matched line. Previously only a dash separator parsed, so a
-    # space/colon-separated live time silently read NA -> no per-spectrum LiveTime -> E1 never fired.
+    # Take the last number on the first line matching the key, so any key/value separator (dash, colon or space) parses.
     getnum <- function(key){ ln <- grep(key, lines, value=TRUE, ignore.case=TRUE)[1]
         if(is.na(ln)) return(NA_real_)
         m <- regmatches(ln, gregexpr("[-+]?[0-9]*\\.?[0-9]+(?:[eE][-+]?[0-9]+)?", ln))[[1]]
         if(length(m)) suppressWarnings(as.numeric(m[length(m)])) else NA_real_ }
     lt  <- getnum("^LIVE_TIME")
-    # Amptek writes LIVE_TIME 0 at 100% dead time; the readers divide counts by
-    # REAL_TIME in that case, so report the time the CPS was actually built with.
+    # Amptek writes LIVE_TIME 0 at 100% dead time and the readers then divide counts by REAL_TIME, so report that instead.
     if(!is.finite(lt) || lt <= 0) lt <- getnum("^REAL_TIME")
     det <- if(grepl("cdte", fn, ignore.case=TRUE)) "CdTe"
            else if(grepl("hpge|_ge_|\\bge\\b", fn, ignore.case=TRUE)) "HPGe" else "SDD"
@@ -243,13 +238,11 @@ mcaFrameMetadata <- function(filepath, filename=NULL){
                TubeFilterStack=NA_character_, DetectorType=det, stringsAsFactors=FALSE)
 }
 
-# Hitachi (.txt) metadata: eVCh from the "Energy Calibration:" slope and LiveTime from "Live Time:". Tube
-# kV/filter are not in the file; Hitachi handhelds are Rh anode / SDD.
+# Hitachi (.txt) metadata: eVCh from the "Energy Calibration:" slope and LiveTime from "Live Time:"; tube kV and filter are not in the file, and Hitachi handhelds are Rh anode / SDD.
 txtFrameMetadataHitachi <- function(lines=NULL, filepath, filename=NULL){
     if(is.null(filename)) filename <- basename(filepath)
     fn <- make.names(gsub("[.]txt$", "", filename, ignore.case=TRUE))
-    # Hitachi puts the "Live Time:" / "Energy Calibration:" lines AFTER the 2048-channel data block, so read
-    # the whole (small) file, not just the head.
+    # Hitachi writes the "Live Time:" and "Energy Calibration:" lines after the data block, so read the whole file, not just the head.
     if(is.null(lines)) lines <- tryCatch(readTXTLines(filepath), error=function(e) character(0))
     evch <- NA_real_
     cal_ln <- grep("Energy Calibration:", lines, value=TRUE, ignore.case=TRUE)[1]
@@ -262,9 +255,7 @@ txtFrameMetadataHitachi <- function(lines=NULL, filepath, filename=NULL){
                TubeFilter=NA_character_, TubeFilterStack=NA_character_, DetectorType="SDD", stringsAsFactors=FALSE)
 }
 
-# Bruker Esprit (SEM-EDS) metadata: eVCh from "Calibration, lin." (eV/ch) and Live/RealTime from the header's ms
-# fields. TubeVoltage is the electron beam's "Primary energy" (kV); electron excitation has no anode or beam
-# filter, and Excitation="electron" lets deconvolution_infer_from_metadata pick the SEM-EDS physics mode.
+# Bruker Esprit (SEM-EDS) metadata: eVCh, live/real time (ms) and the beam's "Primary energy" (kV, as TubeVoltage) come from the header; electron excitation has no anode or filter, and Excitation="electron" lets deconvolution_infer_from_metadata pick the SEM-EDS physics mode.
 txtFrameMetadataEsprit <- function(lines=NULL, filepath, filename=NULL){
     if(is.null(filename)) filename <- basename(filepath)
     fn <- make.names(gsub("[.]txt$", "", filename, ignore.case=TRUE))
@@ -393,8 +384,7 @@ safe_cloudcal_load <- function(filepath) {
   txt <- readLines(filepath, warn = FALSE)
   txt <- trimws(txt)
   txt <- txt[nzchar(txt)]
-  # Heuristic: if we see multiple top-level objects without [ ... ],
-  # wrap them into an array and parse.
+  # Several top-level objects without an enclosing [ ... ] are wrapped into an array before parsing.
   if (length(txt)) {
     joined <- paste(txt, collapse = "\n")
     if (!grepl("^\\s*\\[", joined) && grepl("\\}\\s*,?\\s*\\{", joined)) {
@@ -507,8 +497,7 @@ readJSONFile <- function(filepath, chosen_beam = "1") {
   )
 }
 
-# 9) Process all records in a JSON file for the chosen beam
-# Returns combined data.frame with Energy, CPS, Spectrum columns
+# 9) Process all records in a JSON file for the chosen beam into one data.frame with Energy, CPS and Spectrum columns
 readJSONAllRecords <- function(filepath, chosen_beam = "1", filename = NULL) {
   exposureNumber <- as.integer(chosen_beam)
   if (length(exposureNumber) != 1L || is.na(exposureNumber))
@@ -722,31 +711,24 @@ uniqueBeamsDetailed <- function(csv_import, chosen_beam = "1") {
 uniqueBeamsDetailed <- cmpfun(uniqueBeamsDetailed)
 
 get_instrument_and_beams <- function(filepath) {
-  # Read in the first few lines of the file to inspect the header.
-  # (Adjust n as needed.)
   header_lines <- readLines(filepath, n = 20)
   
   # Check if any header line contains "Main Range" (Company 1)
   if (any(grepl("Main Range", header_lines))) {
     instrument <- "Niton"
     
-    # For Company 1, we assume that the CSV has a header line with names like:
+    # Niton CSVs have a header line with beam names like:
     # keV    418(Main Range)    418(Low Range)    418(High Range)
-    #
     df <- read.csv(filepath, sep = ",", nrows = 20)
     
-    # The beam names are embedded in the column names (skip the first column "keV").
-    # Use a regular expression to extract the string inside the parentheses.
+    # Beam names are the parenthesised part of each column name (dots after read.csv), with the "keV" column dropped.
     beam_names <- unique(gsub("\\.", " ", sub("\\.$", "", sub("^[^.]+\\.", "", colnames(df)))))
     beam_names <- beam_names[!beam_names %in% "keV"]
     
   } else if (any(grepl("Exposure Number|exposition", header_lines, ignore.case = TRUE))) {
     instrument <- "Olympus"
 
-    # For Company 2 the metadata is stored in a header block.
-    # We need to find the row that begins with "Exposure Number" (English) or
-    # "Numéro d'exposition" (French - note typographic apostrophe)
-    # (Assuming the file is tab- or comma-delimited)
+    # Olympus CSVs keep their metadata in a header block; find the row whose first column is "Exposure Number" or, in French files, contains "exposition".
     df <- read.csv(filepath, sep = ",", header=FALSE, nrows = 20)
 
     # Find the row where the first column contains exposure number info
@@ -782,8 +764,7 @@ uniqueBeams <- function(filepath){
 }
 
 pdzBeams <- function(filepath){
-    # Returns available beam/spectrum numbers for PDZ files
-    # Uses rPDZ::getPDZSpectrumCount to detect number of spectra
+    # Beam (spectrum) numbers available in a PDZ file, counted with rPDZ::getPDZSpectrumCount.
     num_spectra <- getPDZSpectrumCount(filepath)
     as.character(seq_len(num_spectra))
 }
@@ -803,8 +784,7 @@ detect_csv_type <- function(filepath) {
         return(list(type = "aggregate", instrument = "Olympus", needs_beam_selection = TRUE))
     }
 
-    # Wide/aggregate CSV without beam info (e.g. pre-processed Niton exports
-    # with columns: Energy, Sample1, Sample2, …)
+    # Wide (aggregate) CSV without beam info: an Energy column plus one column per sample.
     first_line <- header_lines[1]
     fields <- strsplit(first_line, ",")[[1]]
     if (length(fields) > 3 && any(grepl("^\\s*\"?Energy\"?\\s*$", fields, ignore.case = TRUE))) {
@@ -833,8 +813,7 @@ importCSVFrameDetailed <- function(csv_import, chosen_beam="1"){
     csv_import <- csv_import %>% select_if(not_all_na)
     csv_import <- csv_import[-1,]
 
-    # Find exposure numbers row (English or French)
-    # Note: French uses typographic apostrophe (') so we use grep as fallback
+    # Find the exposure-number row in English or French, falling back to grep because the French label may use a typographic apostrophe.
     exp_row_idx <- which(csv_import$V1 %in% c("Exposure Number", "Numéro d'exposition"))
     if(length(exp_row_idx) == 0) {
         # Fallback - look for any row containing "Exposure" or "exposition"
@@ -843,13 +822,11 @@ importCSVFrameDetailed <- function(csv_import, chosen_beam="1"){
     beams <- as.vector((unlist(csv_import[exp_row_idx, -1])))
     unique_beams <- unique(beams)
 
-    # Find data rows - check if first column values can be converted to numeric
-    # Data rows either have energy values OR are empty/start with counts
+    # Data rows have a numeric first column (energy) or an empty one (counts only).
     v1_numeric <- suppressWarnings(as.numeric(as.character(csv_import$V1)))
     data_row_mask <- !is.na(v1_numeric) | (csv_import$V1 == "" | is.na(csv_import$V1))
 
-    # Filter to only rows that look like data (not metadata headers)
-    # Data rows are after the header section - find first potential data row
+    # Keep only rows that look like data, dropping rows whose first column contains a metadata keyword.
     metadata_keywords <- c("Date", "Time", "Reading", "Exposure", "Energy", "Real Time",
                            "Live Time", "Probe", "Tube", "Filter", "Reset", "Counts",
                            "Rate", "Pressure", "Temperature", "Multiplier", "Step",
@@ -872,8 +849,7 @@ importCSVFrameDetailed <- function(csv_import, chosen_beam="1"){
     has_valid_energy <- !all(is.na(energy_values) | energy_values == 0)
 
     if (!has_valid_energy) {
-        # Energy needs to be calculated from Energy Slope and Energy Offset
-        # Look for these in metadata (English and French variants)
+        # Without valid energies, compute them from the Energy Slope and Energy Offset metadata rows (English or French labels).
         slope_row_idx <- which(csv_import$V1 %in% c("Energy Slope", "Pente de tension", "Pente énergie"))
         offset_row_idx <- which(csv_import$V1 %in% c("Energy Offset", "Décalage de tension", "Décalage énergie"))
 
@@ -899,9 +875,7 @@ importCSVFrameDetailed <- function(csv_import, chosen_beam="1"){
 }
 importCSVFrameDetailed <- cmpfun(importCSVFrameDetailed)
 
-# Lines of a .txt spectrum in whatever encoding it was written. Bruker Esprit exports UTF-16LE without a BOM,
-# which read.table/readLines see as NUL-riddled bytes, so sniff the BOM / NUL byte pattern and decode first;
-# anything else is read exactly as before (latin1).
+# Lines of a .txt spectrum in its own encoding: Bruker Esprit exports UTF-16LE without a BOM, so UTF-16 is detected from the BOM or NUL-byte pattern and decoded; anything else is read as latin1.
 readTXTLines <- function(filepath){
     bytes <- readBin(filepath, "raw", n=file.size(filepath))
     nul <- as.raw(0)
@@ -929,7 +903,7 @@ isEspritTXT <- function(lines){
     any(grepl("Bruker|Esprit", head(lines, 3), ignore.case=TRUE)) && any(grepl("^\\s*Energy\\s+Counts\\s*$", lines))
 }
 
-# Numeric value of an Esprit "Key: value" header line ("Life time: 39347", "Si dead layer:0.029"); NA if absent.
+# Numeric value of an Esprit "Key: value" header line, or NA if absent.
 espritValue <- function(lines, key){
     ln <- grep(paste0("^\\s*", key, "\\s*:"), lines, value=TRUE, ignore.case=TRUE)[1]
     if(is.na(ln)) return(NA_real_)
@@ -1012,8 +986,7 @@ readTXTDataOG <- function(file=NULL, filepath, filename=NULL, use_native_calibra
 }
 readTXTDataOG <- cmpfun(readTXTDataOG)
 
-# Bruker Esprit (SEM-EDS) .txt export: the "Energy Counts" block already holds energies in keV (channel 0 is
-# "Calibration, abs."), and Esprit records Real/Life time in ms.
+# Bruker Esprit (SEM-EDS) .txt reader: the "Energy Counts" block already holds energies in keV, and Real/Life time are in ms.
 readTXTDataEsprit <- function(lines=NULL, filepath, filename=NULL, use_native_calibration=TRUE){
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -1153,8 +1126,7 @@ readElioProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibratio
     return(data)
 }
 
-# Parse DFL (Itrax settings) file for energy calibration parameters
-# Returns list with slope (keV/channel) and offset (keV)
+# Energy calibration from an Itrax settings (.dfl) file: a list of slope (keV/channel) and offset (keV), NULL when absent.
 parseDFLFile <- function(dfl_path) {
     if (is.null(dfl_path) || !file.exists(dfl_path)) {
         return(list(slope = NULL, offset = NULL))
@@ -1178,8 +1150,7 @@ parseDFLFile <- function(dfl_path) {
     list(slope = slope, offset = offset)
 }
 
-# Parse SPE file header to extract metadata
-# Returns list with E0 (keV offset), E1 (keV/channel), livetime, and other metadata
+# Parse the tab-separated SPE header line into a list of E0 (keV offset), E1 (keV/channel), livetime and the channel count.
 parseSPEHeader <- function(filepath) {
     # Read first line which contains tab-separated header
     header_line <- readLines(filepath, n = 1, warn = FALSE)
@@ -1233,8 +1204,7 @@ readSPEData <- function(filepath, filename = NULL, dfl_path = NULL, use_native_c
         offset <- header$E0
     }
 
-    # Read the full file to get spectral data
-    # Data starts on line 2 (after header) with format: channel\tcounts
+    # Spectral data follows the header line as tab-separated channel and counts.
     all_lines <- readLines(filepath, warn = FALSE)
 
     # Skip header line, parse data lines
@@ -1260,8 +1230,7 @@ readSPEData <- function(filepath, filename = NULL, dfl_path = NULL, use_native_c
     channels <- channels[valid]
     counts <- counts[valid]
 
-    # Calculate energy from channel using calibration: Energy = offset + slope * channel
-    # Note: Some formats use 0-indexed channels, some 1-indexed
+    # Energy = offset + slope * (channel - 1), treating the file's channel numbers as 1-based; without native calibration Energy is the channel number.
     energy <- if (use_native_calibration == TRUE) {
         offset + slope * (channels - 1)
     } else {
@@ -1322,10 +1291,9 @@ readSPEProcess <- function(inFile = NULL, inEn = NULL, use_native_calibration = 
     return(data)
 }
 
-# --- Spectra saved as R objects (.RData / .rda from save(), .rds from saveRDS()) ---------------------------------
+# Spectra saved as R objects (.RData / .rda from save(), .rds from saveRDS())
 
-# Every R object stored in one file, as a named list. saveRDS() files hold a single object (readRDS, named after the
-# file); save() files hold one or more named objects (load()ed into a private environment, never the session).
+# All R objects in one file as a named list: a saveRDS() file gives one object named after the file, and a save() file's objects are loaded into a private environment, never the session.
 readRObjects <- function(filepath, filename=NULL){
     if(is.null(filename)) filename <- basename(filepath)
     obj <- tryCatch(readRDS(filepath), error=function(e) NULL)
@@ -1337,12 +1305,11 @@ readRObjects <- function(filepath, filename=NULL){
 }
 
 # Coerce one R object to CloudCal's long spectra frame (Energy, CPS, Spectrum). Accepted shapes:
-#   * a long frame: Energy (or energy_kev) + CPS (or Counts / Intensity / value) [+ Spectrum / Sample / variable];
-#   * a wide frame: an Energy column plus one numeric column per spectrum;
-#   * an xrftools spectra tibble (.spectra list-column of energy_kev / cps tibbles, ids from .path or Spectrum);
-#   * a list holding any of these -- a saved calibration (.quant) or deconvolution result contributes its
-#     $Spectra; otherwise each element is read and the list names become Spectrum ids.
-# `id` names a spectrum that has no Spectrum column of its own. Intensities are taken as-is (CloudCal expects CPS).
+# - a long frame: Energy (or energy_kev / keV) and CPS (or Counts / Intensity / value), with an optional Spectrum / Sample / .path / variable id column
+# - a wide frame: an Energy column plus one numeric column per spectrum
+# - an xrftools spectra tibble: a .spectra list-column of energy_kev / cps tibbles, ids from .path or Spectrum
+# - a plain list of these: a saved calibration (.quant) or deconvolution result gives its $Spectra, otherwise each element is read with its list name as the Spectrum id
+# `id` names a spectrum that has no Spectrum column of its own; intensities are taken as-is, since CloudCal expects CPS.
 spectraFrameFromRObject <- function(obj, id="Spectrum", depth=0){
     if(is.null(obj) || depth > 3) return(NULL)
     find_col <- function(nms, candidates){
@@ -1406,15 +1373,13 @@ readRDataSpectra <- function(filepath, filename=NULL){
     data
 }
 
-# use_native_calibration = FALSE replaces Energy with each spectrum's channel index (1..n, in energy order), as the
-# other readers do, so a calibration saved with a manual / peak-fit energy calibration can re-apply it.
+# use_native_calibration = FALSE replaces Energy with each spectrum's channel index (1..n in energy order), as the other readers do, so a saved manual or peak-fit energy calibration can be re-applied.
 readRDataProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibration=TRUE){
     if(is.null(inFile)) return(NULL)
     data.list <- pblapply(seq_len(nrow(inFile)), function(x)
         tryCatch(readRDataSpectra(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]),
                  error=function(e){ warning(sprintf("Failed to read R data file %s: %s", inFile[x, "name"], conditionMessage(e))); NULL }))
-    # Spectrum ids come from inside the objects, so two files can reuse one (e.g. both hold "Sample1"); rbinding them
-    # would silently merge two spectra into one. Prefix a repeated id with its file name instead.
+    # Spectrum ids come from inside the objects, so two files can share one; prefix a repeated id with its file name so binding does not merge two spectra.
     seen <- character(0)
     for(x in seq_along(data.list)){
         d <- data.list[[x]]
@@ -1442,9 +1407,7 @@ readRDataProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibrati
     data
 }
 
-# Metadata carried alongside R-object spectra (LiveTime enables the E1 deconvolution): a saved calibration's
-# $SpectraMetadata, a saved metadata frame (Spectrum + LiveTime, no Energy), or per-spectrum LiveTime / eVCh columns
-# on a long spectra frame. NULL when the file carries none.
+# Metadata stored with R-object spectra (LiveTime enables E1 deconvolution): a saved calibration's $SpectraMetadata, a metadata frame (Spectrum + LiveTime, no Energy), or per-spectrum columns such as LiveTime and eVCh on a long spectra frame; NULL when there is none.
 rdataFrameMetadata <- function(filepath, filename=NULL){
     if(is.null(filename)) filename <- basename(filepath)
     objs <- readRObjects(filepath, filename)
@@ -1733,11 +1696,10 @@ readSPXData <- function(filepath, filename=NULL, use_native_calibration=TRUE){
     channels.pre <- xmllist[["ClassInstance"]][["Channels"]][[1]]
     counts <- as.numeric(strsplit(channels.pre, ",", )[[1]])
     filename.vector <- rep(filename, length(counts))
-    # Bruker writes the calibration with the acquiring PC's decimal separator ("-1,2015..." on a German locale).
+    # Bruker writes the calibration with the acquiring PC's decimal separator, so a decimal comma is converted to a point.
     intercept <- as.numeric(sub(",", ".", xmllist[["ClassInstance"]][["ClassInstance"]][["CalibAbs"]], fixed=TRUE))
     slope <- as.numeric(sub(",", ".", xmllist[["ClassInstance"]][["ClassInstance"]][["CalibLin"]], fixed=TRUE))
-    # Live/real time (ms) sit in the hardware header, whose position among the header blocks varies between
-    # Artax/Esprit versions, so find them by name. A spectrum saved without hardware times keeps raw counts.
+    # Live time (else real time), in ms, is looked up by name because the hardware header's position varies between Artax/Esprit versions; a spectrum with neither keeps raw counts.
     header <- unlist(xmllist[[2]][["TRTHeaderedClass"]])
     header_time <- function(key) suppressWarnings(as.numeric(header[grepl(paste0("(^|[.])", key, "$"), names(header))][1]))/1000
     time <- header_time("LifeTime")
@@ -1745,8 +1707,7 @@ readSPXData <- function(filepath, filename=NULL, use_native_calibration=TRUE){
     if(!is.finite(time) || time <= 0) time <- 1
     
     cps <- counts/time
-    # Bruker channels are 0-based: CalibAbs is the energy of the first channel (Esprit's .txt export writes it
-    # as row one).
+    # Bruker channels are 0-based: CalibAbs is the energy of the first channel.
     energy <- if(use_native_calibration==TRUE){
         seq(0, length(counts)-1, 1)*slope+intercept
     } else if(use_native_calibration==FALSE){
@@ -2014,10 +1975,8 @@ readPDZManualData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_
 readPDZManualData <- cmpfun(readPDZManualData)
 
 readPDZDataUniversal <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE, chosen_beam=NULL) {
-    # Universal PDZ reader using rPDZ::getPDZDataFrames
-    # Handles single, dual, and multi-spectrum files automatically
-    # Returns combined data.frame with Energy, CPS, Spectrum columns
-    # chosen_beam: NULL for all spectra, or "1", "2", etc. for specific beam
+    # Read any PDZ file (single, dual or multi-spectrum) with rPDZ::getPDZDataFrames into one data.frame of Energy, CPS and Spectrum.
+    # chosen_beam: NULL for all spectra, or "1", "2", etc. for one beam.
 
     if(is.null(filename)){
         filename <- basename(filepath)
@@ -2050,9 +2009,7 @@ readPDZDataUniversal <- function(filepath, filename=NULL, pdzprep=TRUE, use_nati
             seq(1, nrow(spec_df), 1)  # Just channel numbers
         }
 
-        # CPS is already calculated by getPDZDataFrames (counts/livetime)
-        # If pdzprep is FALSE, we'd need raw counts, but getPDZDataFrames always divides
-        # For backward compatibility, we keep pdzprep but it's now always TRUE behavior
+        # getPDZDataFrames already returns CPS (counts/livetime), so pdzprep is kept for compatibility but has no effect.
         cps <- spec_df$CPS
 
         # Create spectrum name (add suffix for multi-spectrum files when showing all)
@@ -2081,8 +2038,7 @@ readPDZDataUniversal <- function(filepath, filename=NULL, pdzprep=TRUE, use_nati
 readPDZDataUniversal <- cmpfun(readPDZDataUniversal)
 
 readPDZData <- function(filepath, filename=NULL, pdzprep=TRUE, use_native_calibration=TRUE, chosen_beam=NULL) {
-    # Use the universal reader for all PDZ files
-    # This auto-detects format and handles single/dual spectra
+    # All PDZ files go through readPDZDataUniversal, which handles single- and multi-spectrum files.
     readPDZDataUniversal(filepath, filename=filename, pdzprep=pdzprep, use_native_calibration=use_native_calibration, chosen_beam=chosen_beam)
 }
 readPDZData <- cmpfun(readPDZData)
@@ -2140,8 +2096,7 @@ multipleFileLoaderCommand <- function(filepath, filetype=NULL, pdzprep=TRUE, all
     return(data)
 }
 
-# Atomic number -> element symbol (for PDZ filter fields, which store the filter element as its Z).
-# Uses the globally-loaded fluorescence.lines table; returns NA on any miss so callers degrade gracefully.
+# Atomic number -> element symbol via fluorescence.lines, for PDZ filter fields that store the filter element as its Z; returns NA on any miss.
 .z_to_symbol <- function(z){
     if(is.null(z) || length(z) != 1 || is.na(z) || !is.finite(z) || z <= 0) return(NA_character_)
     tab <- tryCatch(unique(fluorescence.lines[, c("AtomicNumber", "Symbol")]), error=function(e) NULL)
@@ -2151,8 +2106,7 @@ multipleFileLoaderCommand <- function(filepath, filetype=NULL, pdzprep=TRUE, all
 }
 
 readPDZMetadata <- function(filepath, filename=NULL) {
-    # Universal PDZ metadata reader using rPDZ::getPDZMetadata
-    # Returns data.frame with one row per spectrum in the file
+    # PDZ metadata from rPDZ::getPDZMetadata, one row per spectrum in the file.
 
     if(is.null(filename)){
         filename <- sub("[.]pdz$", "", basename(filepath))
@@ -2164,9 +2118,7 @@ readPDZMetadata <- function(filepath, filename=NULL) {
 
     num_spectra <- meta$spectrum_count
 
-    # File-level hardware. Next-gen v25 PDZs encode the real anode / detector / geometry in a Record-1 block
-    # (rPDZ returns anode_z, detector_model, sample_incidence_deg, sample_takeoff_deg, be_thickness_um); older
-    # flat simple_v2 files do NOT, so fall back to the instrument lookup (Bruker handheld = Rh / SDD).
+    # File-level hardware: v25 PDZs record the anode, detector and geometry in a Record-1 block; older simple_v2 files do not, so anode and detector fall back to the Bruker handheld defaults (Rh, SDD).
     gnum <- function(v){ v <- suppressWarnings(as.numeric(v)); if(length(v)==1 && is.finite(v) && v > 0) v else NA_real_ }
     file_anode <- .z_to_symbol(gnum(meta$anode_z))
     if(is.na(file_anode)) file_anode <- deconvolution_instrument_anode("Bruker")     # Rh
@@ -2212,8 +2164,7 @@ readPDZMetadata <- function(filepath, filename=NULL) {
             DeadTimePct = g("dead_time_pct"),
             TubeVoltage = spec_meta$tube_voltage_kV,
             TubeCurrent = g("tube_current_uA"),
-            # Anode/detector/geometry: from the file when it is a v25 PDZ (Record 1), else the instrument
-            # lookup (Bruker handheld = Rh / SDD). Auto-populates the physics controls; editable in the UI.
+            # Anode, detector and geometry from the file's v25 Record-1 block, else the Bruker handheld defaults (Rh, SDD); they pre-fill the physics controls, which stay editable in the UI.
             TubeAnode = file_anode,
             DetectorType = file_det,
             IncidenceAngle = file_incidence,
@@ -2427,7 +2378,7 @@ wideLineTableSplit <- function(spectra, definition.table, elements, split_buffer
     results
 }
 
-###Calibration Loading
+# Calibration Loading
 calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, lt.cross=NULL, lt.weight=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, plsncomp=NULL, cubistcommittees=NULL, cubistneighbors=NULL, glmnetalpha=NULL, glmnetlambda=NULL, marsprune=NULL, marsdegree=NULL){
     
     cal.type <- if(is.null(cal.type)){
@@ -2748,8 +2699,7 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
         svmlength
     }
 
-    # Chemometric additions (cal types 14-21): PLS, Cubist, glmnet, MARS.
-    # Range strings follow the "lo-hi" convention of the other tuning columns.
+    # Chemometric tuning defaults (cal types 14-21: PLS, Cubist, glmnet, MARS) as "lo-hi" range strings, like the other tuning columns.
     plsncomp <- if(is.null(plsncomp)){
         "1-12"
     } else if(!is.null(plsncomp)){
@@ -3350,8 +3300,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
         default.cal.conditions$CalTable$DepTrans
     }
     
-    # Classic Lucas-Tooth fields: pre-classic .quants have neither column, so
-    # absent/foreign values collapse to the legacy additive behavior.
+    # Classic Lucas-Tooth fields: older .quants have neither column, so missing or unknown values fall back to the additive behavior.
     lt.cross <- if("LTCross" %in% colnames(imported.cal.conditions$CalTable)){
         as.character(imported.cal.conditions$CalTable$LTCross[1])
     } else if(!"LTCross" %in% colnames(imported.cal.conditions$CalTable)){
@@ -3705,9 +3654,7 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     }
     
 
-    # Chemometric tuning columns (cal types 14-21): prefer the trained model's
-    # bestTune (like the SVM columns above), then the stored column, then the
-    # canonical defaults (pre-chem .quants have none of these columns).
+    # Chemometric tuning columns (cal types 14-21): the trained model's bestTune, else the stored column, else the defaults (older .quants have none of these columns).
     chem_defaults <- c(plsNComp="1-12", cubistCommittees="1-10", cubistNeighbors="0-5",
                        glmnetAlpha="0-1", glmnetLambda="0.001-1", marsPrune="2-12", marsDegree="1-2")
     chem_import <- function(col, tune_name, chem_types){
@@ -3927,8 +3874,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         default.cal.conditions$CalTable$DepTrans
     }
     
-    # Classic Lucas-Tooth fields: pre-classic .quants have neither column, so
-    # absent/foreign values collapse to the legacy additive behavior.
+    # Classic Lucas-Tooth fields: older .quants have neither column, so missing or unknown values fall back to the additive behavior.
     lt.cross <- if("LTCross" %in% colnames(imported.cal.conditions$CalTable)){
         as.character(imported.cal.conditions$CalTable$LTCross[1])
     } else if(!"LTCross" %in% colnames(imported.cal.conditions$CalTable)){
@@ -4282,12 +4228,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         default.cal.conditions$StandardsUsed
     }
 
-    # StandardsUsed must be a logical mask. Older/large cals sometimes stored it as
-    # character/list/numeric, which breaks `!keep` subsetting and xor() toggles in
-    # the calibration-curve UI. Coerce here, the single import chokepoint, so every
-    # downstream consumer (vals$keeprows, model fitting) gets a clean logical.
-    # Preserve any Spectrum names (masks saved after the Spectrum-keying change) so
-    # alignKeep() can project the selection by identity rather than position.
+    # Coerce StandardsUsed to a logical mask (NA -> TRUE) at import, since some saved calibrations store it as character, list or numeric; any Spectrum names are kept so alignKeep() can match the selection by name rather than position.
     su.names <- names(standards.used)
     if(is.list(standards.used)) standards.used <- unlist(standards.used, use.names = FALSE)
     standards.used <- suppressWarnings(as.logical(standards.used))
@@ -4299,9 +4240,7 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     } else if(!"Scale" %in% names(imported.cal.conditions)){
         default.cal.conditions$Scale
     }
-    # Chemometric tuning columns (cal types 14-21): prefer the trained model's
-    # bestTune (like the SVM columns above), then the stored column, then the
-    # canonical defaults (pre-chem .quants have none of these columns).
+    # Chemometric tuning columns (cal types 14-21): the trained model's bestTune, else the stored column, else the defaults (older .quants have none of these columns).
     chem_defaults <- c(plsNComp="1-12", cubistCommittees="1-10", cubistNeighbors="0-5",
                        glmnetAlpha="0-1", glmnetLambda="0.001-1", marsPrune="2-12", marsDegree="1-2")
     chem_import <- function(col, tune_name, chem_types){
@@ -4555,9 +4494,7 @@ intensity_fix <- function(calibration, keep_labels=TRUE){
     return(calibration)
 }
 
-# File extensions to remove from spectrum names -- only as the trailing extension. These used to be unanchored
-# mgsub regexes (".spe" = any character + "spe", anywhere), which mangled names such as "X_spectrum" -> "Xctrum"
-# and "Inspection_3" -> "Iction_3" and split those spectra from their concentrations.
+# File extensions stripped from spectrum names, matched only as the trailing extension so a name that merely contains one is left intact.
 .file_extensions <- c(".pdz", ".PDZ", ".csv", ".CSV", ".spt", ".mca", ".spx", ".spe")
 .file_extension_pattern <- paste0("\\.(", paste(substring(.file_extensions, 2), collapse="|"), ")$")
 
@@ -4566,29 +4503,23 @@ spectrumNameSingle <- function(spectrum_name){
 }
 
 spectrumNameVector <- function(spectrum_vector){
-    # Long-format spectra columns repeat ~40 unique names across ~100k+ rows;
-    # clean the unique names only and map back - identical per-string semantics.
+    # Long-format spectra columns repeat a few names over many rows, so clean each unique name once and map back.
     x <- as.character(spectrum_vector)
     u <- unique(x)
     cleaned <- sub(.file_extension_pattern, "", u)
     cleaned[match(x, u)]
 }
 
-# Calibrations saved while extension stripping was unanchored hold a mangled twin of every spectrum whose name
-# contained an extension-like substring ("Obs1_spectrum" was also saved as "Obs1ctrum"), and the concentrations
-# and intensities sat on the twin, so those standards silently dropped out of the fit. Fold each twin into its
-# real spectrum's row, filling only blank cells (NA, or 0 for numbers), then drop it. A twin that two real names
-# would both have produced can't be attributed, so it is left alone. Used by calRDS.
+# Older calibrations can hold a mangled twin row, carrying the values, for each spectrum whose name contains an extension-like substring. Fold each twin into its real spectrum's row, filling only blank cells (NA, or 0 for numbers), then drop it; a twin with no real row is renamed instead, and one that two real names could have produced is left alone. Used by calRDS.
 foldLegacySpectrumTwins <- function(df, spectra, col = "Spectrum"){
     if (!is.data.frame(df) || !(col %in% names(df)) || !length(spectra)) return(df)
     spectra <- unique(as.character(spectra))
-    # Only a name with an extension token after some character could have been mangled; the old mgsub pass is
-    # slow (~1 s per 18k names, run once per table here), so apply it to those candidates only.
+    # Only names with an extension token after some character can have a mangled twin, and the legacy mgsub pass is slow, so run it on those candidates only.
     cand <- grepl(paste0(".(", paste(substring(.file_extensions, 2), collapse = "|"), ")"), spectra)
     if (!any(cand)) return(df)
     legacy <- spectra
     legacy[cand] <- tryCatch(make.names(mgsub::mgsub(spectra[cand], .file_extensions, rep("", length(.file_extensions))), unique = FALSE),
-                             error = function(e) spectra[cand])   # the old (unanchored) behaviour, for recognising twins only
+                             error = function(e) spectra[cand])   # legacy unanchored stripping, used only to recognise twins
     foldable <- legacy != spectra & !(legacy %in% spectra) & !(legacy %in% legacy[duplicated(legacy)])
     if (!any(foldable)) return(df)
     nm <- as.character(df[[col]])
@@ -4623,9 +4554,7 @@ normalizeSpectrumColumn <- function(df, col = "Spectrum") {
     df
 }
 
-# Helper to ensure Values table exists in calibration
-# Creates a minimal Values table with Spectrum, Include, and optionally element columns if missing
-# If elements is provided and Values exists but is missing those columns, adds them
+# Ensure the calibration has a Values table, creating a minimal one (Include, Spectrum) if missing, and add any missing `elements` columns as NA.
 ensureValuesTable <- function(Calibration, elements = NULL) {
     spec_names <- unique(Calibration$Spectra$Spectrum)
 
@@ -4666,9 +4595,7 @@ ensureOtherSpectraStuff <- function(Calibration, force_create = FALSE) {
     Calibration
 }
 
-# Helper to rebuild intensity tables
-# Parallelizes independent table builds on non-Windows systems with sufficient cores.
-# By default rebuilds all 6 tables; pass a subset via `tables` to rebuild only those.
+# Rebuild the intensity tables (all six by default, or the subset in `tables`), in parallel across tables when allowed and worthwhile.
 rebuildIntensityTables <- function(Calibration, elements, allowParallel,
                                    tables = c("Intensities", "IntensitiesSplit", "IntensitiesFirst",
                                               "IntensitiesSecond", "WideIntensities", "WideIntensitiesSplit")) {
@@ -4680,11 +4607,7 @@ rebuildIntensityTables <- function(Calibration, elements, allowParallel,
     gaus_buf <- Calibration$LineDefaults$GausBuffer
     split_buf <- Calibration$LineDefaults$SplitBuffer
 
-    # Check if outer-level parallelism is beneficial:
-    # - Need non-Windows (mclapply uses forking)
-    # - Need enough cores to justify overhead
-    # - Need multiple tables to build
-    # - User must have requested parallel processing
+    # Parallelize across tables only when requested, off Windows (mclapply forks), and with at least four cores and two tables.
     n_cores <- as.numeric(my.cores)
     use_outer_parallel <- allowParallel && get_os() != "windows" &&
                           n_cores >= 4 && length(tables) >= 2
@@ -4708,8 +4631,7 @@ rebuildIntensityTables <- function(Calibration, elements, allowParallel,
             Calibration[[name]] <- merge(results[[name]], other, by = "Spectrum")
         }
     } else {
-        # Sequential execution (Windows or low core count or parallel disabled)
-        # Inner parallelism handles element-level parallelization
+        # Sequential over tables; each builder can still parallelize across elements.
         all_tasks <- list(
             Intensities          = function() narrowLineTable(spectra, defs, elements, gaus_buffer = gaus_buf, allowParallel = allowParallel),
             IntensitiesSplit     = function() narrowLineTableSplit(spectra, defs, elements, split_buffer = split_buf, allowParallel = allowParallel),
@@ -4726,11 +4648,7 @@ rebuildIntensityTables <- function(Calibration, elements, allowParallel,
     Calibration
 }
 
-# Helper to ensure all intensity tables exist on the calibration.
-# Normalizes the Spectrum column on tables that are present and builds any
-# that are missing. Building requires Definitions, LineDefaults, and a
-# non-empty `elements` vector; if those prerequisites are missing the
-# corresponding tables are simply left absent.
+# Normalize the Spectrum column of existing intensity tables and build any missing ones; building needs Definitions and a non-empty `elements`, otherwise missing tables are left absent.
 ensureIntensityTables <- function(Calibration, elements, allowParallel) {
     intensity_tables <- c("Intensities", "IntensitiesSplit", "IntensitiesFirst",
                           "IntensitiesSecond", "WideIntensities", "WideIntensitiesSplit")
@@ -4754,18 +4672,12 @@ ensureIntensityTables <- function(Calibration, elements, allowParallel) {
     rebuildIntensityTables(Calibration, elements, allowParallel, tables = missing_tables)
 }
 
-# Verify-then-repair for the intensity tables on calibration load. Saved
-# calibrations already contain tables rebuilt at save time, so a full
-# 6-table recompute on every load is usually redundant. Per table:
-#   1. structural check - covers the element set and exactly the (possibly
-#      filtered) spectrum set;
-#   2. spot check - one element line is recomputed with the table's own builder
-#      and compared to the stored column, so a table saved under different line
-#      settings still triggers the full rebuild;
-#   3. custom (non-spectral-line) columns are recomputed cheaply, matching what
-#      the rebuild would produce for them;
-#   4. missing OtherSpectraStuff columns (Total/Baseline) are merged in.
-# Any table failing 1 or 2 is rebuilt exactly as before.
+# Verify-then-repair for the intensity tables on calibration load: saved calibrations usually already hold current tables, so each table is checked and only failures are rebuilt.
+# 1. Structural check: the table covers the element set and exactly the (possibly filtered) spectrum set.
+# 2. Spot check: one element line is recomputed with the table's own builder and compared to the stored column, so a table saved under different line settings is rebuilt.
+# 3. Custom (non-spectral-line) columns are recomputed cheaply, as a rebuild would.
+# 4. Missing OtherSpectraStuff columns (Total/Baseline) are merged in.
+# A table failing 1 or 2 is rebuilt in full.
 repairIntensityTables <- function(Calibration, elements, allowParallel){
     tables <- c("Intensities", "IntensitiesSplit", "IntensitiesFirst",
                 "IntensitiesSecond", "WideIntensities", "WideIntensitiesSplit")
@@ -4857,15 +4769,13 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     # Normalize spectrum names across all tables
     Calibration$Spectra <- normalizeSpectrumColumn(Calibration$Spectra)
 
-    # If build=TRUE, ensure Values table exists (creates minimal one from Spectra if missing)
-    # Also adds element columns if elements parameter is provided
+    # With build=TRUE, create a minimal Values table from Spectra if missing and add any missing `elements` columns.
     if(build){
         Calibration <- ensureValuesTable(Calibration, elements = elements)
     }
 
     Calibration$Values <- normalizeSpectrumColumn(Calibration$Values)
-    # Older .quant files: fold the mangled-name twin rows back into their real spectra (see foldLegacySpectrumTwins).
-    # Unique names once: the long-format Spectra column runs to millions of rows on big calibrations.
+    # Fold older .quant files' mangled-name twin rows back into their real spectra (see foldLegacySpectrumTwins), using unique names because the long-format Spectra column can run to millions of rows.
     spectra_names <- unique(as.character(Calibration$Spectra$Spectrum))
     Calibration$Values <- foldLegacySpectrumTwins(Calibration$Values, spectra_names)
 
@@ -4878,8 +4788,7 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         }
     }
 
-    # Extract element names from Values (excluding metadata columns)
-    # Use passed elements if provided, otherwise extract from Values
+    # Elements are the passed `elements` if given, else the Values columns other than Include and Spectrum.
     elements <- if(!is.null(elements) && length(elements) > 0) {
         elements
     } else if(!is.null(Calibration$Values)) {
@@ -4888,8 +4797,7 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         character(0)
     }
 
-    # LineDefaults must be set before building any intensity tables because
-    # narrow/wide line builders read GausBuffer/SplitBuffer from it.
+    # LineDefaults must be set before any intensity table is built, because the narrow and wide line builders read GausBuffer/SplitBuffer from it.
     if(!"LineDefaults" %in% names(Calibration)){
         Calibration$LineDefaults <- list(GausBuffer=0.02, SplitBuffer=0.1)
     }
@@ -5029,10 +4937,7 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         n_elements <- length(element_names)
         n_cores <- as.numeric(my.cores)
 
-        # Check if outer-level parallelism is beneficial:
-        # - Need non-Windows (mclapply uses forking)
-        # - Need multiple elements to process
-        # - User must have requested parallel processing
+        # Run elements in parallel only when requested and worthwhile; mclapply forks, so not on Windows.
         use_parallel <- allowParallel && get_os() != "windows" && n_elements >= 2 && n_cores >= 2
 
         if (use_parallel) {

@@ -76,7 +76,7 @@ fluorescence.lines.directory <- if(file.exists("data/FluorescenceLines.csv")){
 }
 
 
-######Load lines
+# Load lines
 k.lines <- read.csv(file=k.lines.directory, sep=",")
 l.lines <- read.csv(file=l.lines.directory, sep=",")
 fluorescence.lines <- read.csv(fluorescence.lines.directory, sep=",")
@@ -786,7 +786,7 @@ parallel_prediction_caret <- cmpfun(parallel_prediction_caret)
 
 
 GG_save_pdf = function(list, filename) {
-    #start pdf
+    # start pdf
     pdf(filename)
     
     #loop
@@ -794,7 +794,7 @@ GG_save_pdf = function(list, filename) {
         print(p)
     }
     
-    #end pdf
+    # end pdf
     dev.off()
     
     invisible(NULL)
@@ -802,7 +802,7 @@ GG_save_pdf = function(list, filename) {
 GG_save_pdf <- cmpfun(GG_save_pdf)
 
 
-###Train Functions
+# Train Functions
 
 pull_test <- function(a.vector, a.value.position){
     
@@ -1854,7 +1854,7 @@ elementFrame <- cmpfun(elementFrame)
 
 
 
-####Normalize
+# Normalize
 
 element_norm <- function(data, element, min, max) {
     
@@ -1870,7 +1870,7 @@ element_norm <- function(data, element, min, max) {
 element_norm <- cmpfun(element_norm)
 
 
-####Cal Models
+# Cal Models
 
 linear_simp_xrf <- function(concentration.table, spectra.line.table, element.line) {
     
@@ -2173,7 +2173,7 @@ lucas_comp_xrf <- cmpfun(lucas_comp_xrf)
 
 
 
-###Spectra Manipulaton
+# Spectra Manipulaton
 
 james <- function(x) (abs(x)+x)/2
 james.cp <- compiler::cmpfun(james)
@@ -2223,14 +2223,10 @@ spectra_stats <- function(spectra.frame, norm.type, norm.min, norm.max, compress
 spectra_stats <- cmpfun(spectra_stats)
 
 
-###############
-###Prep Data###
-###############
+# Prep Data
 
 
-###############
-###Full Spectra##
-###############
+# Full Spectra
 
 
 spectra_frame_xrf <- function(spectra){
@@ -2456,14 +2452,10 @@ spectra_comp_trans_xrf <- function(spectra, energy.min=0.7, energy.max=37, norm.
 spectra_comp_trans_xrf <- cmpfun(spectra_comp_trans_xrf)
 
 
-###############
-###Prep Data###
-###############
+# Prep Data
 
 
-###############
-###Raw Spectra##
-###############
+# Raw Spectra
 
 
 general_prep_xrf <- function(spectra.line.table, element.line) {
@@ -2537,7 +2529,7 @@ spectra_summary_apply <- cmpfun(spectra_summary_apply)
 
 
 
-###Prep Data
+# Prep Data
 
 
 
@@ -2663,14 +2655,10 @@ lucas_comp_prep_xrf <- cmpfun(lucas_comp_prep_xrf)
 
 
 
-###############
-###Prep Data###
-###############
+# Prep Data
 
 
-###############
-###Net Counts##
-###############
+# Net Counts
 
 
 general_prep_xrf_net <- function(spectra.line.table, element.line) {
@@ -2723,7 +2711,7 @@ simple_comp_prep_xrf_net <- cmpfun(simple_comp_prep_xrf_net)
 
 
 
-###Prep Data
+# Prep Data
 
 
 
@@ -3094,7 +3082,7 @@ find_peaks_xrf <- cmpfun(find_peaks_xrf)
 
 
 
-####Custom Lines
+# Custom Lines
 
 
 range_subset <- function(range.frame, data){
@@ -3123,7 +3111,7 @@ xrf_parse <- function(range.table, data){
 xrf_parse <- cmpfun(xrf_parse)
 
 
-###Unit Transformation
+# Unit Transformation
 
 data_summarize <- function(xrf.table) {
     
@@ -3133,7 +3121,7 @@ data_summarize <- function(xrf.table) {
     #xrf.table <- subset(xrf.table, !(xrf.table$Depth < 5 | xrf.table$Depth > 37))
     
     xrf.table <- data.table(xrf.table)
-    ###Neds work
+    # Neds work
     xrf.table.aggregate <- xrf.table[, list(CPS=mean(CPS, na.rm = TRUE)), by = list(Depth)]
     
     data <- as.data.frame(dcast.data.table(xrf.table.aggregate, Spectrum~Energy, value.var="CPS"))
@@ -3153,7 +3141,7 @@ bord.col='lightblue', max.sp = F,...){
     
     require(scales)
     
-    #sanity checks
+    # sanity checks
     if('mlp' %in% class(mod.in)) warning('Bias layer not applicable for rsnns object')
     if('numeric' %in% class(mod.in)){
         if(is.null(struct)) stop('Three-element vector required for struct')
@@ -3172,8 +3160,7 @@ bord.col='lightblue', max.sp = F,...){
         else stop('Only nnet method can be used with train object')
     }
     
-    #gets weights for neural network, output is list
-    #if rescaled argument is true, weights are returned but rescaled based on abs value
+    # Returns the network weights as a list; if nid is TRUE their absolute values are rescaled to c(1, rel.rsc).
     nnet.vals<-function(mod.in,nid,rel.rsc,struct.out=struct){
         
         require(scales)
@@ -3184,7 +3171,7 @@ bord.col='lightblue', max.sp = F,...){
             wts<-mod.in
         }
         
-        #neuralnet package
+        # neuralnet package
         if('nn' %in% class(mod.in)){
             struct.out<-unlist(lapply(mod.in$weights[[1]],ncol))
             struct.out<-struct.out[-length(struct.out)]
@@ -3196,19 +3183,19 @@ bord.col='lightblue', max.sp = F,...){
             wts<-unlist(mod.in$weights[[1]])
         }
         
-        #nnet package
+        # nnet package
         if('nnet' %in% class(mod.in)){
             struct.out<-mod.in$n
             wts<-mod.in$wts
         }
         
-        #RSNNS package
+        # RSNNS package
         if('mlp' %in% class(mod.in)){
             struct.out<-c(mod.in$nInputs,mod.in$archParams$size,mod.in$nOutputs)
             hid.num<-length(struct.out)-2
             wts<-mod.in$snnsObject$getCompleteWeightMatrix()
             
-            #get all input-hidden and hidden-hidden wts
+            # get all input-hidden and hidden-hidden wts
             inps<-wts[grep('Input',row.names(wts)),grep('Hidden_2',colnames(wts)),drop=F]
             inps<-melt(rbind(rep(NA,ncol(inps)),inps))$value
             uni.hids<-paste0('Hidden_',1+seq(1,hid.num))
@@ -3218,18 +3205,18 @@ bord.col='lightblue', max.sp = F,...){
                 inps<-c(inps,melt(rbind(rep(NA,ncol(tmp)),tmp))$value)
             }
             
-            #get connections from last hidden to output layers
+            # get connections from last hidden to output layers
             outs<-wts[grep(paste0('Hidden_',hid.num+1),row.names(wts)),grep('Output',colnames(wts)),drop=F]
             outs<-rbind(rep(NA,ncol(outs)),outs)
             
-            #weight vector for all
+            # weight vector for all
             wts<-c(inps,melt(outs)$value)
             assign('bias',F,envir=environment(nnet.vals))
         }
         
         if(nid) wts<-rescale(abs(wts),c(1,rel.rsc))
         
-        #convert wts to list with appropriate names
+        # convert wts to list with appropriate names
         hid.struct<-struct.out[-c(length(struct.out))]
         row.nms<-NULL
         for(i in 1:length(hid.struct)){
@@ -3254,24 +3241,23 @@ bord.col='lightblue', max.sp = F,...){
     
     if(wts.only) return(wts)
     
-    #circle colors for input, if desired, must be two-vector list, first vector is for input layer
+    # circle colors for input, if desired, must be two-vector list, first vector is for input layer
     if(is.list(circle.col)){
         circle.col.inp<-circle.col[[1]]
         circle.col<-circle.col[[2]]
     } else circle.col.inp<-circle.col
     
-    #initiate plotting
+    # initiate plotting
     x.range<-c(0,100)
     y.range<-c(0,100)
-    #these are all proportions from 0-1
+    # these are all proportions from 0-1
     if(is.null(line.stag)) line.stag<-0.011*circle.cex/2
     layer.x<-seq(0.17,0.9,length=length(struct))
     bias.x<-layer.x[-length(layer.x)]+diff(layer.x)/2
     bias.y<-0.95
     circle.cex<-circle.cex
     
-    #get variable names from mod.in object
-    #change to user input if supplied
+    # Get variable names from mod.in; user-supplied x.lab/y.lab replace them below.
     if('numeric' %in% class(mod.in)){
         x.names<-paste0(rep('X',struct[1]),seq(1:struct[1]))
         y.names<-paste0(rep('Y',struct[3]),seq(1:struct[3]))
@@ -3309,7 +3295,7 @@ bord.col='lightblue', max.sp = F,...){
             else y.names<-as.character(forms)[2]
         }
     }
-    #change variables names to user sub
+    # change variables names to user sub
     if(!is.null(x.lab)){
         if(length(x.names) != length(x.lab)) stop('x.lab length not equal to number of input variables')
         else x.names<-x.lab
@@ -3319,11 +3305,10 @@ bord.col='lightblue', max.sp = F,...){
         else y.names<-y.lab
     }
     
-    #initiate plot
+    # initiate plot
     plot(x.range,y.range,type='n',axes=F,ylab='',xlab='',...)
     
-    #function for getting y locations for input, hidden, output layers
-    #input is integer value from 'struct'
+    # Y locations of the nodes in an input, hidden or output layer; lyr is the layer's node count from 'struct'.
     get.ys<-function(lyr, max_space = max.sp){
         if(max_space){
             spacing <- diff(c(0*diff(y.range),0.9*diff(y.range)))/lyr
@@ -3335,10 +3320,10 @@ bord.col='lightblue', max.sp = F,...){
         length=lyr)
     }
     
-    #function for plotting nodes
-    #'layer' specifies which layer, integer from 'struct'
-    #'x.loc' indicates x location for layer, integer from 'layer.x'
-    #'layer.name' is string indicating text to put in node
+    # Plots the nodes of a layer.
+    # 'layer' is the layer's node count, from 'struct'
+    # 'x.loc' is the layer's x location, from 'layer.x'
+    # 'layer.name' is the text to put in the node
     layer.points<-function(layer,x.loc,layer.name,cex=cex.val){
         x<-rep(x.loc*diff(x.range),layer)
         y<-get.ys(layer)
@@ -3348,10 +3333,10 @@ bord.col='lightblue', max.sp = F,...){
         if(layer.name=='O' & var.labs) text(x+line.stag*diff(x.range),y,y.names,pos=4,cex=cex.val)
     }
     
-    #function for plotting bias points
-    #'bias.x' is vector of values for x locations
-    #'bias.y' is vector for y location
-    #'layer.name' is  string indicating text to put in node
+    # Plots the bias nodes.
+    # 'bias.x' is a vector of x locations
+    # 'bias.y' is the y location
+    # 'layer.name' is the text to put in the node
     bias.points<-function(bias.x,bias.y,layer.name,cex,...){
         for(val in 1:length(bias.x)){
             points(
@@ -3369,8 +3354,7 @@ bord.col='lightblue', max.sp = F,...){
         }
     }
     
-    #function creates lines colored by direction and width as proportion of magnitude
-    #use 'all.in' argument if you want to plot connection lines for only a single input node
+    # Draws connection lines colored by direction, with width proportional to magnitude; set 'all.in' to plot the lines of a single input node only.
     layer.lines<-function(mod.in,h.layer,layer1=1,layer2=2,out.layer=F,nid,rel.rsc,all.in,pos.col,
     neg.col,...){
         
@@ -3477,14 +3461,11 @@ bord.col='lightblue', max.sp = F,...){
         }
     }
     
-    #use functions to plot connections between layers
-    #bias lines
+    # Plot the connections between layers, starting with the bias lines.
     if(bias) bias.lines(bias.x,mod.in,nid=nid,rel.rsc=rel.rsc,all.out=all.out,pos.col=alpha(pos.col,alpha.val),
     neg.col=alpha(neg.col,alpha.val))
     
-    #layer lines, makes use of arguments to plot all or for individual layers
-    #starts with input-hidden
-    #uses 'all.in' argument to plot connection lines for all input nodes or a single node
+    # Layer lines, starting with input-hidden, for all input nodes or only the one named by 'all.in'.
     if(is.logical(all.in)){
         mapply(
         function(x) layer.lines(mod.in,x,layer1=1,layer2=2,nid=nid,rel.rsc=rel.rsc,
@@ -3497,7 +3478,7 @@ bord.col='lightblue', max.sp = F,...){
         layer.lines(mod.in,node.in,layer1=1,layer2=2,nid=nid,rel.rsc=rel.rsc,all.in=all.in,
         pos.col=alpha(pos.col,alpha.val),neg.col=alpha(neg.col,alpha.val))
     }
-    #connections between hidden layers
+    # connections between hidden layers
     lays<-split(c(1,rep(2:(length(struct)-1),each=2),length(struct)),
     f=rep(1:(length(struct)-1),each=2))
     lays<-lays[-c(1,(length(struct)-1))]
@@ -3507,8 +3488,7 @@ bord.col='lightblue', max.sp = F,...){
             pos.col=alpha(pos.col,alpha.val),neg.col=alpha(neg.col,alpha.val))
         }
     }
-    #lines for hidden-output
-    #uses 'all.out' argument to plot connection lines for all output nodes or a single node
+    # Hidden-output lines, for all output nodes or only the one named by 'all.out'.
     if(is.logical(all.out))
     mapply(
     function(x) layer.lines(mod.in,x,layer1=length(struct)-1,layer2=length(struct),out.layer=T,nid=nid,rel.rsc=rel.rsc,
@@ -3521,7 +3501,7 @@ bord.col='lightblue', max.sp = F,...){
         pos.col=pos.col,neg.col=neg.col,all.out=all.out)
     }
     
-    #use functions to plot nodes
+    # use functions to plot nodes
     for(i in 1:length(struct)){
         in.col<-circle.col
         layer.name<-'H'

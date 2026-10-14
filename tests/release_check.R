@@ -1,29 +1,17 @@
 # CloudCal pre-release check
-# ==========================
-# One-source smoke/regression test to run before releases:
-#   1. Load a handheld .quant and verify its structure and repaired tables
-#   2. Verify the intensity-table builders (fast path == per-element path)
-#   3. Drive a session: review cal curves per element, commit line edits
-#      (including an out-of-range definition), and survive
-#   4. Build a brand-new calibration from the raw spectra and fit a model,
-#      then re-fit it under each normalization and a scaled-concentration
-#      transform (the full customization grid lives in tests/model_check.R)
-#   5. Predict the calibration's own standards and compare to stored values
-#   6. Standardless FP estimate sanity (raw grams + closure)
-#   7. Example-file zoo: every recognized import format reads, carries
-#      metadata (live time, detector, eV/ch where present), and the MCA and
-#      SEM-EDS (Esprit .txt) spectra deconvolute with the physics defaults
-#      inferred from the file
-#   8. High-energy K/L+M series split: a 200 kV / 450 um SDD spectrum keeps its
-#      Pb K-lines (0.66% detector efficiency) and El.K / El.L line names read
-#      their own series; prediction re-runs E1 when training did
-#   9. Spectra saved as R objects (.RData / .rda / .rds) import in every
-#      supported shape
-#
-# Usage:
-#   Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir] [high_energy_mca]
-# Defaults target the Far West 50 kV obsidian set.
-# Exit status is nonzero if any check fails.
+# Smoke and regression test to run before releases:
+# 1. Load a handheld .quant and verify its structure and repaired tables
+# 2. Verify the intensity-table builders (fast path == per-element path)
+# 3. Drive a session: review cal curves per element and commit line edits, including an out-of-range definition, without the session failing
+# 4. Build a new calibration from the raw spectra, fit a model, and re-fit it under each normalization and a scaled-concentration transform (the full grid is in tests/model_check.R)
+# 5. Predict the calibration's own standards and compare to stored values
+# 6. Standardless FP estimate sanity (raw estimate + closure)
+# 7. Example files: every recognized import format reads and carries metadata (live time, detector, eV/ch where present), and the MCA and SEM-EDS (Esprit .txt) spectra deconvolute with physics defaults inferred from the file
+# 8. High-energy K/L+M series split: a 200 kV / 450 um SDD spectrum keeps its Pb K-lines, El.K / El.L line names read their own series, and prediction re-runs E1 when training did
+# 9. Spectra saved as R objects (.RData / .rda / .rds) import in every supported shape
+# 10. Cross Validation: the Leave-One-Out plots, standards table and both downloads render for a Lucas-Tooth element in both forms, Use Cross-Validated Model saves the averaged refits, and the Random Split standards table holds exactly the held-out standards
+# Usage: Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir] [high_energy_mca]
+# Default paths point at local CloudCal Evaluation files; the exit status is nonzero if any check fails.
 
 args <- commandArgs(trailingOnly = TRUE)
 QUANT <- if (length(args) >= 1) args[1] else
@@ -64,7 +52,6 @@ pdz_files <- list.files(SPECTRA_DIR, pattern = "\\.pdz$", ignore.case = TRUE, fu
 stopifnot(length(pdz_files) > 0)
 inFile_all <- data.frame(name = basename(pdz_files), datapath = pdz_files, stringsAsFactors = FALSE)
 
-## ------------------------------------------------------------------
 message("\n-- 1. Calibration load & structure --")
 t0 <- Sys.time()
 cal <- calRDS(QUANT, xgb_raw = FALSE, sort = TRUE)
@@ -88,8 +75,7 @@ check("extensions strip only at the end of a name (\"_spectrum\" issue)",
     identical(spectrumNameVector(c("A_spectrum1", "Inspection_3", "B_spectrum2.spe", "c.pdz", "d.CSV")),
               c("A_spectrum1", "Inspection_3", "B_spectrum2", "c", "d")))
 check("calRDS folds legacy mangled-name twins back onto their spectra", {
-    # Rebuild what the old unanchored stripping saved for a spectrum named "<s>_spectrum": its concentrations
-    # and intensities on a mangled twin "<s>ctrum", the real-name row blank.
+    # Recreate what legacy unanchored name stripping saved for a spectrum named "<s>_spectrum": its concentrations and intensities on a mangled twin "<s>ctrum", and the real-name row blank.
     leg <- cal; s <- as.character(leg$Values$Spectrum[1]); real <- paste0(s, "_spectrum"); twin <- paste0(s, "ctrum")
     leg$Spectra$Spectrum[leg$Spectra$Spectrum == s] <- real
     mangle <- function(df, blank){
@@ -107,7 +93,6 @@ check("calRDS folds legacy mangled-name twins back onto their spectra", {
         isTRUE(all.equal(fixed$Intensities[[el]][fixed$Intensities$Spectrum == real], cal$Intensities[[el]][cal$Intensities$Spectrum == s]))
 })
 
-## ------------------------------------------------------------------
 message("\n-- 2. Intensity table builders --")
 check("fast builder == per-element builder (narrow gaussian)", {
     fastFn <- elementFrameFast
@@ -133,7 +118,6 @@ check("out-of-range definitions drop instead of crash", {
     !is.null(p) && identical(attr(p, "dropped_lines"), "Bad") && "Good" %in% colnames(p)
 })
 
-## ------------------------------------------------------------------
 message("\n-- 3. Session: cal review + line-table edits --")
 app <- shinyAppDir(".")
 sec3 <- new.env()
@@ -183,7 +167,7 @@ try(testServer(app, {
     session$setInputs(calcurveelement = els[1])
     sec3$crossval <- !is.null(tryCatch(valCurvePlotRandom(), error = function(e) NULL))
 
-    # commit an edit including an out-of-range definition: must survive
+    # Commit a line edit that includes an out-of-range definition; the session must survive it.
     defs <- cal$Definitions
     empty_row <- which(!nzchar(as.character(defs$Name)))[1]
     if (is.na(empty_row)) empty_row <- nrow(defs) + 1
@@ -198,7 +182,6 @@ check("validation frames contain finite predictions", isTRUE(sec3$vals))
 check("cross-validation plot builds", isTRUE(sec3$crossval))
 check("commit with out-of-range definition survives", isTRUE(sec3$commit))
 
-## ------------------------------------------------------------------
 message("\n-- 4. Session: new calibration from scratch --")
 scratch_lines <- head(intersect(names(cal$calList), spectralLines), 4)
 sec4 <- new.env()
@@ -237,8 +220,7 @@ try(testServer(app, {
         sec4$model_sane <- is.finite(r2) && r2 > 0.3
         sec4$element <- el; sec4$r2 <- r2
 
-        # customization smoke on the scratch model: each normalization plus a
-        # scaled-concentration fit (full option grid: tests/model_check.R)
+        # Customization smoke test on the scratch model: each normalization plus a scaled-concentration fit (the full option grid is in tests/model_check.R).
         emax <- max(dh$Energy, na.rm = TRUE)
         roi_win <- round(c(0.38, 0.48) * emax, 2)   # backscatter region: always has counts
         fit_ok <- function() !is.null(tryCatch(linearModel(), error = function(e) NULL))
@@ -254,8 +236,7 @@ try(testServer(app, {
         sec4$dep_scale <- fit_ok()
         basichold$deptransformation <- "None"
 
-        # "Train slopes" normalization sweep: the lowest AIC of Time / Total Counts / best Compton window
-        # wins, and the window reported is the one the sweep actually chose
+        # "Train slopes" normalization sweep: the lowest AIC of Time, Total Counts and the best Compton window wins, and the reported window is the one the sweep chose.
         sec4$norm_sweep <- isTRUE(tryCatch({
             nl <- planktonVector()
             cc <- concentrationTable(); cc <- cc[complete.cases(cc[, el]), ]
@@ -283,7 +264,6 @@ check("scratch linear fits with ROI normalization", isTRUE(sec4$norm_roi))
 check("scratch linear fits with scaled concentrations", isTRUE(sec4$dep_scale))
 check("Train-slopes sweep picks the lowest-AIC normalization + its window", isTRUE(sec4$norm_sweep))
 
-## ------------------------------------------------------------------
 message("\n-- 5. Self-prediction against stored values --")
 valdata <- readPDZProcess(inFile = inFile_all, gainshiftvalue = 0, advanced = FALSE,
                           pdzprep = TRUE, use_native_calibration = TRUE)
@@ -319,16 +299,11 @@ if (is.data.frame(pred)) {
     check("self-prediction correlates for most elements (median r > 0.9)", FALSE)
 }
 
-## ------------------------------------------------------------------
 message("\n-- 6. Standardless FP estimates (steel reference) --")
 if (file.exists(FP_QUANT)) {
     steel <- calRDS(FP_QUANT, xgb_raw = FALSE, sort = TRUE)
     steel_lt <- tryCatch(deconvolution_livetime_lookup(steel$SpectraMetadata), error = function(e) NULL)
-    # Full-FP fidelity (self-absorption + secondary fluorescence + abundance
-    # regularization) with instrument physics from the stored metadata: this is
-    # the mode where holding the total at 1 yields mass fractions comparable to
-    # the certified standards. Relative mode leaves phantom elements (rare
-    # earths etc.) absorbing most of the closed mass share.
+    # Full-FP mode (self-absorption, secondary fluorescence and abundance regularization) with instrument physics from the stored metadata, where holding the total at 1 gives mass fractions comparable to the certified standards; in relative mode phantom elements absorb most of the closed mass.
     steel_phys <- physicsFromValMetadata(steel$SpectraMetadata)
     steel_dec <- spectra_gls_deconvolute(steel$Spectra, cores = as.numeric(my.cores),
                                          mass = "full", livetime = steel_lt, physics = steel_phys)
@@ -381,7 +356,6 @@ if (file.exists(FP_QUANT)) {
     })
 }
 
-## ------------------------------------------------------------------
 message("\n-- 7. Example-file zoo (import formats + inferred deconvolution defaults) --")
 if (dir.exists(EXAMPLES_DIR)) {
     zoo <- list.files(EXAMPLES_DIR, full.names = TRUE)
@@ -396,8 +370,7 @@ if (dir.exists(EXAMPLES_DIR)) {
         inF <- data.frame(name = basename(pdzs), datapath = pdzs, stringsAsFactors = FALSE)
         sp <- tryCatch(readPDZProcess(inFile = inF, gainshiftvalue = 0, advanced = FALSE,
                                       pdzprep = TRUE, use_native_calibration = TRUE), error = function(e) NULL)
-        # dual-beam PDZs legitimately yield one spectrum per beam (_1/_2), so
-        # require at least one spectrum per file rather than exactly one
+        # Dual-beam PDZs yield one spectrum per beam (_1/_2), so require at least one spectrum per file rather than exactly one.
         read_ok(sp) && length(unique(sp$Spectrum)) >= length(pdzs)
     })
 
@@ -428,8 +401,7 @@ if (dir.exists(EXAMPLES_DIR)) {
             sp <- tryCatch(readMCAData(filepath = f, filename = basename(f)), error = function(e) NULL)
             md <- tryCatch(mcaFrameMetadata(f, basename(f)), error = function(e) NULL)
             if (read_ok(sp)) zoo_decon[[basename(f)]] <<- list(sp = sp, md = md)
-            # LiveTime must be positive: LIVE_TIME when valid, REAL_TIME fallback
-            # when the export logged 0 (100% dead time, e.g. the CdTe example)
+            # LiveTime must be positive: LIVE_TIME when valid, otherwise REAL_TIME when the export logged 0 (100% dead time).
             read_ok(sp) && is.data.frame(md) && is.finite(md$LiveTime[1]) && md$LiveTime[1] > 0
         }, logical(1)))
     })
@@ -440,8 +412,7 @@ if (dir.exists(EXAMPLES_DIR)) {
             sp <- tryCatch(readTXTData(filepath = f, filename = basename(f)), error = function(e) NULL)
             md <- tryCatch(txtFrameMetadata(f, basename(f)), error = function(e) NULL)
             if (!read_ok(sp) || !is.data.frame(md)) return(FALSE)
-            # Esprit (SEM-EDS) exports: a live time, metadata that joins its spectrum by name, and electron
-            # physics inferred from it; deconvoluted alongside the MCA spectra below
+            # Esprit (SEM-EDS) exports need a live time, metadata that joins their spectrum by name, and electron physics inferred from it; they are deconvoluted with the MCA spectra below.
             if (isTRUE(md$Excitation[1] == "electron")) {
                 zoo_decon[[basename(f)]] <<- list(sp = sp, md = md)
                 return(is.finite(md$LiveTime[1]) && md$LiveTime[1] > 0 &&
@@ -475,7 +446,6 @@ if (dir.exists(EXAMPLES_DIR)) {
     message("    (examples dir not found: ", EXAMPLES_DIR, " - skipping zoo)")
 }
 
-## ------------------------------------------------------------------
 message("\n-- 8. High-energy K / L+M series split --")
 check("split defaults: on for handheld / high-energy, absent for SEM and legacy", {
     identical(names(instrument_deconv_defaults("legacy", kv = 50, anode = "Rh")), ".mode") &&
@@ -523,9 +493,7 @@ check("FP mass frame ignores <El>_L columns", {
     is.data.frame(mf) && !("Pb_L" %in% names(mf))
 })
 if (file.exists(HIGH_ENERGY_MCA)) {
-    # AMIS0421 (Pb 5956 ppm, Bi 636 ppm) at 200 kV on a 450 um SDD. The PMCA export has no calibration block, so
-    # the energy axis is channel * 24.89 eV. Before the split, the 2% detector-visibility gate dropped every Pb
-    # K-line (0.66% efficient) and the E1 background absorbed the peaks: Pb and Bi read 0.
+    # AMIS0421 at 200 kV on a 450 um SDD: the PMCA export has no calibration block, so the energy axis is channel * 24.89 eV. Its Pb K-lines are barely visible to the detector (0.66% efficiency) but must still be fitted rather than absorbed by the E1 background.
     he_sp <- readMCAData(filepath = HIGH_ENERGY_MCA, filename = basename(HIGH_ENERGY_MCA))
     he_sp$Energy <- he_sp$Energy * 0.02489
     he_lt <- deconvolution_livetime_lookup(mcaFrameMetadata(HIGH_ENERGY_MCA, basename(HIGH_ENERGY_MCA)))
@@ -574,7 +542,6 @@ if (file.exists(HIGH_ENERGY_MCA)) {
     message("    (high-energy MCA not found: ", HIGH_ENERGY_MCA, " - skipping)")
 }
 
-## ------------------------------------------------------------------
 message("\n-- 9. Spectra saved as R objects (.RData / .rda / .rds) --")
 rd_dir <- file.path(tempdir(), "cloudcal_rdata_check"); dir.create(rd_dir, showWarnings = FALSE)
 rd_ids <- unique(cal$Spectra$Spectrum)[1:2]
@@ -639,7 +606,87 @@ check("RData file type in a session: 4 spectra load (repeated ids kept apart), L
       identical(sec9$n_spectra, 4L) && isTRUE(sec9$livetime) && isTRUE(sec9$intensities))
 unlink(rd_dir, recursive = TRUE)
 
-## ------------------------------------------------------------------
+message("\n-- 10. Cross Validation > Leave-One-Out page --")
+# The element and model type are set in the first input batch, before anything else, so every output observer runs and the page is read the way a browser renders it.
+lt_els <- names(cal$calList)[vapply(cal$calList, function(x)
+    isTRUE(as.numeric(tryCatch(x[[1]]$CalTable$CalType[1], error = function(e) NA)) == 3), logical(1))]
+loo_el <- c(intersect("Y.K.alpha", lt_els), lt_els)[1]
+sec10 <- new.env()
+if (!is.na(loo_el)) try(testServer(app, {
+    p <- cal$calList[[loo_el]][[1]]
+    ct <- p$CalTable
+    calMemory$Calibration <- cal
+    values[["DF"]] <- cal$Values
+    linevalues[["DF"]] <- cal$Definitions
+    calSettings$calList <- cal$calList
+    lines_avail <- intersect(colnames(cal$Intensities), spectralLines)
+    session$setInputs(
+        calcurveelement = loo_el, radiocal = 3, normcal = as.numeric(ct$NormType[1]),
+        calfileinput = list(name = basename(QUANT), datapath = QUANT),
+        filetype = cal$FileType, energynudge = 0,
+        show_vars_k_alpha = grep("\\.K\\.alpha$", lines_avail, value = TRUE),
+        show_vars_k_beta = grep("\\.K\\.beta$", lines_avail, value = TRUE),
+        show_vars_l_alpha = grep("\\.L\\.alpha$", lines_avail, value = TRUE),
+        show_vars_l_beta = NULL, show_vars_m = NULL,
+        plotunit = "%", loglinear = "Linear",
+        linepreferenceelement = "Narrow", linestructureelement = "gaussian",
+        gausbuffer = cal$LineDefaults$GausBuffer, splitbuffer = cal$LineDefaults$SplitBuffer,
+        comptonmin = as.numeric(ct$Min[1]), comptonmax = as.numeric(ct$Max[1]),
+        comptontype = as.character(ct$ComptonType[1]), randomize = 1, percentrandom = 0.2,
+        calname = "release_check", imagesizeloo = "Small", useloomodel = FALSE
+    )
+    basichold$normtype <- as.numeric(ct$NormType[1])
+    basichold$normmin <- as.numeric(ct$Min[1]); basichold$normmax <- as.numeric(ct$Max[1])
+    basichold$deptransformation <- "None"
+    lucashold$slope <- p$Slope; lucashold$intercept <- p$Intercept
+    lucashold$ltcross <- "Additive"; lucashold$ltweight <- "1961"
+    session$flushReact()
+    sec10$plots <- tryCatch(!is.null(output$calcurveplotsloo$src) && !is.null(output$valcurveplotsloo$src), error = function(e) FALSE)
+    sec10$table <- tryCatch(!is.null(output$loostandards), error = function(e) FALSE)
+    sec10$tiff <- tryCatch(file.size(output$downloadcloudplotloo), error = function(e) 0)
+    sec10$csv <- tryCatch(read.csv(output$downloadLooStandards, check.names = FALSE), error = function(e) NULL)
+    sec10$loo_add <- looCurrentFits()$Table
+    sec10$n_std <- length(looStandardIds())
+    sec10$random_table <- tryCatch(!is.null(output$randomstandards), error = function(e) FALSE)
+    sec10$random_csv <- tryCatch(read.csv(output$downloadRandomStandards, check.names = FALSE), error = function(e) NULL)
+    sec10$random_held <- tryCatch(valFrameRandomized(), error = function(e) NULL)
+    sec10$random_train <- tryCatch(as.character(calCurveFrameRandomized()$Spectrum), error = function(e) NULL)
+    lucashold$ltcross <- "Classic"
+    session$flushReact()
+    sec10$plots_cls <- tryCatch(!is.null(output$calcurveplotsloo$src) && !is.null(output$valcurveplotsloo$src), error = function(e) FALSE)
+    sec10$loo_cls <- looCurrentFits()$Table
+    # Update, unticked then ticked
+    session$setInputs(createcalelement = 1)
+    sec10$saved_full <- isTRUE(all.equal(unname(coef(calMemory$Calibration$calList[[loo_el]]$Model)), unname(coef(elementModelGen()))))
+    session$setInputs(useloomodel = TRUE)
+    session$setInputs(createcalelement = 2)
+    saved <- calMemory$Calibration$calList[[loo_el]]
+    sec10$saved_cv <- isTRUE(all.equal(coef(saved$Model), coef(looCVModel()))) && isTRUE(all.equal(saved$Table, looValTable())) &&
+        !isTRUE(all.equal(coef(saved$Model), coef(elementModelGen())))
+    session$setInputs(useloomodel = FALSE, radiocal = 4)
+    sec10$other_type <- tryCatch({ output$calcurveplotsloo; "rendered" }, error = function(e) conditionMessage(e))
+}), silent = TRUE)
+check("Leave-one-out page: refit-lines and validation plots, standards table and plot download render",
+      isTRUE(sec10$plots) && isTRUE(sec10$table) && isTRUE(sec10$tiff > 10000))
+check("Leave-one-out page: standards CSV has one row per standard used, holding the left-out estimates",
+      is.data.frame(sec10$csv) && nrow(sec10$csv) == sec10$n_std &&
+      all(c("Spectrum", "Concentration", "Prediction", "Difference", "Relative") %in% colnames(sec10$csv)) &&
+      isTRUE(all.equal(sec10$csv$Prediction, sec10$loo_add$LOO)))
+check("Random Split standards: one row per held-out standard, none of them in the training set",
+      isTRUE(sec10$random_table) && is.data.frame(sec10$random_csv) && is.data.frame(sec10$random_held) &&
+      nrow(sec10$random_csv) == nrow(sec10$random_held) && nrow(sec10$random_csv) > 0 &&
+      all(c("Spectrum", "Concentration", "Prediction", "Difference", "Relative") %in% colnames(sec10$random_csv)) &&
+      isTRUE(all.equal(sec10$random_csv$Prediction, sec10$random_held$Prediction)) &&
+      length(intersect(sec10$random_csv$Spectrum, sec10$random_train)) == 0 &&
+      length(union(sec10$random_csv$Spectrum, sec10$random_train)) == sec10$n_std)
+check("Leave-one-out page: follows the cross-product toggle",
+      isTRUE(sec10$plots_cls) && is.data.frame(sec10$loo_cls) && nrow(sec10$loo_cls) == sec10$n_std &&
+      !isTRUE(all.equal(sec10$loo_cls$LOO, sec10$loo_add$LOO)))
+check("Use Cross-Validated Model: Update saves the averaged refits with the left-out table; unticked, the full fit",
+      isTRUE(sec10$saved_full) && isTRUE(sec10$saved_cv))
+check("Leave-one-out page: other model types point to the Random Split tab",
+      grepl("Random Split", sec10$other_type))
+
 n_fail <- sum(!unlist(results))
 message(sprintf("\n== %d/%d checks passed ==", sum(unlist(results)), length(results)))
 if (n_fail > 0) {
