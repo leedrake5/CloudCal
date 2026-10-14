@@ -10,6 +10,9 @@
 # 8. High-energy K/L+M series split: a 200 kV / 450 um SDD spectrum keeps its Pb K-lines, El.K / El.L line names read their own series, and prediction re-runs E1 when training did
 # 9. Spectra saved as R objects (.RData / .rda / .rds) import in every supported shape
 # 10. Cross Validation: the Leave-One-Out plots, standards table and both downloads render for a Lucas-Tooth element in both forms, Use Cross-Validated Model saves the averaged refits, and the Random Split standards table holds exactly the held-out standards
+# 11. Diagnostics: clicks, brushes and Cook's distance bars toggle the standard under the pointer for Linear and Lucas-Tooth, with and without standards lacking a certified value, and excluded standards stay on the plots so they can be included again
+# 12. Cal Curves selection and saved standards: a click toggles one standard, the left-plot brush works, the Lucas-Tooth label shows the plotted r2, an element saved with no intercept lines predicts as in the app after reload, a PLS random split trains only on included standards, in-session masks follow standards across model types, and older .quant masks load the standards their models left out
+# 13. Apply Calibration: older empty-intercept Lucas-Tooth models reproduce their fits, the Scale transform is decoded with the stored range, each element's saved Narrow Line Width is used, saves record the build and deconvolution algorithm, and the stale-model and spectra-alignment checks work
 # Usage: Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir] [high_energy_mca]
 # Default paths point at local CloudCal Evaluation files; the exit status is nonzero if any check fails.
 
@@ -686,6 +689,287 @@ check("Use Cross-Validated Model: Update saves the averaged refits with the left
       isTRUE(sec10$saved_full) && isTRUE(sec10$saved_cv))
 check("Leave-one-out page: other model types point to the Random Split tab",
       grepl("Random Split", sec10$other_type))
+
+message("\n-- 11. Diagnostics: point-and-click standard selection --")
+# Clicks and brushes as Shiny sends them for ggplot2 3.x plots: data coordinates with the aesthetic mapping.
+click_at <- function(x, y, xv, yv) list(x = x, y = y, mapping = list(x = xv, y = yv),
+    domain = list(left = -1e9, right = 1e9, bottom = -1e9, top = 1e9), coords_css = list(x = 10, y = 10))
+brush_around <- function(x, y, dx, dy, xv, yv) list(xmin = x - dx, xmax = x + dx, ymin = y - dy, ymax = y + dy,
+    mapping = list(x = xv, y = yv), domain = list(left = -1e9, right = 1e9, bottom = -1e9, top = 1e9))
+# Linear fits on a shuffled frame and Lucas-Tooth on a sorted one, using a Lucas-Tooth element's stored lines; the second pass blanks three certified values, so the element has fewer standards than spectra.
+diag_el <- c(loo_el, names(cal$calList))[!is.na(c(loo_el, names(cal$calList)))][1]
+sec11 <- new.env()
+for (pass in c("all", "missing")) try(testServer(app, {
+    cal_vals <- cal$Values
+    if (pass == "missing") cal_vals[[diag_el]][c(2, 5, 9)] <- NA
+    p <- cal$calList[[diag_el]][[1]]
+    ct <- p$CalTable
+    cal_list <- cal$calList
+    for (e in names(cal_list)) cal_list[[e]][[1]]$StandardsUsed <- NULL
+    calMemory$Calibration <- cal
+    calMemory$Calibration$Values <- cal_vals
+    values[["DF"]] <- cal_vals
+    linevalues[["DF"]] <- cal$Definitions
+    calSettings$calList <- cal_list
+    lines_avail <- intersect(colnames(cal$Intensities), spectralLines)
+    session$setInputs(
+        calcurveelement = diag_el, radiocal = 1, normcal = as.numeric(ct$NormType[1]),
+        calfileinput = list(name = basename(QUANT), datapath = QUANT),
+        filetype = cal$FileType, energynudge = 0,
+        show_vars_k_alpha = grep("\\.K\\.alpha$", lines_avail, value = TRUE),
+        show_vars_k_beta = grep("\\.K\\.beta$", lines_avail, value = TRUE),
+        show_vars_l_alpha = grep("\\.L\\.alpha$", lines_avail, value = TRUE),
+        show_vars_l_beta = NULL, show_vars_m = NULL,
+        plotunit = "%", loglinear = "Linear",
+        linepreferenceelement = "Narrow", linestructureelement = "gaussian",
+        gausbuffer = cal$LineDefaults$GausBuffer, splitbuffer = cal$LineDefaults$SplitBuffer,
+        comptonmin = as.numeric(ct$Min[1]), comptonmax = as.numeric(ct$Max[1]),
+        comptontype = as.character(ct$ComptonType[1]), randomize = 1, percentrandom = 0.2,
+        calname = "release_check", useloomodel = FALSE
+    )
+    basichold$normtype <- as.numeric(ct$NormType[1])
+    basichold$normmin <- as.numeric(ct$Min[1]); basichold$normmax <- as.numeric(ct$Max[1])
+    basichold$deptransformation <- "None"
+    lucashold$slope <- p$Slope; lucashold$intercept <- p$Intercept
+    lucashold$ltcross <- "Additive"; lucashold$ltweight <- "1961"
+    session$flushReact()
+    used <- function() { pf <- predictFrame(); as.character(pf$Spectrum[alignKeep(vals$keeprows, pf) %in% TRUE]) }
+    for (rc in c(1, 3)) {
+        key <- paste0(pass, rc)
+        session$setInputs(radiocal = rc)
+        session$setInputs(exclude_reset_diag = rc)
+        mf <- modelFrame(); pf <- predictFrame()
+        kept <- which(mf$Included & is.finite(mf$.fitted))
+        pred <- suppressWarnings(predict(elementModelGen(), newdata = pf[match(mf$Spectrum[kept], pf$Spectrum), , drop = FALSE]))
+        sec11[[paste0(key, "_labels")]] <- nrow(mf) == nrow(pf) && length(kept) == nrow(pf) &&
+            max(abs(pred - mf$.fitted[kept])) < 1e-8 * max(1, abs(mf$.fitted[kept]))
+        k <- which.max(abs(mf$.resid)); target <- mf$Spectrum[k]
+        session$setInputs(plot_residualsfitted_click = click_at(mf$.fitted[k], mf$.resid[k], ".fitted", ".resid"))
+        mf2 <- modelFrame(); r <- which(mf2$Spectrum == target)
+        sec11[[paste0(key, "_click")]] <- setequal(setdiff(pf$Spectrum, used()), target) && length(r) == 1 && !mf2$Included[r] &&
+            all(is.finite(unlist(mf2[r, c(".fitted", ".resid", ".std.resid", ".hat", ".cooksd", "qq")])))
+        session$setInputs(plot_qq_click = click_at(mf2$qq[r], mf2$.std.resid[r], "qq", ".std.resid"))
+        sec11[[paste0(key, "_reinclude")]] <- length(used()) == nrow(pf)
+        mf3 <- modelFrame(); a <- which.max(mf3$.hat); b <- which.max(mf3$.cooksd * (seq_len(nrow(mf3)) != a))
+        session$setInputs(plot_scalelocation_brush = brush_around(mf3$.fitted[a], mf3$sqrt.std.resid[a], 1e-9, 1e-9, ".fitted", "sqrt.std.resid"),
+            plot_cooksdistance_brush = brush_around(mf3$seq.cooksd[b], mf3$.cooksd[b] / 2, 0.1, 1e-9, "seq.cooksd", ".cooksd"))
+        session$setInputs(exclude_toggle_diag = rc)
+        sec11[[paste0(key, "_brush")]] <- setequal(setdiff(pf$Spectrum, used()), mf3$Spectrum[c(a, b)])
+        session$setInputs(plot_scalelocation_brush = NULL, plot_cooksdistance_brush = NULL, exclude_reset_diag = 10 + rc)
+        mf4 <- modelFrame(); c4 <- which.max(mf4$.cooksd)
+        session$setInputs(plot_cooksdistance_click = click_at(mf4$seq.cooksd[c4] + 0.2, mf4$.cooksd[c4] / 2, "seq.cooksd", ".cooksd"))
+        sec11[[paste0(key, "_bar")]] <- setequal(setdiff(pf$Spectrum, used()), mf4$Spectrum[c4])
+        session$setInputs(exclude_reset_diag = 20 + rc)
+    }
+}), silent = TRUE)
+for (pass in c("all", "missing")) for (rc in c(1, 3)) {
+    key <- paste0(pass, rc)
+    what <- sprintf("%s, %s", c("1" = "Linear", "3" = "Lucas-Tooth")[[as.character(rc)]],
+        if (pass == "all") "every standard certified" else "three certified values missing")
+    check(sprintf("Diagnostics (%s): each point carries its own standard's name", what), isTRUE(sec11[[paste0(key, "_labels")]]))
+    check(sprintf("Diagnostics (%s): a click excludes only that standard, which stays on the plots", what), isTRUE(sec11[[paste0(key, "_click")]]))
+    check(sprintf("Diagnostics (%s): clicking an excluded point includes it again", what), isTRUE(sec11[[paste0(key, "_reinclude")]]))
+    check(sprintf("Diagnostics (%s): Toggle points flips exactly the brushed standards", what), isTRUE(sec11[[paste0(key, "_brush")]]))
+    check(sprintf("Diagnostics (%s): clicking a Cook's distance bar toggles its standard", what), isTRUE(sec11[[paste0(key, "_bar")]]))
+}
+
+message("\n-- 12. Cal Curves selection, saved standards and labels --")
+plot_ranges <- function(p) { pp <- ggplot2::ggplot_build(p)$layout$panel_params[[1]]; list(x = pp$x.range, y = pp$y.range) }
+label_r2 <- function(p) {
+    lab <- Filter(function(l) inherits(l$geom, "GeomText"), p$layers)[[1]]$aes_params$label
+    as.numeric(sub('.*"=" ~ "([^"]+)".*', "\\1", lab))
+}
+sec12 <- new.env()
+# One session on a calibration file; body runs after the element and model type are set, with used()/excluded() reading the standards the current model is fit on.
+run_session <- function(quant_path, el, setup_type, body) {
+    cal_in <- calRDS(quant_path, xgb_raw = FALSE, sort = TRUE)
+    try(testServer(app, {
+        p <- cal_in$calList[[el]][[1]]
+        ct <- p$CalTable
+        calMemory$Calibration <- cal_in
+        values[["DF"]] <- cal_in$Values
+        linevalues[["DF"]] <- cal_in$Definitions
+        calSettings$calList <- cal_in$calList
+        lines_avail <- intersect(colnames(cal_in$Intensities), spectralLines)
+        session$setInputs(
+            calcurveelement = el, radiocal = setup_type, normcal = as.numeric(ct$NormType[1]),
+            calfileinput = list(name = basename(quant_path), datapath = quant_path),
+            filetype = cal_in$FileType, energynudge = 0,
+            show_vars_k_alpha = grep("\\.K\\.alpha$", lines_avail, value = TRUE),
+            show_vars_k_beta = grep("\\.K\\.beta$", lines_avail, value = TRUE),
+            show_vars_l_alpha = grep("\\.L\\.alpha$", lines_avail, value = TRUE),
+            show_vars_l_beta = grep("\\.L\\.beta$", lines_avail, value = TRUE), show_vars_m = NULL,
+            plotunit = "%", loglinear = "Linear",
+            linepreferenceelement = "Narrow", linestructureelement = "gaussian",
+            gausbuffer = cal_in$LineDefaults$GausBuffer, splitbuffer = cal_in$LineDefaults$SplitBuffer,
+            comptonmin = as.numeric(ct$Min[1]), comptonmax = as.numeric(ct$Max[1]),
+            comptontype = as.character(ct$ComptonType[1]), randomize = 1, percentrandom = 0.2,
+            neuralhiddenlayers = 1, multicore_behavior = "Single Core",
+            calname = "release_check", useloomodel = FALSE, modelcompress = TRUE, notes = ""
+        )
+        basichold$normtype <- as.numeric(ct$NormType[1])
+        basichold$normmin <- as.numeric(ct$Min[1]); basichold$normmax <- as.numeric(ct$Max[1])
+        basichold$deptransformation <- "None"
+        lucashold$slope <- p$Slope; lucashold$intercept <- p$Intercept
+        lucashold$ltcross <- "Additive"; lucashold$ltweight <- "1961"
+        session$flushReact(); session$elapse(1000)
+        used <- function() { pf <- predictFrame(); as.character(pf$Spectrum[alignKeep(vals$keeprows, pf) %in% TRUE]) }
+        excluded <- function() setdiff(as.character(predictFrame()$Spectrum), used())
+        switch_type <- function(rc) { session$setInputs(radiocal = rc); session$flushReact(); session$elapse(1000) }
+        eval(body)
+    }), silent = TRUE)
+}
+
+# Linear clicks and brushes on the left Cal Curve, the Lucas-Tooth label, an Update with no intercept lines that is saved and reloaded, and a PLS random split with excluded standards.
+run_session(QUANT, diag_el, 1, quote({
+    cf <- calCurveFrame(); pr <- plot_ranges(calCurvePlot())
+    x <- cf$Intensity; y <- cf$Concentration
+    nx <- x / diff(pr$x); ny <- y / diff(pr$y)
+    d <- sqrt(outer(nx, nx, "-")^2 + outer(ny, ny, "-")^2)
+    diag(d) <- Inf
+    k <- which.min(apply(d, 1, min))
+    sec12$crowded <- min(d[k, ]) <= 0.02
+    session$setInputs(plot_cal_click = click_at(x[k], y[k], "Intensity", "Concentration"))
+    sec12$click_one <- setequal(excluded(), cf$Spectrum[k])
+    session$setInputs(exclude_reset = 1)
+    b <- which.max(x)
+    session$setInputs(plot_cal_brush = brush_around(x[b], y[b], 1e-9 * max(abs(x)), 1e-9 * max(abs(y)), "Intensity", "Concentration"))
+    session$setInputs(exclude_toggle = 1)
+    sec12$brush_one <- setequal(excluded(), cf$Spectrum[b])
+    session$setInputs(plot_cal_brush = NULL, exclude_reset = 2)
+    switch_type(3)
+    lucashold$slope <- p$Slope; lucashold$intercept <- NULL
+    session$flushReact(); session$elapse(1000)
+    vf <- calValFrame()
+    sec12$lt_label <- c(shown = label_r2(calCurvePlot()), true = cor(vf$Intensity, vf$Concentration)^2)
+    session$setInputs(createcalelement = 1); session$elapse(1500)
+    vt <- calValTable()
+    q <- calRDS(output$downloadModel, xgb_raw = FALSE, sort = TRUE)
+    sec12$build <- q$Build$CloudCal
+    variables <- names(q$Intensities)[!names(q$Intensities) %in% c("Spectrum", "Total", "Baseline")]
+    pq <- suppressWarnings(cloudCalPredict(Calibration = q, elements.cal = diag_el, elements = diag_el, variables = variables,
+        valdata = q$Spectra, deconvoluted_valdata = q$Deconvoluted, rounding = 10, multiplier = 1, cores = 1))
+    got <- as.numeric(pq[[diag_el]][match(as.character(vt$Spectrum), as.character(pq$Spectrum))])
+    sec12$no_intercept <- c(saved_null = is.null(q$calList[[diag_el]][[1]]$Intercept), max_diff = max(abs(got - vt$Prediction)))
+    out <- as.character(predictFrame()$Spectrum[c(3, 11, 19)])
+    vals$keeprows[out] <- FALSE
+    switch_type(14)
+    plshold$plsncomp <- "1-3"; foresthold$forestmetric <- "RMSE"; foresthold$foresttrain <- "cv"; foresthold$forestnumber <- 2; foresthold$cvrepeats <- 1
+    lucashold$slope <- unique(c(diag_el, p$Slope))
+    session$flushReact(); session$elapse(1000)
+    held <- as.character(randomValTable()$Spectrum)
+    pf <- predictFrame()
+    want <- sort(pf$Concentration[pf$Spectrum %in% setdiff(used(), held)])
+    trained <- sort(elementModelRandom()$trainingData$.outcome)
+    sec12$random_ml <- length(held) > 0 && !any(held %in% out) && length(trained) == length(want) && isTRUE(all.equal(trained, want))
+}))
+check("Cal Curves: one click on a standard with a close neighbour toggles only that standard", isTRUE(sec12$crowded) && isTRUE(sec12$click_one))
+check("Cal Curves: brush + Toggle points works on the left plot for Linear", isTRUE(sec12$brush_one))
+check("Cal Curves: the Lucas-Tooth equation label shows the plotted r2, not 1",
+      length(sec12$lt_label) == 2 && sec12$lt_label[["shown"]] < 0.9999 && abs(sec12$lt_label[["shown"]] - sec12$lt_label[["true"]]) < 0.002)
+check("A Lucas-Tooth element saved with no intercept lines predicts as in the app after reload",
+      length(sec12$no_intercept) == 2 && sec12$no_intercept[["saved_null"]] == 1 && sec12$no_intercept[["max_diff"]] < 1e-8)
+check("A saved calibration records the CloudCal build that saved it", identical(sec12$build, CLOUDCAL_BUILD))
+check("Random Split (PLS): the model trains on the included standards outside the held-out set", isTRUE(sec12$random_ml))
+
+# A calibration built in this session has no Values in calMemory, only the standards table; the mask is still keyed by Spectrum, so an exclusion follows the standard across model types.
+run_session(QUANT, diag_el, 1, quote({
+    calMemory$Calibration$Values <- NULL
+    for (e in names(calSettings$calList)) calSettings$calList[[e]][[1]]$StandardsUsed <- NULL
+    session$setInputs(calcurveelement = setdiff(names(calSettings$calList), diag_el)[1]); session$elapse(1000)
+    session$setInputs(calcurveelement = diag_el); session$flushReact(); session$elapse(1500)
+    sec12$session_named <- !is.null(names(vals$keeprows))
+    target <- as.character(predictFrame()$Spectrum[5])
+    vals$keeprows[target] <- FALSE
+    seen <- character(0)
+    for (rc in c(3, 2, 1)) { switch_type(rc); seen <- c(seen, paste(excluded(), collapse = ",")) }
+    sec12$session_types <- all(seen == target)
+}))
+check("In-session calibration: the standards mask is keyed by Spectrum and follows the standard across model types",
+      isTRUE(sec12$session_named) && isTRUE(sec12$session_types))
+
+# A file saved with a training seed but a positional mask: the mask follows the saved model type's frame order, then keeps its standard when the type changes.
+seed_el <- names(cal$calList)[vapply(cal$calList, function(x) isTRUE(as.numeric(x[[1]]$CalTable$CalType[1]) == 1), logical(1))][1]
+if (!is.na(seed_el)) {
+    raw <- readRDS(QUANT)
+    n_std <- sum(is.finite(suppressWarnings(as.numeric(raw$Values[[seed_el]]))))
+    raw$RandomizeSeed <- 1
+    raw$calList[[seed_el]][[1]]$StandardsUsed <- seq_len(n_std) != 7
+    SEED_QUANT <- file.path(tempdir(), "seeded_positional.quant")
+    saveRDS(raw, SEED_QUANT)
+    run_session(SEED_QUANT, seed_el, 1, quote({
+        session$elapse(1000)
+        sec12$seed_named <- !is.null(names(vals$keeprows))
+        at_load <- excluded()
+        sec12$seed_load <- identical(at_load, as.character(predictFrame()$Spectrum[7]))
+        switch_type(3)
+        sec12$seed_switch <- identical(excluded(), at_load)
+    }))
+    check("Seeded .quant with a positional mask: named from the saved type's frame at load and kept across a type switch",
+          isTRUE(sec12$seed_named) && isTRUE(sec12$seed_load) && isTRUE(sec12$seed_switch))
+}
+
+# Calibrations saved before the training seed was stored: positional masks cover the standards with values in Spectrum order.
+LEGACY_QUANT <- file.path(dirname(QUANT), "MjlnorMudrockTrace.quant")
+if (file.exists(LEGACY_QUANT)) {
+    run_session(LEGACY_QUANT, "Ni.K.alpha", 3, quote({ sec12$legacy_ni <- sort(excluded()) }))
+    run_session(LEGACY_QUANT, "Mn.K.alpha", 3, quote({
+        seen <- character(0)
+        for (rc in c(3, 1, 2)) { switch_type(rc); seen <- c(seen, paste(excluded(), collapse = ",")) }
+        sec12$legacy_mn <- seen
+    }))
+    check("Older .quant: Ni loads with the standards its saved model left out (mask longer than the standards with values)",
+          identical(sec12$legacy_ni, c("HR_07.YF", "HR_09.YF", "HR_61.YF")))
+    check("Older .quant: Mn keeps HR_46 excluded under Lucas-Tooth, Linear and Non-Linear", length(sec12$legacy_mn) == 3 && all(sec12$legacy_mn == "HR_46.YF"))
+}
+
+message("\n-- 13. Apply Calibration reads saved settings --")
+apply_cal <- suppressWarnings(calRDS(QUANT, null.strip = TRUE))
+apply_vars <- order_elements(setdiff(names(apply_cal$Intensities), "Spectrum"))
+apply_predict <- function(calib, el, ...) {
+    pr <- suppressWarnings(cloudCalPredict(Calibration = calib, elements.cal = el, elements = el, variables = apply_vars, valdata = calib$Spectra,
+        deconvoluted_valdata = calib$Deconvoluted, rounding = 12, multiplier = 1, cores = 1, ...))
+    v <- suppressWarnings(as.numeric(pr[[el]])); names(v) <- as.character(pr$Spectrum); v
+}
+# Each standard a stored lm was fit on should be predicted at its fitted value; standards are matched by certified concentration.
+reproduces_fit <- function(calib, el) {
+    m <- calib$calList[[el]]$Model; fb <- fitted(m); yb <- fb + residuals(m)
+    conc <- suppressWarnings(as.numeric(calib$Values[[el]])); names(conc) <- calib$Values$Spectrum
+    ap <- apply_predict(calib, el)
+    dev <- vapply(seq_along(fb), function(i) { cand <- names(conc)[is.finite(conc) & abs(conc - yb[i]) <= 1e-7 * max(1, abs(yb[i]))]; v <- ap[cand]; if (!length(v)) NA else min(abs(v - fb[i])) }, numeric(1))
+    mean(dev < 1e-6 * max(1, abs(fb)), na.rm = TRUE)
+}
+# Lucas-Tooth elements saved with an empty intercept as character(0) were fit with that form.
+char0_els <- names(apply_cal$calList)[vapply(names(apply_cal$calList), function(e) { p <- apply_cal$calList[[e]]$Parameters
+    isTRUE(as.numeric(p$CalTable$CalType[1]) == 3) && !is.null(p$Intercept) && length(p$Intercept) == 0 && inherits(apply_cal$calList[[e]]$Model, "lm") }, logical(1))]
+if (length(char0_els)) check(sprintf("Apply: older Lucas-Tooth models saved with an empty intercept reproduce their fits (%d elements)", length(char0_els)),
+    all(vapply(char0_els, function(e) reproduces_fit(apply_cal, e) >= 0.9, logical(1))))
+check("Apply: the Scale concentration transform is decoded with the calibration's stored range", {
+    d <- data.frame(Intensity = 1:20, Concentration = 3 + 0.5 * (1:20))
+    d$Concentration <- scaleTransform(d$Concentration)
+    m <- lm(Concentration ~ Intensity, d)
+    got <- mclPred(m, data.frame(Intensity = c(2, 10)), "Scale", ymin = 3.5, ymax = 13, confidence = FALSE)
+    isTRUE(all.equal(unname(got), c(4, 8)))
+})
+# A Narrow Line Width saved with an element is used for its intensities, rather than the 0.02 keV default.
+width_el <- intersect(names(apply_cal$calList)[vapply(apply_cal$calList, function(x) identical(as.character(x$Parameters$CalTable$LineType[1]), "Narrow") &&
+    as.numeric(x$Parameters$CalTable$NormType[1]) == 1 && isTRUE(as.numeric(x$Parameters$CalTable$CalType[1]) == 1), logical(1))], apply_vars)[1]
+if (!is.na(width_el)) check("Apply: each element's intensities use its own saved Narrow Line Width", {
+    wide <- apply_cal; wide$calList[[width_el]]$Parameters$CalTable$GausBuffer <- 0.05
+    cl <- list(Narrow_gaussian = merge(narrowLineTable(apply_cal$Spectra, apply_cal$Definitions, apply_vars, gaus_buffer = 0.05), totalCountsGen(apply_cal$Spectra), by = "Spectrum", all = TRUE, sort = TRUE))
+    attr(cl, "buffers") <- c(0.05, 0.1)
+    a <- apply_predict(wide, width_el); b <- apply_predict(wide, width_el, count.list = cl); d <- apply_predict(apply_cal, width_el)
+    isTRUE(all.equal(a, b[names(a)])) && !isTRUE(all.equal(a, d[names(a)]))
+})
+
+check("Saved calibrations record the CloudCal build and the deconvolution algorithm",
+    isTRUE(identical(calibrationBuild()$CloudCal, CLOUDCAL_BUILD)) && isTRUE(spectra_gls_deconvolute(apply_cal$Spectra[apply_cal$Spectra$Spectrum %in% unique(apply_cal$Spectra$Spectrum)[1:2], ], cores = 1)$Parameters$Algorithm == DECONVOLUTION_ALGORITHM))
+check("Spectra checks: same spectra align, a 2-channel offset is found", {
+    s <- apply_cal$Spectra; step <- stats::median(diff(sort(unique(s$Energy))))
+    moved <- s; moved$Energy <- moved$Energy + 2 * step
+    spectraAlignmentCheck(s, s)$Shift == 0 && spectraAlignmentCheck(s, moved)$Shift == 2
+})
+check("Calibration self-check finds no stale models in the release quant", nrow(calibrationSelfCheck(apply_cal)) == 0)
 
 n_fail <- sum(!unlist(results))
 message(sprintf("\n== %d/%d checks passed ==", sum(unlist(results)), length(results)))

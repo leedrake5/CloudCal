@@ -157,6 +157,66 @@ nearPoints_safe <- function(df, click, xvar, yvar,
     }
 }
 
+# Bar chart counterparts of nearPoints_safe and brushedPoints_safe for unit-spaced bars drawn from zero: a click selects the bar under it (within threshold_frac of the y range above its top), and a brush selects bars whose center lies inside it and whose span reaches it.
+nearBars_safe <- function(df, click, xvar, yvar, threshold_frac = 0.02, maxpoints = NULL,
+                          allRows = FALSE, x_range = NULL, y_range = NULL) {
+    if (is.null(click) || is.null(df) || nrow(df) == 0 ||
+        !xvar %in% names(df) || !yvar %in% names(df)) {
+        if (allRows) {
+            df$selected_ <- rep(FALSE, NROW(df))
+            return(df)
+        }
+        return(df[0, , drop = FALSE])
+    }
+    xv <- suppressWarnings(as.numeric(df[[xvar]]))
+    yv <- suppressWarnings(as.numeric(df[[yvar]]))
+    have_panel <- !is.null(x_range) && !is.null(y_range) && all(is.finite(c(x_range, y_range)))
+    x_rng <- if (have_panel) x_range else range(xv, na.rm = TRUE, finite = TRUE)
+    y_rng <- if (have_panel) y_range else range(c(0, yv), na.rm = TRUE, finite = TRUE)
+    coords <- rescale_click_coords(click, x_rng, y_rng, pre_expanded = have_panel)
+    y_span <- diff(y_rng); if (!is.finite(y_span) || y_span <= 0) y_span <- 1
+    tol <- threshold_frac * y_span
+    keep <- !is.na(xv) & !is.na(yv) & abs(xv - coords$x) <= 0.5 &
+            coords$y >= pmin(0, yv) - tol & coords$y <= pmax(0, yv) + tol
+    if (!is.null(maxpoints) && sum(keep) > maxpoints) {
+        ord <- order(ifelse(keep, abs(xv - coords$x), Inf))
+        keep <- seq_along(keep) %in% ord[seq_len(maxpoints)]
+    }
+    if (allRows) {
+        df$selected_ <- keep
+        df
+    } else {
+        df[keep, , drop = FALSE]
+    }
+}
+
+brushedBars_safe <- function(df, brush, xvar, yvar, allRows = FALSE,
+                             x_range = NULL, y_range = NULL) {
+    if (is.null(brush) || is.null(df) || nrow(df) == 0 ||
+        !xvar %in% names(df) || !yvar %in% names(df)) {
+        if (allRows) {
+            df$selected_ <- rep(FALSE, NROW(df))
+            return(df)
+        }
+        return(df[0, , drop = FALSE])
+    }
+    xv <- suppressWarnings(as.numeric(df[[xvar]]))
+    yv <- suppressWarnings(as.numeric(df[[yvar]]))
+    have_panel <- !is.null(x_range) && !is.null(y_range) && all(is.finite(c(x_range, y_range)))
+    x_rng <- if (have_panel) x_range else range(xv, na.rm = TRUE, finite = TRUE)
+    y_rng <- if (have_panel) y_range else range(c(0, yv), na.rm = TRUE, finite = TRUE)
+    coords <- rescale_brush_coords(brush, x_rng, y_rng, pre_expanded = have_panel)
+    keep <- xv >= coords$xmin & xv <= coords$xmax &
+            pmin(0, yv) <= coords$ymax & pmax(0, yv) >= coords$ymin
+    keep[is.na(keep)] <- FALSE
+    if (allRows) {
+        df$selected_ <- keep
+        df
+    } else {
+        df[keep, , drop = FALSE]
+    }
+}
+
 shinyServer(function(input, output, session) {
     
     
@@ -794,6 +854,23 @@ shinyServer(function(input, output, session) {
             print("Finished processing element models")
             calpre
         })
+
+        # On loading a calibration, name the models that no longer reproduce their own standards or rest on an older deconvolution, since reviewing and pressing Update rebuilds them.
+        observeEvent(input$calfileinput, {
+            cal <- tryCatch(calFileContents(), error=function(e) NULL)
+            if(is.null(cal)) return()
+            msgs <- character(0)
+            stale <- tryCatch(calibrationSelfCheck(cal), error=function(e) NULL)
+            if(is.data.frame(stale) && nrow(stale) > 0) msgs <- c(msgs, paste0("These saved models no longer reproduce their own standards; review them and press Update: ", paste(stale$Element, collapse=", "), "."))
+            dependent <- deconvolutionDependentElements(cal)
+            if(length(dependent) > 0 && isTRUE(legacyDeconvolution(cal))) msgs <- c(msgs, paste0("The stored deconvolution comes from an older algorithm; deconvolute again and press Update for: ", paste(dependent, collapse=", "), "."))
+            if(length(msgs) > 0) showNotification(paste(msgs, collapse=" "), type="warning", duration=NULL)
+        })
+
+        # Record the beam chosen for the calibration's spectra, which can change after the files load; Apply Calibration preselects it.
+        observeEvent(input$beamno, {
+            if(!is.null(calMemory$Calibration)) calMemory$Calibration$Beam <- input$beamno
+        })
         
         observeEvent(!is.null(input$file1) | !is.null(input$calfileinput), {
             if(is.null(input$calfileinput) && is.null(input$file1)){
@@ -1059,6 +1136,9 @@ shinyServer(function(input, output, session) {
             if(!"Spectra" %in% names(calMemory$Calibration)){
                 calMemory$Calibration[["Spectra"]] <- dataHold()
                 calMemory$Calibration[["SpectraMetadata"]] <- myMetaData()
+                # The stored spectra carry the Energy Offset, so it is saved for Apply Calibration to shift new spectra the same way, and not restored into the input.
+                offset <- suppressWarnings(as.numeric(isolate(energynudge_d())))
+                calMemory$Calibration[["EnergyOffset"]] <- if(length(offset) == 1 && is.finite(offset)) offset else 0
             }
         })
         
@@ -1140,7 +1220,9 @@ shinyServer(function(input, output, session) {
         protect_els <- unique(c(isolate(input$show_vars_k_alpha), isolate(input$show_vars_k_beta),
                                 isolate(input$show_vars_l_alpha), isolate(input$show_vars_l_beta), isolate(input$show_vars_m)))
         protect_els <- protect_els[!is.na(protect_els) & nzchar(protect_els)]
-        if(length(protect_els)) physics_param$abundance_protect <- protect_els
+        # xrftools matches template labels, so line names become element symbols, plus the "_L" templates of split K and L+M series.
+        protect_els <- unique(sub("[.].*$", "", protect_els))
+        if(length(protect_els)) physics_param$abundance_protect <- c(protect_els, paste0(protect_els, "_L"))
         # Per-spectrum LiveTime (named by cleaned Spectrum) for the full-FP $Mass count-space LOD filter; NULL when the metadata has no LiveTime, and the LOD then falls back to the col-max signal filter.
         lt_param <- tryCatch(deconvolution_livetime_lookup(isolate(myMetaData())), error=function(e) NULL)
         print("Starting deconvolution")
@@ -1241,7 +1323,8 @@ shinyServer(function(input, output, session) {
             protect_els <- unique(c(input$show_vars_k_alpha, input$show_vars_k_beta,
                                     input$show_vars_l_alpha, input$show_vars_l_beta, input$show_vars_m))
             protect_els <- protect_els[!is.na(protect_els) & nzchar(protect_els)]
-            if(length(protect_els)) physics_param$abundance_protect <- protect_els   # protect target elements from the prior
+            protect_els <- unique(sub("[.].*$", "", protect_els))
+            if(length(protect_els)) physics_param$abundance_protect <- c(protect_els, paste0(protect_els, "_L"))   # protect target elements from the prior, as template labels
             lt_param <- tryCatch(deconvolution_livetime_lookup(myMetaData()), error=function(e) NULL)   # LiveTime for the $Mass LOD
 
             new_decon <- withProgress(message="Deconvoluting with current parameters...", value=0.5, {
@@ -3822,10 +3905,12 @@ shinyServer(function(input, output, session) {
         
         
         
+        # The standards behind the current element's model and whether each is used, read from the frame the mask is applied to, so a positional mask names the right standards.
         keepRowsFrame <- reactive({
             
-            spectra.stuff <- values[["DF"]]
+            spectra.stuff <- predictFrame()
             rows <- alignKeep(vals$keeprows, spectra.stuff)
+            if(length(rows) != nrow(spectra.stuff)) rows <- rep(TRUE, nrow(spectra.stuff))
             
             the.frame <- data.frame(Spectrum=spectra.stuff$Spectrum, Standards=rows)
             the.frame
@@ -3842,7 +3927,7 @@ shinyServer(function(input, output, session) {
             
             
             if (!is.null(DF))
-            rhandsontable(DF) %>% hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
+            rhandsontable(DF, readOnly = TRUE) %>% hot_col(2:length(DF), renderer=htmlwidgets::JS("safeHtmlRenderer"))
             
             
         })
@@ -4325,9 +4410,10 @@ shinyServer(function(input, output, session) {
             has_su <- !is.null(calSettings$calList) &&
                       "StandardsUsed" %in% names(calSettings$calList[[input$calcurveelement]][[1]])
 
-            # Spectrum ids for the full standard set. Keying the mask by Spectrum rather than row position lets a selection survive reordering or membership changes, and alignKeep() projects it onto each frame; when ids are unavailable or not unique the mask stays unnamed and is used by position.
+            # Spectrum ids for the full standard set, from the loaded calibration or, for one built in this session, the standards table. Keying the mask by Spectrum rather than row position lets a selection survive reordering or membership changes, and alignKeep() projects it onto each frame; when ids are unavailable or not unique the mask stays unnamed and is used by position.
             standard.spectra <- tryCatch({
                 s <- as.character(calMemory$Calibration$Values$Spectrum)
+                if(length(s) == 0) s <- as.character(values[["DF"]]$Spectrum)
                 if(length(s) >= 1 && !anyDuplicated(s)) s else NULL
             }, error=function(e) NULL)
             allKeep <- if(!is.null(standard.spectra)){
@@ -4338,12 +4424,22 @@ shinyServer(function(input, output, session) {
                 # Coerce a stored StandardsUsed (character, list, numeric or factor) to a logical mask. A named mask keeps its Spectrum names whatever its length, since alignKeep() matches by name; an unnamed mask of length n_standards is used by position; anything else falls back to all standards on.
                 su <- calSettings$calList[[input$calcurveelement]][[1]]$StandardsUsed
                 nm <- names(su)
+                su.order <- attr(su, "order")
                 if(is.list(su)) su <- unlist(su, use.names = FALSE)
                 su <- suppressWarnings(as.logical(su))
                 su[is.na(su)] <- TRUE
+                sorted.ids <- if(identical(su.order, "sorted") && !is.null(standard.spectra)){
+                    tryCatch(sort(as.character(holdFrame()$Spectrum)), error=function(e) NULL)
+                } else NULL
                 if(!is.null(nm) && length(nm) == length(su)){
                     names(su) <- nm
                     su
+                } else if(length(sorted.ids) >= 1){
+                    # A mask tagged "sorted" by calRDS() covers the standards with values in Spectrum order; positions past them belong to standards without values.
+                    k <- min(length(su), length(sorted.ids))
+                    keep <- allKeep
+                    keep[sorted.ids[seq_len(k)]] <- su[seq_len(k)]
+                    keep
                 } else if(length(su) == n_standards){
                     su
                 } else {
@@ -4358,13 +4454,27 @@ shinyServer(function(input, output, session) {
         
         
         vals <- reactiveValues()
-        
+
         observeEvent(input$calcurveelement, {
         vals$keeprows <- if(!is.null(calMemory$Calibration)){
             calFileStandards()
         }else{
             rep(TRUE, dataCount())
         }
+        })
+
+        # An unnamed StandardsUsed saved with a training seed follows the row order of the model frame for the saved model type and seed, so it is named from that frame once both are restored; from then on the selection follows the standards when the model type changes.
+        observe({
+            keep <- vals$keeprows
+            req(!is.null(keep), is.null(names(keep)), input$calcurveelement, input$radiocal)
+            saved.type <- suppressWarnings(as.numeric(tryCatch(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$CalType[1], error=function(e) NA)))
+            saved.seed <- suppressWarnings(as.numeric(calMemory$Calibration$RandomizeSeed))
+            req(length(saved.type) == 1, isTRUE(as.numeric(input$radiocal) == saved.type),
+                length(saved.seed) == 1, isTRUE(as.numeric(input$randomize) == saved.seed))
+            frame <- tryCatch(predictFrame(), error=function(e) NULL)
+            req(is.data.frame(frame), nrow(frame) == length(keep), !anyDuplicated(frame$Spectrum))
+            names(keep) <- as.character(frame$Spectrum)
+            vals$keeprows <- keep
         })
 
         
@@ -5204,7 +5314,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$variablePlot <- downloadHandler(
-        filename = function() { paste0(input$calname, "_", input$calcurveelemenet , '_Variables', '.tiff', sep='') },
+        filename = function() { paste0(input$calname, "_", input$calcurveelement , '_Variables', '.tiff', sep='') },
         content = function(file) {
             ggsave(file,variablesPlot(), width=plotDimensions()[1], height=plotDimensions()[2], device="tiff", compression="lzw",  dpi=300)
         }
@@ -7812,7 +7922,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection()), bartK <- paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2]), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection(), bartk=paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         bartMachineIntensityModelData <- reactive(label="bartMachineIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=bartMachineIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=bartMachineIntensityParameters()$Intercept, slopes=bartMachineIntensityParameters()$Slope, norm.type=bartMachineIntensityParameters()$CalTable$NormType, norm.min=bartMachineIntensityParameters()$CalTable$Min, norm.max=bartMachineIntensityParameters()$CalTable$Max, compton.type=bartMachineIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -7870,8 +7980,6 @@ shinyServer(function(input, output, session) {
             
             bart_model <- caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
             
-            stopCluster(cl)
-            registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             bart_model
             
         })
@@ -7941,7 +8049,7 @@ shinyServer(function(input, output, session) {
             }
                         
             if(multicoreBehavior()=="Single Core"){
-                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
+                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=c("center", "scale"), trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -7951,7 +8059,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
+                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=c("center", "scale"), trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -8082,7 +8190,7 @@ shinyServer(function(input, output, session) {
                 1
             }
             energyrange <- basicEnergyRange()
-            list(CalTable=calConditionsTable(cal.type=11, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection()), bartK <- paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2]), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=11, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection(), bartk=paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         bartMachineSpectraModelData <- reactive(label="bartMachineSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=bartMachineSpectraParameters()$CalTable$Compress, transformation=bartMachineSpectraParameters()$CalTable$Transformation, dependent.transformation=bartMachineSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(bartMachineSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=bartMachineSpectraParameters()$CalTable$NormType, norm.min=bartMachineSpectraParameters()$CalTable$Min, norm.max=bartMachineSpectraParameters()$CalTable$Max, compton.type=bartMachineSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -9185,7 +9293,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
 
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- plsIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- plsIntensityModelSet()$data[alignKeep(vals$keeprows, plsIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- plsIntensityModelSet()$parameters$CalTable
 
@@ -9252,7 +9360,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
 
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- plsSpectraModelSet()$data[randomizeData(),]
+            predict.frame <- plsSpectraModelSet()$data[alignKeep(vals$keeprows, plsSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- plsSpectraModelSet()$parameters$CalTable
 
@@ -9514,7 +9622,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
 
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- cubistIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- cubistIntensityModelSet()$data[alignKeep(vals$keeprows, cubistIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- cubistIntensityModelSet()$parameters$CalTable
 
@@ -9581,7 +9689,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
 
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- cubistSpectraModelSet()$data[randomizeData(),]
+            predict.frame <- cubistSpectraModelSet()$data[alignKeep(vals$keeprows, cubistSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- cubistSpectraModelSet()$parameters$CalTable
 
@@ -9845,7 +9953,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
 
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- glmnetIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- glmnetIntensityModelSet()$data[alignKeep(vals$keeprows, glmnetIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- glmnetIntensityModelSet()$parameters$CalTable
 
@@ -9913,7 +10021,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
 
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- glmnetSpectraModelSet()$data[randomizeData(),]
+            predict.frame <- glmnetSpectraModelSet()$data[alignKeep(vals$keeprows, glmnetSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- glmnetSpectraModelSet()$parameters$CalTable
 
@@ -10122,7 +10230,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
 
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- marsIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- marsIntensityModelSet()$data[alignKeep(vals$keeprows, marsIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- marsIntensityModelSet()$parameters$CalTable
 
@@ -10162,7 +10270,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
 
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- marsSpectraModelSet()$data[randomizeData(),]
+            predict.frame <- marsSpectraModelSet()$data[alignKeep(vals$keeprows, marsSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- marsSpectraModelSet()$parameters$CalTable
 
@@ -10545,7 +10653,7 @@ shinyServer(function(input, output, session) {
         })
         
         output$models <- renderDataTable({
-            
+            req(input$calcurveelement)
             bestCalHold[[input$calcurveelement]]
             
         })
@@ -12103,19 +12211,6 @@ shinyServer(function(input, output, session) {
         })
         
         
-        predictFrameName <- reactive({
-            
-            predict.frame <- predictFrame()[ alignKeep(vals$keeprows, predictFrame()), , drop = FALSE]
-            spectra.line.table <- spectraLineTable()[ alignKeep(vals$keeprows, spectraLineTable()), , drop = FALSE]
-            
-            predict.frame.name <- data.frame(spectra.line.table$Spectrum, predict.frame)
-            colnames(predict.frame.name) <- c("Spectrum", names(predict.frame))
-            predict.frame.name
-            
-        })
-        
-        
-        
         calCurveFrame <- reactive({
             
             predictFrame()
@@ -12176,6 +12271,16 @@ shinyServer(function(input, output, session) {
                 element <- input$calcurveelement
                 model <- isolate(elementModelGen())
                 table <- isolate(calValTable())
+                # For machine-learning types calValTable() reads the stored model, which is the previous one at this point, so the table is rebuilt from the model being saved.
+                if(isTRUE(isolate(isMCL())) && !is.null(model)){
+                    vf <- tryCatch(isolate(mclValGen(model=model, data=predictIntensity(), predict.frame=predictFrame(), dependent.transformation=basichold$deptransformation, y_min=yMin(), y_max=yMax())), error=function(e) NULL)
+                    if(is.data.frame(vf) && all(c("Spectrum", "Concentration", "Prediction") %in% colnames(vf))){
+                        vf <- vf[complete.cases(vf$Concentration), , drop=FALSE]
+                        vf$Difference <- as.numeric(vf$Concentration - vf$Prediction)
+                        vf$Relative <- (vf$Concentration - vf$Prediction) / vf$Concentration
+                        table <- vf[, c("Spectrum", "Concentration", "Prediction", "Difference", "Relative")]
+                    }
+                }
                 if(isTRUE(input$useloomodel)){
                     loo <- isolate(looSaved())
                     if(is.null(loo$Model)){
@@ -12440,7 +12545,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm(Concentration~., val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12450,7 +12555,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12464,7 +12569,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12474,7 +12579,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12489,7 +12594,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12499,7 +12604,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12522,7 +12627,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12532,7 +12637,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12547,7 +12652,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12557,7 +12662,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12572,7 +12677,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12582,7 +12687,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12597,7 +12702,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12607,7 +12712,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12622,7 +12727,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12632,7 +12737,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12647,7 +12752,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -12657,7 +12762,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=val_frame_val_kept, aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, val_frame_val_kept)), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = val_frame_val_excluded, shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -13220,7 +13325,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             
-            predict.frame <- forestModelSet()$data[randomizeData(),]
+            predict.frame <- forestModelSet()$data[alignKeep(vals$keeprows, forestModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- forestModelSet()$parameters$CalTable
             
@@ -13288,7 +13393,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             
-            data <- rainforestModelSet()$data[randomizeData(),]
+            data <- rainforestModelSet()$data[alignKeep(vals$keeprows, rainforestModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- rainforestModelSet()$parameters$CalTable
             
@@ -13354,7 +13459,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            predict.frame <- neuralNetworkIntensityShallowModelSet()$data[randomizeData(),]
+            predict.frame <- neuralNetworkIntensityShallowModelSet()$data[alignKeep(vals$keeprows, neuralNetworkIntensityShallowModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkIntensityShallowModelSet()$parameters$CalTable
             
@@ -13426,7 +13531,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            predict.frame <- neuralNetworkIntensityDeepModelSet()$data[randomizeData(),]
+            predict.frame <- neuralNetworkIntensityDeepModelSet()$data[alignKeep(vals$keeprows, neuralNetworkIntensityDeepModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkIntensityDeepModelSet()$parameters$CalTable
             
@@ -13511,7 +13616,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            data <- neuralNetworkSpectraShallowModelSet()$data[randomizeData(),]
+            data <- neuralNetworkSpectraShallowModelSet()$data[alignKeep(vals$keeprows, neuralNetworkSpectraShallowModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkSpectraShallowModelSet()$parameters$CalTable
             
@@ -13582,7 +13687,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            data <- neuralNetworkSpectraDeepModelSet()$data[randomizeData(),]
+            data <- neuralNetworkSpectraDeepModelSet()$data[alignKeep(vals$keeprows, neuralNetworkSpectraDeepModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- neuralNetworkSpectraDeepModelSet()$parameters$CalTable
             
@@ -13665,7 +13770,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            predict.frame <- xgbtreeIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- xgbtreeIntensityModelSet()$data[alignKeep(vals$keeprows, xgbtreeIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgbtreeIntensityModelSet()$parameters$CalTable
             
@@ -13763,7 +13868,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            predict.frame <- xgbtreeIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- xgbtreeIntensityModelSet()$data[alignKeep(vals$keeprows, xgbtreeIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgbtreeIntensityModelSet()$parameters$CalTable
             
@@ -13866,7 +13971,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            predict.frame <- xgblinearIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- xgblinearIntensityModelSet()$data[alignKeep(vals$keeprows, xgblinearIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgblinearIntensityModelSet()$parameters$CalTable
             
@@ -13946,7 +14051,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            predict.frame <- xgbdartIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- xgbdartIntensityModelSet()$data[alignKeep(vals$keeprows, xgbdartIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgbdartIntensityModelSet()$parameters$CalTable
             
@@ -14049,7 +14154,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            predict.frame <- xgblinearIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- xgblinearIntensityModelSet()$data[alignKeep(vals$keeprows, xgblinearIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- xgblinearIntensityModelSet()$parameters$CalTable
             
@@ -14140,7 +14245,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            data <- xgbtreeSpectraModelSet()$data[randomizeData(),]
+            data <- xgbtreeSpectraModelSet()$data[alignKeep(vals$keeprows, xgbtreeSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgbtreeSpectraModelSet()$parameters$CalTable
             
@@ -14238,7 +14343,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            data <- xgbdartSpectraModelSet()$data[randomizeData(),]
+            data <- xgbdartSpectraModelSet()$data[alignKeep(vals$keeprows, xgbdartSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgbdartSpectraModelSet()$parameters$CalTable
             
@@ -14342,7 +14447,7 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            data <- xgblinearSpectraModelSet()$data[randomizeData(),]
+            data <- xgblinearSpectraModelSet()$data[alignKeep(vals$keeprows, xgblinearSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- xgblinearSpectraModelSet()$parameters$CalTable
             
@@ -14434,7 +14539,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- bartMachineIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- bartMachineIntensityModelSet()$data[alignKeep(vals$keeprows, bartMachineIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineIntensityModelSet()$parameters$CalTable
             
@@ -14479,8 +14584,6 @@ shinyServer(function(input, output, session) {
             
             bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, serialize = TRUE), error=function(e) NULL)
             
-            stopCluster(cl)
-            registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             bart_model
             
         })
@@ -14490,7 +14593,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- bayesLinearIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- bayesLinearIntensityModelSet()$data[alignKeep(vals$keeprows, bayesLinearIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bayesLinearIntensityModelSet()$parameters$CalTable
             
@@ -14537,7 +14640,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=c("center", "scale"), trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -14547,7 +14650,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=c("center", "scale"), trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -14560,7 +14663,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- bartMachineIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- bartMachineIntensityModelSet()$data[alignKeep(vals$keeprows, bartMachineIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineIntensityModelSet()$parameters$CalTable
             
@@ -14635,7 +14738,7 @@ shinyServer(function(input, output, session) {
             if(xgboosthold$xgbtype=="Tree"){
                 bartMachineIntensityModelRandomized()
             } else if(xgboosthold$xgbtype=="Linear"){
-                bayesLinearIntensityModelRaandomized()
+                bayesLinearIntensityModelRandomized()
             } else if(xgboosthold$xgbtype=="Neural Net"){
                 bayesNeuralNetIntensityModelRandomized()
             }
@@ -14647,7 +14750,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            data <- bartMachineSpectraModelSet()$data[randomizeData(),]
+            data <- bartMachineSpectraModelSet()$data[alignKeep(vals$keeprows, bartMachineSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineSpectraModelSet()$parameters$CalTable
             
@@ -14693,8 +14796,6 @@ shinyServer(function(input, output, session) {
             bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE), error=function(e) NULL)
             
             
-            stopCluster(cl)
-            registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             bart_model
             
         })
@@ -14704,7 +14805,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            data <- bayesLinearSpectraModelSet()$data[randomizeData(),]
+            data <- bayesLinearSpectraModelSet()$data[alignKeep(vals$keeprows, bayesLinearSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bayesLinearSpectraModelSet()$parameters$CalTable
             
@@ -14774,7 +14875,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            data <- bayesNeuralNetSpectraModelSet()$data[randomizeData(),]
+            data <- bayesNeuralNetSpectraModelSet()$data[alignKeep(vals$keeprows, bayesNeuralNetSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bayesNeuralNetSpectraModelSet()$parameters$CalTable
             
@@ -14860,7 +14961,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- svmLinearIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- svmLinearIntensityModelSet()$data[alignKeep(vals$keeprows, svmLinearIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmLinearIntensityModelSet()$parameters$CalTable
             
@@ -14935,7 +15036,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- svmPolyIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- svmPolyIntensityModelSet()$data[alignKeep(vals$keeprows, svmPolyIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmPolyIntensityModelSet()$parameters$CalTable
             
@@ -15014,7 +15115,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- svmRadialIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- svmRadialIntensityModelSet()$data[alignKeep(vals$keeprows, svmRadialIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmRadialIntensityModelSet()$parameters$CalTable
             
@@ -15103,7 +15204,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- svmBoundrangeIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- svmBoundrangeIntensityModelSet()$data[alignKeep(vals$keeprows, svmBoundrangeIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmBoundrangeIntensityModelSet()$parameters$CalTable
             
@@ -15179,7 +15280,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- svmExponentialIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- svmExponentialIntensityModelSet()$data[alignKeep(vals$keeprows, svmExponentialIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmExponentialIntensityModelSet()$parameters$CalTable
             
@@ -15255,7 +15356,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            predict.frame <- svmSpectrumIntensityModelSet()$data[randomizeData(),]
+            predict.frame <- svmSpectrumIntensityModelSet()$data[alignKeep(vals$keeprows, svmSpectrumIntensityModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- svmSpectrumIntensityModelSet()$parameters$CalTable
             
@@ -15349,7 +15450,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            data <- svmLinearSpectraModelSet()$data[randomizeData(),]
+            data <- svmLinearSpectraModelSet()$data[alignKeep(vals$keeprows, svmLinearSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmLinearSpectraModelSet()$parameters$CalTable
             
@@ -15424,7 +15525,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            data <- svmPolySpectraModelSet()$data[randomizeData(),]
+            data <- svmPolySpectraModelSet()$data[alignKeep(vals$keeprows, svmPolySpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmPolySpectraModelSet()$parameters$CalTable
             
@@ -15503,7 +15604,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            data <- svmRadialSpectraModelSet()$data[randomizeData(),]
+            data <- svmRadialSpectraModelSet()$data[alignKeep(vals$keeprows, svmRadialSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmRadialSpectraModelSet()$parameters$CalTable
             
@@ -15592,7 +15693,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            data <- svmBoundrangeSpectraModelSet()$data[randomizeData(),]
+            data <- svmBoundrangeSpectraModelSet()$data[alignKeep(vals$keeprows, svmBoundrangeSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmBoundrangeSpectraModelSet()$parameters$CalTable
             
@@ -15672,7 +15773,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            data <- svmExponentialSpectraModelSet()$data[randomizeData(),]
+            data <- svmExponentialSpectraModelSet()$data[alignKeep(vals$keeprows, svmExponentialSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmExponentialSpectraModelSet()$parameters$CalTable
             
@@ -15753,7 +15854,7 @@ shinyServer(function(input, output, session) {
             set.seed(input$randomize)
             
             req(input$radiocal, input$calcurveelement)
-            data <- svmSpectrumSpectraModelSet()$data[randomizeData(),]
+            data <- svmSpectrumSpectraModelSet()$data[alignKeep(vals$keeprows, svmSpectrumSpectraModelSet()$data), , drop = FALSE][randomizeData(), , drop = FALSE]
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- svmSpectrumSpectraModelSet()$parameters$CalTable
             
@@ -16240,6 +16341,10 @@ shinyServer(function(input, output, session) {
             }
             
             
+            # Spectrum for the hover tooltips; some branches drop incomplete rows with na.omit().
+            spectra <- if(nrow(val.frame) == nrow(predict.frame)) predict.frame$Spectrum else na.omit(predict.frame)$Spectrum
+            if(length(spectra) == nrow(val.frame)) val.frame$Spectrum <- spectra
+            
             val.frame
             
         })
@@ -16290,7 +16395,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, predictFrame()[ alignKeep(vals$keeprows, predictFrame()), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, calCurveFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", fullrange = TRUE) +
                     geom_point() +
                     geom_point(data = calCurveFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16315,7 +16420,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=calCurveFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn_poly(lm((Concentration*multiplier)~Intensity + I(Intensity^2), data=predictFrame()[ alignKeep(vals$keeprows, predictFrame()), , drop = FALSE])), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn_poly(lm((Concentration*multiplier)~Intensity + I(Intensity^2), data=calCurveFrameRandomized())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     stat_smooth(method="lm", formula=y~poly(x,2), fullrange = TRUE) +
                     geom_point() +
                     geom_point(data = calCurveFrameRandomized(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16340,7 +16445,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16350,7 +16455,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16364,7 +16469,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16374,7 +16479,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16389,7 +16494,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16399,7 +16504,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16422,7 +16527,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16432,7 +16537,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16447,7 +16552,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16457,7 +16562,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16472,7 +16577,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16482,7 +16587,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16497,7 +16602,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16507,7 +16612,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16522,7 +16627,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16532,7 +16637,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16547,7 +16652,7 @@ shinyServer(function(input, output, session) {
                 calcurve.plot <- if(input$loglinear=="Linear"){
                     tryCatch(ggplot(data=valFrameRandomizedRev(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16557,7 +16662,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$loglinear=="Log"){
                     tryCatch(ggplot(data=valFrameRandomized(), aes(Intensity, Concentration*multiplier)) +
                     theme_light(base_size = 15) +
-                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~., valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
+                    annotate("text", label=lm_eqn(lm((Concentration*multiplier)~Intensity, valFrameRandomizedRev())), x=x_label_pos, y=y_label_pos, hjust=0, vjust=1, parse=TRUE)+
                     geom_smooth() +
                     geom_point() +
                     geom_point(aes(Intensity, Concentration*multiplier), data = valFrameRandomizedRev(), shape = 21, fill = "red", color = "black", alpha = 0.25) +
@@ -16792,15 +16897,25 @@ shinyServer(function(input, output, session) {
             as.character(frame$Spectrum[keep %in% TRUE])
         })
 
+        # Refit function for the Cal Curves model of a Linear, Non-Linear or Lucas-Tooth calibration (same formula, Lucas-Tooth form and weighting), used by the leave-one-out refits and the Diagnostics tab; NULL for other model types.
+        linearFamilyFitFun <- reactive(label="linearFamilyFitFun", {
+            key <- looCurrentKey()
+            if(is.null(key)) return(NULL)
+            switch(key,
+                linear=function(f) lm(Concentration~Intensity, data=f, na.action=na.omit),
+                nonlinear=function(f) lm(Concentration~Intensity + I(Intensity^2), data=f, na.action=na.omit),
+                lucastooth={
+                    lt.table <- lucasToothModelSet()$parameters$CalTable
+                    function(f) lucasToothFit(f, lt.cross=lt.table$LTCross, lt.weight=lt.table$LTWeight)$Model
+                })
+        })
+
         # Leave-one-out refits of the Cal Curves model with the same type, lines, normalization, Lucas-Tooth form and weighting, and standards; n standards cost n small lm fits.
         looCurrentFits <- reactive(label="looCurrentFits", {
             key <- looCurrentKey()
             shiny::validate(shiny::need(!is.null(key), "Leave-one-out covers Linear, Non-Linear and Lucas-Tooth calibrations. For this model type, use the Random Split tab."))
             model.set <- switch(key, linear=linearModelSet(), nonlinear=nonLinearModelSet(), lucastooth=lucasToothModelSet())
-            fit.fun <- switch(key,
-                linear=function(f) lm(Concentration~Intensity, data=f, na.action=na.omit),
-                nonlinear=function(f) lm(Concentration~Intensity + I(Intensity^2), data=f, na.action=na.omit),
-                lucastooth=function(f) lucasToothFit(f, lt.cross=model.set$parameters$CalTable$LTCross, lt.weight=model.set$parameters$CalTable$LTWeight)$Model)
+            fit.fun <- linearFamilyFitFun()
             frame <- model.set$data
             frame <- frame[as.character(frame$Spectrum) %in% looStandardIds(), , drop=FALSE]
             fits <- looFits(frame, fit.fun, dependent.transformation=dependentTransformation(), y_min=yMin(), y_max=yMax())
@@ -17166,22 +17281,12 @@ shinyServer(function(input, output, session) {
         # Float over info
         output$hover_infocal_random <- renderUI({
             req(input$radiocal)
-            point.table <- if(calType()==1){
-                calCurveFrame()
-            } else if(calType()==2){
-                calCurveFrame()
-            } else if(calType()==3) {
-                calValFrame()
-            } else if(calType()==5) {
-                calValFrame()
+            # The training standards as the left plot draws them: intensities for Linear and Non-Linear, the random-split model's values otherwise.
+            point.table <- if(calType()==1 || calType()==2){
+                calCurveFrameRandomized()
+            } else {
+                valFrameRandomizedRev()
             }
-
-            randomized <- randomizeData()
-
-            point.table <- point.table[ alignKeep(vals$keeprows, point.table), , drop = FALSE]
-            point.table <- point.table[randomized,]
-
-            # point.table now includes Spectrum from predictFrame/valFrame - no merge needed
 
             hover <- input$plot_hovercal_random
             mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
@@ -17229,7 +17334,7 @@ shinyServer(function(input, output, session) {
             
             mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
             pr <- panel_ranges(calCurvePlot())
-            res <- nearPoints_safe(predict.frame, input$plot_cal_click, xvar="Intensity", yvar="Concentration", allRows = TRUE, x_range=pr$x, y_range=pr$y, ymul=mult)
+            res <- nearPoints_safe(predict.frame, input$plot_cal_click, xvar="Intensity", yvar="Concentration", maxpoints = 1, allRows = TRUE, x_range=pr$x, y_range=pr$y, ymul=mult)
 
             vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
@@ -17238,7 +17343,7 @@ shinyServer(function(input, output, session) {
         # Toggle points that are brushed, when button is clicked
         observeEvent(input$exclude_toggle, {
             
-            predict.frame <- if(calType()==3){
+            predict.frame <- if(calType()==1){
                 calCurveFrame()
             } else if(calType()==2){
                 calCurveFrame()
@@ -17331,14 +17436,8 @@ shinyServer(function(input, output, session) {
         
         output$hover_infoval_random <- renderUI({
             req(input$radiocal)
-            point.table <- calValFrame()
-
-            randomized <- randomizeData()
-
-            point.table <- point.table[ alignKeep(vals$keeprows, point.table), , drop = FALSE]
-            point.table <- point.table[!(randomized),]
-
-            # point.table now includes Spectrum from valFrame - no merge needed
+            # The held-out standards as estimated by the random-split model, as the right plot draws them.
+            point.table <- valFrameRandomized()
 
             hover <- input$plot_hoverval_random
             mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
@@ -17377,7 +17476,7 @@ shinyServer(function(input, output, session) {
             
             mult <- if(is.null(input$plotunit) || input$plotunit=="%") 1 else 10000
             pr <- panel_ranges(valCurvePlot())
-            res <- nearPoints_safe(predict.frame, input$plot_val_click, xvar="Prediction", yvar="Concentration", allRows = TRUE, x_range=pr$x, y_range=pr$y, xmul=mult, ymul=mult)
+            res <- nearPoints_safe(predict.frame, input$plot_val_click, xvar="Prediction", yvar="Concentration", maxpoints = 1, allRows = TRUE, x_range=pr$x, y_range=pr$y, xmul=mult, ymul=mult)
 
             vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
@@ -17402,89 +17501,19 @@ shinyServer(function(input, output, session) {
         })
         
         
-        normalLM <- reactive(label="normalLM",{
-            
-            
-            model <- elementModelGen()
-            sp_src <- tryCatch(predictFrameName(), error=function(e) NULL)
-
-            
-            model.frame <- as.data.frame(augment(model))
-            
-            model.frame$qq <- qqnorm(model.frame$.std.resid)[[1]]
-            
-            model.frame$sqrt.std.resid <- sqrt(abs(model.frame$.std.resid))
-            
-            model.frame$seq.cooksd <- seq_along(model.frame$.cooksd)
-            
-            # Attach Spectrum when the row counts match (augment() may drop NA rows), so the diagnostic mask aligns by identity and a click toggles the right standard; otherwise the mask is applied by position.
-            if(!is.null(sp_src) && !is.null(sp_src$Spectrum) && nrow(model.frame) == nrow(sp_src)) model.frame$Spectrum <- sp_src$Spectrum
-            
-            
-            
-            model.frame
-            
-        })
-        
-        
-        forestLM <- reactive(label="forestLM",{
-            
-            
-            model <- lm(Concentration~Prediction, data=as.data.frame(calValTable()))
-            sp_src <- tryCatch(calValTable(), error=function(e) NULL)
-            
-            model.frame <- as.data.frame(augment(model))
-            
-            model.frame$qq <- qqnorm(model.frame$.std.resid)[[1]]
-            
-            model.frame$sqrt.std.resid <- sqrt(abs(model.frame$.std.resid))
-            
-            model.frame$seq.cooksd <- seq_along(model.frame$.cooksd)
-            
-            # Attach Spectrum when the row counts match (augment() may drop NA rows), so the diagnostic mask aligns by identity and a click toggles the right standard; otherwise the mask is applied by position.
-            if(!is.null(sp_src) && !is.null(sp_src$Spectrum) && nrow(model.frame) == nrow(sp_src)) model.frame$Spectrum <- sp_src$Spectrum
-            
-            
-            
-            model.frame
-            
-            
-        })
-        
-        
-        modelFrame <- reactive(label="modelFrame",{
-            
-            if(input$radiocal==1){
-                normalLM()
-            } else if(input$radiocal==2){
-                normalLM()
-            } else if(input$radiocal==3){
-                normalLM()
-            } else if(input$radiocal==4){
-                forestLM()
-            } else if(input$radiocal==5){
-                forestLM()
-            } else if(input$radiocal==6){
-                forestLM()
-            } else if(input$radiocal==7){
-                forestLM()
-            } else if(input$radiocal==8){
-                forestLM()
-            } else if(input$radiocal==9){
-                forestLM()
-            } else if(input$radiocal==10){
-                forestLM()
-            } else if(input$radiocal==11){
-                forestLM()
-            } else if(input$radiocal==12){
-                forestLM()
-            } else if(input$radiocal==13){
-                forestLM()
-            } else if(as.numeric(input$radiocal) %in% c(chemIntensityTypes, chemSpectraTypes)){
-                forestLM()
+        # Diagnostics frame. Linear, Non-Linear and Lucas-Tooth diagnose the Cal Curves model on its own frame; other types diagnose the regression of certified concentration on the model's predictions. Rows follow the frame the standards mask is applied to, so a click or brush toggles the standard under the pointer for both Spectrum-named and positional masks.
+        modelFrame <- reactive(label="modelFrame", {
+            req(input$radiocal)
+            fit.fun <- linearFamilyFitFun()
+            frame <- if(!is.null(fit.fun)){
+                predictFrame()
+            } else {
+                fit.fun <- function(f) lm(Concentration~Prediction, data=f, na.action=na.omit)
+                calValTable()[, c("Spectrum", "Concentration", "Prediction"), drop=FALSE]
             }
-            
-            
+            diag <- diagnosticsFrame(frame, alignKeep(vals$keeprows, frame), fit.fun)
+            shiny::validate(shiny::need(!is.null(diag), "Diagnostics need a model fit on at least two standards."))
+            diag
         })
         
         
@@ -17495,7 +17524,7 @@ shinyServer(function(input, output, session) {
             
             model <- modelFrame()
             
-            p1 <- ggplot(model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(.fitted, .resid)) +
+            p1 <- ggplot(model[ model$Included, , drop = FALSE], aes(.fitted, .resid)) +
             stat_smooth(method="loess") +
             geom_hline(yintercept=0, col="red", linetype="dashed") +
             scale_x_continuous("Fitted values", breaks=scales::pretty_breaks()) +
@@ -17503,7 +17532,7 @@ shinyServer(function(input, output, session) {
             ggtitle("Residual vs Fitted Plot") +
             theme_light(base_size = 15) +
             geom_point() +
-            geom_point(data=model[ alignKeep(vals$keeprows, model, invert=TRUE), , drop = FALSE], aes(.fitted, .resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
+            geom_point(data=model[ !model$Included, , drop = FALSE], aes(.fitted, .resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
             p1
             
@@ -17520,13 +17549,13 @@ shinyServer(function(input, output, session) {
             
             model <- modelFrame()
             
-            p2 <- ggplot(model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(qq, .std.resid))+geom_point(na.rm = TRUE) +
+            p2 <- ggplot(model[ model$Included, , drop = FALSE], aes(qq, .std.resid))+geom_point(na.rm = TRUE) +
             geom_abline() +
             scale_x_continuous("Theoretical Quantiles", breaks=scales::pretty_breaks()) +
             scale_y_continuous("Standardized Residuals", breaks=scales::pretty_breaks()) +
             ggtitle("Normal Q-Q") +
             theme_light(base_size = 15) +
-            geom_point(data=model[ alignKeep(vals$keeprows, model, invert=TRUE), , drop = FALSE], aes(qq, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
+            geom_point(data=model[ !model$Included, , drop = FALSE], aes(qq, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
             
             p2
@@ -17545,14 +17574,14 @@ shinyServer(function(input, output, session) {
             model <- modelFrame()
             
             
-            p3 <- ggplot(model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(.fitted, sqrt.std.resid)) +
+            p3 <- ggplot(model[ model$Included, , drop = FALSE], aes(.fitted, sqrt.std.resid)) +
             stat_smooth(method="loess", na.rm = TRUE) +
             scale_x_continuous("Fitted Value", breaks=scales::pretty_breaks()) +
             scale_y_continuous(expression(sqrt("|Standardized residuals|")), breaks=scales::pretty_breaks()) +
             ggtitle("Scale-Location") +
             theme_light(base_size = 15) +
             geom_point(na.rm=TRUE) +
-            geom_point(data=model[ alignKeep(vals$keeprows, model, invert=TRUE), , drop = FALSE], aes(.fitted, sqrt.std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
+            geom_point(data=model[ !model$Included, , drop = FALSE], aes(.fitted, sqrt.std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
             
             p3
@@ -17572,8 +17601,9 @@ shinyServer(function(input, output, session) {
             
             model <- modelFrame()
             
-            p4 <- ggplot(model, aes(seq.cooksd, .cooksd)) +
-            geom_bar(stat="identity", position="identity") +
+            p4 <- ggplot(model[ model$Included, , drop = FALSE], aes(seq.cooksd, .cooksd)) +
+            geom_bar(stat="identity", position="identity", na.rm=TRUE) +
+            geom_bar(data=model[ !model$Included, , drop = FALSE], aes(seq.cooksd, .cooksd), stat="identity", position="identity", fill = "red", color = "black", alpha = 0.25, na.rm=TRUE) +
             scale_x_continuous("Obs. Number", breaks=scales::pretty_breaks()) +
             scale_y_continuous("Cook's distance", breaks=scales::pretty_breaks()) +
             ggtitle("Cook's distance") +
@@ -17595,9 +17625,9 @@ shinyServer(function(input, output, session) {
             model <- modelFrame()
             
             
-            p5<-ggplot(model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(.hat, .std.resid))+
+            p5<-ggplot(model[ model$Included, , drop = FALSE], aes(.hat, .std.resid))+
             geom_point(aes(size=.cooksd), na.rm=TRUE) +
-            geom_point(data=model[ alignKeep(vals$keeprows, model, invert=TRUE), , drop = FALSE], aes(.hat, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25) +
+            geom_point(data=model[ !model$Included, , drop = FALSE], aes(.hat, .std.resid), shape = 21, fill = "red", color = "black", alpha = 0.25) +
             stat_smooth(method="loess", na.rm=TRUE) +
             scale_x_continuous("Leverage", breaks=scales::pretty_breaks()) +
             scale_y_continuous("Standardized Residuals", breaks=scales::pretty_breaks()) +
@@ -17622,7 +17652,7 @@ shinyServer(function(input, output, session) {
             model <- modelFrame()
             
             
-            p6 <- ggplot(model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(.hat, .cooksd)) +
+            p6 <- ggplot(model[ model$Included, , drop = FALSE], aes(.hat, .cooksd)) +
             stat_smooth(method="loess", na.rm=TRUE) +
             scale_x_continuous("Leverage", breaks=scales::pretty_breaks()) +
             scale_y_continuous("Cook's Distance", breaks=scales::pretty_breaks()) +
@@ -17630,7 +17660,7 @@ shinyServer(function(input, output, session) {
             geom_abline(slope=seq(0,3,0.5), color="gray", linetype="dashed") +
             theme_light(base_size = 15) +
             geom_point(na.rm=TRUE) +
-            geom_point(data=model[ alignKeep(vals$keeprows, model), , drop = FALSE], aes(.hat, .cooksd), shape = 21, fill = "red", color = "black", alpha = 0.25)
+            geom_point(data=model[ !model$Included, , drop = FALSE], aes(.hat, .cooksd), shape = 21, fill = "red", color = "black", alpha = 0.25)
             
             p6
             
@@ -17704,22 +17734,12 @@ shinyServer(function(input, output, session) {
             predict.frame <- modelFrame()
             
             pr <- panel_ranges(diagResidualsFitted())
-            res <- nearPoints_safe(predict.frame, input$plot_residualsfitted_click, xvar = ".fitted", yvar = ".resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
+            res <- nearPoints_safe(predict.frame, input$plot_residualsfitted_click, xvar = ".fitted", yvar = ".resid", maxpoints = 1, allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
             vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
-        # Toggle points that are brushed, when button is clicked
-        observeEvent(input$exclude_toggle_diag, {
-            
-            predict.frame <- modelFrame()
-            
-            pr <- panel_ranges(diagResidualsFitted())
-            res <- brushedPoints_safe(predict.frame, input$plot_residualsfitted_brush, xvar = ".fitted", yvar = ".resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
-            
-            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
-        })
         
         
         # QQ Norm
@@ -17764,22 +17784,12 @@ shinyServer(function(input, output, session) {
             predict.frame <- modelFrame()
             
             pr <- panel_ranges(diagQQ())
-            res <- nearPoints_safe(predict.frame, input$plot_qq_click, xvar = "qq", yvar = ".std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
+            res <- nearPoints_safe(predict.frame, input$plot_qq_click, xvar = "qq", yvar = ".std.resid", maxpoints = 1, allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
             vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
-        # Toggle points that are brushed, when button is clicked
-        observeEvent(input$exclude_toggle_diag, {
-            
-            predict.frame <- modelFrame()
-            
-            pr <- panel_ranges(diagQQ())
-            res <- brushedPoints_safe(predict.frame, input$plot_qq_brush, xvar = "qq", yvar = ".std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
-            
-            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
-        })
         
         
         # Scaled Residuals
@@ -17824,22 +17834,12 @@ shinyServer(function(input, output, session) {
             predict.frame <- modelFrame()
             
             pr <- panel_ranges(diagScaleLocation())
-            res <- nearPoints_safe(predict.frame, input$plot_scalelocation_click, xvar = ".fitted", yvar = "sqrt.std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
+            res <- nearPoints_safe(predict.frame, input$plot_scalelocation_click, xvar = ".fitted", yvar = "sqrt.std.resid", maxpoints = 1, allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
             vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
-        # Toggle points that are brushed, when button is clicked
-        observeEvent(input$exclude_toggle_diag, {
-            
-            predict.frame <- modelFrame()
-            
-            pr <- panel_ranges(diagScaleLocation())
-            res <- brushedPoints_safe(predict.frame, input$plot_scalelocation_brush, xvar = ".fitted", yvar = "sqrt.std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
-            
-            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
-        })
         
         
         # Residuals Leverage
@@ -17884,22 +17884,12 @@ shinyServer(function(input, output, session) {
             predict.frame <- modelFrame()
             
             pr <- panel_ranges(diagResidualLeverage())
-            res <- nearPoints_safe(predict.frame, input$plot_residualleverage_click, xvar = ".hat", yvar = ".std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
+            res <- nearPoints_safe(predict.frame, input$plot_residualleverage_click, xvar = ".hat", yvar = ".std.resid", maxpoints = 1, allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
             vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
-        # Toggle points that are brushed, when button is clicked
-        observeEvent(input$exclude_toggle_diag, {
-            
-            predict.frame <- modelFrame()
-            
-            pr <- panel_ranges(diagResidualLeverage())
-            res <- brushedPoints_safe(predict.frame, input$plot_residualleverage_brush, xvar = ".hat", yvar = ".std.resid", allRows = TRUE, x_range=pr$x, y_range=pr$y)
-            
-            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
-        })
         
         
         # Cooks Leverage
@@ -17944,21 +17934,65 @@ shinyServer(function(input, output, session) {
             predict.frame <- modelFrame()
             
             pr <- panel_ranges(diagCooksLeverage())
-            res <- nearPoints_safe(predict.frame, input$plot_cooksleverage_click, xvar = ".hat", yvar = ".cooksd", allRows = TRUE, x_range=pr$x, y_range=pr$y)
+            res <- nearPoints_safe(predict.frame, input$plot_cooksleverage_click, xvar = ".hat", yvar = ".cooksd", maxpoints = 1, allRows = TRUE, x_range=pr$x, y_range=pr$y)
             
             vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
         })
         
         
-        # Toggle points that are brushed, when button is clicked
+        # Cooks Distance
+        # Hover tooltip
+        output$hover_infocooksdistance <- renderUI({
+            req(input$radiocal)
+            point.table <- modelFrame()
+            
+            hover <- input$plot_hovercooksdistance
+            point <- nearBars_safe(point.table, hover, xvar = "seq.cooksd", yvar = ".cooksd", maxpoints = 1)
+            if (nrow(point) == 0) return(NULL)
+            
+            left_px <- hover$coords_css$x
+            top_px <- hover$coords_css$y
+            
+            # Tooltip style: a slightly transparent background, and a z-index that keeps it on top.
+            style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
+            "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+            
+            wellPanel(
+            style = style,
+            p(HTML(paste0(point$Spectrum)))
+            )
+        })
+        
+        # Toggle the bar that is clicked
+        observeEvent(input$plot_cooksdistance_click, {
+            
+            predict.frame <- modelFrame()
+            
+            pr <- panel_ranges(diagCooksDistance())
+            res <- nearBars_safe(predict.frame, input$plot_cooksdistance_click, xvar = "seq.cooksd", yvar = ".cooksd", maxpoints = 1, allRows = TRUE, x_range=pr$x, y_range=pr$y)
+            
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
+        })
+        
+        
+        # Toggle the points brushed on any diagnostics plot when the button is clicked. Every brush is read against the same frame and the selections are combined, so each standard toggles once.
         observeEvent(input$exclude_toggle_diag, {
             
             predict.frame <- modelFrame()
             
-            pr <- panel_ranges(diagCooksLeverage())
-            res <- brushedPoints_safe(predict.frame, input$plot_cooksleverage_brush, xvar = ".hat", yvar = ".cooksd", allRows = TRUE, x_range=pr$x, y_range=pr$y)
+            brushed <- function(plot, brush, xvar, yvar, select=brushedPoints_safe){
+                if(is.null(brush)) return(rep(FALSE, nrow(predict.frame)))
+                pr <- panel_ranges(plot)
+                select(predict.frame, brush, xvar = xvar, yvar = yvar, allRows = TRUE, x_range=pr$x, y_range=pr$y)$selected_
+            }
+            sel <- brushed(diagResidualsFitted(), input$plot_residualsfitted_brush, ".fitted", ".resid") |
+                brushed(diagQQ(), input$plot_qq_brush, "qq", ".std.resid") |
+                brushed(diagScaleLocation(), input$plot_scalelocation_brush, ".fitted", "sqrt.std.resid") |
+                brushed(diagCooksDistance(), input$plot_cooksdistance_brush, "seq.cooksd", ".cooksd", select=brushedBars_safe) |
+                brushed(diagResidualLeverage(), input$plot_residualleverage_brush, ".hat", ".std.resid") |
+                brushed(diagCooksLeverage(), input$plot_cooksleverage_brush, ".hat", ".cooksd")
             
-            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, res$selected_)
+            vals$keeprows <- keepToggle(vals$keeprows, predict.frame, sel)
         })
         
         
@@ -18111,6 +18145,8 @@ shinyServer(function(input, output, session) {
             
             # Save the shuffle seed: the model builders order the standards with set.seed(input$randomize) and positional StandardsUsed masks follow that order, so a reload needs the same seed to realign the mask and repeat the resampling draws.
             new.cal$RandomizeSeed <- if(is.null(input$randomize) || length(input$randomize)!=1 || is.na(as.numeric(input$randomize))) 1 else as.numeric(input$randomize)
+            # Record which CloudCal build saved the file, for matching files to builds later.
+            new.cal$Build <- calibrationBuild(calMemory$Calibration$Build, loaded=!is.null(input$calfileinput))
             new.cal
         })
 
@@ -18135,10 +18171,14 @@ shinyServer(function(input, output, session) {
         }
         )
         
+        # One validation plot per element with a stored standards table; elements without one (older calibrations not updated since tables were stored) or whose plot fails are left out instead of failing the whole report.
         calPlotList <- reactive({
             cal_plot_list <- list()
             for(i in names(calExport()$calList)){
-                cal_plot_list[[i]] <- simpleValPlot(cal_table=calExport()$calList[[i]]$Table, unit=input$plotunit, element=i, scale=input$loglinear)
+                cal_table <- calExport()$calList[[i]]$Table
+                if(!is.data.frame(cal_table) || nrow(cal_table) == 0) next
+                cal_plot <- tryCatch(simpleValPlot(cal_table=cal_table, unit=input$plotunit, element=i, scale=input$loglinear), error=function(e) NULL)
+                if(!is.null(cal_plot)) cal_plot_list[[i]] <- cal_plot
             }
             cal_plot_list
         })
@@ -20041,7 +20081,7 @@ observeEvent(input$actionprocess2_multi, {
         })
         
         output$variablePlot_multi <- downloadHandler(
-        filename = function() { paste0(input$calname_multi, "_", input$calcurveelemenet_multi , '_Variables', '.tiff', sep='') },
+        filename = function() { paste0(input$calname_multi, "_", input$calcurveelement_multi , '_Variables', '.tiff', sep='') },
         content = function(file) {
             ggsave(file,variablesPlotMulti(), width=plotDimensions()[1], height=plotDimensions()[2], device="tiff", compression="lzw",  dpi=300)
         }
@@ -22058,6 +22098,39 @@ content = function(file){
         
     })
     
+    # Checks that need no new spectra: models that no longer reproduce their own standards, and models trained on a deconvolution from an older algorithm, which Apply cannot reproduce because it deconvolutes new spectra with the current one.
+    applyCalibrationChecks <- reactive({
+        cal <- calFileContents2()
+        req(cal)
+        msgs <- character(0)
+        stale <- tryCatch(calibrationSelfCheck(cal), error=function(e) NULL)
+        if(is.data.frame(stale) && nrow(stale) > 0){
+            msgs <- c(msgs, paste0("These models no longer reproduce their own standards from the calibration's spectra, so their results are unreliable until they are rebuilt (load the calibration, review and press Update): ",
+                paste0(stale$Element, " (", round(100 * stale$Deviation), "% of range)", collapse=", "), "."))
+        }
+        dependent <- deconvolutionDependentElements(cal)
+        if(length(dependent) > 0 && isTRUE(legacyDeconvolution(cal))){
+            msgs <- c(msgs, paste0("These models were trained on deconvolution from an older algorithm, while new spectra are deconvoluted with the current one, so their results will be off; rebuild them after deconvoluting again: ", paste(dependent, collapse=", "), "."))
+        }
+        if(length(msgs) > 0 && is.null(cal$Build)) msgs <- c(msgs, "This calibration was saved before CloudCal recorded builds.")
+        msgs
+    })
+
+    # Messages from the spectra checks, set when Quantify runs, shown with the calibration checks.
+    applySpectraMessages <- reactiveVal(character(0))
+    observeEvent(input$calfileinput2, applySpectraMessages(character(0)))
+
+    output$applywarnings <- renderUI({
+        msgs <- c(tryCatch(applyCalibrationChecks(), error=function(e) character(0)), applySpectraMessages())
+        if(length(msgs) == 0) return(NULL)
+        tagList(tags$hr(), tags$div(style="color:#a94442;", lapply(msgs, function(m) tags$p(m))))
+    })
+
+    observeEvent(applyCalibrationChecks(), {
+        msgs <- applyCalibrationChecks()
+        if(length(msgs) > 0) showNotification(paste(msgs, collapse=" "), type="warning", duration=NULL)
+    })
+
     beamSelect <- reactive({
         if("Beam" %in% names(calFileContents2())){
             calFileContents2()$Beam
@@ -22299,6 +22372,10 @@ content = function(file){
                 energy_cal <- ec$Model
                 spectra$Energy <- predict(object=energy_cal, newdata=list(channel_vector=channels))
             }
+
+            # The calibration's spectra were shifted by its Energy Offset when committed, so new spectra get the same shift.
+            offset <- suppressWarnings(as.numeric(calFileContents2()$EnergyOffset))
+            if(length(offset) == 1 && is.finite(offset) && offset != 0) spectra$Energy <- spectra$Energy + offset
 
             spectra
 
@@ -22886,9 +22963,36 @@ content = function(file){
         #     list(Narrow=fullInputValCountsDeconvoluted(), Wide=fullInputValCountsWideDeconvoluted())
         #})
         
+        # Checks against the new spectra: an energy offset between their channels and the calibration's (as between file reader versions), and a different share of counts below 0.6 keV, which changes Total Counts normalization.
+        applySpectraChecks <- reactive({
+            cal <- calFileContents2()
+            req(cal, !is.null(cal$Spectra))
+            new <- tryCatch(myValData(), error=function(e) NULL)
+            req(is.data.frame(new), all(c("Energy", "CPS") %in% names(new)))
+            a <- tryCatch(spectraAlignmentCheck(cal$Spectra, new), error=function(e) NULL)
+            if(is.null(a)) return(character(0))
+            msgs <- character(0)
+            if(a$Shift != 0){
+                msgs <- c(msgs, sprintf("The new spectra sit %d channel%s (%.0f eV) %s than the calibration's own spectra, as happens when they were read by a different file reader version. Line intensities shift, so results will be biased; rebuild the calibration from its original files with this version.",
+                    abs(a$Shift), if(abs(a$Shift) == 1) "" else "s", 1000 * abs(a$ShiftKeV), if(a$Shift > 0) "higher" else "lower"))
+            }
+            tc <- names(Filter(function(x) isTRUE(as.numeric(x[[1]]$CalTable$NormType[1]) == 2), cal$calList))
+            if(length(tc) > 0 && all(is.finite(c(a$LowCal, a$LowNew))) && abs(a$LowCal - a$LowNew) > 0.01){
+                msgs <- c(msgs, sprintf("%.0f%% of the calibration's counts lie below 0.6 keV against %.0f%% in the new spectra, so Total Counts normalization differs: %s.",
+                    100 * a$LowCal, 100 * a$LowNew, paste(tc, collapse=", ")))
+            }
+            msgs
+        })
+
+        observeEvent(applySpectraChecks(), {
+            msgs <- applySpectraChecks()
+            applySpectraMessages(msgs)
+            if(length(msgs) > 0) showNotification(paste(msgs, collapse=" "), type="warning", duration=NULL)
+        })
+
         cloudCalPredictions <- reactive({
             
-            cloudCalPredict(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=4, multiplier=1)
+            cloudCalPredict(Calibration=calFileContents2(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=10, multiplier=1)
 
             
         })
@@ -22919,11 +23023,11 @@ content = function(file){
                 })
             } else if(input$error=="eqm"){
                 suppressWarnings({
-                    cloudCalPredictErrorEQM(Calibration=calFileContents2(), predictions=cloudCalPredictions(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=4, multiplier=1, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
+                    cloudCalPredictErrorEQM(Calibration=calFileContents2(), predictions=cloudCalPredictions(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=10, multiplier=1, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
                 })
             } else if(input$error=="y hat"){
                 suppressWarnings({
-                    cloudCalPredictErrorYHat(Calibration=calFileContents2(), predictions=cloudCalPredictions(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=4, multiplier=1, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
+                    cloudCalPredictErrorYHat(Calibration=calFileContents2(), predictions=cloudCalPredictions(), count.list=countList(), elements.cal=calValElements(), variables=calVariableElements(), valdata=myValData(), deconvoluted_valdata=myDeconvolutedValData(), rounding=10, multiplier=1, energy.min=input$fanowindow[1], energy.max=input$fanowindow[2], se=input$se_error)
                 })
                 }
             

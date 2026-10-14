@@ -701,7 +701,11 @@ tabPanel("Diagnostics",
         plotOutput("scalelocation", height=250, click="plot_scalelocation_click", brush=brushOpts(id="plot_scalelocation_brush", resetOnNew = TRUE),
             hover = hoverOpts("plot_hoverscalelocation", delay = 100, delayType = "debounce")),
         uiOutput("hover_infoscalelocation")),
-        plotOutput("cooksdistance", height=250, click="plot_cooksdistance_click", brush=brushOpts(id="plot_cooksdistance_brush", resetOnNew = TRUE))
+        div(
+        style = "position:relative",
+        plotOutput("cooksdistance", height=250, click="plot_cooksdistance_click", brush=brushOpts(id="plot_cooksdistance_brush", resetOnNew = TRUE),
+            hover = hoverOpts("plot_hovercooksdistance", delay = 100, delayType = "debounce")),
+        uiOutput("hover_infocooksdistance"))
 ),
     splitLayout(cellWidths = c("50%", "50%"),
         div(
@@ -958,6 +962,7 @@ uiOutput('dfl_val_load'),
 tags$hr(),
 
 fileInput('calfileinput2', 'Load Cal File', accept=".quant", multiple=FALSE),
+uiOutput('applywarnings'),
 selectInput('quantmode', 'Quantification Mode',
     choices=c("Calibration", "FP (no calibration)"), selected="Calibration"),
 conditionalPanel("input.quantmode == 'FP (no calibration)'",

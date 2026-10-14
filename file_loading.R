@@ -3525,7 +3525,8 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     
     bartk <- if("bartK" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
-            paste0(pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)), "-", pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)))
+            # The k slider is a percentage that training maps through dnorminv(), so the stored setting is restored rather than the tuned k.
+            as.character(imported.cal.conditions$CalTable$bartK[1])
         } else if(!cal.condition==10 | !cal.condition==11){
             as.character(imported.cal.conditions$CalTable$bartK[1])
         }
@@ -3642,9 +3643,16 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     }
     
     intercept.corrections <- if("Intercept" %in% names(imported.cal.conditions)){
-        as.character(imported.cal.conditions$Intercept)
+        # An empty selection keeps its stored form: older calibrations saved character(0), which the Lucas-Tooth preps treat as an intercept correction and their models were fit with, while current ones save NULL.
+        if(is.null(imported.cal.conditions$Intercept)) NULL else as.character(imported.cal.conditions$Intercept)
     } else if(!"Intercept" %in% names(imported.cal.conditions)){
         default.cal.conditions$Intercept
+    }
+    # With Time or Total Counts normalization the character(0) form makes the Lucas-Tooth Intensity column constant, so a stored lm that kept an Intensity coefficient was fit without it and reads as NULL.
+    if(!is.null(intercept.corrections) && length(intercept.corrections) == 0 && isTRUE(as.numeric(imported.cal.conditions$CalTable$CalType[1]) == 3) &&
+       isTRUE(as.numeric(imported.cal.conditions$CalTable$NormType[1]) %in% c(1, 2))){
+        stored.model <- tryCatch(calList[[element]][[2]], error=function(e) NULL)
+        if(inherits(stored.model, "lm") && "Intensity" %in% names(coef(stored.model)) && !is.na(coef(stored.model)[["Intensity"]])) intercept.corrections <- NULL
     }
     
     standards.used <- if("StandardsUsed" %in% names(imported.cal.conditions)){
@@ -4100,7 +4108,8 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     
     bartk <- if("bartK" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==10 | cal.condition==11 && xgbtype=="Tree"){
-            paste0(pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)), "-", pnorm(as.numeric(calList[[element]][[2]]$bestTune$k)))
+            # The k slider is a percentage that training maps through dnorminv(), so the stored setting is restored rather than the tuned k.
+            as.character(imported.cal.conditions$CalTable$bartK[1])
         } else if(!cal.condition==10 | !cal.condition==11){
             as.character(imported.cal.conditions$CalTable$bartK[1])
         }
@@ -4217,9 +4226,16 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     }
     
     intercept.corrections <- if("Intercept" %in% names(imported.cal.conditions)){
-        as.character(imported.cal.conditions$Intercept)
+        # An empty selection keeps its stored form: older calibrations saved character(0), which the Lucas-Tooth preps treat as an intercept correction and their models were fit with, while current ones save NULL.
+        if(is.null(imported.cal.conditions$Intercept)) NULL else as.character(imported.cal.conditions$Intercept)
     } else if(!"Intercept" %in% names(imported.cal.conditions)){
         default.cal.conditions$Intercept
+    }
+    # With Time or Total Counts normalization the character(0) form makes the Lucas-Tooth Intensity column constant, so a stored lm that kept an Intensity coefficient was fit without it and reads as NULL.
+    if(!is.null(intercept.corrections) && length(intercept.corrections) == 0 && isTRUE(as.numeric(imported.cal.conditions$CalTable$CalType[1]) == 3) &&
+       isTRUE(as.numeric(imported.cal.conditions$CalTable$NormType[1]) %in% c(1, 2))){
+        stored.model <- tryCatch(calList[[element]][[2]], error=function(e) NULL)
+        if(inherits(stored.model, "lm") && "Intensity" %in% names(coef(stored.model)) && !is.na(coef(stored.model)[["Intensity"]])) intercept.corrections <- NULL
     }
     
     standards.used <- if("StandardsUsed" %in% names(imported.cal.conditions)){
@@ -4761,6 +4777,16 @@ sortAlignCalibration <- function(Calibration) {
     Calibration
 }
 
+# Calibrations saved before the training seed was stored applied an unnamed StandardsUsed by position over the element's standards with values, sorted by Spectrum. Tag those masks so the app reads them that way, which still holds after the file is saved again with a seed.
+tagSortedStandardsUsed <- function(Calibration){
+    if(!is.null(Calibration$RandomizeSeed) || !is.list(Calibration$calList)) return(Calibration)
+    for(element in names(Calibration$calList)){
+        su <- tryCatch(Calibration$calList[[element]][[1]]$StandardsUsed, error=function(e) NULL)
+        if(!is.null(su) && is.null(names(su))) attr(Calibration$calList[[element]][[1]]$StandardsUsed, "order") <- "sorted"
+    }
+    Calibration
+}
+
 calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE, env.strip=TRUE, temp=FALSE, extensions=FALSE, xgb_raw=FALSE, xgb_unserialize=FALSE, sort=FALSE, deconvolution=TRUE, rebuild=FALSE, build=FALSE, elements=NULL, allowParallel=TRUE){
     if(is.null(Calibration)){
         Calibration <- readRDS(calibration.directory)
@@ -4978,6 +5004,9 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     if(any(names(Calibration$calList) %in% spectralLines)){
         Calibration <- intensity_fix(Calibration)
     }
+    
+    # Tagged after calPre(), which rebuilds each element's settings and would drop the tag.
+    Calibration <- tagSortedStandardsUsed(Calibration)
     
     
     

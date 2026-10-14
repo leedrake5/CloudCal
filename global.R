@@ -1021,13 +1021,23 @@ lm_eqn.old <- function(df){
 lm_eqn.old <- cmpfun(lm_eqn.old)
 
 
+# Right-hand side of an equation label: the intercept, then each term added or subtracted by the sign of its coefficient and shown with its magnitude. The comma that follows the equation is attached to the last term, so plotmath draws no parentheses.
+lm_eqn_rhs <- function(intercept, coefs, vars){
+    rhs <- as.numeric(format(intercept, digits = 2))
+    for(k in seq_along(coefs)){
+        term <- bquote(.(as.numeric(format(abs(coefs[k]), digits = 2))) %.% .(vars[[k]]))
+        if(k == length(coefs)) term <- bquote(.(term)*",")
+        rhs <- if(isTRUE(coefs[k] < 0)) bquote(.(rhs) - .(term)) else bquote(.(rhs) + .(term))
+    }
+    rhs
+}
+
 lm_eqn = function(m) {
     
-    l <- list(a = as.numeric(format(coef(m)[1], digits = 2)),
-    b = as.numeric(format(abs(coef(m)[2]), digits = 2)),
-    r2 = format(summary(m)$r.squared, digits = 3));
+    rhs <- lm_eqn_rhs(coef(m)[1], coef(m)[2], list(quote(italic(I)[i])))
+    r2 <- format(summary(m)$r.squared, digits = 3)
     
-        eq <- substitute(italic(C)[i] == a + b %.% italic(I)[i]*","~~italic(r)^2~"="~r2,l)
+        eq <- bquote(italic(C)[i] == .(rhs)~~italic(r)^2~"="~.(r2))
   
     
     as.character(as.expression(eq));
@@ -1045,12 +1055,10 @@ lm_eqn_simple <- function(df){
 
 lm_eqn_poly = function(m) {
     
-    l <- list(a = as.numeric(format(coef(m)[1], digits = 2)),
-    b = as.numeric(format(abs(coef(m)[2]), digits = 2)),
-    c = as.numeric(format(abs(coef(m)[3]), digits = 2)),
-    r2 = format(summary(m)$r.squared, digits = 3));
+    rhs <- lm_eqn_rhs(coef(m)[1], coef(m)[c(3, 2)], list(quote(italic(I)[i]^2), quote(italic(I)[i])))
+    r2 <- format(summary(m)$r.squared, digits = 3)
     
-        eq <- substitute(italic(C)[i] == a + c %.% italic(I)[i]^2 + b %.% italic(I)[i]*","~~italic(r)^2~"="~r2,l)
+        eq <- bquote(italic(C)[i] == .(rhs)~~italic(r)^2~"="~.(r2))
    
     
     as.character(as.expression(eq));
@@ -1060,11 +1068,10 @@ lm_eqn_poly <- cmpfun(lm_eqn_poly)
 
 lm_eqn_val = function(m) {
     
-    l <- list(a = as.numeric(format(coef(m)[1], digits = 2)),
-    b = as.numeric(format(abs(coef(m)[2]), digits = 2)),
-    r2 = format(summary(m)$r.squared, digits = 3));
+    rhs <- lm_eqn_rhs(coef(m)[1], coef(m)[2], list(quote(italic(x))))
+    r2 <- format(summary(m)$r.squared, digits = 3)
     
-        eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,l)
+        eq <- bquote(italic(y) == .(rhs)~~italic(r)^2~"="~.(r2))
    
     
     as.character(as.expression(eq));
@@ -3818,6 +3825,40 @@ looCurveFrame <- function(fits, cv.model, corrected=FALSE, points=200){
     average <- data.frame(Intensity=x, Estimate=average)
     list(Refits=refits[is.finite(refits$Intensity) & is.finite(refits$Estimate), , drop=FALSE],
         Average=average[is.finite(average$Intensity) & is.finite(average$Estimate), , drop=FALSE])
+}
+
+# Regression diagnostics for the Diagnostics tab, one row per row of frame and in the same order, so a selection maps straight onto the standards mask. Included standards take their values from fit.fun on the included standards; each excluded standard takes the values it would have if it alone were added back, so it stays on the plots and can be selected again. Returns NULL when the included standards cannot be fit.
+diagnosticsFrame <- function(frame, keep, fit.fun){
+    n <- NROW(frame)
+    if(!is.data.frame(frame) || n == 0 || is.null(fit.fun)) return(NULL)
+    if(is.null(keep) || length(keep) != n) keep <- rep(TRUE, n)
+    keep <- keep %in% TRUE
+    rownames(frame) <- as.character(seq_len(n))
+    cols <- c(".fitted", ".resid", ".hat", ".std.resid", ".cooksd", "qq")
+    stats_of <- function(rows){
+        tryCatch(suppressWarnings({
+            model <- fit.fun(frame[rows, , drop=FALSE])
+            id <- names(fitted(model))
+            out <- data.frame(.fitted=fitted(model)[id], .resid=residuals(model)[id], .hat=hatvalues(model)[id],
+                .std.resid=rstandard(model)[id], .cooksd=cooks.distance(model)[id], row.names=id, check.names=FALSE)
+            out$qq <- qqnorm(out$.std.resid, plot.it=FALSE)$x
+            out
+        }), error=function(e) NULL)
+    }
+    kept <- if(sum(keep) >= 2) stats_of(keep) else NULL
+    if(is.null(kept) || nrow(kept) == 0) return(NULL)
+    diag <- as.data.frame(matrix(NA_real_, n, length(cols), dimnames=list(NULL, cols)), check.names=FALSE)
+    diag[as.integer(rownames(kept)), cols] <- kept[, cols]
+    for(j in which(!keep)){
+        added <- stats_of(keep | seq_len(n) == j)
+        if(!is.null(added) && as.character(j) %in% rownames(added)) diag[j, cols] <- added[as.character(j), cols]
+    }
+    spectrum <- if("Spectrum" %in% colnames(frame)) as.character(frame$Spectrum) else as.character(seq_len(n))
+    out <- data.frame(Spectrum=spectrum, Included=keep, diag, stringsAsFactors=FALSE, check.names=FALSE)
+    out$sqrt.std.resid <- sqrt(abs(out$.std.resid))
+    out$seq.cooksd <- seq_len(n)
+    rownames(out) <- NULL
+    out
 }
 
 
@@ -7162,10 +7203,101 @@ calBundle <- function(filetype, units, spectra, intensities, wide.intensities, d
 }
 
 
+# Build identifier written into every saved calibration, so a file records which CloudCal produced it; change it with each release.
+CLOUDCAL_BUILD <- "2026.10.14"
+# Version of the deconvolution stored in a calibration's Deconvoluted slot; raise it whenever areas or baselines change scale, since models trained on Baseline, Net or Area intensities only reproduce with the same algorithm.
+DECONVOLUTION_ALGORITHM <- 2L
+
+# The Build record saved with a calibration: this build, when it was saved, and the reader and deconvolution package versions; Created carries over from the previous record and is NA for files saved before builds were recorded.
+calibrationBuild <- function(previous=NULL, loaded=FALSE){
+    pkg <- function(p) tryCatch(as.character(utils::packageVersion(p)), error=function(e) NA_character_)
+    now <- format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")
+    created <- if(!is.null(previous$Created)) previous$Created else if(loaded) NA_character_ else now
+    list(CloudCal=CLOUDCAL_BUILD, Saved=now, Created=created, R=R.version$version.string, xrftools=pkg("xrftools"), rPDZ=pkg("rPDZ"))
+}
+
+# TRUE when a calibration's stored deconvolution came from an older algorithm: it has no Algorithm stamp and its SNIP baseline holds more counts than the raw spectra, which the current algorithm cannot produce.
+legacyDeconvolution <- function(Calibration){
+    d <- Calibration$Deconvoluted
+    if(is.null(d) || is.null(d$Baseline) || is.null(Calibration$Spectra)) return(FALSE)
+    if(!is.null(d$Parameters$Algorithm)) return(as.numeric(d$Parameters$Algorithm) < DECONVOLUTION_ALGORITHM)
+    raw <- sum(as.numeric(Calibration$Spectra$CPS), na.rm=TRUE)
+    base <- sum(as.numeric(d$Baseline$CPS), na.rm=TRUE)
+    is.finite(raw) && raw > 0 && is.finite(base) && base > 1.5 * raw
+}
+
+# Elements whose model reads Baseline or Net normalization or Area lines, which depend on the stored deconvolution.
+deconvolutionDependentElements <- function(Calibration){
+    names(Filter(function(x) tryCatch({
+        ct <- x[[1]]$CalTable
+        as.character(ct$ComptonType[1]) %in% c("Baseline", "Net") || identical(as.character(ct$LineType[1]), "Area")
+    }, error=function(e) FALSE), Calibration$calList))
+}
+
+# Elements whose saved model no longer reproduces its own standards from the calibration's stored spectra, typically because spectra, lines or deconvolution changed without Update. Compares Apply predictions with the saved standards table, or for lm models without one with the fitted values; returns element and deviation as a fraction of the concentration range.
+calibrationSelfCheck <- function(Calibration, tolerance=0.01){
+    empty <- data.frame(Element=character(0), Deviation=numeric(0), stringsAsFactors=FALSE)
+    if(is.null(Calibration$Spectra) || is.null(Calibration$Intensities) || !length(Calibration$calList)) return(empty)
+    variables <- order_elements(setdiff(names(Calibration$Intensities), "Spectrum"))
+    els <- intersect(names(Calibration$calList), variables)
+    pr <- tryCatch(suppressMessages(suppressWarnings(cloudCalPredict(Calibration=Calibration, elements.cal=els, elements=els, variables=variables,
+        valdata=Calibration$Spectra, deconvoluted_valdata=Calibration$Deconvoluted, rounding=12, multiplier=1, cores=1))), error=function(e) NULL)
+    if(!is.data.frame(pr)) return(empty)
+    out <- lapply(els, function(el){
+        if(!el %in% names(pr)) return(NULL)
+        ap <- suppressWarnings(as.numeric(pr[[el]])); names(ap) <- as.character(pr$Spectrum)
+        conc <- suppressWarnings(as.numeric(Calibration$Values[[el]])); names(conc) <- as.character(Calibration$Values$Spectrum)
+        span <- diff(range(conc, na.rm=TRUE, finite=TRUE)); if(!is.finite(span) || span <= 0) return(NULL)
+        tab <- Calibration$calList[[el]]$Table
+        dev <- if(is.data.frame(tab) && all(c("Spectrum", "Prediction") %in% names(tab))){
+            want <- suppressWarnings(as.numeric(tab$Prediction)); got <- ap[as.character(tab$Spectrum)]
+            ok <- is.finite(want) & is.finite(got); if(!any(ok)) return(NULL); max(abs(got[ok] - want[ok]))
+        } else if(inherits(Calibration$calList[[el]]$Model, "lm")){
+            m <- Calibration$calList[[el]]$Model
+            fb <- tryCatch(fitted(m), error=function(e) NULL); yb <- tryCatch(fb + residuals(m), error=function(e) NULL)
+            if(is.null(fb) || is.null(yb)) return(NULL)
+            dep <- as.character(Calibration$calList[[el]][[1]]$CalTable$DepTrans[1])
+            if(!identical(dep, "None") && !is.na(dep)) return(NULL)
+            d <- vapply(seq_along(fb), function(i){ cand <- names(conc)[is.finite(conc) & abs(conc - yb[i]) <= 1e-7 * max(1, abs(yb[i]))]; v <- ap[cand]; if(!length(v) || all(!is.finite(v))) NA else min(abs(v - fb[i]), na.rm=TRUE) }, numeric(1))
+            if(all(is.na(d))) return(NULL); stats::median(d, na.rm=TRUE)
+        } else return(NULL)
+        if(dev / span > tolerance) data.frame(Element=el, Deviation=dev / span, stringsAsFactors=FALSE) else NULL
+    })
+    out <- do.call(rbind, out)
+    if(is.null(out)) empty else out
+}
+
+# Compares new spectra with a calibration's own: the channel shift that best aligns their mean spectra, and the share of counts below 0.6 keV in each, which differs between file readers and changes Total Counts.
+spectraAlignmentCheck <- function(cal_spectra, new_spectra, max_shift=5){
+    mean_spectrum <- function(s){ a <- stats::aggregate(as.numeric(s$CPS), list(Energy=round(as.numeric(s$Energy), 4)), mean); a[order(a$Energy), ] }
+    out <- list(Shift=0, ShiftKeV=0, LowCal=NA_real_, LowNew=NA_real_)
+    cs <- tryCatch(mean_spectrum(cal_spectra), error=function(e) NULL); ns <- tryCatch(mean_spectrum(new_spectra), error=function(e) NULL)
+    if(is.null(cs) || is.null(ns) || nrow(cs) < 50 || nrow(ns) < 50) return(out)
+    step <- stats::median(diff(cs$Energy)); if(!is.finite(step) || step <= 0) return(out)
+    keep <- cs$Energy >= 1 & cs$Energy <= max(cs$Energy) - max_shift * step
+    target <- sqrt(pmax(cs$x[keep], 0))
+    score <- vapply(-max_shift:max_shift, function(k){
+        moved <- stats::approx(ns$Energy, ns$x, xout=cs$Energy[keep] + k * step, rule=2)$y
+        suppressWarnings(stats::cor(target, sqrt(pmax(moved, 0))))
+    }, numeric(1))
+    if(all(!is.finite(score))) return(out)
+    k <- (-max_shift:max_shift)[which.max(score)]
+    low <- function(s) sum(s$x[s$Energy < 0.6]) / max(sum(s$x), .Machine$double.eps)
+    list(Shift=k, ShiftKeV=k * step, LowCal=low(cs), LowNew=low(ns))
+}
+
 cloudCalPredict <- function(Calibration, elements.cal, elements, variables, valdata, deconvoluted_valdata=NULL, count.list=NULL, rounding=4, multiplier=1, confidence=FALSE, cores=NULL, livetime=NULL){
     
     if(is.null(cores)){
         cores = parallel::detectCores()-2
+    }
+
+    # Total Counts sums every channel, so new spectra are cut to the energy range of the calibration's own spectra; files that reach further would otherwise get larger divisors than the standards were trained with.
+    cal.energy <- suppressWarnings(range(as.numeric(Calibration$Spectra$Energy), finite=TRUE))
+    if(all(is.finite(cal.energy)) && is.data.frame(valdata) && "Energy" %in% colnames(valdata)){
+        half.channel <- 0.5 * stats::median(diff(sort(unique(as.numeric(Calibration$Spectra$Energy)))), na.rm=TRUE)
+        if(!is.finite(half.channel)) half.channel <- 0
+        valdata <- valdata[valdata$Energy >= cal.energy[1] - half.channel & valdata$Energy <= cal.energy[2] + half.channel, , drop=FALSE]
     }
     
     if(is.null(deconvoluted_valdata)){
@@ -7258,11 +7390,40 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
             count.table <- count.list$Narrow_gaussian
         
         predicted.frame <- data.frame(Spectrum=count.table$Spectrum, stringsAsFactors=FALSE)
+
+        # Narrow and split line tables depend on the line widths, so each element is predicted from tables built with the widths it was trained with: its own CalTable GausBuffer/SplitBuffer, else the calibration's LineDefaults. count.list is taken to use the "buffers" attribute it carries, or the builder defaults.
+        width_or <- function(v, fallback){ v <- suppressWarnings(as.numeric(v)[1]); if(length(v) == 1 && is.finite(v)) v else fallback }
+        default.widths <- c(width_or(Calibration$LineDefaults$GausBuffer, 0.02), width_or(Calibration$LineDefaults$SplitBuffer, 0.1))
+        base.widths <- if(length(attr(count.list, "buffers")) == 2) as.numeric(attr(count.list, "buffers")) else c(0.02, 0.1)
+        base.count.list <- count.list
+        width.cache <- list()
+        element_count_list <- function(element){
+            ct <- the.cal[[element]][[1]]$CalTable
+            widths <- c(width_or(ct$GausBuffer, default.widths[1]), width_or(ct$SplitBuffer, default.widths[2]))
+            if(val.data.type != "Spectra" || isTRUE(all.equal(widths, base.widths))) return(base.count.list)
+            key <- paste(widths, collapse="_")
+            if(is.null(width.cache[[key]])){
+                cl <- base.count.list
+                build <- function(f, ...) merge(f(spectra=valdata, definition.table=Calibration$Definitions, elements=variables, ...), other_spectra_stuff, by="Spectrum", all=T, sort=T)
+                cl$Narrow_gaussian <- build(narrowLineTable, gaus_buffer=widths[1])
+                cl$Narrow_first <- build(narrowLineTableFirst, gaus_buffer=widths[1])
+                cl$Narrow_second <- build(narrowLineTableSecond, gaus_buffer=widths[1])
+                cl$Narrow_split <- build(narrowLineTableSplit, split_buffer=widths[2])
+                cl$Wide_split <- build(wideLineTableSplit, split_buffer=widths[2])
+                width.cache[[key]] <<- cl
+            }
+            width.cache[[key]]
+        }
             
             #pblapply(elements, function(x) tryCatch(predicted.frame[,x] <-
         
+        base.variables <- variables
         for(x in elements){
-            values <-
+            count.list <- element_count_list(x)
+            # Slope lines saved with the model can include Total, Baseline and scatter peaks, which are not among the calibration's line variables but are columns of the count tables.
+            variables <- union(base.variables, intersect(as.character(the.cal[[x]][[1]]$Slope), colnames(count.list$Narrow_gaussian)))
+            # One element that cannot be predicted leaves its column out rather than failing the whole table.
+            values <- tryCatch(
             if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="None" && cal_type(x)==1 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==1){
                 mclPred(
                     object=the.cal[[x]][["Model"]],
@@ -7272,8 +7433,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             ),
                             element.line=x),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            ymin=the.cal[[x]][[1]]$Scale$Min,
+                            ymax=the.cal[[x]][[1]]$Scale$Max,
                             confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="None" && cal_type(x)==1 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==2) {
@@ -7289,8 +7450,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         element.line=x
                         ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="None" && cal_type(x)==1 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==3) {
@@ -7308,8 +7469,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                             ),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            ymin=the.cal[[x]][[1]]$Scale$Min,
+                            ymax=the.cal[[x]][[1]]$Scale$Max,
                             confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==1){
@@ -7340,8 +7501,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         )
                     },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                  )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==2){
@@ -7375,8 +7536,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         )
                     },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="None" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==3){
@@ -7414,8 +7575,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             )
                     },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="None"  && cal_type(x)==4 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==1){
@@ -7430,8 +7591,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7450,8 +7611,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7472,8 +7633,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7488,8 +7649,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                         )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7503,6 +7664,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                         )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7517,8 +7680,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7534,8 +7697,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7554,8 +7717,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7565,7 +7728,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=lucas_comp_prep_xrf(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]][,variables]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
                         deconvolution = deconvoluted_valdata,
                         compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -7576,8 +7739,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7591,8 +7754,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                     )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7606,8 +7769,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7622,8 +7785,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7639,8 +7802,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7660,8 +7823,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=FALSE
                     )
@@ -7680,8 +7843,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ))),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                     )
@@ -7704,8 +7867,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7719,8 +7882,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7734,8 +7897,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7750,8 +7913,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7767,8 +7930,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7787,8 +7950,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7809,8 +7972,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7824,8 +7987,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                     )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7839,8 +8002,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7855,8 +8018,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7872,8 +8035,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7892,6 +8055,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7912,8 +8077,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7927,8 +8092,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -7942,8 +8107,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7958,8 +8123,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -7972,15 +8137,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             ),
                             element.line=x),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            ymin=the.cal[[x]][[1]]$Scale$Min,
+                            ymax=the.cal[[x]][[1]]$Scale$Max,
                             confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==1 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==2) {
                 mclPred(
                     object=the.cal[[x]][["Model"]],
                     newdata=simple_tc_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                             ),
@@ -7989,15 +8154,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             element.line=x
                             ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==1 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==3) {
                 mclPred(
                     object=the.cal[[x]][["Model"]],
                         newdata=simple_comp_prep_xrf(
-                            data=deconvoluted_valdata,
+                            data=valdata,
                             spectra.line.table=as.data.frame(
                             count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                                 ),
@@ -8008,8 +8173,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                                 norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                                 ),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            ymin=the.cal[[x]][[1]]$Scale$Min,
+                            ymax=the.cal[[x]][[1]]$Scale$Max,
                             confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==1){
@@ -8040,8 +8205,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         )
                     },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                  )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==2){
@@ -8052,7 +8217,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         lucas_classic_prep_xrf(
                             data=valdata,
                             spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]][,variables]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                                 ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8060,13 +8225,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                             norm.type=2,
                             data.type="Spectra",
-                            spectrum.ids=count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]$Spectrum
+                            spectrum.ids=count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]$Spectrum
                             )
                     } else {
                         lucas_tc_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]][,variables]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8076,8 +8241,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             )
                     },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="Least Squares" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==3){
@@ -8102,7 +8267,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             )
                     } else {
                         lucas_comp_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                             ),
@@ -8116,8 +8281,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             )
                     },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Spectra" && the.cal[[x]][["Parameters"]]$CalTable$Deconvolution=="Least Squares"  && cal_type(x)==4 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==1){
@@ -8132,8 +8297,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8141,7 +8306,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                     object=the.cal[[x]][["Model"]],
                     newdata=lucas_tc_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
@@ -8152,8 +8317,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8161,7 +8326,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                 object=the.cal[[x]][["Model"]],
                     newdata=lucas_comp_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
@@ -8174,8 +8339,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8190,8 +8355,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                         )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8205,6 +8370,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                         )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8219,8 +8386,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8236,8 +8403,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8245,7 +8412,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                     object=the.cal[[x]][["Model"]],
                     newdata=lucas_tc_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
@@ -8256,8 +8423,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8265,7 +8432,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                 object=the.cal[[x]][["Model"]],
                     newdata=lucas_comp_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
@@ -8278,8 +8445,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8293,8 +8460,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                     )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8308,8 +8475,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8324,8 +8491,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8341,8 +8508,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                 ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8351,7 +8518,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     mclPred(
                     object=the.cal[[x]][["Model"]],
                     newdata=lucas_tc_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
@@ -8362,8 +8529,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=FALSE
                     )
@@ -8371,7 +8538,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     mclPred(
                     object=the.cal[[x]][["Model"]],
                     newdata=xgb.DMatrix(as.matrix(lucas_tc_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,colnames(the.cal[[x]][["Model"]][["trainingData"]][,c(-1, -2)])]
                         ),
@@ -8382,8 +8549,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ))),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                     )
@@ -8392,7 +8559,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                 object=the.cal[[x]][["Model"]],
                 newdata=lucas_comp_prep_xrf(
-                    data=deconvoluted_valdata,
+                    data=valdata,
                     spectra.line.table=as.data.frame(
                     count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                     ),
@@ -8405,8 +8572,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8420,8 +8587,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8435,8 +8602,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8451,8 +8618,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8468,8 +8635,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8477,7 +8644,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                     object=the.cal[[x]][["Model"]],
                     newdata=lucas_tc_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
@@ -8488,8 +8655,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8497,7 +8664,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                 object=the.cal[[x]][["Model"]],
                     newdata=lucas_comp_prep_xrf(
-                        data=deconvoluted_valdata,
+                        data=valdata,
                         spectra.line.table=as.data.frame(
                         count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                         ),
@@ -8510,8 +8677,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8525,8 +8692,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                     )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8540,8 +8707,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8556,8 +8723,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8575,8 +8742,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8584,7 +8751,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                 object=the.cal[[x]][["Model"]],
                 newdata=lucas_tc_prep_xrf(
-                    data=deconvoluted_valdata,
+                    data=valdata,
                     spectra.line.table=as.data.frame(
                     count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                     ),
@@ -8595,6 +8762,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8602,7 +8771,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 mclPred(
                 object=the.cal[[x]][["Model"]],
                 newdata=lucas_comp_prep_xrf(
-                    data=deconvoluted_valdata,
+                    data=valdata,
                     spectra.line.table=as.data.frame(
                     count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]][,variables]
                     ),
@@ -8615,8 +8784,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                     ),
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8630,8 +8799,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
                 )
@@ -8645,8 +8814,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 transformation=the.cal[[x]][["Parameters"]]$CalTable$Transformation[1]
                 )[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8661,8 +8830,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                     norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1])[,-1],
                 dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                ymin=the.cal[[x]][[1]]$Scale$Min,
+                ymax=the.cal[[x]][[1]]$Scale$Max,
                 confidence=confidence,
                 finalModel=TRUE
                 )
@@ -8675,6 +8844,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             ),
                             element.line=x),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                            ymin=the.cal[[x]][[1]]$Scale$Min,
+                            ymax=the.cal[[x]][[1]]$Scale$Max,
                             confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==2) {
@@ -8683,15 +8854,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=simple_tc_prep_xrf_net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
                             element.line=x
                             ),
                             dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                            ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                            ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                            ymin=the.cal[[x]][[1]]$Scale$Min,
+                            ymax=the.cal[[x]][[1]]$Scale$Max,
                             confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==1 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==3) {
@@ -8700,7 +8871,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                     newdata=simple_comp_prep_xrf_net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8709,8 +8880,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                             ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==1){
@@ -8720,7 +8891,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         lucas_classic_prep_xrf(
                             data=valdata,
                             spectra.line.table=as.data.frame(
-                                count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                                count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                                 ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8728,12 +8899,12 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                             norm.type=1,
                             data.type="Net",
-                            spectrum.ids=count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]$Spectrum
+                            spectrum.ids=count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]$Spectrum
                             )
                     } else {
                         lucas_simp_prep_xrf_net(
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                         element.line=x,
                         slope.element.lines=the.cal[[x]][[1]][2]$Slope,
@@ -8741,8 +8912,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         )
                     },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==2){
@@ -8752,7 +8923,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         lucas_classic_prep_xrf(
                             data=valdata,
                             spectra.line.table=as.data.frame(
-                                count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                                count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                                 ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8760,13 +8931,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             slope.element.lines=the.cal[[x]][[1]][2]$Slope,
                             norm.type=2,
                             data.type="Net",
-                            spectrum.ids=count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]$Spectrum
+                            spectrum.ids=count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]$Spectrum
                             )
                     } else {
                         lucas_tc_prep_xrf_net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8776,8 +8947,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             )
                     },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                 )
             } else if(val.data.type=="Net" && cal_type(x)==3 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==3){
@@ -8787,7 +8958,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         lucas_classic_prep_xrf(
                             data=valdata,
                             spectra.line.table=as.data.frame(
-                                count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                                count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                                 ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8797,13 +8968,13 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             norm.min=the.cal[[x]][[1]][1]$CalTable$Min[1],
                             norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1],
                             data.type="Net",
-                            spectrum.ids=count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]$Spectrum
+                            spectrum.ids=count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]$Spectrum
                             )
                     } else {
                         lucas_comp_prep_xrf_net(
                         data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8815,8 +8986,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             )
                     },
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence
                 )
         } else if(val.data.type=="Net" && cal_type(x)==4 && the.cal[[x]][["Parameters"]]$CalTable$NormType[1]==1){
@@ -8824,15 +8995,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 object=the.cal[[x]][["Model"]],
                 newdata=lucas_simp_prep_xrf_net(
                     spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -8842,7 +9013,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_tc_prep_xrf_net(
                     data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8851,6 +9022,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                             ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence,
                         finalModel=TRUE
             )
@@ -8860,7 +9033,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_comp_prep_xrf_net(
                 data=valdata,
                     spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                         ),
                         deconvolution = deconvoluted_valdata,
                         compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8871,8 +9044,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -8881,15 +9054,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 object=the.cal[[x]][["Model"]],
                 newdata=lucas_simp_prep_xrf_net(
                     spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -8899,7 +9072,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_tc_prep_xrf_net(
                     data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8908,8 +9081,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                             ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence,
                         finalModel=TRUE
             )
@@ -8919,7 +9092,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_comp_prep_xrf_net(
                 data=valdata,
                     spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                         ),
                         deconvolution = deconvoluted_valdata,
                         compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8930,8 +9103,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -8940,15 +9113,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 object=the.cal[[x]][["Model"]],
                 newdata=lucas_simp_prep_xrf_net(
                     spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -8958,7 +9131,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_tc_prep_xrf_net(
                     data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8967,8 +9140,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                             ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence,
                         finalModel=TRUE
             )
@@ -8978,7 +9151,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_comp_prep_xrf_net(
                 data=valdata,
                     spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                         ),
                         deconvolution = deconvoluted_valdata,
                         compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -8989,8 +9162,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -8999,15 +9172,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 object=the.cal[[x]][["Model"]],
                 newdata=lucas_simp_prep_xrf_net(
                     spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -9017,7 +9190,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_tc_prep_xrf_net(
                     data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -9026,8 +9199,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                             ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence,
                         finalModel=TRUE
             )
@@ -9037,7 +9210,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_comp_prep_xrf_net(
                 data=valdata,
                     spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -9048,8 +9221,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -9058,15 +9231,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 object=the.cal[[x]][["Model"]],
                 newdata=lucas_simp_prep_xrf_net(
                     spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                         ),
                     element.line=x,
                     slope.element.lines=variables,
                     intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                     ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
@@ -9076,7 +9249,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_tc_prep_xrf_net(
                     data=valdata,
                         spectra.line.table=as.data.frame(
-                            count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                            count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -9085,8 +9258,8 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                             intercept.element.lines=the.cal[[x]][[1]][3]$Intercept
                             ),
                         dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                        ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                        ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                        ymin=the.cal[[x]][[1]]$Scale$Min,
+                        ymax=the.cal[[x]][[1]]$Scale$Max,
                         confidence=confidence,
                         finalModel=TRUE
             )
@@ -9096,7 +9269,7 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                 newdata=lucas_comp_prep_xrf_net(
                 data=valdata,
                     spectra.line.table=as.data.frame(
-                        count.list[[the.cal[[x]][["Parameters"]]$CalTable$LineType[1]]]
+                        count.list[[paste0(the.cal[[x]][["Parameters"]]$CalTable$LineType[1], "_", the.cal[[x]][["Parameters"]]$CalTable$LineStructure[1])]]
                             ),
                             deconvolution = deconvoluted_valdata,
                             compton.type=the.cal[[x]][["Parameters"]]$CalTable$ComptonType[1],
@@ -9107,13 +9280,15 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
                         norm.max=the.cal[[x]][[1]][1]$CalTable$Max[1]
                         ),
                     dependent.transformation=the.cal[[x]][[1]][1]$CalTable$DepTrans,
-                    ymin=the.cal[[x]][[1]][1]$Scale$Min,
-                    ymax=the.cal[[x]][[1]][1]$Scale$Max,
+                    ymin=the.cal[[x]][[1]]$Scale$Min,
+                    ymax=the.cal[[x]][[1]]$Scale$Max,
                     confidence=confidence,
                     finalModel=TRUE
             )
-        }        #, error=function(e) NULL)
+        }, error=function(e){ message("cloudCalPredict: ", x, " could not be predicted: ", conditionMessage(e)); NULL })
         if(!is.null(values)){
+            # earth (MARS) returns a one-column matrix named "y", which would otherwise replace the element name in the output.
+            if(is.matrix(values) && ncol(values) == 1) values <- as.vector(values)
             predicted.frame$hold <- values
             colnames(predicted.frame)[which(names(predicted.frame) == "hold")] <- x
         }
@@ -9220,7 +9395,11 @@ xgbValGen <- function(model, data, predict.frame, dependent.transformation, y_mi
     return(val.frame)
 }
 
-mclPred <- function(object, newdata, dependent.transformation, ymin=0, ymax=1, confidence=TRUE, finalModel=TRUE, y_min=0, y_max=1){
+mclPred <- function(object, newdata, dependent.transformation, ymin=0, ymax=1, confidence=TRUE, finalModel=TRUE, y_min=ymin, y_max=ymax){
+    # The Scale range is the calibration's stored Scale$Min/Max; a calibration saved without one decodes over 0-1.
+    if(length(y_min) != 1 || !is.finite(as.numeric(y_min))) y_min <- 0
+    if(length(y_max) != 1 || !is.finite(as.numeric(y_max))) y_max <- 1
+    y_min <- as.numeric(y_min); y_max <- as.numeric(y_max)
     if(confidence==FALSE){
         if(dependent.transformation=="None"){
             tryCatch(predict(object=object, newdata=newdata,
@@ -10960,7 +11139,7 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
     if(baseline==FALSE){
         return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame))
     } else if(baseline==TRUE){
-        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame, Baseline=new_baseline_frame, arPLS=new_arpls_frame, E1=new_e1_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter, ParamVersion=2, Physics=physics, MassFidelity=mass_mode)))
+        return(list(Spectra=new_spectra_frame, Areas=new_area_frame, Mass=new_mass_frame, Baseline=new_baseline_frame, arPLS=new_arpls_frame, E1=new_e1_frame, Parameters=list(SmoothWidth=width, SmoothAlpha=alpha, DefaultSigma=default_sigma, SmoothIter=smooth_iter, SnipIter=snip_iter, ParamVersion=2, Algorithm=DECONVOLUTION_ALGORITHM, Physics=physics, MassFidelity=mass_mode)))
     }
     
 }
