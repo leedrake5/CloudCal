@@ -971,6 +971,71 @@ check("Spectra checks: same spectra align, a 2-channel offset is found", {
 })
 check("Calibration self-check finds no stale models in the release quant", nrow(calibrationSelfCheck(apply_cal)) == 0)
 
+message("\n-- 14. Olympus Delta CSV import --")
+# A Delta export in miniature: BOM, header block, raw counts per exposure, one test with two exposures, one with one, and empty trailing columns as Delta writes them.
+delta_file <- file.path(tempdir(), "delta_check.csv")
+set.seed(14)
+delta_counts <- matrix(rpois(2048 * 3, 40), ncol = 3)
+delta_head <- rbind(
+    c("TestID", "04_27_26 #141", "04_27_26 #142", "04_27_26 #142"),
+    c("ExposureNum", "1", "1", "2"),
+    c("Offset", "-0.026683", "-0.02704", "-0.02704"),
+    c("Slope", "0.020074", "0.020074", "0.020074"),
+    c("Livetime", "13.2526", "27.2728", "27.6195"),
+    c("NumData", "2048", "2048", "2048"),
+    c("TubeVoltageSet", "40", "40", "9.96997"),
+    c("FilterPosition", "1", "1", "7"),
+    c("TimeStamp", "27/04/2026 3:37", "27/04/2026 3:39", "27/04/2026 3:40"))
+delta_rows <- rbind(delta_head, cbind("", matrix(as.character(delta_counts), ncol = 3)))
+delta_rows <- cbind(delta_rows, "", "")
+con <- file(delta_file, "wb"); writeBin(as.raw(c(0xEF, 0xBB, 0xBF)), con)
+writeBin(charToRaw(paste0(apply(delta_rows, 1, paste, collapse = ","), "\r\n", collapse = "")), con); close(con)
+check("Delta CSV: detected as a multi-exposure aggregate with exposures 1 and 2",
+    identical(detect_csv_type(delta_file)$instrument, "Delta") && identical(uniqueBeams(delta_file), c("1", "2")))
+check("Delta CSV: each exposure reads as CPS on its own energy axis, named by TestID as the app names spectra", {
+    b1 <- importCSVFrame(delta_file, chosen_beam = "1"); b2 <- importCSVFrame(delta_file, chosen_beam = "2")
+    s142 <- b1[b1$Spectrum == "X04_27_26..142", ]
+    identical(unique(b1$Spectrum), c("X04_27_26..141", "X04_27_26..142")) && identical(unique(b2$Spectrum), "X04_27_26..142") &&
+        nrow(s142) == 2048 && isTRUE(all.equal(s142$CPS, delta_counts[, 2] / 27.2728)) &&
+        isTRUE(all.equal(range(s142$Energy), -0.02704 + 0.020074 * c(0, 2047))) &&
+        isTRUE(all.equal(b2$CPS, delta_counts[, 3] / 27.6195))
+})
+check("Delta CSV: metadata follows the chosen exposure, one row per spectrum with its live time", {
+    m1 <- csvFrameMetadata(delta_file, "delta_check.csv", chosen_beam = "1")
+    m2 <- csvFrameMetadata(delta_file, "delta_check.csv", chosen_beam = "2")
+    lt <- deconvolution_livetime_lookup(m1)
+    identical(names(lt), unique(importCSVFrame(delta_file, chosen_beam = "1")$Spectrum)) &&
+        identical(unname(lt), c(13.25, 27.27)) && all(m1$TubeVoltage == 40) && isTRUE(all.equal(m2$TubeVoltage, 9.96997)) &&
+        identical(deconvolution_infer_from_metadata(m1)$evch_ev, 20.074)
+})
+# The same file through the app: choosing exposure 2 loads its one spectrum and that exposure's metadata, and intensities commit.
+sec14 <- new.env()
+try(testServer(app, {
+    session$setInputs(
+        filetype = "CSV", energynudge = 0, beamno = "2",
+        file1 = data.frame(name = "delta_check.csv", datapath = delta_file, stringsAsFactors = FALSE),
+        show_vars_k_alpha = scratch_lines,
+        show_vars_k_beta = NULL, show_vars_l_alpha = NULL,
+        show_vars_l_beta = NULL, show_vars_m = NULL,
+        plotunit = "%", loglinear = "Linear",
+        linepreferenceelement = "Narrow", linestructureelement = "gaussian",
+        gausbuffer = 0.02, splitbuffer = 0.1,
+        comptonmin = 0, comptonmax = 0, comptontype = "Raw",
+        randomize = 1
+    )
+    dh <- tryCatch(dataHold(), error = function(e) NULL)
+    sec14$spectra <- if (is.data.frame(dh)) unique(dh$Spectrum) else character(0)
+    md <- tryCatch(myMetaData(), error = function(e) NULL)
+    sec14$kv <- if (is.data.frame(md)) md$TubeVoltage else NA
+    sec14$lt_match <- all(sec14$spectra %in% names(deconvolution_livetime_lookup(md)))
+    session$setInputs(linecommit = 1)
+    it <- calMemory$Calibration$Intensities
+    sec14$intensities <- is.data.frame(it) && nrow(it) == 1 && all(scratch_lines %in% colnames(it))
+}), silent = TRUE)
+check("Delta CSV in a session: exposure 2 loads one spectrum whose live time matches by name, intensities commit",
+      identical(sec14$spectra, "X04_27_26..142") && isTRUE(all.equal(sec14$kv, 9.96997)) && isTRUE(sec14$lt_match) && isTRUE(sec14$intensities))
+unlink(delta_file)
+
 n_fail <- sum(!unlist(results))
 message(sprintf("\n== %d/%d checks passed ==", sum(unlist(results)), length(results)))
 if (n_fail > 0) {

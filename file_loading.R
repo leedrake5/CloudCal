@@ -159,7 +159,7 @@ csvFrame <- function(filepath, filename=NULL, use_native_calibration=TRUE){
 }
 
 
-csvFrameMetadata <- function(filepath, filename=NULL){
+csvFrameMetadata <- function(filepath, filename=NULL, chosen_beam=NULL){
     if(is.null(filename)){
         filename <- as.character(basename(filepath))
     }
@@ -168,6 +168,7 @@ csvFrameMetadata <- function(filepath, filename=NULL){
 
     # Instrument determines the anode/detector (never encoded in a CSV) and which header block to parse.
     inst <- tryCatch(get_instrument_and_beams(filepath)$instrument, error=function(e) "Generic")
+    if(inst == "Delta") return(deltaFrameMetadata(filepath, chosen_beam=chosen_beam))
     base <- data.frame(Spectrum=filename, eVCh=NA_real_, LiveTime=NA_real_,
                        TubeVoltage=NA_real_, TubeAnode=deconvolution_instrument_anode(inst),
                        TubeFilter=NA_character_, TubeFilterStack=NA_character_, DetectorType="SDD",
@@ -347,7 +348,7 @@ fullSpectraProcess <- function(inFile=NULL, gainshiftvalue=0, use_native_calibra
        return(data)
    }
 
-fullSpectraMetadataProcess <- function(inFile=NULL){
+fullSpectraMetadataProcess <- function(inFile=NULL, chosen_beam=NULL){
        
            if (is.null(inFile)) return(NULL)
            temp = inFile$name
@@ -358,7 +359,7 @@ fullSpectraMetadataProcess <- function(inFile=NULL){
            
            n.seq <- seq(1, nrow(inFile), 1)
            
-           data.list <- pblapply(n.seq, function(x) csvFrameMetadata(filepath=inFile[x, "datapath"], filename=inFile[x, "name"]))
+           data.list <- pblapply(n.seq, function(x) csvFrameMetadata(filepath=inFile[x, "datapath"], filename=inFile[x, "name"], chosen_beam=chosen_beam))
            data <- as.data.frame(data.table::rbindlist(data.list, use.names=TRUE, fill=TRUE), stringsAsFactors=FALSE)
        
        return(data)
@@ -647,6 +648,8 @@ importCSVFrame <- function(filepath, chosen_beam="1"){
     
     if(instrument=="Niton"){
         importNiton(filepath, chosen_beam=chosen_beam)
+    } else if(instrument=="Delta"){
+        importDelta(filepath, chosen_beam=chosen_beam)
     } else if(instrument=="Olympus"){
         csv_import <- read.csv(filepath, header=F, stringsAsFactors=FALSE)
         importCSVFrameDetailed(csv_import, chosen_beam=chosen_beam)
@@ -711,10 +714,15 @@ uniqueBeamsDetailed <- function(csv_import, chosen_beam = "1") {
 uniqueBeamsDetailed <- cmpfun(uniqueBeamsDetailed)
 
 get_instrument_and_beams <- function(filepath) {
-  header_lines <- readLines(filepath, n = 20)
-  
+  header_lines <- readLines(filepath, n = 20, warn = FALSE)
+
+  if (is_delta_csv(header_lines)) {
+    instrument <- "Delta"
+    beam_names <- unique(readDeltaCSV(filepath)$Exposure)
+    beam_names <- beam_names[!is.na(beam_names) & nzchar(beam_names)]
+
   # Check if any header line contains "Main Range" (Company 1)
-  if (any(grepl("Main Range", header_lines))) {
+  } else if (any(grepl("Main Range", header_lines))) {
     instrument <- "Niton"
     
     # Niton CSVs have a header line with beam names like:
@@ -772,7 +780,12 @@ pdzBeams <- function(filepath){
 detect_csv_type <- function(filepath) {
     # Auto-detect CSV format to determine if beam selection is needed
     # Returns list with: type, instrument, needs_beam_selection
-    header_lines <- readLines(filepath, n = 20)
+    header_lines <- readLines(filepath, n = 20, warn = FALSE)
+
+    # Olympus Delta format (multi-exposure) - TestID header block with an ExposureNum row
+    if (is_delta_csv(header_lines)) {
+        return(list(type = "aggregate", instrument = "Delta", needs_beam_selection = TRUE))
+    }
 
     # Niton format (multi-beam) - has "Main Range" in header
     if (any(grepl("Main Range", header_lines))) {
@@ -793,6 +806,75 @@ detect_csv_type <- function(filepath) {
 
     # Simple/single-spectrum CSV (SciApps, Bruker, generic)
     return(list(type = "simple", instrument = "Generic", needs_beam_selection = FALSE))
+}
+
+# Olympus Delta CSV exports put a header block (TestID, ExposureNum, Offset, Slope, Livetime, ... TimeStamp) above raw counts, one column per exposure; the first header cell carries a UTF-8 BOM.
+is_delta_csv <- function(header_lines){
+    length(header_lines) > 0 && grepl("^[^,]{0,3}\"?TestID\"?,", header_lines[1], useBytes=TRUE) &&
+        any(grepl("^\"?ExposureNum\"?,", header_lines))
+}
+
+# Header fields and count matrix of a Delta CSV, one entry per exposure column; empty trailing columns are dropped and the counts run from the first row after the header block, capped at NumData.
+readDeltaCSV <- function(filepath){
+    raw <- read.csv(filepath, header=FALSE, stringsAsFactors=FALSE, colClasses="character", fileEncoding="UTF-8-BOM")
+    raw[[1]] <- sub("^\ufeff", "", raw[[1]])
+    label <- trimws(raw[[1]])
+    first_data <- which(!nzchar(label) | is.na(raw[[1]]))[1]
+    if(is.na(first_data)) stop("No count rows found in Delta CSV.")
+    keep <- which(nzchar(trimws(as.character(unlist(raw[1, -1])))) ) + 1
+    head_block <- raw[seq_len(first_data - 1), c(1, keep), drop=FALSE]
+    field <- function(key, numeric=TRUE){
+        i <- which(label[seq_len(first_data - 1)] == key)
+        if(!length(i)) return(rep(NA, length(keep)))
+        v <- trimws(as.character(unlist(head_block[i[1], -1])))
+        if(numeric) suppressWarnings(as.numeric(v)) else v
+    }
+    counts <- raw[first_data:nrow(raw), keep, drop=FALSE]
+    counts <- apply(counts, 2, function(x) suppressWarnings(as.numeric(x)))
+    if(is.null(dim(counts))) counts <- matrix(counts, ncol=length(keep))
+    n_data <- field("NumData")
+    n_data <- n_data[is.finite(n_data) & n_data > 0]
+    if(length(n_data)) counts <- counts[seq_len(min(nrow(counts), max(n_data))), , drop=FALSE]
+    list(TestID=field("TestID", numeric=FALSE), Exposure=field("ExposureNum", numeric=FALSE),
+         Offset=field("Offset"), Slope=field("Slope"), LiveTime=field("Livetime"),
+         TubeVoltage=field("TubeVoltageSet"), TubeCurrent=field("TubeCurrentSet"),
+         FilterPosition=field("FilterPosition"), TimeStamp=field("TimeStamp", numeric=FALSE),
+         Counts=counts)
+}
+
+# Spectrum names for the chosen exposure's columns: the TestID in the make.names form the calibration page gives every spectrum, so names and live times match on both pages, made unique in case a test was repeated.
+deltaSpectrumNames <- function(delta, columns){
+    make.names(delta$TestID[columns], unique=TRUE)
+}
+
+# Spectra for one exposure: each column gets its own energy axis from its Offset and Slope (offsets drift a few eV between tests), and counts are divided by that column's live time so CPS matches the PDZ readers.
+importDelta <- function(filepath, chosen_beam="1"){
+    delta <- readDeltaCSV(filepath)
+    columns <- which(delta$Exposure == as.character(chosen_beam))
+    if(!length(columns)) stop(paste("No data found for Exposure Number", chosen_beam))
+    names_out <- deltaSpectrumNames(delta, columns)
+    channels <- seq_len(nrow(delta$Counts)) - 1
+    frames <- lapply(seq_along(columns), function(k){
+        j <- columns[k]
+        lt <- delta$LiveTime[j]
+        cps <- if(is.finite(lt) && lt > 0) delta$Counts[, j] / lt else delta$Counts[, j]
+        data.frame(Energy=delta$Offset[j] + delta$Slope[j] * channels, CPS=cps, Spectrum=names_out[k], stringsAsFactors=FALSE)
+    })
+    as.data.frame(data.table::rbindlist(frames))
+}
+
+# Per-spectrum metadata for one exposure, named as importDelta names the spectra so live times match each spectrum; without a chosen exposure the highest-kV one is used. The file does not record the anode, detector or what FilterPosition holds, so those stay at the Olympus defaults or blank.
+deltaFrameMetadata <- function(filepath, chosen_beam=NULL){
+    delta <- readDeltaCSV(filepath)
+    if(is.null(chosen_beam) || !as.character(chosen_beam) %in% delta$Exposure){
+        kv <- delta$TubeVoltage
+        chosen_beam <- if(any(is.finite(kv))) delta$Exposure[which.max(kv)] else delta$Exposure[1]
+    }
+    columns <- which(delta$Exposure == as.character(chosen_beam))
+    data.frame(Spectrum=deltaSpectrumNames(delta, columns), eVCh=delta$Slope[columns],
+               LiveTime=round(delta$LiveTime[columns], 2), TubeVoltage=delta$TubeVoltage[columns],
+               TubeAnode=deconvolution_instrument_anode("Olympus"), TubeFilter=NA_character_,
+               TubeFilterStack=NA_character_, DetectorType="SDD", stringsAsFactors=FALSE)
 }
 
 importNiton <- function(filepath, chosen_beam="Main Range"){

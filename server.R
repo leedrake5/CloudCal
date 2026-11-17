@@ -501,7 +501,7 @@ shinyServer(function(input, output, session) {
     fullSpectraMetadata <- reactive(label="fullSpectraMetadata", {
         req(input$file1)
         # Per-file CSV metadata (eV/channel, LiveTime, and tube kV, filter, anode and detector where the format carries them) for physics auto-population via deconvolution_infer_from_metadata; tryCatch so a CSV without metadata never blocks import.
-        tryCatch(fullSpectraMetadataProcess(inFile=inFile()), error=function(e) NULL)
+        tryCatch(fullSpectraMetadataProcess(inFile=inFile(), chosen_beam=input$beamno), error=function(e) NULL)
     })
     
     fullJSON <- reactive(label = "fullJSON", {
@@ -22386,7 +22386,7 @@ content = function(file){
             if(identical(input$valfiletype, "PDZ")){
                 tryCatch(readPDZMetadataProcess(inFile=input$loadvaldata), error=function(e) NULL)
             } else if(identical(input$valfiletype, "CSV")){
-                tryCatch(fullSpectraMetadataProcess(inFile=input$loadvaldata), error=function(e) NULL)
+                tryCatch(fullSpectraMetadataProcess(inFile=input$loadvaldata, chosen_beam=input$beamno_val), error=function(e) NULL)
             } else if(identical(input$valfiletype, "MCA")){
                 tryCatch(fileMetadataProcess(input$loadvaldata, mcaFrameMetadata), error=function(e) NULL)
             } else if(identical(input$valfiletype, "TXT")){
