@@ -1412,8 +1412,17 @@ elementSecondKalpha <- function(element, data, method="sum", buffer=0.02) {
 }
 elementSecondKalpha <- cmpfun(elementSecondKalpha)
 
+# Rows of `data` within +/- buffer of any of the given line energies, for the "split" line structure, which sums a separate window around each line instead of one window spanning them; zero or missing energies (a line the element lacks) are skipped.
+splitLineRows <- function(data, energies, buffer){
+    energies <- suppressWarnings(as.numeric(energies))
+    energies <- energies[is.finite(energies) & energies > 0]
+    keep <- rep(FALSE, nrow(data))
+    for(e in energies) keep <- keep | (data$Energy >= e - buffer & data$Energy <= e + buffer)
+    data[keep, c("CPS", "Spectrum")]
+}
+
 elementSplitKalpha <- function(element, data, method="sum", buffer=0.1) {
-    
+
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
     hold.frame <- data[((data$Energy >= elementLine[6][1,]-buffer & data$Energy <= elementLine[6][1,]+buffer) | (data$Energy >= elementLine[5][1,]-buffer & data$Energy <= elementLine[5][1,]+buffer)), c("CPS", "Spectrum")]
@@ -1715,20 +1724,12 @@ elementSplitKbeta <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.cps <- if(elementLine[8][1,]!=0){
-        subset(data$CPS, !(data$Energy <= elementLine[7][1,]-buffer & data$Energy >= elementLine[7][1,]+buffer | data$Energy >= elementLine[8][1,]+buffer & data$Energy <= elementLine[8][1,]-buffer))
-    } else if(elementLine[8][1,]==0){
-        subset(data$CPS, !(data$Energy <= elementLine[7][1,]-buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy <= elementLine[7][1,]-buffer))
+    # With a Kbeta2 line, sum the Kbeta1 and Kbeta2 windows as the K-alpha split does; the old code here kept every channel's counts but only the windows' overlap for spectrum names, so it failed for those elements. With one Kbeta line its own window is kept exactly as before.
+    hold.frame <- if(isTRUE(elementLine[8][1,] != 0)){
+        splitLineRows(data, c(elementLine[7][1,], elementLine[8][1,]), buffer)
+    } else {
+        data[data$Energy > elementLine[7][1,]-buffer & data$Energy < elementLine[7][1,]+buffer, c("CPS", "Spectrum")]
     }
-    
-    
-    hold.file <- if(elementLine[8][1,]!=0){
-        subset(data$Spectrum, !(data$Energy <= elementLine[7][1,]-buffer | data$Energy >= elementLine[7][1,]+buffer| data$Energy >= elementLine[8][1,]+buffer | data$Energy <= elementLine[8][1,]-buffer))
-    } else if(elementLine[8][1,]==0){
-            subset(data$Spectrum, !(data$Energy <= elementLine[7][1,]-buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy >= elementLine[7][1,]+buffer | data$Energy <= elementLine[7][1,]-buffer))
-    }
-    hold.frame <- data.frame(is.0(hold.cps, hold.file), stringsAsFactors=FALSE)
-    colnames(hold.frame) <- c("CPS", "Spectrum")
     hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "K-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
@@ -1805,7 +1806,8 @@ elementSplitLalpha <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy <= elementLine[11][1,]-buffer & data$Energy >= elementLine[11][1,]+buffer | data$Energy >= elementLine[10][1,]+buffer & data$Energy <= elementLine[10][1,]-buffer), c("CPS", "Spectrum")]
+    # Sum of the La1 and La2 windows. From 2024-03 until LINE_INTENSITY_ALGORITHM 2 this test could never match, so the split L-alpha summed the whole spectrum (see splitLineRefitElements).
+    hold.frame <- splitLineRows(data, c(elementLine[10][1,], elementLine[11][1,]), buffer)
     hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-alpha", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
@@ -1883,7 +1885,8 @@ elementSplitLbeta <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy <= elementLine[12][1,]-buffer & data$Energy >= elementLine[12][1,]+buffer | data$Energy >= elementLine[14][1,]+buffer & data$Energy <= elementLine[14][1,]-buffer), c("CPS", "Spectrum")]
+    # Sum of the Lb1 and Lb3 windows; like the split L-alpha, this summed the whole spectrum before LINE_INTENSITY_ALGORITHM 2.
+    hold.frame <- splitLineRows(data, c(elementLine[12][1,], elementLine[14][1,]), buffer)
     hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "L-beta", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
@@ -1960,7 +1963,8 @@ elementSplitMalpha <- function(element, data, method="sum", buffer=0.1) {
     
     elementLine <- subset(fluorescence.lines, fluorescence.lines$Symbol==element)
     
-    hold.frame <- data[!(data$Energy <= elementLine[20][1,]-buffer & data$Energy >= elementLine[20][1,]+buffer | data$Energy >= elementLine[22][1,]+buffer & data$Energy <= elementLine[22][1,]-buffer), c("CPS", "Spectrum")]
+    # Sum of the Ma1 and Mb windows; like the split L-alpha, this summed the whole spectrum before LINE_INTENSITY_ALGORITHM 2.
+    hold.frame <- splitLineRows(data, c(elementLine[20][1,], elementLine[22][1,]), buffer)
     hold.ag <- fastAggCPS(hold.frame$CPS, hold.frame$Spectrum, method)
     colnames(hold.ag) <- c("Spectrum", paste(element, "M-line", sep=" "))
     if(any(is.na(as.numeric(hold.ag[[2]])))){
@@ -1969,19 +1973,6 @@ elementSplitMalpha <- function(element, data, method="sum", buffer=0.1) {
     }
     hold.ag
     
-}
-elementSplitMalpha <- cmpfun(elementSplitMalpha)
-
-elementSplitMalpha <- function(element, data, calculation="gaussian", gaus_buffer=0.02, split_buffer=0.1){
-    if(calculation=="gaussian"){
-        elementGaussianMalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
-    } else if(calculation=="split"){
-        elementSplitMalpha(element=element, data=data, method="sum", buffer=split_buffer)
-    } else if(calculation=="first"){
-        elementFirstMalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
-    } else if(calculation=="second"){
-        elementSecondMalpha(element=element, data=data, method="sum", buffer=gaus_buffer)
-    }
 }
 elementSplitMalpha <- cmpfun(elementSplitMalpha)
 
@@ -4587,7 +4578,7 @@ deconvolutionGeometryUI <- function(selection=FALSE){
         value=isTRUE(selection))
 }
 
-# The three geometry angles, blank = auto (deconvolution_geometry_physics holds the fallback chain). Incidence and take-off are measured from the sample surface, not the normal, because xrftools takes their sine; scatter_angle ~ 180 - incidence - takeoff is only a hint, since xrftools treats the three independently.
+# The three geometry angles, blank = auto (deconvolution_geometry_physics holds the fallback chain). Incidence and take-off are measured from the sample surface, not the normal, because xrftools takes their sine. With the tube and detector on opposite sides of the surface normal, scatter_angle ~ incidence + takeoff (180 - |incidence - takeoff| when on the same side); this is only a hint, since xrftools treats the three independently.
 deconvolutionIncidenceUI <- function(selection=NULL){
     numericInput('deconvolutionincidence', "Sample incidence angle (deg from surface; blank = auto)",
         value=selection, min=1, max=90, step=1)
@@ -4603,9 +4594,9 @@ deconvolutionScatterAngleUI <- function(selection=NULL){
         value=selection, min=1, max=179, step=1)
 }
 
-# Toggle for E1: fit raw cps with Poisson-weighted scatter-continuum and smooth-background templates instead of subtracting a SNIP baseline, which recovers peaks on steep backgrounds. On by default since the deconvolution falls back to the SNIP fit without a tube or per-spectrum LiveTime; E1 rescales areas, so the setting is persisted to keep calibration and validation consistent. A heavy element read through an L-line that overlaps an abundant K-line or the scatter peak can still read low unless it is named in the target list, which exempts it from the abundance prior.
+# Toggle for E1: fit raw cps with Poisson-weighted scatter-continuum and smooth-background templates instead of subtracting a SNIP baseline, which recovers peaks on steep backgrounds. On by default since the deconvolution falls back to the SNIP fit without a tube (Handheld or High-energy mode with an anode and kV) or per-spectrum LiveTime, and the Deconvolute button says which was missing; E1 rescales areas, so the setting is persisted to keep calibration and validation consistent. A heavy element read through an L-line that overlaps an abundant K-line or the scatter peak can still read low unless it is named in the target list, which exempts it from the abundance prior.
 deconvolutionScatterBgUI <- function(selection=TRUE){
-    checkboxInput('deconvolutionscatterbg', "Fit scatter background (E1 — recommended; needs LiveTime)",
+    checkboxInput('deconvolutionscatterbg', "Fit scatter background (E1; needs Handheld/High-energy mode, tube anode + kV, and LiveTime)",
         value=!isFALSE(selection))
 }
 
@@ -7207,6 +7198,8 @@ calBundle <- function(filetype, units, spectra, intensities, wide.intensities, d
 CLOUDCAL_BUILD <- "2026.10.14"
 # Version of the deconvolution stored in a calibration's Deconvoluted slot; raise it whenever areas or baselines change scale, since models trained on Baseline, Net or Area intensities only reproduce with the same algorithm.
 DECONVOLUTION_ALGORITHM <- 2L
+# Version of the line-intensity windows a model is fitted on, stamped into its Parameters$LineAlgorithm on Update or Train; raise it whenever a line window changes, since a model only reproduces with the intensities it was trained on. Version 2 fixed the Narrow split L-alpha, L-beta and M-line windows, which summed the whole spectrum, and the split K-beta for elements with a K-beta2 line (see splitLineRefitElements).
+LINE_INTENSITY_ALGORITHM <- 2L
 
 # The Build record saved with a calibration: this build, when it was saved, and the reader and deconvolution package versions; Created carries over from the previous record and is NA for files saved before builds were recorded.
 calibrationBuild <- function(previous=NULL, loaded=FALSE){
@@ -7232,6 +7225,37 @@ deconvolutionDependentElements <- function(Calibration){
         ct <- x[[1]]$CalTable
         as.character(ct$ComptonType[1]) %in% c("Baseline", "Net") || identical(as.character(ct$LineType[1]), "Area")
     }, error=function(e) FALSE), Calibration$calList))
+}
+
+# Records on a model's Parameters which line-intensity windows it was fitted on (LINE_INTENSITY_ALGORITHM), so a later window change can name the models that need refitting. Parameters pass through modelPack on save and calPre on load, so the stamp changes only when the model is refitted.
+stampLineAlgorithm <- function(parameters){
+    if(is.list(parameters)) parameters$LineAlgorithm <- LINE_INTENSITY_ALGORITHM
+    parameters
+}
+
+# Elements whose saved model reads Narrow "split" line intensities from before LINE_INTENSITY_ALGORITHM 2, which no longer match what CloudCal computes: from 2024-03 the split L-alpha, L-beta and M-line windows summed the whole spectrum (before that they took only the overlap of the two line windows), and the split K-beta failed for elements with a K-beta2 line.
+# A model is affected when it is a line-intensity type, its own line, slope or intercept lines include one of those lines, and its Parameters carry no current LineAlgorithm stamp. Wide split windows, Area lines and spectra-based models are unaffected.
+splitLineRefitElements <- function(Calibration){
+    cl <- Calibration$calList
+    if(!length(cl) || is.null(names(cl))) return(character(0))
+    kb2 <- suppressWarnings(as.numeric(fluorescence.lines[[8]]))
+    kbeta_two <- as.character(fluorescence.lines$Symbol[is.finite(kb2) & kb2 != 0])
+    changed_line <- function(lines){
+        lines <- as.character(lines[!is.na(lines)])
+        grepl("\\.(L\\.alpha|L\\.beta|M\\.line)$", lines) |
+            (grepl("\\.K\\.beta$", lines) & sub("\\..*$", "", lines) %in% kbeta_two)
+    }
+    intensity_types <- c(1, 2, 3, 4, 6, 8, 10, 12, chemIntensityTypes)
+    hit <- vapply(names(cl), function(el) tryCatch({
+        p <- cl[[el]][[1]]; ct <- p$CalTable
+        line_type <- as.character(ct$LineType)[1]   # NA in older files, which calPre treats as Narrow
+        identical(as.character(ct$LineStructure)[1], "split") &&
+            (is.na(line_type) || identical(line_type, "Narrow")) &&
+            isTRUE(suppressWarnings(as.numeric(as.character(ct$CalType)[1])) %in% intensity_types) &&
+            !isTRUE(suppressWarnings(as.numeric(p$LineAlgorithm)[1]) >= LINE_INTENSITY_ALGORITHM) &&
+            any(changed_line(c(el, p$Slope, p$Intercept)))
+    }, error=function(e) FALSE), logical(1))
+    names(cl)[hit]
 }
 
 # Elements whose saved model no longer reproduces its own standards from the calibration's stored spectra, typically because spectra, lines or deconvolution changed without Update. Compares Apply predictions with the saved standards table, or for lm models without one with the fitted values; returns element and deviation as a fraction of the concentration range.
@@ -10335,6 +10359,9 @@ intensity_frame_deconvolution_convert <- function(deconvolution_tibble, name){
 # Map an instrument mode to the optional xrftools deconvolution arguments (the physics= bundle for spectra_gls_deconvolute / deconvolute_complete); kv is the tube or accelerating voltage, anode the tube anode element, and "legacy" adds no physics so it reproduces the plain fit.
 instrument_deconv_defaults <- function(mode="legacy", kv=NULL, anode=NULL, detector_type=NULL, active_thickness_um=NULL, filter=NULL, environment="air_pp"){
     mode <- match.arg(as.character(mode), c("legacy","handheld","sem","pixe","high_energy"))
+    # A blank kV field arrives as NA. Treat any non-positive or non-finite kV as unknown (no tube model, so no scatter templates and no E1), because tube_kv = NA builds a tube whose scatter templates then fail every spectrum's fit.
+    kv <- suppressWarnings(as.numeric(kv))
+    if(length(kv) != 1 || !is.finite(kv) || kv <= 0) kv <- NULL
     dt <- function(d) if(is.null(detector_type) || is.na(detector_type) || detector_type=="") d else detector_type
     base <- switch(mode,
         legacy      = list(),   # unconstrained OLS + jump-ratio intensities (no new physics)
@@ -10429,6 +10456,33 @@ deconvolution_physics_flatten_geometry <- function(physics){
     }
     physics[["geometry"]] <- NULL
     physics
+}
+
+# Effective scatter angle and Compton broadening for a batch, from the anode Rayleigh/Compton split. xrf_infer_scatter_geometry runs on each of the `max_spectra` highest-count spectra (about 0.02 s each) and the median over the spectra it accepts is used, because it declines spectra whose Compton region is noisy or merged, and the single brightest spectrum can be one of them. The peak energies, width ratio and band counts reported as evidence are medians over the accepted spectra too. When none is accepted, confident is FALSE with the most common decline reason; n_inferred / n_tried record how many spectra were accepted / tried.
+deconvolution_infer_batch_geometry <- function(spectra_frame, anode, kv, detector_type="SDD", max_spectra=50L){
+    tot <- tapply(spectra_frame$CPS, spectra_frame$Spectrum, sum, na.rm=TRUE)
+    tot <- tot[is.finite(tot)]
+    ids <- names(sort(tot, decreasing=TRUE))[seq_len(min(length(tot), max_spectra))]
+    rows <- spectra_frame$Spectrum %in% ids
+    by_id <- split(spectra_frame[rows, c("Energy", "CPS")], as.character(spectra_frame$Spectrum[rows]))
+    fits <- lapply(ids, function(id) tryCatch(
+        xrf_infer_scatter_geometry(by_id[[id]]$Energy, by_id[[id]]$CPS, anode, kv, detector_type=detector_type),
+        error=function(e) list(confident=FALSE, reason=conditionMessage(e))))
+    num <- function(g, k){ v <- suppressWarnings(as.numeric(g[[k]])); if(length(v) >= 1 && is.finite(v[1])) v[1] else NA_real_ }
+    ok <- vapply(fits, function(g) isTRUE(g$confident) && is.finite(num(g, "scatter_angle_deg")), logical(1))
+    if(!any(ok)){
+        reasons <- unlist(lapply(fits, function(g) if(is.character(g$reason) && length(g$reason)) g$reason[1] else NULL))
+        return(list(confident=FALSE, n_inferred=0L, n_tried=length(ids),
+                    reason=if(length(reasons)) names(sort(table(reasons), decreasing=TRUE))[1] else NA_character_))
+    }
+    acc <- fits[ok]
+    med <- function(k){ v <- vapply(acc, num, numeric(1), k=k); if(any(is.finite(v))) stats::median(v, na.rm=TRUE) else NA_real_ }
+    lines <- unlist(lapply(acc, function(g) if(is.character(g$anode_line) && length(g$anode_line)) g$anode_line[1] else NULL))
+    list(confident=TRUE, reason="ok", n_inferred=sum(ok), n_tried=length(ids),
+         scatter_angle_deg=med("scatter_angle_deg"), compton_broadening=med("compton_broadening"),
+         e_rayleigh=med("e_rayleigh"), e_compton=med("e_compton"), e_anode=med("e_anode"),
+         anode_line=if(length(lines)) names(sort(table(lines), decreasing=TRUE))[1] else NA_character_,
+         width_ratio=med("width_ratio"), band_counts=med("band_counts"))
 }
 
 # Best-guess tube anode by instrument family for files that do not record it: Niton (Thermo) uses Ag and nearly every other handheld uses Rh. Metadata builders use it to stamp TubeAnode at import, and the value stays editable in the UI.
@@ -10652,6 +10706,30 @@ deconvolution_prediction_livetime <- function(deconvoluted, metadata=NULL, calib
     if(length(cal_lt)) structure(stats::median(cal_lt), nominal=TRUE) else NULL
 }
 
+# Why the E1 scatter background cannot run for a physics bundle and live time, or NULL when it can. It mirrors the use_e1 guard in deconvolute_complete, so the Deconvolute button can say why E1 fell back to SNIP instead of leaving E1 silently out of the normalization choices.
+deconvolution_e1_unavailable_reason <- function(physics, livetime=NULL){
+    if(!is.list(physics)) physics <- list()
+    mode <- physics[[".mode"]]
+    if(is.null(physics$tube_anode)){
+        if(identical(mode, "legacy"))
+            return("Legacy mode has no X-ray tube model; choose Handheld XRF or High-energy and set the tube anode and kV")
+        if(identical(mode, "sem") || identical(mode, "pixe"))
+            return(paste0(if(identical(mode, "sem")) "SEM-EDS" else "PIXE", " mode has no X-ray tube, so E1 does not apply"))
+        return("no tube anode is set")
+    }
+    kv <- if(length(physics$tube_kv) == 1) suppressWarnings(as.numeric(physics$tube_kv)) else NA_real_
+    if(!isTRUE(is.finite(kv) && kv > 0)) return("no tube voltage (kV) is set")
+    tube_error <- tryCatch({ xrf_tube(physics$tube_anode, kv=kv, filter=physics$tube_filter); NULL },
+                           error=function(e) conditionMessage(e))
+    if(!is.null(tube_error)) return(paste0("the tube could not be modelled (", tube_error, ")"))
+    if(is.data.frame(livetime)) livetime <- deconvolution_livetime_lookup(livetime)
+    lt <- suppressWarnings(as.numeric(livetime))
+    if(!any(is.finite(lt) & lt > 0)) return("these spectra carry no LiveTime")
+    gls_formals <- tryCatch(names(formals(xrf_add_deconvolution_gls)), error=function(e) character(0))
+    if(!all(c("scatter_continuum", "background") %in% gls_formals)) return("the installed xrftools is too old for E1")
+    NULL
+}
+
 deconvolution_mass_frame <- function(area_frame, physics=list(), energy_max=NULL, fallback_energy=NULL,
                                      mass_min_sensitivity=1e-2, fidelity="relative", mass_full_min_signal=2e-3,
                                      baseline_frame=NULL, spectra_raw=NULL, livetime=NULL, lod_sigma=3){
@@ -10844,9 +10922,10 @@ deconvolute_complete <- function(spectra_frame, energy_max=NULL, width=5, alpha=
             }
         }
 
-        # Tube and geometry for the optional Rayleigh/Compton scatter templates; a primary-beam filter, which hardens the excitation spectrum, is passed to xrf_tube when present.
+        # Tube and geometry for the optional Rayleigh/Compton scatter templates; a primary-beam filter, which hardens the excitation spectrum, is passed to xrf_tube when present. The tube needs a finite, positive kV: xrf_tube() accepts kv = NA, and the scatter templates then fail every spectrum's fit.
+        tube_kv_num <- if(length(tube_kv) == 1) suppressWarnings(as.numeric(tube_kv)) else NA_real_
         tube <- tryCatch(
-            if(!is.null(tube_anode) && !is.null(tube_kv)) xrf_tube(tube_anode, kv=tube_kv, filter=tube_filter) else NULL,
+            if(!is.null(tube_anode) && isTRUE(is.finite(tube_kv_num) && tube_kv_num > 0)) xrf_tube(tube_anode, kv=tube_kv_num, filter=tube_filter) else NULL,
             error=function(e) NULL)
         # Pass the path angles as well as the scatter angle, because the scatter templates are weighted through .xrf_scatter_sample_kernel, which reads geometry$incidence_deg and $takeoff_deg; a blank or invalid angle falls back to 45, the xrftools default.
         geo_ang <- function(v, d){ v <- suppressWarnings(as.numeric(v))
@@ -10972,23 +11051,23 @@ spectra_gls_deconvolute <- function(spectra_frame, baseline=TRUE, energy_max=NUL
                  scatter_angle_deg = if(!is.null(physics_call$scatter_angle_deg)) "supplied" else "default")
     geo_prov <- list(inferred = FALSE, reason = NA_character_)
 
-    # When the tube is known but the scatter angle is not set, infer the effective angle and Compton width from the anode Rayleigh/Compton splitting in the batch's highest-CPS spectrum and apply them to the whole run; xrf_infer_scatter_geometry is conservative and returns confident=FALSE, keeping the assumed angle, unless the anode scatter is clean and well counted.
+    # When the tube is known but the scatter angle is not set, infer the effective angle and Compton width from the anode Rayleigh/Compton splitting and apply them to the whole run, as the median over the batch's brightest spectra (deconvolution_infer_batch_geometry); xrf_infer_scatter_geometry is conservative and declines a spectrum unless its anode scatter is clean and well counted, and the assumed angle stays when it declines them all.
     if(is.null(physics_call$scatter_angle_deg) && !is.null(physics_call$tube_anode) && !is.null(physics_call$tube_kv) &&
        exists("xrf_infer_scatter_geometry") && nrow(spectra_frame) > 0){
-        geo <- tryCatch({
-            tot <- tapply(spectra_frame$CPS, spectra_frame$Spectrum, sum, na.rm=TRUE)
-            d <- spectra_frame[spectra_frame$Spectrum == names(tot)[which.max(tot)], ]
-            xrf_infer_scatter_geometry(d$Energy, d$CPS, physics_call$tube_anode, physics_call$tube_kv,
-                detector_type = if(!is.null(physics_call$detector_type)) physics_call$detector_type else "SDD")
-        }, error=function(e) NULL)
-        # Keep the decline reason even when the guards refuse, so the UI can say why the assumed angle is still in use.
+        geo <- tryCatch(deconvolution_infer_batch_geometry(spectra_frame, physics_call$tube_anode, physics_call$tube_kv,
+                            detector_type = if(!is.null(physics_call$detector_type)) physics_call$detector_type else "SDD"),
+                        error=function(e) NULL)
+        # Keep the decline reason and the spectrum counts even when the guards refuse, so the UI can say why the assumed angle is still in use.
         if(!is.null(geo) && !is.null(geo$reason)) geo_prov$reason <- as.character(geo$reason)
+        if(!is.null(geo)){ geo_prov$n_inferred <- geo$n_inferred; geo_prov$n_tried <- geo$n_tried }
         if(!is.null(geo) && isTRUE(geo$confident)){
-            physics_call$scatter_angle_deg  <- geo$scatter_angle_deg
-            physics_call$compton_broadening <- geo$compton_broadening
+            physics_call$scatter_angle_deg <- geo$scatter_angle_deg
             # Store the inferred geometry in `physics` so $Deconvoluted$Parameters$Physics records the angle actually used and a reload reproduces the calibration without re-inferring; the `.scatter_geometry` dot-key bundle stays out of the fit call and lets the UI show that the angle was inferred, with its evidence.
-            physics$scatter_angle_deg  <- geo$scatter_angle_deg
-            physics$compton_broadening <- geo$compton_broadening
+            physics$scatter_angle_deg <- geo$scatter_angle_deg
+            if(isTRUE(is.finite(geo$compton_broadening))){
+                physics_call$compton_broadening <- geo$compton_broadening
+                physics$compton_broadening      <- geo$compton_broadening
+            }
             geo_src["scatter_angle_deg"] <- "inferred"
             geo_prov$inferred    <- TRUE
             geo_prov$e_rayleigh  <- geo$e_rayleigh

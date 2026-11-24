@@ -860,7 +860,11 @@ shinyServer(function(input, output, session) {
             cal <- tryCatch(calFileContents(), error=function(e) NULL)
             if(is.null(cal)) return()
             msgs <- character(0)
+            # Models fitted on the old split L/M-line windows are named on their own, since the self-check would only report them as not reproducing their standards.
+            split_old <- tryCatch(splitLineRefitElements(cal), error=function(e) character(0))
+            if(length(split_old) > 0) msgs <- c(msgs, paste0("These models were fitted on split L- or M-line intensities from before a fix (those windows summed the whole spectrum), so they no longer match what CloudCal computes; refit them and press Update: ", paste(split_old, collapse=", "), "."))
             stale <- tryCatch(calibrationSelfCheck(cal), error=function(e) NULL)
+            if(is.data.frame(stale)) stale <- stale[!stale$Element %in% split_old, , drop=FALSE]
             if(is.data.frame(stale) && nrow(stale) > 0) msgs <- c(msgs, paste0("These saved models no longer reproduce their own standards; review them and press Update: ", paste(stale$Element, collapse=", "), "."))
             dependent <- deconvolutionDependentElements(cal)
             if(length(dependent) > 0 && isTRUE(legacyDeconvolution(cal))) msgs <- c(msgs, paste0("The stored deconvolution comes from an older algorithm; deconvolute again and press Update for: ", paste(dependent, collapse=", "), "."))
@@ -1096,7 +1100,9 @@ shinyServer(function(input, output, session) {
                 if(!is.null(sg$e_compton)) md$Compton_keV  <- round(as.numeric(sg$e_compton), 3)
                 src <- sg$source
                 md$GeometrySource <- if(isTRUE(sg$inferred)){
-                    "inferred (Rayleigh/Compton)"
+                    if(!is.null(sg$n_inferred) && !is.null(sg$n_tried))
+                        paste0("inferred (Rayleigh/Compton, median of ", sg$n_inferred, " of ", sg$n_tried, " spectra)")
+                    else "inferred (Rayleigh/Compton)"
                 } else if(!is.null(src)){
                     paste0("incidence ", src["incidence_deg"], ", take-off ", src["takeoff_deg"],
                            ", scatter ", src["scatter_angle_deg"])
@@ -1156,6 +1162,15 @@ shinyServer(function(input, output, session) {
             }
         })
         
+    # Per-spectrum LiveTime for the calibration-side deconvolution (E1 only engages with one): the current import's metadata, else, when no spectra are imported so the loaded calibration's own spectra are being deconvolved, that calibration's SpectraMetadata, as .deconvInferredMeta() does. A fresh import never takes the calibration's live times, since they belong to other spectra.
+    deconvLiveTime <- function(){
+        lt <- tryCatch(deconvolution_livetime_lookup(myMetaData()), error=function(e) NULL)
+        if(is.null(lt) && is.null(input$file1)){
+            lt <- tryCatch(deconvolution_livetime_lookup(calMemory$Calibration$SpectraMetadata), error=function(e) NULL)
+        }
+        lt
+    }
+
     # Shared deconvolution runner for the automatic path and the Deconvolute button: replaces non-finite CPS (from files with zero live time) with 0 so they cannot abort the batch, caps cores at the number of spectra, retries once because forked workers occasionally die, and shows the actual error in a notification.
     runDeconvGuarded <- function(data, width, alpha, sigma, smooth, snip, physics, mass, lt){
         bad <- !is.finite(data$CPS)
@@ -1223,8 +1238,8 @@ shinyServer(function(input, output, session) {
         # xrftools matches template labels, so line names become element symbols, plus the "_L" templates of split K and L+M series.
         protect_els <- unique(sub("[.].*$", "", protect_els))
         if(length(protect_els)) physics_param$abundance_protect <- c(protect_els, paste0(protect_els, "_L"))
-        # Per-spectrum LiveTime (named by cleaned Spectrum) for the full-FP $Mass count-space LOD filter; NULL when the metadata has no LiveTime, and the LOD then falls back to the col-max signal filter.
-        lt_param <- tryCatch(deconvolution_livetime_lookup(isolate(myMetaData())), error=function(e) NULL)
+        # Per-spectrum LiveTime (named by cleaned Spectrum) for the E1 Poisson weights and the full-FP $Mass count-space LOD filter; NULL when neither the import nor a loaded calibration has LiveTime, and E1 then falls back to SNIP and the LOD to the col-max signal filter.
+        lt_param <- isolate(deconvLiveTime())
         print("Starting deconvolution")
 
         # Cache dataHold() once - it was being called 8+ times in this function
@@ -1325,7 +1340,7 @@ shinyServer(function(input, output, session) {
             protect_els <- protect_els[!is.na(protect_els) & nzchar(protect_els)]
             protect_els <- unique(sub("[.].*$", "", protect_els))
             if(length(protect_els)) physics_param$abundance_protect <- c(protect_els, paste0(protect_els, "_L"))   # protect target elements from the prior, as template labels
-            lt_param <- tryCatch(deconvolution_livetime_lookup(myMetaData()), error=function(e) NULL)   # LiveTime for the $Mass LOD
+            lt_param <- deconvLiveTime()   # LiveTime for E1 and the $Mass LOD, from the import or the loaded calibration
 
             new_decon <- withProgress(message="Deconvoluting with current parameters...", value=0.5, {
                 runDeconvGuarded(data_cached, width_param, alpha_param, sigma_param, smooth_param, snip_param, physics_param, mass_param, lt_param)
@@ -1339,6 +1354,15 @@ shinyServer(function(input, output, session) {
 
             calMemory$Calibration$Deconvoluted <- new_decon
             showNotification("Deconvolution regenerated with current parameters.", type="message")
+            # E1 was requested but did not run: say why, since the fit otherwise falls back to SNIP silently and E1 stays out of the ROI Type and Compton Type choices. SEM-EDS and PIXE have no tube, so E1 never applies there; Legacy gets a plain message because many calibrations use it on purpose.
+            mode_now <- physics_param$.mode
+            if(!isFALSE(physics_param$scatter_background) && is.null(new_decon$E1) && !isTRUE(mode_now %in% c("sem", "pixe"))){
+                why <- deconvolution_e1_unavailable_reason(physics_param, lt_param)
+                showNotification(paste0("E1 scatter background not used: ",
+                                        if(is.null(why)) "the E1 fit returned no baseline" else why,
+                                        ". Areas use the SNIP fit."),
+                                 type=if(identical(mode_now, "legacy")) "message" else "warning", duration=12)
+            }
         })
         
         
@@ -1899,7 +1923,8 @@ shinyServer(function(input, output, session) {
             if(is.null(sg)) sg <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$Physics$.scatter_geometry, error=function(e) NULL)
             if(is.null(sg)) return(helpText(paste("Blank = auto: the file's angles, then the Compton/Rayleigh",
                 "inference for the scatter angle, then 45 / 45 / 135 deg. Angles are measured from the sample",
-                "SURFACE. A common convention is scatter ~ 180 - incidence - take-off.")))
+                "SURFACE: with the tube and detector on opposite sides of the normal, scatter ~ incidence + take-off",
+                "(e.g. 45 + 65 = 110); on the same side, 180 - |incidence - take-off|.")))
             src <- sg$source
             lbl <- function(k, d) if(!is.null(src) && !is.na(src[k])) unname(src[k]) else d
             # Older calibrations record only the scatter angle, so missing angles show the xrftools defaults that run would have used.
@@ -1913,10 +1938,15 @@ shinyServer(function(input, output, session) {
                 msg <- paste0(msg, " Scatter angle self-calibrated from the anode ",
                               if(!is.null(sg$anode_line) && !is.na(sg$anode_line)) paste0(sg$anode_line, "-line ") else "",
                               "Rayleigh/Compton split (", round(as.numeric(sg$e_rayleigh), 2), " / ",
-                              round(as.numeric(sg$e_compton), 2), " keV).")
+                              round(as.numeric(sg$e_compton), 2), " keV",
+                              # Calibrations deconvolved before the batch median record a single spectrum and no counts.
+                              if(!is.null(sg$n_inferred) && !is.null(sg$n_tried)) paste0("; median of ", sg$n_inferred, " of ", sg$n_tried, " spectra") else "",
+                              ").")
             } else if(!isTRUE(sg$inferred) && !is.null(sg$reason) && !is.na(sg$reason) &&
                       nzchar(sg$reason) && !identical(as.character(sg$reason), "ok")){
-                msg <- paste0(msg, " Inference declined: ", sg$reason, ".")
+                msg <- paste0(msg, " Inference declined",
+                              if(!is.null(sg$n_tried) && isTRUE(sg$n_tried > 1)) paste0(" for all ", sg$n_tried, " spectra tried (most often: ", sg$reason, ").")
+                              else paste0(": ", sg$reason, "."))
             }
             helpText(msg)
         })
@@ -10645,7 +10675,7 @@ shinyServer(function(input, output, session) {
             # Errors are caught and reported so a failing candidate model type cannot abort the remaining Train observers, such as the normalization and intercept sweep.
             tryCatch({
                 bestCalHold[[input$calcurveelement]] <- bestCalTypeFrame()
-                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=bestParameters(), model=bestModel(), table=calValTable(), compress=TRUE))
+                calMemory$Calibration$calList[[input$calcurveelement]] <- isolate(modelPack(parameters=stampLineAlgorithm(bestParameters()), model=bestModel(), table=calValTable(), compress=TRUE))
             }, error = function(e){
                 print(paste("TRAIN best-model sweep failed:", conditionMessage(e)))
                 showNotification(paste("Model training failed:", conditionMessage(e)), type="error")
@@ -12290,8 +12320,10 @@ shinyServer(function(input, output, session) {
                         table <- loo$Table
                     }
                 }
-                cal.pack <- isolate(modelPack(parameters=modelParameters(), model=model, table=table, compress=TRUE))
-                settings.pack <- isolate(modelPack(parameters=modelParameters(), model=NULL, table=table, compress=TRUE))
+                # Stamp the line-intensity version the model is fitted on, so a later window fix can name it for refitting (splitLineRefitElements).
+                parameters <- stampLineAlgorithm(isolate(modelParameters()))
+                cal.pack <- isolate(modelPack(parameters=parameters, model=model, table=table, compress=TRUE))
+                settings.pack <- isolate(modelPack(parameters=parameters, model=NULL, table=table, compress=TRUE))
 
                 if(is.null(cal.pack) || is.null(settings.pack)){
                     print("UPDATE model build failed: model settings could not be assembled")
@@ -22103,7 +22135,13 @@ content = function(file){
         cal <- calFileContents2()
         req(cal)
         msgs <- character(0)
+        split_old <- tryCatch(splitLineRefitElements(cal), error=function(e) character(0))
+        if(length(split_old) > 0){
+            msgs <- c(msgs, paste0("These models were fitted on split L- or M-line intensities from before a fix (those windows summed the whole spectrum), so their results here are wrong until they are refitted (load the calibration, review and press Update): ",
+                paste(split_old, collapse=", "), "."))
+        }
         stale <- tryCatch(calibrationSelfCheck(cal), error=function(e) NULL)
+        if(is.data.frame(stale)) stale <- stale[!stale$Element %in% split_old, , drop=FALSE]
         if(is.data.frame(stale) && nrow(stale) > 0){
             msgs <- c(msgs, paste0("These models no longer reproduce their own standards from the calibration's spectra, so their results are unreliable until they are rebuilt (load the calibration, review and press Update): ",
                 paste0(stale$Element, " (", round(100 * stale$Deviation), "% of range)", collapse=", "), "."))

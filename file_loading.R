@@ -4526,7 +4526,12 @@ calPre <- function(element.model.list, element, temp, env.strip=TRUE, xgb_raw=FA
         if("Table" %in% names(element.model.list)){
             new.element.model.list$Table <- element.model.list$Table
         }
-        
+
+        # importCalConditions rebuilds Parameters from the CalTable, so the line-intensity version the model was fitted on is carried over here; models without it predate the split-window fix (see splitLineRefitElements).
+        if(is.list(new.element.model.list$Parameters) && !is.null(element.model.list[[1]]$LineAlgorithm)){
+            new.element.model.list$Parameters$LineAlgorithm <- element.model.list[[1]]$LineAlgorithm
+        }
+
         #if(!"Scale" %in% names(element.model.list[[1]])){
         #    element.model.list[[1]][["Scale"]] <- list(Min=0, Max=1)
         #}
@@ -4638,6 +4643,29 @@ foldLegacySpectrumTwins <- function(df, spectra, col = "Spectrum"){
     }
     if (length(drop)) df <- df[-drop, , drop = FALSE]
     df
+}
+
+# Older PDZ imports keyed SpectraMetadata by Shiny's upload index ("0", "1", ...), the temp-file name the old reader took the name from, instead of by spectrum, so its LiveTime matched no spectrum and E1 could not use it. The rows are in upload order and the spectra were saved sorted by name, so they are paired by position only when that is provably right: the stored CPS are counts / LiveTime, so every spectrum's CPS x LiveTime must come back as whole counts. Otherwise the table is returned unchanged and the deconvolution uses the batch-median live time. Used by calRDS; a no-op for metadata keyed by spectrum name.
+repairIndexedSpectraMetadata <- function(md, spectra, spectra_names = unique(as.character(spectra$Spectrum))){
+    if (!is.data.frame(md) || !nrow(md) || !all(c("Spectrum", "LiveTime") %in% names(md))) return(md)
+    if (!is.data.frame(spectra) || !all(c("Spectrum", "CPS") %in% names(spectra))) return(md)
+    ids <- as.character(md$Spectrum)
+    if (!all(grepl("^[0-9]+$", ids)) || any(ids %in% spectra_names) || length(spectra_names) != nrow(md)) return(md)
+    upload <- md[order(as.integer(ids)), , drop = FALSE]
+    lt <- suppressWarnings(as.numeric(upload$LiveTime))
+    if (!all(is.finite(lt) & lt > 0)) return(md)
+    # Split the non-zero channels once, because the long-format Spectra column can run to millions of rows.
+    cps <- suppressWarnings(as.numeric(spectra$CPS))
+    nz <- which(is.finite(cps) & cps > 0)
+    by_spectrum <- split(cps[nz], factor(as.character(spectra$Spectrum[nz]), levels = spectra_names))
+    whole_counts <- vapply(seq_along(spectra_names), function(i){
+        x <- by_spectrum[[i]] * lt[i]
+        length(x) > 0 && stats::median(abs(x - round(x))) < 1e-3
+    }, logical(1))
+    if (!all(whole_counts)) return(md)
+    upload$Spectrum <- spectra_names
+    rownames(upload) <- NULL
+    upload
 }
 
 # Helper to normalize spectrum names in a data frame column
@@ -4789,7 +4817,10 @@ repairIntensityTables <- function(Calibration, elements, allowParallel){
 
     line_elements <- elements[elements %in% spectralLines]
     custom_elements <- elements[!elements %in% spectralLines]
-    spot <- if(length(line_elements) > 0) line_elements[1] else NULL
+    # Spot lines: the first line, plus the first L-, M- or K-beta line, since LINE_INTENSITY_ALGORITHM 2 changed the split windows of those series but not K-alpha; a split table saved before that fix fails the second check and is rebuilt.
+    series_lines <- line_elements[grepl("\\.(L\\.alpha|L\\.beta|M\\.line|K\\.beta)$", line_elements)]
+    spot <- unique(c(head(line_elements, 1), head(series_lines, 1)))
+    if(length(spot) == 0) spot <- NULL
 
     builders <- list(
         Intensities          = function(el) narrowLineTable(spectra, defs, el, gaus_buffer = gaus_buf, allowParallel = FALSE),
@@ -4823,8 +4854,8 @@ repairIntensityTables <- function(Calibration, elements, allowParallel){
         if(!is.null(probe)){
             probe <- probe[order(as.character(probe$Spectrum)), , drop = FALSE]
             if(!is.null(spot)){
-                same <- isTRUE(all.equal(as.numeric(tab[[spot]]), as.numeric(probe[[spot]]),
-                                         tolerance = 1e-6, check.attributes = FALSE))
+                same <- all(vapply(spot, function(s) isTRUE(all.equal(as.numeric(tab[[s]]), as.numeric(probe[[s]]),
+                                                                       tolerance = 1e-6, check.attributes = FALSE)), logical(1)))
                 if(!same){
                     needs_rebuild <- c(needs_rebuild, tbl)
                     next
@@ -4886,6 +4917,10 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     # Fold older .quant files' mangled-name twin rows back into their real spectra (see foldLegacySpectrumTwins), using unique names because the long-format Spectra column can run to millions of rows.
     spectra_names <- unique(as.character(Calibration$Spectra$Spectrum))
     Calibration$Values <- foldLegacySpectrumTwins(Calibration$Values, spectra_names)
+    # Re-key older PDZ imports' index-named SpectraMetadata to the spectrum names, before any sort, so its LiveTime reaches the deconvolution and E1 (see repairIndexedSpectraMetadata).
+    if (is.data.frame(Calibration$SpectraMetadata)) {
+        Calibration$SpectraMetadata <- repairIndexedSpectraMetadata(Calibration$SpectraMetadata, Calibration$Spectra, spectra_names)
+    }
 
     # Normalize deconvoluted tables
     if ("Deconvoluted" %in% names(Calibration)) {
@@ -5089,7 +5124,11 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     
     # Tagged after calPre(), which rebuilds each element's settings and would drop the tag.
     Calibration <- tagSortedStandardsUsed(Calibration)
-    
+
+    # Models fitted on the old split L/M-line windows (which summed the whole spectrum) no longer match the intensities computed now; the app names them on load, and scripts get this message. message(), not warning(), so a session running with warn = 2 still loads.
+    split_old <- tryCatch(splitLineRefitElements(Calibration), error=function(e) character(0))
+    if(length(split_old) > 0) message("calRDS: these models were fitted on the old split L/M-line intensities and need refitting (review and press Update): ", paste(split_old, collapse=", "))
+
     
     
 

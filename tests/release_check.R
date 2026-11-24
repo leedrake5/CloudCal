@@ -1,6 +1,6 @@
 # CloudCal pre-release check
 # Smoke and regression test to run before releases:
-# 1. Load a handheld .quant and verify its structure and repaired tables
+# 1. Load a handheld .quant and verify its structure and repaired tables, including SpectraMetadata re-keyed from the upload index that older PDZ imports used
 # 2. Verify the intensity-table builders (fast path == per-element path)
 # 3. Drive a session: review cal curves per element and commit line edits, including an out-of-range definition, without the session failing
 # 4. Build a new calibration from the raw spectra, fit a model, and re-fit it under each normalization and a scaled-concentration transform (the full grid is in tests/model_check.R)
@@ -13,6 +13,10 @@
 # 11. Diagnostics: clicks, brushes and Cook's distance bars toggle the standard under the pointer for Linear and Lucas-Tooth, with and without standards lacking a certified value, and excluded standards stay on the plots so they can be included again
 # 12. Cal Curves selection and saved standards: a click toggles one standard, the left-plot brush works, the Lucas-Tooth label shows the plotted r2, an element saved with no intercept lines predicts as in the app after reload, a PLS random split trains only on included standards, in-session masks follow standards across model types, and older .quant masks load the standards their models left out
 # 13. Apply Calibration: older empty-intercept Lucas-Tooth models reproduce their fits, the Scale transform is decoded with the stored range, each element's saved Narrow Line Width is used, saves record the build and deconvolution algorithm, and the stale-model and spectra-alignment checks work
+# 14. Olympus Delta CSV import: multi-exposure detection, per-exposure CPS and metadata, and the same file through a session
+# 15. E1 from a loaded calibration: with no spectra imported, Deconvolute in Handheld mode runs E1 from the .quant's stored LiveTime and offers it as the ROI Type; Legacy mode and a blank kV fit without E1 instead of failing
+# 16. Scatter-angle inference: the batch median over the brightest spectra recovers the Tracer's ~110-115 deg geometry even when the single brightest spectrum is declined, and the deconvolution stores it instead of the 135 deg default
+# 17. Split line windows: L-alpha, L-beta, M and two-line K-beta sum their own line windows (not the whole spectrum, the pre-fix bug), K-alpha and one-line K-beta are unchanged, a split table saved before the fix is rebuilt on load, and models fitted on it are named for refitting until Update stamps them
 # Usage: Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir] [high_energy_mca]
 # Default paths point at local CloudCal Evaluation files; the exit status is nonzero if any check fails.
 
@@ -94,6 +98,18 @@ check("calRDS folds legacy mangled-name twins back onto their spectra", {
     !twin %in% fixed$Values$Spectrum && !twin %in% fixed$Intensities$Spectrum &&
         isTRUE(all.equal(fixed$Values[[el]][fixed$Values$Spectrum == real], cal$Values[[el]][cal$Values$Spectrum == s])) &&
         isTRUE(all.equal(fixed$Intensities[[el]][fixed$Intensities$Spectrum == real], cal$Intensities[[el]][cal$Intensities$Spectrum == s]))
+})
+check("calRDS keys SpectraMetadata by spectrum name, re-keying older PDZ imports' upload-index rows", {
+    # Older PDZ imports keyed rows "0", "1", ... (Shiny's upload index), so their LiveTime reached no spectrum. After loading, each spectrum must carry its own PDZ live time; rebuilding the index keys must round-trip, a wrong live-time order must fail the whole-count test and stay unchanged, and a second load must change nothing.
+    sm <- cal$SpectraMetadata
+    sp <- unique(as.character(cal$Spectra$Spectrum))
+    pdz_lt <- deconvolution_livetime_lookup(readPDZMetadataProcess(inFile_all))
+    old <- sm[match(sp, sm$Spectrum), , drop = FALSE]; old$Spectrum <- as.character(seq_along(sp) - 1L)
+    bad <- old; bad$LiveTime <- rev(bad$LiveTime)
+    all(sp %in% sm$Spectrum) && isTRUE(all.equal(unname(pdz_lt[sm$Spectrum]), sm$LiveTime)) &&
+        identical(repairIndexedSpectraMetadata(old, cal$Spectra)$Spectrum, sp) &&
+        identical(repairIndexedSpectraMetadata(bad, cal$Spectra)$Spectrum, bad$Spectrum) &&
+        identical(calRDS(Calibration = cal, xgb_raw = FALSE)$SpectraMetadata, sm)
 })
 
 message("\n-- 2. Intensity table builders --")
@@ -661,6 +677,7 @@ if (!is.na(loo_el)) try(testServer(app, {
     # Update, unticked then ticked
     session$setInputs(createcalelement = 1)
     sec10$saved_full <- isTRUE(all.equal(unname(coef(calMemory$Calibration$calList[[loo_el]]$Model)), unname(coef(elementModelGen()))))
+    sec10$stamped <- identical(calMemory$Calibration$calList[[loo_el]]$Parameters$LineAlgorithm, LINE_INTENSITY_ALGORITHM)
     session$setInputs(useloomodel = TRUE)
     session$setInputs(createcalelement = 2)
     saved <- calMemory$Calibration$calList[[loo_el]]
@@ -687,6 +704,7 @@ check("Leave-one-out page: follows the cross-product toggle",
       !isTRUE(all.equal(sec10$loo_cls$LOO, sec10$loo_add$LOO)))
 check("Use Cross-Validated Model: Update saves the averaged refits with the left-out table; unticked, the full fit",
       isTRUE(sec10$saved_full) && isTRUE(sec10$saved_cv))
+check("Update stamps the saved model with the current line-intensity version", isTRUE(sec10$stamped))
 check("Leave-one-out page: other model types point to the Random Split tab",
       grepl("Random Split", sec10$other_type))
 
@@ -1035,6 +1053,128 @@ try(testServer(app, {
 check("Delta CSV in a session: exposure 2 loads one spectrum whose live time matches by name, intensities commit",
       identical(sec14$spectra, "X04_27_26..142") && isTRUE(all.equal(sec14$kv, 9.96997)) && isTRUE(sec14$lt_match) && isTRUE(sec14$intensities))
 unlink(delta_file)
+
+message("\n-- 15. E1 from a loaded calibration (no spectra imported) --")
+# A .quant loaded on its own must deconvolve with its stored LiveTime so E1 runs and reaches the normalization choices; live time used to come only from imported files, so E1 silently fell back to SNIP. Three spectra of the raw quant, keeping its upload-index metadata keys, keep the session fast.
+sec15 <- new.env()
+e1_quant <- tempfile(fileext = ".quant")
+try({
+    raw15 <- readRDS(QUANT)
+    keep15 <- head(unique(as.character(raw15$Spectra$Spectrum)), 3)
+    small15 <- raw15[intersect(c("FileType", "Units", "Definitions", "Notes"), names(raw15))]
+    small15$Spectra <- raw15$Spectra[raw15$Spectra$Spectrum %in% keep15, ]
+    small15$SpectraMetadata <- head(raw15$SpectraMetadata, 3)
+    small15$Values <- raw15$Values[raw15$Values$Spectrum %in% keep15, ]
+    saveRDS(small15, e1_quant)
+    testServer(app, {
+        session$setInputs(
+            calfileinput = list(name = basename(e1_quant), datapath = e1_quant),
+            filetype = small15$FileType, energynudge = 0,
+            calcurveelement = names(cal$calList)[1], radiocal = 3, normcal = 3,
+            comptonmin = 0, comptonmax = 0, comptontype = "Raw",
+            deconvolutionwidth = 5, deconvolutionalpha = 2.5, deconvolutiondefaultsigma = 0.07,
+            deconvolutionsmoothiter = 20, deconvolutionsnipiter = 20, deconvolutionscatterbg = TRUE,
+            deconvolutionmode = "handheld", deconvolutionbeamenergy = 50, deconvolutiontubeanode = "Rh",
+            deconvolutiondetector = "Auto", deconvolutionthickness = 450, deconvolutionmass = "relative",
+            deconvolutiontubefilter = "Cu 100; Ti 25; Al 300", deconvolutionenvironment = "air_pp",
+            deconvolutionsplitseries = "auto", deconvolutiongeometry = FALSE
+        )
+        session$setInputs(deconvolutebutton = 1)
+        dec <- calMemory$Calibration$Deconvoluted
+        sec15$e1 <- is.data.frame(dec$E1) && setequal(unique(dec$E1$Spectrum), keep15)
+        sec15$roi <- grepl('value="E1"', tryCatch(as.character(output$comptonType$html), error = function(e) ""))
+        sec15$geo_note <- tryCatch(as.character(output$deconvolutiongeometryinfo$html), error = function(e) "")
+        session$setInputs(deconvolutionmode = "legacy", deconvolutebutton = 2)
+        dec <- calMemory$Calibration$Deconvoluted
+        sec15$legacy <- identical(dec$Parameters$Physics$.mode, "legacy") && is.null(dec$E1)
+        # Blank kV with an anode set used to fail every spectrum (xrf_scatter_peaks needs a kV), leaving the previous fit in place; it must now store a Handheld fit without E1.
+        session$setInputs(deconvolutionmode = "handheld", deconvolutionbeamenergy = NA, deconvolutebutton = 3)
+        dec <- calMemory$Calibration$Deconvoluted
+        sec15$blank_kv <- identical(dec$Parameters$Physics$.mode, "handheld") && is.null(dec$E1) && nrow(dec$Areas) == 3
+    })
+}, silent = TRUE)
+unlink(e1_quant)
+check("loaded .quant, Handheld + Rh + 50 kV: Deconvolute runs E1 from the stored LiveTime", isTRUE(sec15$e1))
+check("E1 is then offered as the calibration's ROI Type", isTRUE(sec15$roi))
+check("Legacy mode re-deconvolutes without E1 (no tube model)", isTRUE(sec15$legacy))
+check("blank kV with an anode set fits without E1 instead of failing every spectrum", isTRUE(sec15$blank_kv))
+
+message("\n-- 16. Scatter-angle inference (batch median) --")
+# The Far West PDZs record 45 deg incidence and 65 deg take-off from the surface, so with tube and detector on opposite sides of the normal the scatter angle is ~110 deg. The inference used to read only the brightest spectrum, which it declines here (merged Compton region), leaving the 135 deg default.
+sp16 <- cal$Spectra
+tot16 <- tapply(sp16$CPS, sp16$Spectrum, sum)
+bright16 <- names(tot16)[which.max(tot16)]
+geo16 <- tryCatch(deconvolution_infer_batch_geometry(sp16, "Rh", 50, "SDD"), error = function(e) NULL)
+check("batch inference: Far West scatter angle 105-125 deg, the median of most spectra", {
+    isTRUE(geo16$confident) && geo16$scatter_angle_deg > 105 && geo16$scatter_angle_deg < 125 &&
+        geo16$n_inferred >= 0.75 * geo16$n_tried && identical(geo16$n_tried, length(tot16))
+})
+check("the brightest spectrum alone is declined, so a single-spectrum inference would keep 135 deg", {
+    solo <- xrf_infer_scatter_geometry(sp16$Energy[sp16$Spectrum == bright16], sp16$CPS[sp16$Spectrum == bright16],
+                                       "Rh", 50, detector_type = "SDD")
+    !isTRUE(solo$confident)
+})
+check("deconvolution with that spectrum in the batch stores an inferred angle, not 135 deg", {
+    three16 <- c(bright16, setdiff(names(sort(tot16, decreasing = TRUE)), bright16)[1:2])
+    phys16 <- instrument_deconv_defaults(mode = "handheld", kv = 50, anode = "Rh", active_thickness_um = 450,
+                                         filter = "Cu 100; Ti 25; Al 300")
+    dec16 <- spectra_gls_deconvolute(sp16[sp16$Spectrum %in% three16, ], cores = 1, physics = phys16, mass = "off",
+                                     livetime = deconvolution_livetime_lookup(cal$SpectraMetadata))
+    sg16 <- dec16$Parameters$Physics$.scatter_geometry
+    isTRUE(sg16$inferred) && sg16$scatter_angle_deg > 105 && sg16$scatter_angle_deg < 125 && identical(sg16$n_tried, 3L) &&
+        identical(dec16$Parameters$Physics$scatter_angle_deg, sg16$scatter_angle_deg)
+})
+check("the Spectrum page's geometry note reports the batch median (section 15 session)",
+      isTRUE(grepl("median of [0-9]+ of 3 spectra", sec15$geo_note)))
+check("a batch where every spectrum is declined keeps the default, with the reason and counts", {
+    none16 <- deconvolution_infer_batch_geometry(sp16[sp16$Spectrum == bright16, ], "Rh", 50, "SDD")
+    !isTRUE(none16$confident) && is.character(none16$reason) && !is.na(none16$reason) &&
+        identical(none16$n_inferred, 0L) && identical(none16$n_tried, 1L)
+})
+
+message("\n-- 17. Split line windows --")
+# From 2024-03 the Narrow split L-alpha, L-beta and M-line windows tested for a channel both below and above the line, which never matches, so every channel was kept: each L/M line read the whole-spectrum sum (same number for every element), and the split K-beta failed for elements with a K-beta2 line.
+sp17 <- cal$Spectra; sp17$Spectrum <- as.character(sp17$Spectrum)
+tot17 <- tapply(sp17$CPS, sp17$Spectrum, sum)
+three17 <- sp17[sp17$Spectrum %in% head(unique(sp17$Spectrum), 3), ]
+fl17 <- function(el) fluorescence.lines[fluorescence.lines$Symbol == el, ]
+win17 <- function(d, e, b = 0.1){ keep <- Reduce(`|`, lapply(e, function(x) d$Energy >= x - b & d$Energy <= x + b))
+    v <- tapply(ifelse(keep, d$CPS, 0), d$Spectrum, sum); as.numeric(v[as.character(unique(d$Spectrum))]) }
+grab17 <- function(f, el) { r <- f(el, three17, "split"); as.numeric(r[[2]][match(unique(three17$Spectrum), r$Spectrum)]) }
+check("split L-alpha / L-beta / M sum their two line windows, not the whole spectrum", {
+    gd <- grab17(elementGrabLalpha, "Gd"); pb_lb <- grab17(elementGrabLbeta, "Pb"); pb_m <- grab17(elementGrabMalpha, "Pb")
+    isTRUE(all.equal(gd, win17(three17, c(fl17("Gd")$La1, fl17("Gd")$La2)))) &&
+        isTRUE(all.equal(pb_lb, win17(three17, c(fl17("Pb")$Lb1, fl17("Pb")$Lb3)))) &&
+        isTRUE(all.equal(pb_m, win17(three17, c(fl17("Pb")$Ma1, fl17("Pb")$Mb)))) &&
+        all(gd < 0.5 * tot17[unique(three17$Spectrum)]) && !isTRUE(all.equal(gd, grab17(elementGrabLalpha, "Sm")))
+})
+check("split K-beta: Kb1 + Kb2 windows for Zr (failed before); Fe's single window unchanged", {
+    zr <- grab17(elementGrabKbeta, "Zr"); fe <- grab17(elementGrabKbeta, "Fe")
+    fe_old <- { e <- fl17("Fe")$Kb1; v <- tapply(ifelse(three17$Energy > e - 0.1 & three17$Energy < e + 0.1, three17$CPS, 0), three17$Spectrum, sum)
+        as.numeric(v[as.character(unique(three17$Spectrum))]) }
+    isTRUE(all.equal(zr, win17(three17, c(fl17("Zr")$Kb1, fl17("Zr")$Kb2)))) && isTRUE(all.equal(fe, fe_old))
+})
+check("a split table saved before the fix (L/M columns = whole spectrum) is rebuilt on load", {
+    leg17 <- cal
+    lm_cols <- grep("[.](L[.]alpha|L[.]beta|M[.]line)$", names(leg17$IntensitiesSplit), value = TRUE)
+    for (cn in lm_cols) leg17$IntensitiesSplit[[cn]] <- as.numeric(tot17[as.character(leg17$IntensitiesSplit$Spectrum)])
+    fixed17 <- suppressMessages(calRDS(Calibration = leg17, xgb_raw = FALSE, sort = TRUE))
+    by_spec <- function(t) t[order(as.character(t$Spectrum)), lm_cols, drop = FALSE]
+    length(lm_cols) > 0 && isTRUE(all.equal(by_spec(fixed17$IntensitiesSplit), by_spec(cal$IntensitiesSplit), check.attributes = FALSE))
+})
+check("models fitted on the old split L/M windows are named for refitting until stamped; split K-alpha is not", {
+    old17 <- cal
+    old17$calList$Th.L.alpha$Parameters$CalTable$LineStructure <- "split"
+    old17$calList$Rb.K.alpha$Parameters$CalTable$LineStructure <- "split"
+    old17$calList$Rb.K.alpha$Parameters$Slope <- "Rb.K.alpha"; old17$calList$Rb.K.alpha$Parameters$Intercept <- NULL
+    named <- splitLineRefitElements(old17)
+    reload <- suppressMessages(calRDS(Calibration = old17, xgb_raw = FALSE))
+    new17 <- old17; new17$calList$Th.L.alpha$Parameters <- stampLineAlgorithm(new17$calList$Th.L.alpha$Parameters)
+    reload_new <- suppressMessages(calRDS(Calibration = new17, xgb_raw = FALSE))
+    saved <- calListCompress(reload_new$calList)
+    identical(named, "Th.L.alpha") && identical(splitLineRefitElements(reload), "Th.L.alpha") &&
+        length(splitLineRefitElements(reload_new)) == 0 && identical(saved$Th.L.alpha$Parameters$LineAlgorithm, LINE_INTENSITY_ALGORITHM)
+})
 
 n_fail <- sum(!unlist(results))
 message(sprintf("\n== %d/%d checks passed ==", sum(unlist(results)), length(results)))
