@@ -10814,7 +10814,8 @@ shinyServer(function(input, output, session) {
         output$energyrangeui <- renderUI({
             req(input$radiocal, input$calcurveelement)
             # compress is passed live, not isolated, so the slider step tracks the model's binning; it is a separate control, so it cannot feed back into this one.
-            energyRangeUI(radiocal=input$radiocal, selection=isolate(calEnergyRangePre()), compress=input$compress)
+            maxenergy <- my.max(myData()$Energy)
+            energyRangeUI(radiocal=input$radiocal, selection=isolate(calEnergyRangePre()), compress=input$compress, maxenergy=maxenergy)
         })
         
         calCompressPre <- reactive(label="calCompressPre", {

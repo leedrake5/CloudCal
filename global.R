@@ -4872,7 +4872,7 @@ dependentTransformationUI <- function(radiocal=3, selection=NULL){
     }
 }
 
-energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
+energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV", maxenergy=40){
 
     radiocal <- chemRadiocalAlias(radiocal)
     
@@ -4904,23 +4904,23 @@ energyRangeUI <- function(radiocal=3, selection=NULL, compress="100 eV"){
     } else if(radiocal==4){
         NULL
     }  else if(radiocal==5){
-        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step,  value=selection)
+        sliderInput('energyrange', label="Energy Range", min=0, max=maxenergy, step=step,  value=selection)
     } else if(radiocal==6){
         NULL
     } else if(radiocal==7){
-        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step, value=selection)
+        sliderInput('energyrange', label="Energy Range", min=0, max=maxenergy, step=step, value=selection)
     } else if(radiocal==8){
         NULL
     } else if(radiocal==9){
-        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step, value=selection)
+        sliderInput('energyrange', label="Energy Range", min=0, max=maxenergy, step=step, value=selection)
     } else if(radiocal==10){
         NULL
     } else if(radiocal==11){
-        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step, value=selection)
+        sliderInput('energyrange', label="Energy Range", min=0, max=maxenergy, step=step, value=selection)
     } else if(radiocal==12){
         NULL
     } else if(radiocal==13){
-        sliderInput('energyrange', label="Energy Range", min=0, max=40, step=step, value=selection)
+        sliderInput('energyrange', label="Energy Range", min=0, max=maxenergy, step=step, value=selection)
     }
 }
 
