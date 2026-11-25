@@ -7463,14 +7463,14 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
     
     if(is.null(count.list)){
         count.list <- list(
-            Narrow_gaussian=merge(narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
-            Narrow_first=merge(narrowLineTableFirst(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
-            Narrow_second=merge(narrowLineTableSecond(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
-            Wide_gaussian=merge(wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
-            Narrow_split=merge(narrowLineTableSplit(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T),
-            Wide_split=merge(wideLineTableSplit(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff, by="Spectrum", all=T, sort=T)
+            Narrow_gaussian=mergeOtherSpectraStuff(narrowLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff),
+            Narrow_first=mergeOtherSpectraStuff(narrowLineTableFirst(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff),
+            Narrow_second=mergeOtherSpectraStuff(narrowLineTableSecond(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff),
+            Wide_gaussian=mergeOtherSpectraStuff(wideLineTable(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff),
+            Narrow_split=mergeOtherSpectraStuff(narrowLineTableSplit(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff),
+            Wide_split=mergeOtherSpectraStuff(wideLineTableSplit(spectra=valdata, definition.table=Calibration$Definitions, elements=variables), other_spectra_stuff)
             )
-        count.list$Area_gaussian <- merge(deconvolutionIntensityFrame(deconvoluted_valdata$Areas, count.list$Narrow_gaussian), other_spectra_stuff, by="Spectrum", all=T, sort=T)
+        count.list$Area_gaussian <- mergeOtherSpectraStuff(deconvolutionIntensityFrame(deconvoluted_valdata$Areas, count.list$Narrow_gaussian), other_spectra_stuff)
         count.list$Area_split <- count.list$Area_gaussian
         count.list$Area_first <- count.list$Area_gaussian
         count.list$Area_second <- count.list$Area_gaussian
@@ -9464,6 +9464,19 @@ cloudCalPredict <- function(Calibration, elements.cal, elements, variables, vald
         
 }
 
+
+# Concentrations or predictions back from a model's dependent-transformation scale, as mclValGen decodes them: "Log" models fit log(y), "e" models exp(y), and "Scale" models (y - min)/(max - min) over the calibration's range (yMin()/yMax()).
+decodeDependent <- function(values, dependent.transformation, y_min=0, y_max=1){
+    if(is.null(dependent.transformation) || length(dependent.transformation) != 1 ||
+       is.na(dependent.transformation) || !dependent.transformation %in% c("None", "Log", "e", "Scale")){
+        dependent.transformation <- "None"
+    }
+    switch(dependent.transformation,
+        "Log"=exp(values),
+        "e"=log(values),
+        "Scale"=scaleDecode(values=values, y_min=y_min, y_max=y_max),
+        values)
+}
 
 mclValGen <- function(model, data, predict.frame, dependent.transformation, y_min=0, y_max=1){
     # Treat a missing, NA or unrecognized transformation (e.g. an NA CalTable$DepTrans in older cals) as "None", so the if-chain below always yields a prediction.
@@ -11638,6 +11651,13 @@ fpMassClosure <- function(mass.table){
                check.names=FALSE, stringsAsFactors=FALSE)
 }
 fpMassClosure <- cmpfun(fpMassClosure)
+
+# A line-intensity table with the spectra's other columns (total counts, the deconvolution baseline, Compton/Rayleigh) added once. The line builders emit a column for every name they are given, and a calibration's variables can include Total and Baseline (calRDS adds them when it rebuilds the intensity tables), so a plain merge would rename both copies to .x/.y and selecting the variables would fail, leaving every intensity model without predictions. The other columns win, as they do in the training tables.
+mergeOtherSpectraStuff <- function(line.table, other_spectra_stuff){
+    if(!is.data.frame(other_spectra_stuff) || !is.data.frame(line.table)) return(line.table)
+    shared <- setdiff(intersect(colnames(line.table), colnames(other_spectra_stuff)), "Spectrum")
+    merge(line.table[, !colnames(line.table) %in% shared, drop=FALSE], other_spectra_stuff, by="Spectrum", all=TRUE, sort=TRUE)
+}
 
 totalCountsGen <- function(spectra_frame){
     # rowsum() gives the same sorted-by-group, NA-omitting result as aggregate(), much faster on the long-format spectra frame.

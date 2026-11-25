@@ -686,6 +686,12 @@ if (!is.na(loo_el)) try(testServer(app, {
         !isTRUE(all.equal(coef(saved$Model), coef(elementModelGen())))
     session$setInputs(useloomodel = FALSE, radiocal = 4)
     sec10$other_type <- tryCatch({ output$calcurveplotsloo; "rendered" }, error = function(e) conditionMessage(e))
+    # Random Split under the Scale transformation (which new XGBoost models start with) must show concentrations in the calibration's units, as Cal Curves does
+    basichold$deptransformation <- "Scale"
+    session$flushReact()
+    sec10$scaled_held <- tryCatch(valFrameRandomized(), error = function(e) NULL)
+    sec10$scaled_train <- tryCatch(valFrameRandomizedRev(), error = function(e) NULL)
+    basichold$deptransformation <- "None"
 }), silent = TRUE)
 check("Leave-one-out page: refit-lines and validation plots, standards table and plot download render",
       isTRUE(sec10$plots) && isTRUE(sec10$table) && isTRUE(sec10$tiff > 10000))
@@ -706,6 +712,13 @@ check("Leave-one-out page: follows the cross-product toggle",
 check("Use Cross-Validated Model: Update saves the averaged refits with the left-out table; unticked, the full fit",
       isTRUE(sec10$saved_full) && isTRUE(sec10$saved_cv))
 check("Update stamps the saved model with the current line-intensity version", isTRUE(sec10$stamped))
+check("Random Split under a Scale transformation shows the calibration's concentrations, not the 0-1 scaled ones", {
+    actual <- function(vf){ v <- suppressWarnings(as.numeric(cal$Values[[loo_el]])); names(v) <- as.character(cal$Values$Spectrum); unname(v[as.character(vf$Spectrum)]) }
+    h <- sec10$scaled_held; t <- sec10$scaled_train
+    is.data.frame(h) && is.data.frame(t) && nrow(h) > 0 && nrow(t) > 0 &&
+        isTRUE(all.equal(unname(h$Concentration), actual(h), tolerance = 1e-6)) && isTRUE(all.equal(unname(t$Concentration), actual(t), tolerance = 1e-6)) &&
+        all(is.finite(h$Prediction)) && max(abs(h$Prediction)) <= 2 * max(abs(actual(t)), na.rm = TRUE)
+})
 check("Leave-one-out page: other model types point to the Random Split tab",
       grepl("Random Split", sec10$other_type))
 
@@ -950,6 +963,18 @@ apply_predict <- function(calib, el, ...) {
         deconvoluted_valdata = calib$Deconvoluted, rounding = 12, multiplier = 1, cores = 1, ...))
     v <- suppressWarnings(as.numeric(pr[[el]])); names(v) <- as.character(pr$Spectrum); v
 }
+check("line tables take Total/Baseline once from the spectra's other columns (no .x/.y duplicates from the merge)", {
+    lines <- data.frame(Spectrum = c("a", "b"), Fe.K.alpha = c(1, 2), Total = c(-1, -1), Baseline = c(-2, -2))
+    other <- data.frame(Spectrum = c("a", "b"), Total = c(10, 20), Baseline = c(3, 4))
+    m <- mergeOtherSpectraStuff(lines, other)
+    setequal(colnames(m), c("Spectrum", "Fe.K.alpha", "Total", "Baseline")) && identical(m$Total, c(10, 20)) && identical(m$Baseline, c(3, 4))
+})
+check("Apply predicts intensity models when the variables include Total (calRDS adds it when it rebuilds intensity tables)", {
+    lt_el <- names(apply_cal$calList)[vapply(apply_cal$calList, function(e) isTRUE(suppressWarnings(as.numeric(as.character(e$Parameters$CalTable$CalType[1]))) == 3), logical(1))][1]
+    pr <- suppressWarnings(cloudCalPredict(Calibration = apply_cal, elements.cal = lt_el, elements = lt_el, variables = union(apply_vars, "Total"),
+        valdata = apply_cal$Spectra, deconvoluted_valdata = apply_cal$Deconvoluted, rounding = 12, multiplier = 1, cores = 1))
+    !is.na(lt_el) && nrow(pr) > 0 && all(is.finite(suppressWarnings(as.numeric(pr[[lt_el]]))))
+})
 # Each standard a stored lm was fit on should be predicted at its fitted value; standards are matched by certified concentration.
 reproduces_fit <- function(calib, el) {
     m <- calib$calList[[el]]$Model; fb <- fitted(m); yb <- fb + residuals(m)
@@ -1291,6 +1316,11 @@ check("Tuning presets set only tuning settings: Best general single values, Expl
         identical(explore$xgbAlpha, "0-0.1") && identical(explore$TreeDepth, "2-8") && as.numeric(explore$ForestTrees) == 500 && identical(explore$svmSigma, defaults$svmSigma) &&
         untouched(best) && untouched(explore) && is.null(tuningPresetCalTable("Saved settings", defaults)) &&
         identical(tuningValue("TreeDepth", "5-5"), c(5, 5)) && identical(tuningValue("TreeMethod", "hist"), "hist")
+})
+check("decodeDependent inverts each dependent transformation (None, Log, e, Scale)", {
+    x <- c(0.0002, 0.0011, 0.0064)
+    isTRUE(all.equal(decodeDependent(scaleTransform(x), "Scale", min(x), max(x)), x)) && isTRUE(all.equal(decodeDependent(log(x), "Log"), x)) &&
+        isTRUE(all.equal(decodeDependent(exp(x), "e"), x)) && identical(decodeDependent(x, "None"), x) && identical(decodeDependent(x, NA), x)
 })
 check("Preprocess is saved per element: None by default and for older calibrations, kept on reload", {
     old <- cal$calList["Rb.K.alpha"]; old$Rb.K.alpha$Parameters$CalTable$Preprocess <- NULL

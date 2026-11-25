@@ -14051,7 +14051,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, tree_method=xgbTreeMethod(parameters$TreeMethod))
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -14061,11 +14061,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE, tree_method=xgbTreeMethod(parameters$TreeMethod))
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=xgbTreeMethod(parameters$TreeMethod))
             }
             
             xgb_model
@@ -14155,7 +14155,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, tree_method=xgbTreeMethod(parameters$TreeMethod))
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -14169,7 +14169,7 @@ shinyServer(function(input, output, session) {
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=xgbTreeMethod(parameters$TreeMethod))
             }
             
             xgb_model
@@ -14531,7 +14531,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, tree_method=xgbTreeMethod(parameters$TreeMethod))
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -14541,11 +14541,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE, tree_method=xgbTreeMethod(parameters$TreeMethod))
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=xgbTreeMethod(parameters$TreeMethod))
             }
             
             xgb_model
@@ -14646,11 +14646,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE, tree_method=xgbTreeMethod(parameters$TreeMethod))
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=xgbTreeMethod(parameters$TreeMethod))
             }
             
             xgb_model
@@ -16214,7 +16214,7 @@ shinyServer(function(input, output, session) {
             req(input$calcurveelement, input$radiocal)
             
             keep <- alignKeep(vals$keeprows, predictFrame())
-            val.frame <- tryCatch(mclValGen(model=elementModelRandom(), data=predictIntensity()[ keep, , drop = FALSE], predict.frame=predictFrame()[ keep, , drop = FALSE], dependent.transformation=basichold$deptransformation), error=function(e) NULL)
+            val.frame <- tryCatch(mclValGen(model=elementModelRandom(), data=predictIntensity()[ keep, , drop = FALSE], predict.frame=predictFrame()[ keep, , drop = FALSE], dependent.transformation=basichold$deptransformation, y_min=yMin(), y_max=yMax()), error=function(e) NULL)
             
             val.frame <- if(is.null(val.frame)){
                 # Fallback when the model cannot predict yet, such as Cross Validation before Run Model; Concentration is a plain vector, so it is subset with 1-D indexing.
@@ -16560,7 +16560,11 @@ shinyServer(function(input, output, session) {
             # Spectrum for the hover tooltips; some branches drop incomplete rows with na.omit().
             spectra <- if(nrow(val.frame) == nrow(predict.frame)) predict.frame$Spectrum else na.omit(predict.frame)$Spectrum
             if(length(spectra) == nrow(val.frame)) val.frame$Spectrum <- spectra
-            
+
+            # The model frame and the model's predictions are on the dependent transformation's scale; decode them as the Cal Curves page does (mclValGen), or a Scale model shows (y - min)/(max - min) labelled as concentration. Intensity holds predictions from Lucas-Tooth on; IntensityOrg stays the measured intensity.
+            decode_cols <- intersect(c("Concentration", "Prediction", "Upper", "Lower", if(as.numeric(input$radiocal) >= 3) "Intensity"), colnames(val.frame))
+            for(col in decode_cols) val.frame[[col]] <- decodeDependent(val.frame[[col]], basichold$deptransformation, y_min=yMin(), y_max=yMax())
+
             val.frame
             
         })
@@ -22823,7 +22827,7 @@ content = function(file){
             if(valDataType()=="Net"){val.line.table <- val.data[c("Spectrum", valelements), drop=FALSE]}
                 
                 
-            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+            if(valDataType()=="Spectra"){mergeOtherSpectraStuff(val.line.table, other_spectra_stuff)} else {val.line.table}
 
 
         })
@@ -22878,7 +22882,7 @@ content = function(file){
             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
-            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+            if(valDataType()=="Spectra"){mergeOtherSpectraStuff(val.line.table, other_spectra_stuff)} else {val.line.table}
 
         })
         
@@ -22909,7 +22913,7 @@ content = function(file){
             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
-            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+            if(valDataType()=="Spectra"){mergeOtherSpectraStuff(val.line.table, other_spectra_stuff)} else {val.line.table}
 
         })
         
@@ -22940,7 +22944,7 @@ content = function(file){
             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
-            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+            if(valDataType()=="Spectra"){mergeOtherSpectraStuff(val.line.table, other_spectra_stuff)} else {val.line.table}
 
         })
         
@@ -22971,7 +22975,7 @@ content = function(file){
             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
-            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+            if(valDataType()=="Spectra"){mergeOtherSpectraStuff(val.line.table, other_spectra_stuff)} else {val.line.table}
 
         })
         
@@ -23002,7 +23006,7 @@ content = function(file){
             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
-            if(valDataType()=="Spectra"){merge(val.line.table, otherValSpectraStuff(), by="Spectrum", all=T, sort=T)} else {val.line.table}
+            if(valDataType()=="Spectra"){mergeOtherSpectraStuff(val.line.table, otherValSpectraStuff())} else {val.line.table}
 
         })
         
@@ -23033,7 +23037,7 @@ content = function(file){
             
             if(valDataType()=="Net"){val.line.table <- val.data}
             
-            if(valDataType()=="Spectra"){merge(val.line.table, otherValSpectraStuff(), by="Spectrum", all=T, sort=T)} else {val.line.table}
+            if(valDataType()=="Spectra"){mergeOtherSpectraStuff(val.line.table, otherValSpectraStuff())} else {val.line.table}
 
         })
         
@@ -23069,7 +23073,7 @@ content = function(file){
             if(valDataType()=="Net"){val.line.table <- val.data}
             
             
-            if(valDataType()=="Spectra"){merge(val.line.table, other_spectra_stuff, by="Spectrum", all=T, sort=T)} else {val.line.table}
+            if(valDataType()=="Spectra"){mergeOtherSpectraStuff(val.line.table, other_spectra_stuff)} else {val.line.table}
 
         })
         
