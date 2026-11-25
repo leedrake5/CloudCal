@@ -5613,7 +5613,7 @@ treeDepthUI <- function(radiocal, selection, xgbtype="Tree"){
 
 treeMethodUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==0){
-        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+        selectInput("treemethod", label="Tree Method", choices=xgbTreeMethods(), selected=selection)
     } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -5629,15 +5629,15 @@ treeMethodUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8 && xgbtype=="Tree"){
-        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+        selectInput("treemethod", label="Tree Method", choices=xgbTreeMethods(), selected=selection)
     } else if(radiocal==8 && xgbtype=="Dart"){
-        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+        selectInput("treemethod", label="Tree Method", choices=xgbTreeMethods(), selected=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==9 && xgbtype=="Tree"){
-        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+        selectInput("treemethod", label="Tree Method", choices=xgbTreeMethods(), selected=selection)
     } else if(radiocal==9 && xgbtype=="Dart"){
-        selectInput("treemethod", label="Tree Method", choices=c("auto", "exact", "approx", "hist", "gpu_hist"), selected=selection)
+        selectInput("treemethod", label="Tree Method", choices=xgbTreeMethods(), selected=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==10){
@@ -5651,37 +5651,144 @@ treeMethodUI <- function(radiocal, selection, xgbtype="Tree"){
     }
 }
 
+# The model-type control shared by XGBoost, Bayesian and SVM models. selection lists candidate types in order of preference (the type that will be trained, then the element's saved type); the first one this control offers is shown, so the control always shows the type that trains.
 xgbTypeUI <- function(radiocal, selection){
-    if(radiocal==0){
-        NULL
-    } else if(radiocal==1){
-        NULL
-    } else if(radiocal==2){
-        NULL
-    } else if(radiocal==3){
-        NULL
-    } else if(radiocal==4){
-        NULL
-    }  else if(radiocal==5){
-        NULL
-    } else if(radiocal==6){
-        NULL
-    } else if(radiocal==7){
-        NULL
-    } else if(radiocal==8){
-        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Dart", "Linear"), selected="Linear")
-    } else if(radiocal==9){
-        selectInput("xgbtype", label="XGBoost Type", choices=c("Tree", "Dart", "Linear"), selected="Linear")
-    } else if(radiocal==10){
-        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
-    } else if(radiocal==11){
-        selectInput("xgbtype", label="Bayesian Model Type", choices=c("Tree", "Linear", "Neural Net"), selected="Linear")
-    } else if(radiocal==12){
-        # kernlab's Exponential, Boundrange String and Spectrum String kernels are string kernels for text input, so they are not offered for numeric XRF data.
-        selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
-    } else if(radiocal==13){
-        selectInput("xgbtype", label="Support Vector Machine", choices=c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma"), selected="Linear")
+    radiocal <- suppressWarnings(as.numeric(radiocal))
+    pick <- function(choices){
+        valid <- intersect(as.character(selection), choices)
+        if(length(valid) > 0) valid[1] else "Linear"
     }
+    if(isTRUE(radiocal %in% c(8, 9))){
+        choices <- c("Tree", "Dart", "Linear")
+        selectInput("xgbtype", label="XGBoost Type", choices=choices, selected=pick(choices))
+    } else if(isTRUE(radiocal %in% c(10, 11))){
+        choices <- c("Tree", "Linear", "Neural Net")
+        selectInput("xgbtype", label="Bayesian Model Type", choices=choices, selected=pick(choices))
+    } else if(isTRUE(radiocal %in% c(12, 13))){
+        # kernlab's Exponential, Boundrange String and Spectrum String kernels are string kernels for text input, so they are not offered for numeric XRF data.
+        choices <- c("Linear", "Polynomial", "Radial", "Radial Cost", "Radial Sigma")
+        selectInput("xgbtype", label="Support Vector Machine", choices=choices, selected=pick(choices))
+    } else {
+        NULL
+    }
+}
+
+# Preprocessing --------------------------------------------------------------
+# caret preprocessing of a model's predictors before fitting, saved per element as CalTable$Preprocess. "None" is the default, and what calibrations saved before the setting existed get. caret stores the fitted preprocessing inside the model and applies it again at prediction, so a saved model needs nothing else.
+PREPROCESS_CHOICES <- c("None", "Center and Scale", "Range")
+# Model types whose training applies the setting: every caret model (Forest through MARS). Linear, Non-Linear and Lucas-Tooth are lm fits.
+PREPROCESS_TYPES <- 4:21
+
+preprocessSetting <- function(setting){
+    setting <- if(length(setting) > 0) as.character(setting)[1] else NA_character_
+    if(is.na(setting) || !setting %in% PREPROCESS_CHOICES) "None" else setting
+}
+
+# caret's preProcess methods for a Preprocess setting. "None" gives none, the old behavior: none is what a model applied before the setting existed (Bayesian Linear on intensities always centered and scaled).
+caretPreProcess <- function(setting, none=NULL){
+    switch(preprocessSetting(setting), "Center and Scale"=c("center", "scale"), "Range"="range", none)
+}
+
+preprocessUI <- function(radiocal, selection){
+    if(!isTRUE(suppressWarnings(as.numeric(radiocal)) %in% PREPROCESS_TYPES)) return(NULL)
+    valid <- intersect(as.character(selection), PREPROCESS_CHOICES)
+    selectInput("preprocess", label="Preprocess", choices=PREPROCESS_CHOICES, selected=if(length(valid) > 0) valid[1] else "None")
+}
+
+# Tuning presets ------------------------------------------------------------
+# The machine-learning tuning settings the Tuning control sets: each control's input id (also its field in the server's hold), the hold, and its CalTable column. Resampling (metric, train control, number, repeats), the model type, Preprocess, the dependent transformation and the line and normalization settings are left as they are.
+TUNING_SETTINGS <- data.frame(
+    input=c("foresttry", "foresttrees", "neuralhiddenlayers", "neuralhiddenunits", "neuralweightdecay", "neuralmaxiterations",
+        "treemethod", "treedepth", "droptree", "skipdrop", "xgbalpha", "xgbgamma", "xgbeta", "xgblambda", "xgbsubsample", "xgbcolsample", "xgbminchild", "xgbmaxdeltastep",
+        "bartalpha", "bartk", "bartbeta", "bartnu", "svmc", "svmdegree", "svmscale", "svmsigma", "svmlength",
+        "plsncomp", "cubistcommittees", "cubistneighbors", "glmnetalpha", "glmnetlambda", "marsprune", "marsdegree"),
+    hold=c(rep("foresthold", 2), rep("neuralhold", 4), rep("xgboosthold", 12), rep("barthold", 4), rep("svmhold", 5),
+        "plshold", rep("cubisthold", 2), rep("glmnethold", 2), rep("marshold", 2)),
+    column=c("ForestTry", "ForestTrees", "NeuralHL", "NeuralHU", "NeuralWD", "NeuralMI",
+        "TreeMethod", "TreeDepth", "DropTree", "SkipDrop", "xgbAlpha", "xgbGamma", "xgbEta", "xgbLambda", "xgbSubSample", "xgbColSample", "xgbMinChild", "xgbMaxDeltaStep",
+        "bartAlpha", "bartK", "bartBeta", "bartNu", "svmC", "svmDegree", "svmScale", "svmSigma", "svmLength",
+        "plsNComp", "cubistCommittees", "cubistNeighbors", "glmnetAlpha", "glmnetLambda", "marsPrune", "marsDegree"),
+    stringsAsFactors=FALSE)
+
+# A CalTable with its tuning columns (TUNING_SETTINGS) taken from source; every other column is left as it is.
+applyTuningCalTable <- function(cal.table, source){
+    for(col in intersect(TUNING_SETTINGS$column, colnames(source))) cal.table[[col]] <- source[[col]][1]
+    cal.table
+}
+
+# The Tuning control's choices: the element's settings as saved, CloudCal's best general single values (its defaults), or ranges worth searching with Grid Search or Bayesian tuning.
+TUNING_PRESETS <- c("Saved settings", "Best general", "Exploration range")
+
+# Ranges for "Exploration range", chosen for data on a constant scale (Preprocess "Center and Scale" with Dependent Transformation "Scale", which new XGBoost models start with). Tuning settings not listed keep their best-general value; the SVM controls step in whole numbers and their grids step by 1, so they have no useful range to offer.
+TUNING_RANGES <- c(
+    ForestTrees="500",
+    TreeDepth="2-8", xgbEta="0.05-0.3", xgbGamma="0-0.1", xgbAlpha="0-0.1", xgbLambda="0-1",
+    xgbSubSample="0.5-1", xgbColSample="0.5-1", DropTree="0.05-0.3", SkipDrop="0.05-0.5",
+    bartAlpha="0.9-0.99", bartK="90-99", bartBeta="1-3", bartNu="2-5",
+    NeuralHU="1-5", NeuralWD="0.1-0.7",
+    plsNComp="1-15", cubistCommittees="1-20", cubistNeighbors="0-9",
+    glmnetAlpha="0-1", glmnetLambda="0.0001-0.1", marsPrune="2-20", marsDegree="1-2")
+
+# The tuning settings a preset stands for, as a CalTable built on defaults (a defaultCalConditions() CalTable); "Saved settings" has none of its own.
+tuningPresetCalTable <- function(preset, defaults){
+    if(identical(preset, "Best general")) return(defaults)
+    if(identical(preset, "Exploration range")){
+        for(col in intersect(names(TUNING_RANGES), colnames(defaults))){
+            defaults[[col]] <- if(is.numeric(defaults[[col]])) as.numeric(TUNING_RANGES[[col]]) else TUNING_RANGES[[col]]
+        }
+        return(defaults)
+    }
+    NULL
+}
+
+# A CalTable tuning value in the shape its control takes: the Tree Method name, otherwise a number or a "lo-hi" range as numbers.
+tuningValue <- function(column, value){
+    if(identical(column, "TreeMethod")) return(as.character(value)[1])
+    suppressWarnings(as.numeric(unlist(strsplit(as.character(value)[1], "-"))))
+}
+
+# Constant models -------------------------------------------------------------
+# For XGBoost's linear booster: the Alpha below which any weight can move off zero. xgboost multiplies Alpha by the number of standards, and a weight stays at zero unless its gradient (the sum of residuals times the predictor, as the model sees the predictors after preprocessing) exceeds that.
+xgbLinearAlphaLimit <- function(model){
+    td <- model$trainingData
+    y <- td$.outcome
+    x <- td[, setdiff(names(td), ".outcome"), drop=FALSE]
+    if(!is.null(model$preProcess)) x <- stats::predict(model$preProcess, x)
+    x <- as.matrix(x); x[!is.finite(x)] <- 0
+    max(abs(colSums((y - mean(y)) * x))) / length(y)
+}
+
+# Why a fitted model predicts the same value for every standard, or NULL when its predictions vary. Names the setting most likely responsible for the model type.
+constantModelMessage <- function(model, predictions){
+    p <- suppressWarnings(as.numeric(predictions)); p <- p[is.finite(p)]
+    if(length(p) < 2 || (max(p) - min(p)) > 1e-9 * max(1, abs(mean(p)))) return(NULL)
+    lead <- paste0("This model predicts the same value (", signif(p[1], 4), ") for every standard, so it can't calibrate. ")
+    scale_hint <- "Dependent Transformation \"Scale\" with Preprocess \"Center and Scale\", which put any element's data on a footing where the default settings work."
+    booster <- tryCatch({
+        cfg <- xgboost::xgb.config(model$finalModel); if(is.character(cfg)) cfg <- jsonlite::fromJSON(cfg)
+        cfg$learner$gradient_booster$name
+    }, error=function(e) NULL)
+    if(identical(booster, "gblinear")){
+        limit <- tryCatch(xgbLinearAlphaLimit(model), error=function(e) NA_real_)
+        alpha <- suppressWarnings(as.numeric(model$bestTune$alpha))[1]
+        return(paste0(lead, "Its linear booster set every weight to zero. xgboost multiplies Alpha by the number of standards, so ",
+            if(is.finite(limit)) paste0("Alpha must be below ", signif(limit, 2), " here for any weight to survive") else "Alpha must be very small for any weight to survive",
+            if(is.finite(alpha)) paste0("; the tuned Alpha was ", signif(alpha, 3)) else "", ". Lower Alpha (and Lambda), or use ", scale_hint))
+    }
+    if(isTRUE(booster %in% c("gbtree", "dart"))){
+        return(paste0(lead, "Its trees made no splits: Gamma or Alpha is too large for the scale of these concentrations. Lower them, or use ", scale_hint))
+    }
+    method <- tolower(paste(model$method, model$modelInfo$label))
+    hint <- if(grepl("svm|support vector", method)){
+        "SVMs ignore errors smaller than 0.1 in concentration units, so use "
+    } else if(grepl("glmnet", method)){
+        "ElasticNet's Lambda is in concentration units; lower it, or use "
+    } else if(grepl("nnet|neural", method)){
+        "Neural nets need their inputs and outputs on a common scale; use "
+    } else {
+        "Its settings are probably too strong for the scale of these data; try Tuning \"Best general\", or use "
+    }
+    paste0(lead, hint, scale_hint)
 }
 
 dropTreeUI <- function(radiocal, selection, xgbtype="Dart"){
@@ -5722,7 +5829,7 @@ dropTreeUI <- function(radiocal, selection, xgbtype="Dart"){
 
 skipDropUI <- function(radiocal, selection, xgbtype="Dart"){
     if(radiocal==0){
-        sliderInput("skipdrop", label="Drop Trees", min=0.1, max=0.9, step=0.05, value=selection)
+        sliderInput("skipdrop", label="Skip Drop", min=0.1, max=0.9, step=0.05, value=selection)
     } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -5756,9 +5863,23 @@ skipDropUI <- function(radiocal, selection, xgbtype="Dart"){
     }
 }
 
+# A slider's upper limit: the usual limit, raised to fit a saved setting so it isn't clipped when the control draws.
+sliderLimit <- function(limit, selection){
+    max(c(limit, suppressWarnings(as.numeric(selection))), na.rm=TRUE)
+}
+
+# BART's split-prior alpha (bartMachine: the prior probability that a node splits shrinks as alpha*(1+depth)^-beta), which used to share the XGBoost Alpha control.
+bartAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
+    if(isTRUE(suppressWarnings(as.numeric(radiocal)) %in% c(10, 11)) && identical(xgbtype, "Tree")){
+        sliderInput("bartalpha", label="Split Prior (alpha)", min=0.05, max=0.99, step=0.01, value=selection)
+    } else {
+        NULL
+    }
+}
+
 xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==0){
-        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+        sliderInput("xgbalpha", label="Alpha", min=0, max=sliderLimit(1, selection), step=0.001, value=selection)
     } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -5774,15 +5895,15 @@ xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8){
-        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+        sliderInput("xgbalpha", label="Alpha", min=0, max=sliderLimit(1, selection), step=0.001, value=selection)
     } else if(radiocal==9){
-        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+        sliderInput("xgbalpha", label="Alpha", min=0, max=sliderLimit(1, selection), step=0.001, value=selection)
     } else if(radiocal==10 && xgbtype=="Tree"){
-        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+        NULL  # BART's alpha has its own control (bartAlphaUI)
     } else if(radiocal==10 && xgbtype!="Tree"){
         NULL
     } else if(radiocal==11 && xgbtype=="Tree"){
-        sliderInput("xgbalpha", label="Alpha", min=0, max=10, step=0.05, value=selection)
+        NULL  # BART's alpha has its own control (bartAlphaUI)
     } else if(radiocal==11 && xgbtype!="Tree"){
         NULL
     } else if(radiocal==12){
@@ -5794,7 +5915,7 @@ xgbAlphaUI <- function(radiocal, selection, xgbtype="Tree"){
 
 xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==0){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=300, step=1, value=selection)
+        sliderInput("xgbgamma", label="Gamma", min=0, max=sliderLimit(5, selection), step=0.01, value=selection)
     } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -5810,11 +5931,11 @@ xgbGammaUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8 && xgbtype!="Linear"){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=300, step=1, value=selection)
+        sliderInput("xgbgamma", label="Gamma", min=0, max=sliderLimit(5, selection), step=0.01, value=selection)
     } else if(radiocal==8 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==9 && xgbtype!="Linear"){
-        sliderInput("xgbgamma", label="Gamma", min=0, max=300, step=1, value=selection)
+        sliderInput("xgbgamma", label="Gamma", min=0, max=sliderLimit(5, selection), step=0.01, value=selection)
     } else if(radiocal==9 && xgbtype=="Linear"){
         NULL
     } else if(radiocal==10){
@@ -5862,7 +5983,7 @@ xgbEtaUI <- function(radiocal, selection){
 
 xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==0){
-        sliderInput("xgblambda", label="Lambda", min=0, max=300, step=1, value=selection)
+        sliderInput("xgblambda", label="Lambda", min=0, max=sliderLimit(10, selection), step=0.05, value=selection)
     } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -5878,9 +5999,9 @@ xgbLambdaUI <- function(radiocal, selection, xgbtype="Tree"){
     } else if(radiocal==7){
         NULL
     } else if(radiocal==8){
-        sliderInput("xgblambda", label="Lambda", min=0, max=300, step=1, value=selection)
+        sliderInput("xgblambda", label="Lambda", min=0, max=sliderLimit(10, selection), step=0.05, value=selection)
     } else if(radiocal==9){
-        sliderInput("xgblambda", label="Lambda", min=0, max=300, step=1, value=selection)
+        sliderInput("xgblambda", label="Lambda", min=0, max=sliderLimit(10, selection), step=0.05, value=selection)
     } else if(radiocal==10){
         NULL
     } else if(radiocal==11){
@@ -6010,7 +6131,7 @@ xgbMinChildUI <- function(radiocal, selection, xgbtype="Tree"){
 
 xgbMaxDeltaStepUI <- function(radiocal, selection, xgbtype="Tree"){
     if(radiocal==0){
-        sliderInput("xgbmaxdeltastep", label="Min Child", min=0, max=15, step=1, value=selection)
+        sliderInput("xgbmaxdeltastep", label="Max Delta Step", min=0, max=15, step=1, value=selection)
     } else if(radiocal==1){
         NULL
     } else if(radiocal==2){
@@ -9625,6 +9746,235 @@ calConvert <- function(calibration, null.strip=TRUE, temp=FALSE, extensions=FALS
         return(Calibration)
 }
 
+# XGBoost compatibility. xgboost 3.x changed its R interface: a fitted booster is a read-only object that caret 7.1 and later annotate through attributes (earlier caret set list elements, which now fails), xgb.cv moved its best iteration into $early_stop, and from 3.1 the legacy binary model format that xgboost 1.x saved by default can no longer be read. These helpers keep Bayesian tuning and saved calibrations working under xgboost 1.x and 3.x.
+
+# TRUE when the installed xgboost has the read-only booster of xgboost 3.x (xgb.Booster.complete went with the old list-based booster).
+xgbReadOnlyBooster <- function(){
+    !exists("xgb.Booster.complete", envir=asNamespace("xgboost"), inherits=FALSE)
+}
+
+# Tree methods the installed xgboost accepts. xgboost 3 dropped "gpu_hist" (GPUs now take tree_method "hist" with device "cuda", which needs a CUDA build), so it is offered only with xgboost 1.x.
+xgbTreeMethods <- function(){
+    c("auto", "exact", "approx", "hist", if(!isTRUE(tryCatch(xgbReadOnlyBooster(), error=function(e) TRUE))) "gpu_hist")
+}
+
+# A saved Tree Method the installed xgboost can use: settings saved with "gpu_hist" train with "hist" under xgboost 3, which rejects "gpu_hist".
+xgbTreeMethod <- function(method){
+    method <- if(length(method) > 0) as.character(method)[1] else "auto"
+    if(is.na(method) || !method %in% c("auto", "exact", "approx", "hist", "gpu_hist")) return("auto")
+    if(identical(method, "gpu_hist") && !"gpu_hist" %in% xgbTreeMethods()) "hist" else method
+}
+
+# Why the installed caret can't train or use XGBoost models with the installed xgboost, or NULL when it can. caret before 7.1 tries to modify xgboost 3.x's read-only booster, so every resample fails and train() stops with "Stopping".
+xgbCaretProblem <- function(){
+    caret_version <- tryCatch(utils::packageVersion("caret"), error=function(e) NULL)
+    if(is.null(caret_version) || !isTRUE(tryCatch(xgbReadOnlyBooster(), error=function(e) FALSE)) || caret_version >= "7.1.0") return(NULL)
+    paste0("XGBoost models need caret 7.1 or newer with xgboost ", utils::packageVersion("xgboost"), ", but caret ", caret_version, " is installed. Update caret (install.packages(\"caret\")) and restart CloudCal.")
+}
+
+# Best iteration (1-based) of an xgb.cv result: xgboost 1.x returns it as $best_iteration and 3.x as $early_stop$best_iteration. A run without early stopping falls back to the iteration with the lowest mean test error.
+xgbBestIteration <- function(cv){
+    best <- cv[["best_iteration"]]
+    if(is.null(best)) best <- cv[["early_stop"]][["best_iteration"]]
+    if(length(best) != 1 || !is.finite(best)){
+        log <- cv[["evaluation_log"]]
+        test_mean <- grep("^test_.*_mean$", names(log), value=TRUE)
+        best <- if(length(test_mean) > 0) which.min(log[[test_mean[1]]]) else integer(0)
+    }
+    if(length(best) != 1) NA_integer_ else as.integer(best)
+}
+
+# A tuning grid conformed to the installed caret's parameters for an XGBoost method. CloudCal's grids follow either its caret fork, which also tunes alpha, lambda, max_delta_step and scale_pos_weight, or stock caret (7.1 and later also tune lambda and alpha), and caret stops when the grid's columns differ from its own. Columns caret doesn't tune are dropped; missing ones take xgboost's defaults.
+xgbTuneGrid <- function(grid, method){
+    tuned <- tryCatch(as.character(caret::getModelInfo(method, regex=FALSE)[[1]]$parameters$parameter), error=function(e) character(0))
+    if(!is.data.frame(grid) || length(tuned) == 0) return(grid)
+    defaults <- list(nrounds=100, max_depth=6, eta=0.3, gamma=0, colsample_bytree=1, min_child_weight=1, subsample=1,
+        lambda=1, alpha=0, max_delta_step=0, scale_pos_weight=1, rate_drop=0, skip_drop=0)
+    for(p in setdiff(tuned, names(grid))){
+        if(!is.null(defaults[[p]])) grid[[p]] <- rep(defaults[[p]], nrow(grid))
+    }
+    unique(grid[, intersect(names(grid), tuned), drop=FALSE])
+}
+
+# The caret method an XGBoost type trains with. Tree and DART use caret's own methods. "xgbLinear" uses CloudCal's own: caret's never sets booster = "gblinear", so it fits trees, and it ignores eta. The concentrations' units are handled by the Dependent Transformation ("Scale"), and the predictors' by the Preprocess setting. The returned functions use only base R and xgboost, because caret saves them inside each model and runs them on parallel workers.
+xgbCaretMethod <- function(method){
+    if(!identical(method, "xgbLinear")) return(method)
+    info <- caret::getModelInfo("xgbLinear", regex=FALSE)[[1]]
+    info$label <- "CloudCal xgbLinear (linear booster)"
+    info$loop <- NULL
+    info$fit <- eval(quote(function(x, y, wts, param, lev, last, classProbs, ...){
+        if(is.factor(y)) stop("CloudCal's linear XGBoost method fits regression models only")
+        params <- list(booster="gblinear", objective="reg:squarederror")
+        for(p in intersect(c("eta", "lambda", "alpha"), names(param))) params[[p]] <- param[[p]]
+        # Settings passed through train(), such as nthread, go to xgboost as parameters; tree settings don't apply.
+        dots <- list(...)
+        if(length(dots) > 0 && !is.null(names(dots))){
+            dots <- dots[nzchar(names(dots)) & !names(dots) %in% c("objective", "verbose", "tree_method", "max_bin")]
+            params[names(dots)] <- dots
+        }
+        dtrain <- if(inherits(x, "xgb.DMatrix")) x else xgboost::xgb.DMatrix(as.matrix(x), missing=NA)
+        xgboost::setinfo(dtrain, "label", y)
+        if(!is.null(wts)) xgboost::setinfo(dtrain, "weight", wts)
+        xgboost::xgb.train(params=params, data=dtrain, nrounds=param$nrounds, verbose=0)
+    }), envir=globalenv())
+    info$predict <- eval(quote(function(modelFit, newdata, submodels=NULL){
+        if(!inherits(newdata, "xgb.DMatrix")) newdata <- xgboost::xgb.DMatrix(as.matrix(newdata), missing=NA)
+        stats::predict(modelFit, newdata)
+    }), envir=globalenv())
+    info$varImp <- eval(quote(function(object, numTrees=NULL, ...){
+        x_names <- attr(object, "xNames", exact=TRUE)
+        if(is.null(x_names) && is.list(object) && "xNames" %in% names(object)) x_names <- object[["xNames"]]
+        imp <- if(is.null(x_names)) xgboost::xgb.importance(model=object) else xgboost::xgb.importance(model=object, feature_names=x_names)
+        imp <- as.data.frame(imp, stringsAsFactors=FALSE)
+        out <- data.frame(Overall=abs(as.numeric(imp$Weight)), row.names=make.unique(as.character(imp$Feature)))
+        missing <- setdiff(x_names, rownames(out))
+        if(length(missing) > 0) out <- rbind(out, data.frame(Overall=rep(0, length(missing)), row.names=missing))
+        out
+    }), envir=globalenv())
+    info
+}
+
+# Predictors preprocessed as caret will for the final fit, for the Bayesian search's own xgb.cv runs. Only the linear booster needs it; trees split the same way on transformed predictors.
+xgbBayesMatrix <- function(x, preprocess="None"){
+    methods <- caretPreProcess(preprocess)
+    if(is.null(methods)) return(x)
+    frame <- as.data.frame(x)
+    as.matrix(stats::predict(caret::preProcess(frame, method=methods), frame))
+}
+
+# The intercept (base_score) a booster's predictions start from, or NULL when it can't be read. xgboost 3.x writes it as a vector ("[5.35E-1]"), which xgboost 1.x doesn't read back: it falls back to 0.5 and shifts every prediction. So rawModel also carries it as an attribute.
+xgbBaseScore <- function(booster){
+    cfg <- tryCatch(xgboost::xgb.config(booster), error=function(e) NULL)
+    if(is.character(cfg)) cfg <- tryCatch(jsonlite::fromJSON(cfg), error=function(e) NULL)
+    value <- tryCatch(suppressWarnings(as.numeric(gsub("[][]", "", as.character(cfg$learner$learner_model_param$base_score)[1]))), error=function(e) NA)
+    if(length(value) == 1 && is.finite(value)) value else NULL
+}
+
+# A booster as raw bytes for a calibration's rawModel, written as UBJSON, which every xgboost from 1.6 on (3.x included) can read back. xgboost 1.x otherwise writes its legacy binary format, which xgboost 3.1 and later reject. NULL when the booster can't be saved.
+xgbBoosterRaw <- function(booster){
+    if(is.null(booster)) return(NULL)
+    if(!xgbReadOnlyBooster()){
+        # xgboost 1.x: a booster read back from a file needs its handle restored before it can be saved.
+        booster <- tryCatch(get("xgb.Booster.complete", envir=asNamespace("xgboost"))(booster), error=function(e) booster)
+    }
+    raw <- tryCatch(
+        if("raw_format" %in% names(formals(xgboost::xgb.save.raw))){
+            xgboost::xgb.save.raw(booster, raw_format="ubj")
+        } else {
+            xgboost::xgb.save.raw(booster)
+        },
+        error=function(e) NULL)
+    if(is.raw(raw)){
+        base_score <- xgbBaseScore(booster)
+        if(!is.null(base_score)) attr(raw, "base_score") <- base_score
+    }
+    raw
+}
+
+# Gives a booster rebuilt from rawModel the intercept recorded when the copy was saved, where the installed xgboost read a different one (xgboost 1.x reading an xgboost 3.x model). xgboost 1.x applies a changed base_score only once the booster is rebuilt from its serialized form; xgboost 3.x reads both formats correctly.
+xgbRestoreBaseScore <- function(booster, base_score){
+    if(!is.numeric(base_score) || length(base_score) != 1 || !is.finite(base_score) || xgbReadOnlyBooster()) return(booster)
+    loaded <- xgbBaseScore(booster)
+    if(!is.null(loaded) && abs(loaded - base_score) <= 1e-6 * max(1, abs(base_score))) return(booster)
+    tryCatch({
+        booster <- xgboost::`xgb.parameters<-`(booster, list(base_score=base_score))
+        booster$handle <- NULL
+        get("xgb.Booster.complete", envir=asNamespace("xgboost"))(booster)
+    }, error=function(e) booster)
+}
+
+# The booster in a rawModel's bytes, or NULL when the installed xgboost can't read them.
+xgbBoosterFromRaw <- function(raw){
+    if(!is.raw(raw) || length(raw) == 0) return(NULL)
+    booster <- tryCatch(
+        if("as_booster" %in% names(formals(xgboost::xgb.load.raw))){
+            xgboost::xgb.load.raw(raw, as_booster=TRUE)
+        } else {
+            xgboost::xgb.load.raw(raw)
+        },
+        error=function(e) NULL)
+    if(inherits(booster, "xgb.Booster")) booster else NULL
+}
+
+# TRUE when the installed xgboost can predict with a caret XGBoost model's booster. A booster saved under a different xgboost release may not be usable: xgboost 3.x can't use 1.x boosters, and xgboost 1.x reads a 3.x booster back as an empty list.
+xgbModelUsable <- function(model){
+    booster <- tryCatch(model$finalModel, error=function(e) NULL)
+    if(!inherits(booster, "xgb.Booster")) return(FALSE)
+    n_features <- length(model$coefnames)
+    if(n_features == 0 && is.data.frame(model$trainingData)) n_features <- ncol(model$trainingData) - 1
+    if(n_features < 1) return(FALSE)
+    probe <- tryCatch(stats::predict(booster, xgboost::xgb.DMatrix(matrix(0, nrow=1, ncol=n_features))), error=function(e) NULL)
+    is.numeric(probe) && length(probe) > 0
+}
+
+# Elements of a calibration whose model is XGBoost: CalType 8 or 9, or a caret xgbTree, xgbDART or xgbLinear fit.
+xgbElements <- function(Calibration){
+    cl <- Calibration$calList
+    if(!length(cl) || is.null(names(cl))) return(character(0))
+    hit <- vapply(names(cl), function(el) tryCatch({
+        entry <- cl[[el]]
+        model <- if(!is.null(entry$Model)) entry$Model else entry[[2]]
+        cal.type <- suppressWarnings(as.numeric(as.character(entry[[1]]$CalTable$CalType)[1]))
+        isTRUE(cal.type %in% c(8, 9)) || isTRUE(model$method %in% c("xgbTree", "xgbDART", "xgbLinear"))
+    }, error=function(e) FALSE), logical(1))
+    names(cl)[hit]
+}
+
+# Rebuilds an XGBoost element's booster from its rawModel copy when the installed xgboost can't use the saved booster. The rebuilt booster gets back the fields caret keeps on a fit (attributes for caret 7.1 and later, list elements for earlier caret on xgboost 1.x), and the model takes the installed caret's predict, prob and varImp functions: the saved ones were written for the other xgboost's interface. Returns the element unchanged when there is nothing usable to rebuild from.
+xgbRepairElement <- function(element.model.list){
+    model <- element.model.list$Model
+    if(is.null(model) || xgbModelUsable(model)) return(element.model.list)
+    booster <- xgbBoosterFromRaw(element.model.list$rawModel)
+    if(is.null(booster)) return(element.model.list)
+    booster <- xgbRestoreBaseScore(booster, attr(element.model.list$rawModel, "base_score"))
+    old <- model$finalModel
+    old_field <- function(name){
+        value <- attr(old, name, exact=TRUE)
+        if(is.null(value) && is.list(old) && name %in% names(old)) value <- old[[name]]
+        value
+    }
+    or_else <- function(value, fallback) if(is.null(value)) fallback else value
+    fields <- list(
+        xNames=or_else(old_field("xNames"), model$coefnames),
+        problemType=or_else(old_field("problemType"), if(identical(model$modelType, "Classification")) "Classification" else "Regression"),
+        tuneValue=or_else(old_field("tuneValue"), model$bestTune),
+        obsLevels=or_else(old_field("obsLevels"), NA),
+        param=or_else(old_field("param"), list()))
+    # xgboost 1.x boosters are plain lists holding a handle; 3.x boosters are read-only and take attributes only.
+    plain_list <- is.list(booster) && "handle" %in% names(booster)
+    for(name in names(fields)){
+        attr(booster, name) <- fields[[name]]
+        if(plain_list) booster[name] <- list(fields[[name]])
+    }
+    model$finalModel <- booster
+    if(is.character(model$method) && length(model$method) == 1){
+        info <- tryCatch(caret::getModelInfo(model$method, regex=FALSE)[[1]], error=function(e) NULL)
+        for(fn in c("predict", "prob", "varImp")){
+            if(is.function(info[[fn]])) model$modelInfo[[fn]] <- info[[fn]]
+        }
+    }
+    element.model.list$Model <- model
+    element.model.list
+}
+
+repairXGBoostModels <- function(Calibration){
+    for(el in xgbElements(Calibration)){
+        Calibration$calList[[el]] <- tryCatch(xgbRepairElement(Calibration$calList[[el]]), error=function(e) Calibration$calList[[el]])
+    }
+    Calibration
+}
+
+# XGBoost elements the installed xgboost can't predict with, after calRDS has tried rebuilding them from rawModel.
+xgbUnusableElements <- function(Calibration){
+    els <- xgbElements(Calibration)
+    els[!vapply(els, function(el) isTRUE(tryCatch(xgbModelUsable(Calibration$calList[[el]]$Model), error=function(e) FALSE)), logical(1))]
+}
+
+xgbUnusableMessage <- function(elements){
+    resave <- if(isTRUE(tryCatch(xgbReadOnlyBooster(), error=function(e) FALSE))) " Alternatively, open the calibration in this version of CloudCal on a computer with xgboost 1.x and save it again; that stores a copy xgboost 3 can read." else ""
+    paste0("These XGBoost models were saved in a format the installed xgboost (", utils::packageVersion("xgboost"), ") can't read, so they can't predict until they are refitted (review and press Update): ", paste(elements, collapse=", "), ".", resave)
+}
+
 # Resolve CalType once and return NULL when there is nothing to pack: parameters is NULL whenever the caller's modelParameters() swallowed an upstream failure, and modelPack runs inside observeEvent(input$createcalelement), where an error would end the Shiny session.
 modelPackPre <- function(parameters, model, table, compress=TRUE){
 
@@ -9632,16 +9982,7 @@ modelPackPre <- function(parameters, model, table, compress=TRUE){
     cal.type <- suppressWarnings(as.numeric(parameters$CalTable$CalType[1]))
     if(length(cal.type) != 1 || is.na(cal.type)) return(NULL)
 
-    model.raw <- if(cal.type==8 | cal.type==9){
-        tryCatch(
-            xgb.save.raw(
-                tryCatch(
-                    xgb.Booster.complete(model$finalModel)
-                    , error=function(e) model$finalModel))
-                , error=function(e) NULL)
-    } else {
-        NULL
-    }
+    model.raw <- if(cal.type==8 | cal.type==9) xgbBoosterRaw(model$finalModel) else NULL
 
     model <- if(compress==TRUE){
         if(cal.type==1){

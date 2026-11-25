@@ -863,8 +863,14 @@ shinyServer(function(input, output, session) {
             # Models fitted on the old split L/M-line windows are named on their own, since the self-check would only report them as not reproducing their standards.
             split_old <- tryCatch(splitLineRefitElements(cal), error=function(e) character(0))
             if(length(split_old) > 0) msgs <- c(msgs, paste0("These models were fitted on split L- or M-line intensities from before a fix (those windows summed the whole spectrum), so they no longer match what CloudCal computes; refit them and press Update: ", paste(split_old, collapse=", "), "."))
+            # XGBoost models this xgboost can't read (calRDS has already rebuilt what it could from their raw copies), and a caret too old for this xgboost, which stops every XGBoost model. Both are named on their own rather than as models that don't reproduce their standards.
+            xgb_els <- tryCatch(xgbElements(cal), error=function(e) character(0))
+            xgb_bad <- tryCatch(xgbUnusableElements(cal), error=function(e) character(0))
+            if(length(xgb_bad) > 0) msgs <- c(msgs, xgbUnusableMessage(xgb_bad))
+            caret_problem <- if(length(xgb_els) > 0) tryCatch(xgbCaretProblem(), error=function(e) NULL) else NULL
+            if(!is.null(caret_problem)) msgs <- c(msgs, caret_problem)
             stale <- tryCatch(calibrationSelfCheck(cal), error=function(e) NULL)
-            if(is.data.frame(stale)) stale <- stale[!stale$Element %in% split_old, , drop=FALSE]
+            if(is.data.frame(stale)) stale <- stale[!stale$Element %in% c(split_old, xgb_bad, if(!is.null(caret_problem)) xgb_els), , drop=FALSE]
             if(is.data.frame(stale) && nrow(stale) > 0) msgs <- c(msgs, paste0("These saved models no longer reproduce their own standards; review them and press Update: ", paste(stale$Element, collapse=", "), "."))
             dependent <- deconvolutionDependentElements(cal)
             if(length(dependent) > 0 && isTRUE(legacyDeconvolution(cal))) msgs <- c(msgs, paste0("The stored deconvolution comes from an older algorithm; deconvolute again and press Update for: ", paste(dependent, collapse=", "), "."))
@@ -4412,6 +4418,10 @@ shinyServer(function(input, output, session) {
         observeEvent(input$bartk, {
             calConditions$hold[["CalTable"]]$bartK <<- paste0(input$bartk[1], "-", input$bartk[2])
         })
+
+        observeEvent(input$bartalpha, {
+            calConditions$hold[["CalTable"]]$bartAlpha <<- paste0(input$bartalpha[1], "-", input$bartalpha[2])
+        })
         
         observeEvent(input$bartbeta, {
             calConditions$hold[["CalTable"]]$bartBeta <<- paste0(input$bartbeta[1], "-", input$bartbeta[2])
@@ -5666,7 +5676,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=4, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, foresttrees=forestTreeSelection()), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=4, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, foresttrees=forestTreeSelection()), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         forestModelData <- reactive(label="forestModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=forestParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=forestParameters()$Intercept, slopes=forestParameters()$Slope, norm.type=forestParameters()$CalTable$NormType, norm.min=forestParameters()$CalTable$Min, norm.max=forestParameters()$CalTable$Max, compton.type=forestParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -5722,7 +5732,7 @@ shinyServer(function(input, output, session) {
             }
             
             if(multicoreBehavior()=="Single Core"){
-                rf_model <- caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
+                rf_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -5732,7 +5742,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                rf_model <- caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
+                rf_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE)
                 
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
@@ -5749,7 +5759,7 @@ shinyServer(function(input, output, session) {
                 1
             }
             energyrange <- basicEnergyRange()
-            list(CalTable=calConditionsTable(cal.type=5, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, foresttrees=forestTreeSelection()), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=5, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, foresttrees=forestTreeSelection()), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         rainforestModelData <- reactive(label="rainforestModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=rainforestParameters()$CalTable$Compress, transformation=rainforestParameters()$CalTable$Transformation, dependent.transformation=rainforestParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(rainforestParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=rainforestParameters()$CalTable$NormType, norm.min=rainforestParameters()$CalTable$Min, norm.max=rainforestParameters()$CalTable$Max, compton.type=rainforestParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -5811,7 +5821,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                rf_model <- caret::train(Concentration~.,data=data, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
+                rf_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -5821,7 +5831,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                rf_model <- caret::train(Concentration~.,data=data, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
+                rf_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, importance=TRUE, trim=TRUE)
 
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
@@ -5838,7 +5848,7 @@ shinyServer(function(input, output, session) {
             }
             hiddenunits <- neuralHiddenUnitsSelection()
             weightdecay <- neuralWeightDecaySelection()
-            list(CalTable=calConditionsTable(cal.type=6, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, neuralhiddenlayers=neuralHiddenLayersSelection(), neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2]), neuralweightdecay=paste0(weightdecay[1], "-", weightdecay[2]), neuralmaxiterations=neuralMaxIterationsSelection()), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=6, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, neuralhiddenlayers=neuralHiddenLayersSelection(), neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2]), neuralweightdecay=paste0(weightdecay[1], "-", weightdecay[2]), neuralmaxiterations=neuralMaxIterationsSelection()), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         neuralNetworkIntensityShallowModelData <- reactive(label="neuralNetworkIntensityShallowModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=neuralNetworkIntensityShallowParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=neuralNetworkIntensityShallowParameters()$Intercept, slopes=neuralNetworkIntensityShallowParameters()$Slope, norm.type=neuralNetworkIntensityShallowParameters()$CalTable$NormType, norm.min=neuralNetworkIntensityShallowParameters()$CalTable$Min, norm.max=neuralNetworkIntensityShallowParameters()$CalTable$Max, compton.type=neuralNetworkIntensityShallowParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -5901,7 +5911,7 @@ shinyServer(function(input, output, session) {
             }
             
             if(multicoreBehavior()=="Single Core"){
-                nn_model <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+                nn_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -5911,7 +5921,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                nn_model <- caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+                nn_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
 
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
@@ -5927,7 +5937,7 @@ shinyServer(function(input, output, session) {
                 1
             }
             hiddenunits <- neuralHiddenUnitsSelection()
-            list(CalTable=calConditionsTable(cal.type=6, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, neuralhiddenlayers=neuralHiddenLayersSelection(), neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=6, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, neuralhiddenlayers=neuralHiddenLayersSelection(), neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         neuralNetworkIntensityDeepModelData <- reactive(label="neuralNetworkIntensityDeepModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=neuralNetworkIntensityDeepParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=neuralNetworkIntensityDeepParameters()$Intercept, slopes=neuralNetworkIntensityDeepParameters()$Slope, norm.type=neuralNetworkIntensityDeepParameters()$CalTable$NormType, norm.min=neuralNetworkIntensityDeepParameters()$CalTable$Min, norm.max=neuralNetworkIntensityDeepParameters()$CalTable$Max, compton.type=neuralNetworkIntensityDeepParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -6004,7 +6014,7 @@ shinyServer(function(input, output, session) {
 
             
             if(multicoreBehavior()=="Single Core"){
-                nn_model <- caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
+                nn_model <- caret::train(f, preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -6014,7 +6024,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                nn_model <- caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, allowParallel=TRUE, linear.output=TRUE)
+                nn_model <- caret::train(f, preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, allowParallel=TRUE, linear.output=TRUE)
 
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
@@ -6048,7 +6058,7 @@ shinyServer(function(input, output, session) {
             energyrange <- basicEnergyRange()
             hiddenunits <- neuralHiddenUnitsSelection()
             weightdecay <- neuralWeightDecaySelection()
-            list(CalTable=calConditionsTable(cal.type=7, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, neuralhiddenlayers=neuralHiddenLayersSelection(), neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2]), neuralweightdecay=paste0(weightdecay[1], "-", weightdecay[2]), neuralmaxiterations=neuralMaxIterationsSelection()), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=7, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, neuralhiddenlayers=neuralHiddenLayersSelection(), neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2]), neuralweightdecay=paste0(weightdecay[1], "-", weightdecay[2]), neuralmaxiterations=neuralMaxIterationsSelection()), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         neuralNetworkSpectraShallowModelData <- reactive(label="neuralNetworkSpectraShallowModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=neuralNetworkSpectraShallowParameters()$CalTable$Compress, transformation=neuralNetworkSpectraShallowParameters()$CalTable$Transformation, dependent.transformation=neuralNetworkSpectraShallowParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(neuralNetworkSpectraShallowParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=neuralNetworkSpectraShallowParameters()$CalTable$NormType, norm.min=neuralNetworkSpectraShallowParameters()$CalTable$Min, norm.max=neuralNetworkSpectraShallowParameters()$CalTable$Max, compton.type=neuralNetworkSpectraShallowParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -6111,7 +6121,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                nn_model <- caret::train(Concentration~.,data=data, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+                nn_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -6121,7 +6131,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                nn_model <- caret::train(Concentration~.,data=data, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
+                nn_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -6137,7 +6147,7 @@ shinyServer(function(input, output, session) {
             }
             energyrange <- basicEnergyRange()
             hiddenunits <- neuralHiddenUnitsSelection()
-            list(CalTable=calConditionsTable(cal.type=7, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, neuralhiddenlayers=neuralHiddenLayersSelection(), neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=7, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, neuralhiddenlayers=neuralHiddenLayersSelection(), neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         neuralNetworkSpectraDeepModelData <- reactive(label="neuralNetworkSpectraDeepModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=neuralNetworkSpectraDeepParameters()$CalTable$Compress, transformation=neuralNetworkSpectraDeepParameters()$CalTable$Transformation, dependent.transformation=neuralNetworkSpectraDeepParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(neuralNetworkSpectraDeepParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=neuralNetworkSpectraDeepParameters()$CalTable$NormType, norm.min=neuralNetworkSpectraDeepParameters()$CalTable$Min, norm.max=neuralNetworkSpectraDeepParameters()$CalTable$Max, compton.type=neuralNetworkSpectraDeepParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -6212,7 +6222,7 @@ shinyServer(function(input, output, session) {
             f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
             
             if(multicoreBehavior()=="Single Core"){
-                nn_model <- caret::train(f,data=data, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
+                nn_model <- caret::train(f, preProcess=caretPreProcess(parameters$Preprocess),data=data, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -6222,7 +6232,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                nn_model <- caret::train(f,data=data, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE, allowParallel=TRUE)
+                nn_model <- caret::train(f, preProcess=caretPreProcess(parameters$Preprocess),data=data, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE, allowParallel=TRUE)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -6264,7 +6274,7 @@ shinyServer(function(input, output, session) {
             colsample <- xgboostColSampleSelection()
 			minchildweight <- xgboostMinChildSelection()
 			maxdeltastep <- xgboostMaxDeltaStepSelection()
-            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod[1], treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep[1]), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=8, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod[1], treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep[1]), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgbtreeIntensityModelData <- reactive(label="xgboostIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=xgbtreeIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=xgbtreeIntensityParameters()$Intercept, slopes=xgbtreeIntensityParameters()$Slope, norm.type=xgbtreeIntensityParameters()$CalTable$NormType, norm.min=xgbtreeIntensityParameters()$CalTable$Min, norm.max=xgbtreeIntensityParameters()$CalTable$Max, compton.type=xgbtreeIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -6307,6 +6317,7 @@ shinyServer(function(input, output, session) {
 				max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2]),
 				scale_pos_weight = c(0, 1)
             	), init_points=50)
+				xgbGrid <- xgbTuneGrid(xgbGrid, "xgbTree")
 			} else {
 				xgbGrid <- generate_grid(bounds=list(
             	nrounds = as.integer(c(1, parameters$ForestTrees)),
@@ -6315,8 +6326,9 @@ shinyServer(function(input, output, session) {
             	gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
             	colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
             	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
+            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2]))
             	), init_points=50)
+				xgbGrid <- xgbTuneGrid(xgbGrid, "xgbTree")
 			}
             
             
@@ -6361,7 +6373,7 @@ shinyServer(function(input, output, session) {
             
             if(bayesParameterMode()=="GridSearch"){
                 if(multicoreBehavior()=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit)
                 } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                     cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6371,11 +6383,11 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
                     
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                     registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                 } else if(multicoreBehavior()=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             } else if(bayesParameterMode()=="Bayesian"){
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
@@ -6416,9 +6428,9 @@ shinyServer(function(input, output, session) {
                               cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, prediction=TRUE, early_stopping_rounds = 50, tree_method = treemethod, verbose = FALSE, nthread=input$open_mp_threads)
                               
                               if(forest.metric.mod=="rmse"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               } else if(forest.metric.mod=="mae"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
                           OPT_Res <- BayesianOptimization(xgb_cv_bayes,
@@ -6468,6 +6480,7 @@ shinyServer(function(input, output, session) {
                               scale_pos_weight=1,
                               subsample = best_param$subsample
                               )
+                          xgbGridBayes <- xgbTuneGrid(xgbGridBayes, "xgbTree")
 					} else {
                           xgb_cv_bayes <- function(nrounds, max_depth, min_child_weight, max_delta_step, subsample, alpha, eta, gamma, lambda, colsample_bytree) {
                               param <- list(booster = "gbtree",
@@ -6482,9 +6495,9 @@ shinyServer(function(input, output, session) {
                               cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, prediction=TRUE, early_stopping_rounds = 50, tree_method = treemethod, verbose = FALSE, nthread=input$open_mp_threads)
                               
                               if(forest.metric.mod=="rmse"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               } else if(forest.metric.mod=="mae"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
                           OPT_Res <- BayesianOptimization(xgb_cv_bayes,
@@ -6525,12 +6538,13 @@ shinyServer(function(input, output, session) {
                               scale_pos_weight=1,
                               subsample = best_param$subsample
                           )
+                          xgbGridBayes <- xgbTuneGrid(xgbGridBayes, "xgbTree")
 					}
                           
 
                 
                 if(multicoreBehavior()=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit)
                 } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                     cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6540,11 +6554,11 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
                     
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                     registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                 } else if(multicoreBehavior()=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
             
@@ -6571,7 +6585,7 @@ shinyServer(function(input, output, session) {
             colsample <- xgboostColSampleSelection()
 			minchildweight <- xgboostMinChildSelection()
 			maxdeltastep <- xgboostMaxDeltaStepSelection()
-            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), droptree=paste0(droptree[1], "-", droptree[2]), skipdrop=paste0(skipdrop[1], "-", skipdrop[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep[1]), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=8, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), droptree=paste0(droptree[1], "-", droptree[2]), skipdrop=paste0(skipdrop[1], "-", skipdrop[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep[1]), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgbdartIntensityModelData <- reactive(label="xgboostDartIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=xgbdartIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=xgbdartIntensityParameters()$Intercept, slopes=xgbdartIntensityParameters()$Slope, norm.type=xgbdartIntensityParameters()$CalTable$NormType, norm.min=xgbdartIntensityParameters()$CalTable$Min, norm.max=xgbdartIntensityParameters()$CalTable$Max, compton.type=xgbdartIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -6618,6 +6632,7 @@ shinyServer(function(input, output, session) {
 				scale_pos_weight = c(0, 1),
 				max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
             	), init_points=50)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbDART")
 			} else {
             	xgbGrid <- generate_grid(bounds=list(
             	nrounds = as.integer(c(1, parameters$ForestTrees)),
@@ -6628,8 +6643,9 @@ shinyServer(function(input, output, session) {
             	gamma=c(xgbgamma.vec[1], xgbgamma.vec[2]),
             	colsample_bytree = c(xgbcolsample.vec[1], xgbcolsample.vec[2]),
             	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
-            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2])),
+            	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2]))
             	), init_points=50)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbDART")
 			}
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
@@ -6673,7 +6689,7 @@ shinyServer(function(input, output, session) {
             
             if(bayesParameterMode()=="GridSearch"){
                 if(multicoreBehavior()=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit)
                 } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                     cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6683,11 +6699,11 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
                     
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                     registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                 } else if(multicoreBehavior()=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             } else if(bayesParameterMode()=="Bayesian"){
                 forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
@@ -6730,9 +6746,9 @@ shinyServer(function(input, output, session) {
                               cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, prediction=TRUE, early_stopping_rounds = 50, tree_method = treemethod, nthread=input$open_mp_threads, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               } else if(forest.metric.mod=="mae"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
                           
@@ -6775,7 +6791,7 @@ shinyServer(function(input, output, session) {
                     max_delta_step = OPT_Res$Best_Par["max_delta_step"])
                 
                 xgbGridBayes <- expand.grid(
-                    nrounds = pbest_param$nrounds,
+                    nrounds = best_param$nrounds,
                     max_depth = best_param$max_depth,
                     rate_drop = best_param$rate_drop,
                     skip_drop = best_param$skip_drop,
@@ -6789,6 +6805,7 @@ shinyServer(function(input, output, session) {
                     scale_pos_weight = 1,
                     subsample = best_param$subsample
                 )
+                xgbGridBayes <- xgbTuneGrid(xgbGridBayes, "xgbDART")
 		} else {
                           xgb_cv_bayes <- function(nrounds, max_depth, rate_drop, skip_drop, min_child_weight, subsample, eta, gamma, colsample_bytree) {
                               param <- list(booster = "dart",
@@ -6805,9 +6822,9 @@ shinyServer(function(input, output, session) {
                               cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, prediction=TRUE, early_stopping_rounds = 50, tree_method = treemethod, nthread=input$open_mp_threads, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               } else if(forest.metric.mod=="mae"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
                           
@@ -6844,7 +6861,7 @@ shinyServer(function(input, output, session) {
                     min_child_weight = OPT_Res$Best_Par["min_child_weight"])
                 
                 xgbGridBayes <- expand.grid(
-                    nrounds = pbest_param$nrounds,
+                    nrounds = best_param$nrounds,
                     max_depth = best_param$max_depth,
                     rate_drop = best_param$rate_drop,
                     skip_drop = best_param$skip_drop,
@@ -6855,10 +6872,11 @@ shinyServer(function(input, output, session) {
                     scale_pos_weight = 1,
                     subsample = best_param$subsample
                 )
+                xgbGridBayes <- xgbTuneGrid(xgbGridBayes, "xgbDART")
 		}
                 
                 if(multicoreBehavior()=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit)
                 } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                     cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6868,11 +6886,11 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
                     
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                     registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                 } else if(multicoreBehavior()=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
             
@@ -6890,7 +6908,7 @@ shinyServer(function(input, output, session) {
             eta <- xgboostEtaSelection()
             alpha <- xgboostAlphaSelection()
             lambda <- xgboostLambdaSelection()
-            list(CalTable=calConditionsTable(cal.type=8, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgblambda=paste0(lambda[1], "-", lambda[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=8, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgblambda=paste0(lambda[1], "-", lambda[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgblinearIntensityModelData <- reactive(label="xgblinearIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=xgblinearIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=xgblinearIntensityParameters()$Intercept, slopes=xgblinearIntensityParameters()$Slope, norm.type=xgblinearIntensityParameters()$CalTable$NormType, norm.min=xgblinearIntensityParameters()$CalTable$Min, norm.max=xgblinearIntensityParameters()$CalTable$Max, compton.type=xgblinearIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -6960,7 +6978,7 @@ shinyServer(function(input, output, session) {
                 
                 if(bayesParameterMode()=="GridSearch"){
                     if(multicoreBehavior()=="Single Core"){
-                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit)
                     } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                         cl <- if(multicoreBehavior()=="Serialize"){
                             parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -6970,11 +6988,11 @@ shinyServer(function(input, output, session) {
                         clusterEvalQ(cl, library(foreach))
                         registerDoParallel(cl)
                         
-                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE)
                         stopCluster(cl)
                         registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                     } else if(multicoreBehavior()=="OpenMP"){
-                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = as.data.frame(xgbGrid),  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
+                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = as.data.frame(xgbGrid),  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads)
                     }
                 } else if(bayesParameterMode()=="Bayesian"){
                     forest.metric.mod <- if(parameters$ForestMetric=="RMSE"){
@@ -6996,7 +7014,7 @@ shinyServer(function(input, output, session) {
                     x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
                     x_train <- as.matrix(x_train)
                     y_train <- as.vector(predict.frame[,concentration])
-                    dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
+                    dtrain <- xgboost::xgb.DMatrix(xgbBayesMatrix(x_train, parameters$Preprocess), label = y_train)
                                 cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
                               xgb_cv_bayes <- function(nrounds, alpha, eta, lambda) {
                                   param <- list(booster = "gblinear",
@@ -7008,9 +7026,9 @@ shinyServer(function(input, output, session) {
                                   cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, prediction=TRUE, early_stopping_rounds = 50, verbose = FALSE)
                                   
                                   if(forest.metric.mod=="rmse"){
-                                      tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                      tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                                   } else if(forest.metric.mod=="mae"){
-                                      list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1)
+                                      list(Score = cv$evaluation_log$test_mae_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1)
                                   }
                               }
                               
@@ -7044,7 +7062,7 @@ shinyServer(function(input, output, session) {
                     )
                     
                     if(multicoreBehavior()=="Single Core"){
-                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit)
                     } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                         cl <- if(multicoreBehavior()=="Serialize"){
                             parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -7054,11 +7072,11 @@ shinyServer(function(input, output, session) {
                         clusterEvalQ(cl, library(foreach))
                         registerDoParallel(cl)
                         
-                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE)
                         stopCluster(cl)
                         registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                     } else if(multicoreBehavior()=="OpenMP"){
-                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
+                        xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads)
                     }
                 }
             
@@ -7108,7 +7126,7 @@ shinyServer(function(input, output, session) {
             colsample <- xgboostColSampleSelection()
 			minchildweight <- xgboostMinChildSelection()
             maxdeltastep <- xgboostMaxDeltaStepSelection()
-            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=9, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgbtreeSpectraModelData <- reactive(label="xgbtreeSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=xgbtreeSpectraParameters()$CalTable$Compress, transformation=xgbtreeSpectraParameters()$CalTable$Transformation, dependent.transformation=xgbtreeSpectraParameters()$CalTable$DepTrans,  energy.range=as.numeric(unlist(strsplit(as.character(xgbtreeSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=xgbtreeSpectraParameters()$CalTable$NormType, norm.min=xgbtreeSpectraParameters()$CalTable$Min, norm.max=xgbtreeSpectraParameters()$CalTable$Max, compton.type=xgbtreeSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -7151,6 +7169,7 @@ shinyServer(function(input, output, session) {
 				scale_pos_weight = c(0, 1),
             	max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
             	), init_points=50)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbTree")
 			} else {
 		      	xgbGrid <- generate_grid(bounds=list(
             	nrounds = as.integer(c(1, parameters$ForestTrees)),
@@ -7161,6 +7180,7 @@ shinyServer(function(input, output, session) {
             	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
             	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2]))
             	), init_points=50)
+		      	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbTree")
 			}
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
@@ -7205,7 +7225,7 @@ shinyServer(function(input, output, session) {
                 
             if(bayesParameterMode()=="GridSearch"){
                 if(multicoreBehavior()=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit)
                 } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                     cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -7215,11 +7235,11 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
 
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                     registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                 } else if(multicoreBehavior()=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             } else if(bayesParameterMode()=="Bayesian"){
                 predict.frame <- data
@@ -7261,9 +7281,9 @@ shinyServer(function(input, output, session) {
                               cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, prediction=TRUE, early_stopping_rounds = 50, tree_method = treemethod, nthread=input$open_mp_threads, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               } else if(forest.metric.mod=="mae"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
                           
@@ -7314,6 +7334,7 @@ shinyServer(function(input, output, session) {
                     scale_pos_weight = 1,
                     subsample = best_param$subsample
                 )
+                xgbGridBayes <- xgbTuneGrid(xgbGridBayes, "xgbTree")
 			} else {
 	                          xgb_cv_bayes <- function(nrounds, max_depth, min_child_weight, subsample, eta, gamma, colsample_bytree) {
                               param <- list(booster = "gbtree",
@@ -7328,9 +7349,9 @@ shinyServer(function(input, output, session) {
                               cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, prediction=TRUE, early_stopping_rounds = 50, tree_method = treemethod, nthread=input$open_mp_threads, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               } else if(forest.metric.mod=="mae"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
                           
@@ -7372,10 +7393,11 @@ shinyServer(function(input, output, session) {
                     scale_pos_weight = 1,
                     subsample = best_param$subsample
                 )
+                xgbGridBayes <- xgbTuneGrid(xgbGridBayes, "xgbTree")
 			}
                 
                 if(multicoreBehavior()=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit)
                 } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                     cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -7385,11 +7407,11 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
 
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                     registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                 } else if(multicoreBehavior()=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
 
@@ -7418,7 +7440,7 @@ shinyServer(function(input, output, session) {
             minchildweight <- xgboostMinChildSelection()
             maxdeltastep <- xgboostMaxDeltaStepSelection()
 
-            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), droptree=paste0(droptree[1], "-", droptree[2]), skipdrop=paste0(skipdrop[1], "-", skipdrop[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep[1]), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=9, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, treemethod=treemethod, treedepth=paste0(treedepth[1], "-", treedepth[2]), droptree=paste0(droptree[1], "-", droptree[2]), skipdrop=paste0(skipdrop[1], "-", skipdrop[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgbgamma=paste0(gamma[1], "-", gamma[2]), xgblambda=paste0(lambda[1], "-", lambda[2]), xgbsubsample=paste0(subsample[1], "-", subsample[2]), xgbcolsample=paste0(colsample[1], "-", colsample[2]), xgbminchild=minchildweight[1], xgbmaxdeltastep=maxdeltastep[1]), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgbdartSpectraModelData <- reactive(label="xgbdartSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=xgbdartSpectraParameters()$CalTable$Compress, transformation=xgbdartSpectraParameters()$CalTable$Transformation, dependent.transformation=xgbdartSpectraParameters()$CalTable$DepTrans,  energy.range=as.numeric(unlist(strsplit(as.character(xgbdartSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=xgbdartSpectraParameters()$CalTable$NormType, norm.min=xgbdartSpectraParameters()$CalTable$Min, norm.max=xgbdartSpectraParameters()$CalTable$Max, compton.type=xgbdartSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -7465,6 +7487,7 @@ shinyServer(function(input, output, session) {
 				scale_pos_weight = c(0, 1),
             	max_delta_step = c(xgbmaxdeltastep.vec[1], xgbmaxdeltastep.vec[2])
             	), init_points=50)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbDART")
 			} else {
             	xgbGrid <- generate_grid(bounds=list(
             	nrounds = as.integer(c(1, parameters$ForestTrees)),
@@ -7477,6 +7500,7 @@ shinyServer(function(input, output, session) {
             	subsample = c(xgbsubsample.vec[1], xgbsubsample.vec[2]),
             	min_child_weight = as.integer(c(xgbminchild.vec[1], xgbminchild.vec[2]))
             	), init_points=50)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbDART")
 			} 
             
             metricModel <- if(parameters$ForestMetric=="RMSE" | parameters$ForestMetric=="Rsquared"){
@@ -7521,7 +7545,7 @@ shinyServer(function(input, output, session) {
                 
             if(bayesParameterMode()=="GridSearch"){
                 if(multicoreBehavior()=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit)
                 } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                     cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -7531,11 +7555,11 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
 
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                     registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                 } else if(multicoreBehavior()=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             } else if(bayesParameterMode()=="Bayesian"){
                 predict.frame <- data
@@ -7579,9 +7603,9 @@ shinyServer(function(input, output, session) {
                               cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, prediction=TRUE, early_stopping_rounds = 50, tree_method = treemethod, nthread=input$open_mp_threads, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               } else if(forest.metric.mod=="mae"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
                           
@@ -7590,7 +7614,7 @@ shinyServer(function(input, output, session) {
 							max_depth = as.integer(tree.depth.vec),
                            rate_drop = drop.tree.vec,
                            skip_drop = skip.drop.vec,
-                           min_child_weight = xgbmindchildweight.vec,
+                           min_child_weight = xgbminchild.vec,
                            max_delta_step = xgbmaxdeltastep.vec,
                                subsample = xgbsubsample.vec,
                                alpha = xgbalpha.vec,
@@ -7638,6 +7662,7 @@ shinyServer(function(input, output, session) {
                     scale_pos_weight = 1,
                     subsample = best_param$subsample
                 )
+                xgbGridBayes <- xgbTuneGrid(xgbGridBayes, "xgbDART")
 			} else {
                           xgb_cv_bayes <- function(nrounds, max_depth, rate_drop, skip_drop, min_child_weight, subsample,  eta, gamma, colsample_bytree) {
                               param <- list(booster = "dart",
@@ -7654,9 +7679,9 @@ shinyServer(function(input, output, session) {
                               cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, prediction=TRUE, early_stopping_rounds = 50, tree_method = treemethod, nthread=input$open_mp_threads, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               } else if(forest.metric.mod=="mae"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
                           
@@ -7665,7 +7690,7 @@ shinyServer(function(input, output, session) {
 							max_depth = as.integer(tree.depth.vec),
                            rate_drop = drop.tree.vec,
                            skip_drop = skip.drop.vec,
-                           min_child_weight = xgbmindchildweight.vec,
+                           min_child_weight = xgbminchild.vec,
                                subsample = xgbsubsample.vec,
                                eta = xgbeta.vec,
                                gamma = c(0L, xgbgamma.vec[2]),
@@ -7698,16 +7723,17 @@ shinyServer(function(input, output, session) {
                     rate_drop = best_param$rate_drop,
                     skip_drop = best_param$skip_drop,
                     colsample_bytree = best_param$colsample_bytree,
-                    alpha = best_param$alpha,
+                    eta = best_param$eta,
                     gamma = best_param$gamma,
                     min_child_weight = best_param$min_child_weight,
                     scale_pos_weight = 1,
                     subsample = best_param$subsample
                 )
+                xgbGridBayes <- xgbTuneGrid(xgbGridBayes, "xgbDART")
 			} 
                 
                 if(multicoreBehavior()=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit)
                 } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                     cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -7717,11 +7743,11 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
 
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                     registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                 } else if(multicoreBehavior()=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), tree_method=treemethod, na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
 
@@ -7740,7 +7766,7 @@ shinyServer(function(input, output, session) {
             eta <- xgboostEtaSelection()
             alpha <- xgboostAlphaSelection()
             lambda <- xgboostLambdaSelection()
-            list(CalTable=calConditionsTable(cal.type=9, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgblambda=paste0(lambda[1], "-", lambda[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=9, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basichold$compress, transformation=basichold$transformation, energy.range=paste0(energy.range[1], "-", energy.range[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttrees=forestTreeSelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, xgbalpha=paste0(alpha[1], "-", alpha[2]), xgbeta=paste0(eta[1], "-", eta[2]), xgblambda=paste0(lambda[1], "-", lambda[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         xgblinearSpectraModelData <- reactive(label="xgblinearSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=xgblinearSpectraParameters()$CalTable$Compress, transformation=xgblinearSpectraParameters()$CalTable$Transformation, dependent.transformation=xgblinearSpectraParameters()$CalTable$DepTrans,  energy.range=as.numeric(unlist(strsplit(as.character(xgblinearSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=xgblinearSpectraParameters()$CalTable$NormType, norm.min=xgblinearSpectraParameters()$CalTable$Min, norm.max=xgblinearSpectraParameters()$CalTable$Max, compton.type=xgblinearSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -7811,7 +7837,7 @@ shinyServer(function(input, output, session) {
                 
             if(bayesParameterMode()=="GridSearch"){
                 if(multicoreBehavior()=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit)
                 } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                     cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -7821,11 +7847,11 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
 
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                     registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                 } else if(multicoreBehavior()=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads)
                 }
             } else if(bayesParameterMode()=="Bayesian"){
                 predict.frame <- data
@@ -7848,7 +7874,7 @@ shinyServer(function(input, output, session) {
                 x_train <- predict.frame[,!colnames(predict.frame) %in% concentration]
                 x_train <- as.matrix(x_train)
                 y_train <- as.vector(predict.frame[,concentration])
-                dtrain <- xgboost::xgb.DMatrix(x_train, label = y_train)
+                dtrain <- xgboost::xgb.DMatrix(xgbBayesMatrix(x_train, parameters$Preprocess), label = y_train)
                             cv_folds <- KFold(predict.frame$Concentration, nfolds = fold_samples, stratified = TRUE)
                           xgb_cv_bayes <- function(nrounds, alpha, eta, lambda) {
                               param <- list(booster = "gblinear",
@@ -7860,9 +7886,9 @@ shinyServer(function(input, output, session) {
                               cv <- xgb.cv(params = param, data = dtrain, nrounds=nrounds, folds=cv_folds, prediction=TRUE, early_stopping_rounds = 50, nthread=input$open_mp_threads, maximize = FALSE, verbose = FALSE)
                               
                               if(forest.metric.mod=="rmse"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_rmse_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               } else if(forest.metric.mod=="mae"){
-                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[cv$best_iteration]*-1, Pred=cv$best_iteration*-1), error=function(e) list(Score=0, Pred=0))
+                                  tryCatch(list(Score = cv$evaluation_log$test_mae_mean[xgbBestIteration(cv)]*-1, Pred=xgbBestIteration(cv)*-1), error=function(e) list(Score=0, Pred=0))
                               }
                           }
                           
@@ -7897,7 +7923,7 @@ shinyServer(function(input, output, session) {
                 )
                 
                 if(multicoreBehavior()=="Single Core"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit)
                 } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                     cl <- if(multicoreBehavior()=="Serialize"){
                         parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -7907,11 +7933,11 @@ shinyServer(function(input, output, session) {
                     clusterEvalQ(cl, library(foreach))
                     registerDoParallel(cl)
 
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE)
                     stopCluster(cl)
                     registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
                 } else if(multicoreBehavior()=="OpenMP"){
-                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
+                    xgb_model <- caret::train(Concentration~., data=data, trControl = tune_control, tuneGrid = xgbGridBayes,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads)
                 }
             }
 
@@ -7947,12 +7973,13 @@ shinyServer(function(input, output, session) {
             beta <- bartBetaSelection()
             nu <- bartNuSelection()
             k <- bartKSelection()
+            bartalpha <- bartAlphaSelection()
             cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
                 foresthold$cvrepeats
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection(), bartk=paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=10, bartalpha=paste0(bartalpha[1], "-", bartalpha[2]), preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection(), bartk=paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         bartMachineIntensityModelData <- reactive(label="bartMachineIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=bartMachineIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=bartMachineIntensityParameters()$Intercept, slopes=bartMachineIntensityParameters()$Slope, norm.type=bartMachineIntensityParameters()$CalTable$NormType, norm.min=bartMachineIntensityParameters()$CalTable$Min, norm.max=bartMachineIntensityParameters()$CalTable$Max, compton.type=bartMachineIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -7969,14 +7996,14 @@ shinyServer(function(input, output, session) {
             
             set.seed(input$randomize)
             
-            xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
+            bartalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartAlpha), "-")))
             k.vec <- dnorminv(1-(as.numeric(unlist(strsplit(as.character(parameters$bartK), "-")))/100))
             bartbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartBeta), "-")))
             bartnu.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartNu), "-")))
             
             bart.grid <- generate_grid(bounds=list(
                 num_trees=as.integer(c(1, parameters$ForestTrees)),
-                alpha=c(xgbalpha.vec[1], xgbalpha.vec[2]),
+                alpha=c(bartalpha.vec[1], bartalpha.vec[2]),
                 beta=c(bartbeta.vec[1], bartbeta.vec[2]),
                 nu=c(bartnu.vec[1], bartnu.vec[2]),
                 k=c(k.vec[1], k.vec[2])), init_points=50)
@@ -8008,7 +8035,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            bart_model <- caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
+            bart_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess), data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
             
             bart_model
             
@@ -8021,7 +8048,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=10, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         bayesLinearIntensityModelData <- reactive(label="bayesLinearIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=bayesLinearIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=bayesLinearIntensityParameters()$Intercept, slopes=bayesLinearIntensityParameters()$Slope, norm.type=bayesLinearIntensityParameters()$CalTable$NormType, norm.min=bayesLinearIntensityParameters()$CalTable$Min, norm.max=bayesLinearIntensityParameters()$CalTable$Max, compton.type=bayesLinearIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -8079,7 +8106,7 @@ shinyServer(function(input, output, session) {
             }
                         
             if(multicoreBehavior()=="Single Core"){
-                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=c("center", "scale"), trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
+                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=caretPreProcess(parameters$Preprocess, none=c("center", "scale")), trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8089,7 +8116,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=c("center", "scale"), trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
+                bart_model <- caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=caretPreProcess(parameters$Preprocess, none=c("center", "scale")), trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -8104,7 +8131,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=10, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=10, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         bayesNeuralNetModelData <- reactive(label="bayesNeuralNetModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=bayesNeuralNetIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=bayesNeuralNetIntensityParameters()$Intercept, slopes=bayesNeuralNetIntensityParameters()$Slope, norm.type=bayesNeuralNetIntensityParameters()$CalTable$NormType, norm.min=bayesNeuralNetIntensityParameters()$CalTable$Min, norm.max=bayesNeuralNetIntensityParameters()$CalTable$Max, compton.type=bayesNeuralNetIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -8168,7 +8195,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                bart_model <- caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+                bart_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8178,7 +8205,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+                bart_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -8214,13 +8241,14 @@ shinyServer(function(input, output, session) {
             beta <- bartBetaSelection()
             nu <- bartNuSelection()
             k <- bartKSelection()
+            bartalpha <- bartAlphaSelection()
             cvrepeats <- if(foresthold$foresttrain=="repeatedcv"){
                 foresthold$cvrepeats
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
             energyrange <- basicEnergyRange()
-            list(CalTable=calConditionsTable(cal.type=11, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection(), bartk=paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=11, bartalpha=paste0(bartalpha[1], "-", bartalpha[2]), preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, foresttrees=forestTreeSelection(), bartk=paste0(k[1], "-", k[2]), xgbalpha=paste0(alpha[1], "-", alpha[2]), bartbeta=paste0(beta[1], "-", beta[2]), bartnu=paste0(nu[1], "-", nu[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         bartMachineSpectraModelData <- reactive(label="bartMachineSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=bartMachineSpectraParameters()$CalTable$Compress, transformation=bartMachineSpectraParameters()$CalTable$Transformation, dependent.transformation=bartMachineSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(bartMachineSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=bartMachineSpectraParameters()$CalTable$NormType, norm.min=bartMachineSpectraParameters()$CalTable$Min, norm.max=bartMachineSpectraParameters()$CalTable$Max, compton.type=bartMachineSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -8242,14 +8270,14 @@ shinyServer(function(input, output, session) {
 
             set.seed(input$randomize)
             
-            xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
+            bartalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartAlpha), "-")))
             k.vec <- dnorminv(1-(as.numeric(unlist(strsplit(as.character(parameters$bartK), "-")))/100))
             bartbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartBeta), "-")))
             bartnu.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartNu), "-")))
             
             bart.grid <- generate_grid(bounds=list(
                 num_trees=as.integer(c(1, parameters$ForestTrees)),
-                alpha=c(xgbalpha.vec[1], xgbalpha.vec[2]),
+                alpha=c(bartalpha.vec[1], bartalpha.vec[2]),
                 beta=c(bartbeta.vec[1], bartbeta.vec[2]),
                 nu=c(bartnu.vec[1], bartnu.vec[2]),
                 k=c(k.vec[1], k.vec[2])), init_points=50)
@@ -8281,7 +8309,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            bart_model <- caret::train(Concentration~.,data=data, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
+            bart_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE)
             
             
             bart_model
@@ -8295,7 +8323,7 @@ shinyServer(function(input, output, session) {
                 1
             }
             energyrange <- basicEnergyRange()
-            list(CalTable=calConditionsTable(cal.type=11, line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=11, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         bayesLinearSpectraModelData <- reactive(label="bayesLinearSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=bayesLinearSpectraParameters()$CalTable$Compress, transformation=bayesLinearSpectraParameters()$CalTable$Transformation, dependent.transformation=bayesLinearSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(bayesLinearSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=bayesLinearSpectraParameters()$CalTable$NormType, norm.min=bayesLinearSpectraParameters()$CalTable$Min, norm.max=bayesLinearSpectraParameters()$CalTable$Max, compton.type=bayesLinearSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -8360,7 +8388,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                bart_model <- caret::train(Concentration~.,data=data, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
+                bart_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8370,7 +8398,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                bart_model <- caret::train(Concentration~.,data=data, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
+                bart_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -8386,7 +8414,7 @@ shinyServer(function(input, output, session) {
                 1
             }
             energyrange <- basicEnergyRange()
-            list(CalTable=calConditionsTable(cal.type=11, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), xgbtype=xgboosthold$xgbtype, neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2]), cvrepeats=cvrepeats), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=11, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), foresttry=forestTrySelection(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), xgbtype=xgboosthold$xgbtype, neuralhiddenunits=paste0(hiddenunits[1], "-", hiddenunits[2]), cvrepeats=cvrepeats), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         bayesNeuralNetSpectraModelData <- reactive(label="bayesNeuralNetSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=bayesNeuralNetSpectraParameters()$CalTable$Compress, transformation=bayesNeuralNetSpectraParameters()$CalTable$Transformation, dependent.transformation=bayesNeuralNetSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(bayesNeuralNetSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=bayesNeuralNetSpectraParameters()$CalTable$NormType, norm.min=bayesNeuralNetSpectraParameters()$CalTable$Min, norm.max=bayesNeuralNetSpectraParameters()$CalTable$Max, compton.type=bayesNeuralNetSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -8449,7 +8477,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                bart_model <- caret::train(Concentration~.,data=data, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+                bart_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8459,7 +8487,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                bart_model <- caret::train(Concentration~.,data=data, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
+                bart_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -8498,7 +8526,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=12, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=12, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         svmLinearIntensityModelData <- reactive(label="svmLinearIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=svmLinearIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=svmLinearIntensityParameters()$Intercept, slopes=svmLinearIntensityParameters()$Slope, norm.type=svmLinearIntensityParameters()$CalTable$NormType, norm.min=svmLinearIntensityParameters()$CalTable$Min, norm.max=svmLinearIntensityParameters()$CalTable$Max, compton.type=svmLinearIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -8563,7 +8591,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8573,7 +8601,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -8590,7 +8618,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=12, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmdegree=paste0(degree[1], "-", degree[2]), svmscale=paste0(scale[1], "-", scale[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=12, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmdegree=paste0(degree[1], "-", degree[2]), svmscale=paste0(scale[1], "-", scale[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         svmPolyIntensityModelData <- reactive(label="svmPolyIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=svmPolyIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=svmPolyIntensityParameters()$Intercept, slopes=svmPolyIntensityParameters()$Slope, norm.type=svmPolyIntensityParameters()$CalTable$NormType, norm.min=svmPolyIntensityParameters()$CalTable$Min, norm.max=svmPolyIntensityParameters()$CalTable$Max, compton.type=svmPolyIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -8660,7 +8688,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8670,7 +8698,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -8686,7 +8714,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=12, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmsigma=paste0(sigma[1], "-", sigma[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=12, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmsigma=paste0(sigma[1], "-", sigma[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         svmRadialIntensityModelData <- reactive(label="svmRadialIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=svmRadialIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=svmRadialIntensityParameters()$Intercept, slopes=svmRadialIntensityParameters()$Slope, norm.type=svmRadialIntensityParameters()$CalTable$NormType, norm.min=svmRadialIntensityParameters()$CalTable$Min, norm.max=svmRadialIntensityParameters()$CalTable$Max, compton.type=svmRadialIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -8766,7 +8794,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8776,7 +8804,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -8816,7 +8844,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=13, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=13, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         svmLinearSpectraModelData <- reactive(label="svmLinearSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=svmLinearSpectraParameters()$CalTable$Compress, transformation=svmLinearSpectraParameters()$CalTable$Transformation, dependent.transformation=svmLinearSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(svmLinearSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=svmLinearSpectraParameters()$CalTable$NormType, norm.min=svmLinearSpectraParameters()$CalTable$Min, norm.max=svmLinearSpectraParameters()$CalTable$Max, compton.type=svmLinearSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -8880,7 +8908,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(Concentration~.,data=data, method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8890,7 +8918,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                svm_model <- caret::train(Concentration~.,data=data, method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -8908,7 +8936,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=13, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmdegree=paste0(degree[1], "-", degree[2]), svmscale=paste0(scale[1], "-", scale[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=13, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmdegree=paste0(degree[1], "-", degree[2]), svmscale=paste0(scale[1], "-", scale[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         svmPolySpectraModelData <- reactive(label="svmPolySpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=svmPolySpectraParameters()$CalTable$Compress, transformation=svmPolySpectraParameters()$CalTable$Transformation, dependent.transformation=svmPolySpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(svmPolySpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=svmPolySpectraParameters()$CalTable$NormType, norm.min=svmPolySpectraParameters()$CalTable$Min, norm.max=svmPolySpectraParameters()$CalTable$Max, compton.type=svmPolySpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -8976,7 +9004,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(Concentration~., data=data, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess), data=data, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -8986,7 +9014,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                svm_model <- caret::train(Concentration~., data=data, method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess), data=data, method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9003,7 +9031,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=13, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmsigma=paste0(sigma[1], "-", sigma[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=13, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(),  forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, xgbtype=xgboosthold$xgbtype, svmc=paste0(C[1], "-", C[2]), svmsigma=paste0(sigma[1], "-", sigma[2])), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         svmRadialSpectraModelData <- reactive(label="svmRadialSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=svmRadialSpectraParameters()$CalTable$Compress, transformation=svmRadialSpectraParameters()$CalTable$Transformation, dependent.transformation=svmRadialSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(svmRadialSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=svmRadialSpectraParameters()$CalTable$NormType, norm.min=svmRadialSpectraParameters()$CalTable$Min, norm.max=svmRadialSpectraParameters()$CalTable$Max, compton.type=svmRadialSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -9081,7 +9109,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(Concentration~.,data=data, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9091,7 +9119,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                svm_model <- caret::train(Concentration~.,data=data, method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data, method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9132,7 +9160,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=14, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, plsncomp=paste0(plsncomp.sel[1], "-", plsncomp.sel[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=14, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, plsncomp=paste0(plsncomp.sel[1], "-", plsncomp.sel[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         plsIntensityModelData <- reactive(label="plsIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=plsIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=plsIntensityParameters()$Intercept, slopes=plsIntensityParameters()$Slope, norm.type=plsIntensityParameters()$CalTable$NormType, norm.min=plsIntensityParameters()$CalTable$Min, norm.max=plsIntensityParameters()$CalTable$Max, compton.type=plsIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -9203,7 +9231,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                pls_model <- caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit)
+                pls_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9213,7 +9241,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
+                pls_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9229,7 +9257,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=15, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, plsncomp=paste0(plsncomp.sel[1], "-", plsncomp.sel[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=15, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, plsncomp=paste0(plsncomp.sel[1], "-", plsncomp.sel[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         plsSpectraModelData <- reactive(label="plsSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=plsSpectraParameters()$CalTable$Compress, transformation=plsSpectraParameters()$CalTable$Transformation, dependent.transformation=plsSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(plsSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=plsSpectraParameters()$CalTable$NormType, norm.min=plsSpectraParameters()$CalTable$Min, norm.max=plsSpectraParameters()$CalTable$Max, compton.type=plsSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -9300,7 +9328,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                pls_model <- caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit)
+                pls_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9310,7 +9338,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
+                pls_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9367,7 +9395,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
+                pls_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9377,7 +9405,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
+                pls_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9434,7 +9462,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
+                pls_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="pls", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9444,7 +9472,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                pls_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
+                pls_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="pls", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=pls.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9460,7 +9488,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=16, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, cubistcommittees=paste0(cubistcommittees.sel[1], "-", cubistcommittees.sel[2]), cubistneighbors=paste0(cubistneighbors.sel[1], "-", cubistneighbors.sel[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=16, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, cubistcommittees=paste0(cubistcommittees.sel[1], "-", cubistcommittees.sel[2]), cubistneighbors=paste0(cubistneighbors.sel[1], "-", cubistneighbors.sel[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         cubistIntensityModelData <- reactive(label="cubistIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=cubistIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=cubistIntensityParameters()$Intercept, slopes=cubistIntensityParameters()$Slope, norm.type=cubistIntensityParameters()$CalTable$NormType, norm.min=cubistIntensityParameters()$CalTable$Min, norm.max=cubistIntensityParameters()$CalTable$Max, compton.type=cubistIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -9531,7 +9559,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                cubist_model <- caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit)
+                cubist_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9541,7 +9569,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
+                cubist_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9558,7 +9586,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=17, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, cubistcommittees=paste0(cubistcommittees.sel[1], "-", cubistcommittees.sel[2]), cubistneighbors=paste0(cubistneighbors.sel[1], "-", cubistneighbors.sel[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=17, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, cubistcommittees=paste0(cubistcommittees.sel[1], "-", cubistcommittees.sel[2]), cubistneighbors=paste0(cubistneighbors.sel[1], "-", cubistneighbors.sel[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         cubistSpectraModelData <- reactive(label="cubistSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=cubistSpectraParameters()$CalTable$Compress, transformation=cubistSpectraParameters()$CalTable$Transformation, dependent.transformation=cubistSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(cubistSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=cubistSpectraParameters()$CalTable$NormType, norm.min=cubistSpectraParameters()$CalTable$Min, norm.max=cubistSpectraParameters()$CalTable$Max, compton.type=cubistSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -9629,7 +9657,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                cubist_model <- caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit)
+                cubist_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9639,7 +9667,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
+                cubist_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9696,7 +9724,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
+                cubist_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9706,7 +9734,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
+                cubist_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9763,7 +9791,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
+                cubist_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="cubist", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9773,7 +9801,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                cubist_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
+                cubist_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="cubist", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=cubist.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9789,7 +9817,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=18, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, glmnetalpha=paste0(glmnetalpha.sel[1], "-", glmnetalpha.sel[2]), glmnetlambda=paste0(glmnetlambda.sel[1], "-", glmnetlambda.sel[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=18, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, glmnetalpha=paste0(glmnetalpha.sel[1], "-", glmnetalpha.sel[2]), glmnetlambda=paste0(glmnetlambda.sel[1], "-", glmnetlambda.sel[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         glmnetIntensityModelData <- reactive(label="glmnetIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=glmnetIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=glmnetIntensityParameters()$Intercept, slopes=glmnetIntensityParameters()$Slope, norm.type=glmnetIntensityParameters()$CalTable$NormType, norm.min=glmnetIntensityParameters()$CalTable$Min, norm.max=glmnetIntensityParameters()$CalTable$Max, compton.type=glmnetIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -9861,7 +9889,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                glmnet_model <- caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit)
+                glmnet_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9871,7 +9899,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
+                glmnet_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -9888,7 +9916,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=19, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, glmnetalpha=paste0(glmnetalpha.sel[1], "-", glmnetalpha.sel[2]), glmnetlambda=paste0(glmnetlambda.sel[1], "-", glmnetlambda.sel[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=19, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, glmnetalpha=paste0(glmnetalpha.sel[1], "-", glmnetalpha.sel[2]), glmnetlambda=paste0(glmnetlambda.sel[1], "-", glmnetlambda.sel[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         glmnetSpectraModelData <- reactive(label="glmnetSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=glmnetSpectraParameters()$CalTable$Compress, transformation=glmnetSpectraParameters()$CalTable$Transformation, dependent.transformation=glmnetSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(glmnetSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=glmnetSpectraParameters()$CalTable$NormType, norm.min=glmnetSpectraParameters()$CalTable$Min, norm.max=glmnetSpectraParameters()$CalTable$Max, compton.type=glmnetSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -9960,7 +9988,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                glmnet_model <- caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit)
+                glmnet_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -9970,7 +9998,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
+                glmnet_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -10028,7 +10056,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
+                glmnet_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -10038,7 +10066,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
+                glmnet_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -10096,7 +10124,7 @@ shinyServer(function(input, output, session) {
 
 
             if(multicoreBehavior()=="Single Core"){
-                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
+                glmnet_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="glmnet", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -10106,7 +10134,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
 
-                glmnet_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
+                glmnet_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="glmnet", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=glmnet.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -10122,7 +10150,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=20, line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, marsprune=paste0(marsprune.sel[1], "-", marsprune.sel[2]), marsdegree=paste0(marsdegree.sel[1], "-", marsdegree.sel[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=20, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, line.structure=input$linestructureelement, gaus.buffer=input$gausbuffer, split.buffer=input$splitbuffer, norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, marsprune=paste0(marsprune.sel[1], "-", marsprune.sel[2]), marsdegree=paste0(marsdegree.sel[1], "-", marsdegree.sel[2])), Slope=lucasSlope(), Intercept=lucasIntercept(), StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         marsIntensityModelData <- reactive(label="marsIntensityModelData", {
             predictFrameForestGen(seed=input$randomize, spectra=dataNormCal(), hold.frame=holdFrameCal(), deconvolution=calMemory$Calibration$Deconvoluted, dependent.transformation=marsIntensityParameters()$CalTable$DepTrans, element=input$calcurveelement, intercepts=marsIntensityParameters()$Intercept, slopes=marsIntensityParameters()$Slope, norm.type=marsIntensityParameters()$CalTable$NormType, norm.min=marsIntensityParameters()$CalTable$Min, norm.max=marsIntensityParameters()$CalTable$Max, compton.type=marsIntensityParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -10179,7 +10207,7 @@ shinyServer(function(input, output, session) {
 
             # MARS always trains single-core: earth is fast, caret's earth loop is unreliable in forked or PSOCK workers once xgboost's OpenMP runtime is loaded, and this keeps caret away from a stale doParallel backend left by an earlier model.
             tune_control$allowParallel <- FALSE
-            mars_model <- caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit)
+            mars_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit)
             mars_model
 
         })
@@ -10193,7 +10221,7 @@ shinyServer(function(input, output, session) {
             } else if(foresthold$foresttrain!="repeatedcv"){
                 1
             }
-            list(CalTable=calConditionsTable(cal.type=21, line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, marsprune=paste0(marsprune.sel[1], "-", marsprune.sel[2]), marsdegree=paste0(marsdegree.sel[1], "-", marsdegree.sel[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
+            list(CalTable=calConditionsTable(cal.type=21, preprocess=preprocessSelection(), line.type=input$linepreferenceelement, deconvolution=input$deconvolution, compress=basicCompress(), transformation=basicTransformation(), energy.range=paste0(energyrange[1], "-", energyrange[2]), norm.type=basichold$normtype, norm.min=basichold$normmin, norm.max=basichold$normmax, compton.type=input$comptontype, dependent.transformation=dependentTransformation(), forestmetric=forestMetricSelection(), foresttrain=forestTrainSelection(), forestnumber=forestNumberSelection(), cvrepeats=cvrepeats, marsprune=paste0(marsprune.sel[1], "-", marsprune.sel[2]), marsdegree=paste0(marsdegree.sel[1], "-", marsdegree.sel[2])),  StandardsUsed=vals$keeprows, Scale=list(Min=yMin(), Max=yMax()))
         })
         marsSpectraModelData <- reactive(label="marsSpectraModelData", {
             rainforestDataGen(seed=input$randomize, spectra=dataNormCal(), compress=marsSpectraParameters()$CalTable$Compress, transformation=marsSpectraParameters()$CalTable$Transformation, dependent.transformation=marsSpectraParameters()$CalTable$DepTrans, energy.range=as.numeric(unlist(strsplit(as.character(marsSpectraParameters()$CalTable$EnergyRange), "-"))), hold.frame=holdFrameCal(), norm.type=marsSpectraParameters()$CalTable$NormType, norm.min=marsSpectraParameters()$CalTable$Min, norm.max=marsSpectraParameters()$CalTable$Max, compton.type=marsSpectraParameters()$CalTable$ComptonType, data.type=dataType(), y_min=yMin(), y_max=yMax())
@@ -10250,7 +10278,7 @@ shinyServer(function(input, output, session) {
 
             # MARS always trains single-core: earth is fast, caret's earth loop is unreliable in forked or PSOCK workers once xgboost's OpenMP runtime is loaded, and this keeps caret away from a stale doParallel backend left by an earlier model.
             tune_control$allowParallel <- FALSE
-            mars_model <- caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit)
+            mars_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit)
             mars_model
 
         })
@@ -10290,7 +10318,7 @@ shinyServer(function(input, output, session) {
 
             # MARS always trains single-core: earth is fast, caret's earth loop is unreliable in forked or PSOCK workers once xgboost's OpenMP runtime is loaded, and this keeps caret away from a stale doParallel backend left by an earlier model.
             tune_control$allowParallel <- FALSE
-            mars_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit), error=function(e) NULL)
+            mars_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit), error=function(e) NULL)
             mars_model
 
         })
@@ -10330,7 +10358,7 @@ shinyServer(function(input, output, session) {
 
             # MARS always trains single-core: earth is fast, caret's earth loop is unreliable in forked or PSOCK workers once xgboost's OpenMP runtime is loaded, and this keeps caret away from a stale doParallel backend left by an earlier model.
             tune_control$allowParallel <- FALSE
-            mars_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit), error=function(e) NULL)
+            mars_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="earth", trControl=tune_control, metric=parameters$ForestMetric, maximize=(parameters$ForestMetric=="Rsquared"), tuneGrid=mars.grid, na.action=na.omit), error=function(e) NULL)
             mars_model
 
         })
@@ -10767,9 +10795,11 @@ shinyServer(function(input, output, session) {
             }
         })
         
+        # Follows basichold$deptransformation, which element changes and new XGBoost models also set, so it shows the transformation that trains.
         output$dependenttransformationui <- renderUI({
             req(input$radiocal, input$calcurveelement)
-            dependentTransformationUI(radiocal=input$radiocal, selection=isolate(calDependentTransformationPre()))
+            current <- basichold$deptransformation
+            dependentTransformationUI(radiocal=input$radiocal, selection=if(length(current) == 1 && !is.na(current)) current else isolate(calDependentTransformationPre()))
         })
         
         calEnergyRangePre <- reactive(label="calEnergyRangePre", {
@@ -10921,6 +10951,11 @@ shinyServer(function(input, output, session) {
                 
                 as.character(calSettings$calList[[input$calcurveelement]][[1]]$CalTable$xgbType[1])
             }
+        })
+
+        calPreprocessSelectionpre <- reactive(label="calPreprocessSelectionpre", {
+            ct <- calSettings$calList[[input$calcurveelement]][[1]]$CalTable
+            preprocessSetting(if("Preprocess" %in% colnames(ct)) ct$Preprocess[1] else "None")
         })
 
         calTreeMethodSelectionpre <- reactive(label="calXGBTypeSelectionpre", {
@@ -11155,6 +11190,13 @@ shinyServer(function(input, output, session) {
             }
         })
         
+        calBARTAlphaSelectionpre <- reactive(label="calBARTAlphaSelectionpre", {
+            ct <- calSettings$calList[[input$calcurveelement]][[1]]$CalTable
+            saved <- if("bartAlpha" %in% colnames(ct)) ct$bartAlpha[1] else calConditions$hold[["CalTable"]][["bartAlpha"]]
+            value <- suppressWarnings(as.numeric(unlist(strsplit(as.character(saved), "-"))))
+            if(length(value) == 0 || any(!is.finite(value))) c(0.95, 0.95) else value
+        })
+
         calBARTBetaSelectionpre <- reactive(label="calBARTBetaSelectionpre", {
             if(!"bartBeta" %in% colnames(calSettings$calList[[input$calcurveelement]][[1]]$CalTable)){
                 as.numeric(unlist(strsplit(as.character(calConditions$hold[["CalTable"]]["bartBeta"]), "-")))
@@ -11280,34 +11322,18 @@ shinyServer(function(input, output, session) {
         glmnethold <- reactiveValues()
         marshold <- reactiveValues()
         
-        observeEvent(input$calcurveelement, {
-            basichold$normtype <- calNormSelectionpre()
-            basichold$normmin <- normMinPre()
-            basichold$normmax <- normMaxPre()
-            basichold$deconvolution <- calDeconvolutionPre()
-            basichold$compress <- calCompressPre()
-            basichold$transformation <- calTransformationPre()
-            basichold$deptransformation <- calDependentTransformationPre()
-            basichold$energyrange <- calEnergyRangePre()
-            lucashold$intercept <- calInterceptSelectionPre()
-            lucashold$slope <- calSlopeSelectionPre()
-            lucashold$ltcross <- calLTCrossSelectionPre()
-            lucashold$ltweight <- calLTWeightSelectionPre()
+        # The tuning holds as an element loads them: its saved settings, or in Grid Search and Bayesian modes the search spans some settings always use (see the cal...Selectionpre reactives). Element changes, parameter-mode changes and the Tuning control's "Saved settings" all load them this way.
+        loadTuningHolds <- function(){
             foresthold$foresttry <- calForestTrySelectionpre()
-            foresthold$forestmetric <- calForestMetricSelectionpre()
-            foresthold$foresttrain <- calForestTCSelectionpre()
-            foresthold$forestnumber <- calForestNumberSelectionpre()
-            foresthold$cvrepeats <- calCVRepeatsSelectionpre()
             foresthold$foresttrees <- calForestTreeSelectionpre()
             neuralhold$neuralhiddenlayers <- calHiddenLayersSelectionpre()
             neuralhold$neuralhiddenunits <- calHiddenUnitsSelectionpre()
             neuralhold$neuralweightdecay <- calWeightDecaySelectionpre()
             neuralhold$neuralmaxiterations <- calMaxIterationsSelectionpre()
-            xgboosthold$xgbtype <- calXGBTypeSelectionpre()
             xgboosthold$treemethod <- calTreeMethodSelectionpre()
             xgboosthold$treedepth <- calTreeDepthSelectionpre()
-            xgboosthold$droptree <- calDropTreeSelectionpre() 
-            xgboosthold$skipdrop <- calSkipDropSelectionpre()  
+            xgboosthold$droptree <- calDropTreeSelectionpre()
+            xgboosthold$skipdrop <- calSkipDropSelectionpre()
             xgboosthold$xgbalpha <- calXGBAlphaSelectionpre()
             xgboosthold$xgbgamma <- calXGBGammaSelectionpre()
             xgboosthold$xgbeta <- calXGBEtaSelectionpre()
@@ -11316,6 +11342,7 @@ shinyServer(function(input, output, session) {
             xgboosthold$xgbcolsample <- calXGBColSampleSelectionpre()
             xgboosthold$xgbminchild <- calXGBMinChildSelectionpre()
             xgboosthold$xgbmaxdeltastep <- calXGBMaxDeltaStepSelectionpre()
+            barthold$bartalpha <- calBARTAlphaSelectionpre()
             barthold$bartk <- calBARTKSelectionpre()
             barthold$bartbeta <- calBARTBetaSelectionpre()
             barthold$bartnu <- calBARTNuSelectionpre()
@@ -11331,6 +11358,28 @@ shinyServer(function(input, output, session) {
             glmnethold$glmnetlambda <- calGlmnetLambdaSelectionpre()
             marshold$marsprune <- calMarsPruneSelectionpre()
             marshold$marsdegree <- calMarsDegreeSelectionpre()
+        }
+
+        observeEvent(input$calcurveelement, {
+            basichold$normtype <- calNormSelectionpre()
+            basichold$normmin <- normMinPre()
+            basichold$normmax <- normMaxPre()
+            basichold$deconvolution <- calDeconvolutionPre()
+            basichold$compress <- calCompressPre()
+            basichold$transformation <- calTransformationPre()
+            basichold$deptransformation <- calDependentTransformationPre()
+            basichold$energyrange <- calEnergyRangePre()
+            lucashold$intercept <- calInterceptSelectionPre()
+            lucashold$slope <- calSlopeSelectionPre()
+            lucashold$ltcross <- calLTCrossSelectionPre()
+            lucashold$ltweight <- calLTWeightSelectionPre()
+            loadTuningHolds()
+            foresthold$forestmetric <- calForestMetricSelectionpre()
+            foresthold$foresttrain <- calForestTCSelectionpre()
+            foresthold$forestnumber <- calForestNumberSelectionpre()
+            foresthold$cvrepeats <- calCVRepeatsSelectionpre()
+            basichold$preprocess <- calPreprocessSelectionpre()
+            xgboosthold$xgbtype <- calXGBTypeSelectionpre()
         })
         
         observeEvent(bayesParameterMode(), {
@@ -11346,43 +11395,13 @@ shinyServer(function(input, output, session) {
             lucashold$slope <- calSlopeSelectionPre()
             lucashold$ltcross <- calLTCrossSelectionPre()
             lucashold$ltweight <- calLTWeightSelectionPre()
-            foresthold$foresttry <- calForestTrySelectionpre()
+            loadTuningHolds()
             foresthold$forestmetric <- calForestMetricSelectionpre()
             foresthold$foresttrain <- calForestTCSelectionpre()
             foresthold$forestnumber <- calForestNumberSelectionpre()
             foresthold$cvrepeats <- calCVRepeatsSelectionpre()
-            foresthold$foresttrees <- calForestTreeSelectionpre()
-            neuralhold$neuralhiddenlayers <- calHiddenLayersSelectionpre()
-            neuralhold$neuralhiddenunits <- calHiddenUnitsSelectionpre()
-            neuralhold$neuralweightdecay <- calWeightDecaySelectionpre()
-            neuralhold$neuralmaxiterations <- calMaxIterationsSelectionpre()
+            basichold$preprocess <- calPreprocessSelectionpre()
             xgboosthold$xgbtype <- calXGBTypeSelectionpre()
-            xgboosthold$treemethod <- calTreeMethodSelectionpre()
-            xgboosthold$treedepth <- calTreeDepthSelectionpre()
-            xgboosthold$droptree <- calDropTreeSelectionpre()  
-            xgboosthold$xgbalpha <- calXGBAlphaSelectionpre()
-            xgboosthold$xgbgamma <- calXGBGammaSelectionpre()
-            xgboosthold$xgbeta <- calXGBEtaSelectionpre()
-            xgboosthold$xgblambda <- calxgboostLambdaSelectionpre()
-            xgboosthold$xgbsubsample <- calXGBSubSampleSelectionpre()
-            xgboosthold$xgbcolsample <- calXGBColSampleSelectionpre()
-            xgboosthold$xgbminchild <- calXGBMinChildSelectionpre()
-            xgboosthold$xgbmaxdeltastep <- calXGBMaxDeltaStepSelectionpre()
-            barthold$bartk <- calBARTKSelectionpre()
-            barthold$bartbeta <- calBARTBetaSelectionpre()
-            barthold$bartnu <- calBARTNuSelectionpre()
-            svmhold$svmc <- calSVMCSelectionpre()
-            svmhold$svmdegree <- calSVMDegreeSelectionpre()
-            svmhold$svmscale <- calSVMScaleSelectionpre()
-            svmhold$svmsigma <- calSVMSigmaSelectionpre()
-            svmhold$svmlength <- calSVMLengthSelectionpre()
-            plshold$plsncomp <- calPLSNCompSelectionpre()
-            cubisthold$cubistcommittees <- calCubistCommitteesSelectionpre()
-            cubisthold$cubistneighbors <- calCubistNeighborsSelectionpre()
-            glmnethold$glmnetalpha <- calGlmnetAlphaSelectionpre()
-            glmnethold$glmnetlambda <- calGlmnetLambdaSelectionpre()
-            marshold$marsprune <- calMarsPruneSelectionpre()
-            marshold$marsdegree <- calMarsDegreeSelectionpre()
         })
         
         
@@ -11490,7 +11509,7 @@ shinyServer(function(input, output, session) {
         })
 
        xgboostTreeMethodSelection <- reactive(label="xgboostTreeMethodSelection", {
-            xgboosthold$treemethod
+            xgbTreeMethod(xgboosthold$treemethod)
         })
         
         xgboostTreeDepthSelection <- reactive(label="xgboostTreeDepthSelection", {
@@ -11537,6 +11556,10 @@ shinyServer(function(input, output, session) {
             xgboosthold$xgbmaxdeltastep
         })
         
+        bartAlphaSelection <- reactive(label="bartAlphaSelection", {
+            barthold$bartalpha
+        })
+
         bartKSelection <- reactive(label="bartKSelection", {
             barthold$bartk
         })
@@ -11750,6 +11773,14 @@ shinyServer(function(input, output, session) {
             xgboosthold$xgbtype <- input$xgbtype
         })
 
+        observeEvent(input$preprocess, {
+            basichold$preprocess <- input$preprocess
+        })
+
+        preprocessSelection <- reactive(label="preprocessSelection", {
+            preprocessSetting(basichold$preprocess)
+        })
+
         observeEvent(input$treemethod, {
             xgboosthold$treemethod <- input$treemethod
         })
@@ -11801,6 +11832,10 @@ shinyServer(function(input, output, session) {
         
         observeEvent(input$bartk, {
             barthold$bartk <- input$bartk
+        })
+
+        observeEvent(input$bartalpha, {
+            barthold$bartalpha <- input$bartalpha
         })
         
         observeEvent(input$bartbeta, {
@@ -11946,9 +11981,132 @@ shinyServer(function(input, output, session) {
             tryCatch(neuralMaxIterationsUI(radiocal=input$radiocal, selection=isolate(calMaxIterationsSelectionpre()), neuralhiddenlayers=input$neuralhiddenlayers), error=function(e) NULL)
         })
         
+        # The control follows xgboosthold$xgbtype, which element and parameter-mode changes and Train also set, so it always shows the type that trains.
         output$xgbtypeui <- renderUI({
             req(input$radiocal, input$calcurveelement)
-            xgbTypeUI(radiocal=input$radiocal, selection=isolate(calXGBTypeSelectionpre()))
+            xgbTypeUI(radiocal=input$radiocal, selection=c(xgboosthold$xgbtype, isolate(calXGBTypeSelectionpre())))
+        })
+
+        # Names a model that predicts one value for every standard while its settings are on screen. It predicts with the model already trained for display rather than through valFrame(), which stands in zeros when prediction fails.
+        output$modelwarningui <- renderUI({
+            req(input$radiocal, input$calcurveelement)
+            if(!isTRUE(isMCL())) return(NULL)
+            model <- tryCatch(elementModel(), error=function(e) NULL)
+            if(is.null(model)) return(NULL)
+            vf <- tryCatch(mclValGen(model=model, data=predictIntensity(), predict.frame=predictFrame(), dependent.transformation=basichold$deptransformation, y_min=yMin(), y_max=yMax()), error=function(e) NULL)
+            msg <- if(is.data.frame(vf) && "Prediction" %in% names(vf)) tryCatch(constantModelMessage(model, vf$Prediction), error=function(e) NULL) else NULL
+            if(is.null(msg)) NULL else div(class="alert alert-warning", style="font-size: 90%; padding: 8px; margin: 6px 0;", msg)
+        })
+
+        # The Tuning control: the element's settings as saved, CloudCal's best general single values, or ranges worth searching (TUNING_PRESETS). A preset sets the tuning controls only; Update saves them with the model, and "Saved settings" brings back what the element had. tuningSaved keeps each element's saved settings so they can come back after a preset.
+        tuningSaved <- reactiveVal(list())
+        tuningChoice <- reactiveVal("Saved settings")
+
+        observeEvent(input$calfileinput, {
+            tuningSaved(list())
+        })
+
+        observeEvent(input$calcurveelement, priority=-5, {
+            el <- input$calcurveelement
+            req(el)
+            saved <- tuningSaved()
+            if(is.null(saved[[el]]) && is.data.frame(calSettings$calList[[el]][[1]]$CalTable)){
+                saved[[el]] <- calSettings$calList[[el]][[1]]$CalTable
+                tuningSaved(saved)
+            }
+            tuningChoice("Saved settings")
+        })
+
+        # Sets the element's tuning settings from cal.table: its stored settings (so controls drawn later show them), the holds training reads, and the controls on screen.
+        applyTuning <- function(el, cal.table){
+            entry <- calSettings$calList[[el]]
+            if(!is.null(entry) && is.data.frame(entry[[1]]$CalTable)){
+                entry[[1]]$CalTable <- applyTuningCalTable(entry[[1]]$CalTable, cal.table)
+                calSettings$calList[[el]] <- entry
+            }
+            holds <- list(foresthold=foresthold, neuralhold=neuralhold, xgboosthold=xgboosthold, barthold=barthold, svmhold=svmhold,
+                plshold=plshold, cubisthold=cubisthold, glmnethold=glmnethold, marshold=marshold)
+            for(i in seq_len(nrow(TUNING_SETTINGS))){
+                setting <- TUNING_SETTINGS[i, ]
+                if(!setting$column %in% colnames(cal.table)) next
+                value <- tuningValue(setting$column, cal.table[[setting$column]][1])
+                holds[[setting$hold]][[setting$input]] <- value
+                if(identical(setting$column, "TreeMethod")) updateSelectInput(session, setting$input, selected=value) else updateSliderInput(session, setting$input, value=value)
+            }
+        }
+
+        output$tuningpresetui <- renderUI({
+            req(input$radiocal, input$calcurveelement)
+            if(!isTRUE(suppressWarnings(as.numeric(input$radiocal)) %in% PREPROCESS_TYPES)) return(NULL)
+            selectInput("tuningpreset", label="Tuning", choices=TUNING_PRESETS, selected=tuningChoice())
+        })
+
+        observeEvent(input$tuningpreset, {
+            choice <- input$tuningpreset
+            el <- input$calcurveelement
+            req(el, choice %in% TUNING_PRESETS)
+            if(identical(choice, isolate(tuningChoice()))) return()
+            # Keep the settings as they stand before the first preset, so "Saved settings" can return to them.
+            saved <- isolate(tuningSaved())
+            if(is.null(saved[[el]]) && is.data.frame(isolate(calSettings$calList[[el]][[1]]$CalTable))){
+                saved[[el]] <- isolate(calSettings$calList[[el]][[1]]$CalTable)
+                tuningSaved(saved)
+            }
+            target <- if(identical(choice, "Saved settings")){
+                isolate(tuningSaved())[[el]]
+            } else {
+                defaults <- tryCatch(defaultCalConditions(element=el, number.of.standards=robustStandardCount())$CalTable, error=function(e) NULL)
+                if(is.data.frame(defaults)) tuningPresetCalTable(choice, defaults) else NULL
+            }
+            if(identical(choice, "Saved settings")){
+                entry <- calSettings$calList[[el]]
+                if(is.data.frame(target) && !is.null(entry) && is.data.frame(entry[[1]]$CalTable)){
+                    entry[[1]]$CalTable <- applyTuningCalTable(entry[[1]]$CalTable, target)
+                    calSettings$calList[[el]] <- entry
+                }
+                isolate(loadTuningHolds())
+                holds <- list(foresthold=foresthold, neuralhold=neuralhold, xgboosthold=xgboosthold, barthold=barthold, svmhold=svmhold,
+                    plshold=plshold, cubisthold=cubisthold, glmnethold=glmnethold, marshold=marshold)
+                for(i in seq_len(nrow(TUNING_SETTINGS))){
+                    setting <- TUNING_SETTINGS[i, ]
+                    value <- isolate(holds[[setting$hold]][[setting$input]])
+                    if(is.null(value)) next
+                    if(identical(setting$column, "TreeMethod")) updateSelectInput(session, setting$input, selected=value) else updateSliderInput(session, setting$input, value=value)
+                }
+            } else if(is.data.frame(target)){
+                applyTuning(el, target)
+            }
+            tuningChoice(choice)
+            showNotification(switch(choice,
+                "Saved settings"="Tuning settings back to the ones saved with this element.",
+                "Best general"="Tuning set to CloudCal's best general settings. Press Update to save them with the model.",
+                "Exploration range"="Tuning set to ranges for Grid Search or Bayesian tuning to explore. They suit Preprocess \"Center and Scale\" with Dependent Transformation \"Scale\". Press Update to train and save."),
+                type="message")
+        })
+
+        # A new XGBoost model (the element has no saved XGBoost settings) starts with its predictors centered and scaled and its concentrations scaled to 0-1, so the default penalties mean the same for every element, unit and normalization. Saved XGBoost settings are kept, and so are choices made while the model type stays XGBoost.
+        newXgbDefaults <- function(){
+            el <- isolate(input$calcurveelement)
+            rc <- suppressWarnings(as.numeric(isolate(input$radiocal)))
+            if(is.null(el) || length(rc) != 1 || !isTRUE(rc %in% c(8, 9))) return(invisible(FALSE))
+            saved_type <- suppressWarnings(as.numeric(as.character(isolate(calSettings$calList[[el]][[1]]$CalTable$CalType)[1])))
+            if(isTRUE(saved_type %in% c(8, 9))) return(invisible(FALSE))
+            basichold$preprocess <- "Center and Scale"
+            basichold$deptransformation <- "Scale"
+            invisible(TRUE)
+        }
+        lastCalType <- reactiveVal(NULL)
+        observeEvent(input$radiocal, priority=-10, {
+            previous <- isolate(lastCalType())
+            lastCalType(suppressWarnings(as.numeric(input$radiocal)))
+            if(!isTRUE(previous %in% c(8, 9))) newXgbDefaults()
+        })
+        observeEvent(input$calcurveelement, priority=-10, { newXgbDefaults() })
+        observeEvent(bayesParameterMode(), priority=-10, { newXgbDefaults() })
+
+        output$preprocessui <- renderUI({
+            req(input$radiocal, input$calcurveelement)
+            preprocessUI(radiocal=input$radiocal, selection=c(basichold$preprocess, isolate(calPreprocessSelectionpre())))
         })
 
         output$treemethodui <- renderUI({
@@ -12021,6 +12179,11 @@ shinyServer(function(input, output, session) {
             xgbMaxDeltaStepUI(radiocal=input$radiocal, selection=isolate(calXGBMaxDeltaStepSelectionpre()), xgbtype=input$xgbtype)
         })
         
+        output$bartalphaui <- renderUI({
+            req(input$radiocal, input$xgbtype, input$calcurveelement)
+            bartAlphaUI(radiocal=input$radiocal, selection=isolate(calBARTAlphaSelectionpre()), xgbtype=input$xgbtype)
+        })
+
         output$bartkui <- renderUI({
             req(input$radiocal, input$xgbtype, input$calcurveelement)
             bartKUI(radiocal=input$radiocal, selection=isolate(calBARTKSelectionpre()), xgbtype=input$xgbtype)
@@ -12320,6 +12483,11 @@ shinyServer(function(input, output, session) {
                         table <- loo$Table
                     }
                 }
+                # A model that predicts one value for every standard is saved as asked, but named, with the setting most likely responsible.
+                if(isTRUE(isolate(isMCL())) && is.data.frame(table) && "Prediction" %in% names(table)){
+                    constant_msg <- tryCatch(constantModelMessage(model, table$Prediction), error=function(e) NULL)
+                    if(!is.null(constant_msg)) showNotification(constant_msg, type="warning", duration=NULL)
+                }
                 # Stamp the line-intensity version the model is fitted on, so a later window fix can name it for refitting (splitLineRefitElements).
                 parameters <- stampLineAlgorithm(isolate(modelParameters()))
                 cal.pack <- isolate(modelPack(parameters=parameters, model=model, table=table, compress=TRUE))
@@ -12331,10 +12499,15 @@ shinyServer(function(input, output, session) {
                 } else {
                     calMemory$Calibration$calList[[element]] <- cal.pack
                     calSettings$calList[[element]] <- settings.pack
+                    # What was just saved is now the element's saved tuning.
+                    saved_tuning <- isolate(tuningSaved()); saved_tuning[[element]] <- settings.pack[[1]]$CalTable; tuningSaved(saved_tuning)
+                    tuningChoice("Saved settings")
                 }
             }, error = function(e){
                 print(paste("UPDATE model build failed:", conditionMessage(e)))
-                showNotification(paste("Model build failed:", conditionMessage(e)), type="error")
+                # caret too old for the installed xgboost stops every XGBoost fit with a bare "Stopping".
+                caret_problem <- if(isTRUE(isolate(input$radiocal) %in% c(8, 9))) tryCatch(xgbCaretProblem(), error=function(e) NULL) else NULL
+                showNotification(paste("Model build failed:", conditionMessage(e), if(!is.null(caret_problem)) caret_problem else ""), type="error")
             })
         })
         
@@ -13402,7 +13575,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                rf_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
+                rf_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -13412,7 +13585,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                rf_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
+                rf_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -13469,7 +13642,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                rf_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
+                rf_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -13479,7 +13652,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                rf_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
+                rf_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="rf", type="Regression", trControl=tune_control, ntree=parameters$ForestTrees, prox=TRUE,allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=rf.grid, na.action=na.omit, trim=TRUE), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -13541,7 +13714,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                nn_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
+                nn_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -13551,7 +13724,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                nn_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
+                nn_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -13626,7 +13799,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                nn_model <- tryCatch(caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
+                nn_model <- tryCatch(caret::train(f, preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -13636,7 +13809,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                nn_model <- tryCatch(caret::train(f,data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
+                nn_model <- tryCatch(caret::train(f, preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit,  tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -13697,7 +13870,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                nn_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
+                nn_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -13707,7 +13880,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                nn_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
+                nn_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="nnet", linout=TRUE, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, importance=TRUE, tuneGrid=nn.grid, maxit=parameters$NeuralMI, trace=F, trim=TRUE), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -13780,7 +13953,7 @@ shinyServer(function(input, output, session) {
             f <- as.formula(paste("Concentration ~", paste(names(data)[!names(data) %in% "Concentration"], collapse = " + ")))
             
             if(multicoreBehavior()=="Single Core"){
-                nn_model <- tryCatch(caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
+                nn_model <- tryCatch(caret::train(f, preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -13790,7 +13963,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                nn_model <- tryCatch(caret::train(f,data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
+                nn_model <- tryCatch(caret::train(f, preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="neuralnet", rep=parameters$ForestTry, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, na.action=na.omit, tuneGrid=nn.grid, linear.output=TRUE), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -13818,7 +13991,7 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-        if(packageVersion("caret")!="6.0.93.1"){
+        if(packageVersion("caret")=="6.0.93.1"){
             xgbGrid <- expand.grid(
             nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
             max_depth = elementModel()$bestTune$max_depth,
@@ -13832,6 +14005,7 @@ shinyServer(function(input, output, session) {
 			 scale_pos_weight=1,
             min_child_weight = elementModel()$bestTune$min_child_weight
             )
+            xgbGrid <- xgbTuneGrid(xgbGrid, "xgbTree")
 		} else {
             xgbGrid <- expand.grid(
             nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
@@ -13842,6 +14016,7 @@ shinyServer(function(input, output, session) {
             subsample = elementModel()$bestTune$subsample,
             min_child_weight = elementModel()$bestTune$min_child_weight
             )
+            xgbGrid <- xgbTuneGrid(xgbGrid, "xgbTree")
 		}
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
@@ -13875,7 +14050,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, tree_method=input$treemethod)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -13885,11 +14060,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
             }
             
             xgb_model
@@ -13916,7 +14091,7 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            if(packageVersion("caret")!="6.0.93.1"){
+            if(packageVersion("caret")=="6.0.93.1"){
             	xgbGrid <- expand.grid(
             	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
             	max_depth = elementModel()$bestTune$max_depth,
@@ -13932,6 +14107,7 @@ shinyServer(function(input, output, session) {
 				scale_pos_weight=1,
             	min_child_weight = elementModel()$bestTune$min_child_weight
             	)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbTree")
 			} else {
             	xgbGrid <- expand.grid(
             	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
@@ -13944,6 +14120,7 @@ shinyServer(function(input, output, session) {
             	subsample = elementModel()$bestTune$subsample,
             	min_child_weight = elementModel()$bestTune$min_child_weight
             	)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbTree")
 			}
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
@@ -13977,7 +14154,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, objective="reg:squarederror", metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, tree_method=input$treemethod)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -13987,11 +14164,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE)
+                xgb_model_train <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
             }
             
             xgb_model
@@ -14057,7 +14234,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -14067,11 +14244,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads)
             }
             xgb_model
             
@@ -14099,7 +14276,7 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            if(packageVersion("caret")!="6.0.93.1"){
+            if(packageVersion("caret")=="6.0.93.1"){
             	xgbGrid <- expand.grid(
             	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
             	max_depth = elementModel()$bestTune$max_depth,
@@ -14115,6 +14292,7 @@ shinyServer(function(input, output, session) {
 				scale_pos_weight=1,
             	min_child_weight = elementModel()$bestTune$min_child_weight
             	)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbDART")
 			} else {
             	xgbGrid <- expand.grid(
             	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
@@ -14127,6 +14305,7 @@ shinyServer(function(input, output, session) {
             	subsample = elementModel()$bestTune$subsample,
             	min_child_weight = elementModel()$bestTune$min_child_weight
             	)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbDART")
 			}
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
@@ -14160,7 +14339,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -14170,11 +14349,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, allowParallel=TRUE)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, nthread=input$open_mp_threads)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads)
             }
             
             xgb_model
@@ -14240,7 +14419,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -14250,11 +14429,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
+                xgb_model <- caret::train(Concentration~., data=predict.frame, trControl = tune_control, tuneGrid = xgbGrid,  metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads)
             }
             xgb_model
             
@@ -14292,7 +14471,7 @@ shinyServer(function(input, output, session) {
                 smapeSummary
             }
             
-            if(packageVersion("caret")!="6.0.93.1"){
+            if(packageVersion("caret")=="6.0.93.1"){
             	xgbGrid <- expand.grid(
             	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
             	max_depth = elementModel()$bestTune$max_depth,
@@ -14306,6 +14485,7 @@ shinyServer(function(input, output, session) {
 				scale_pos_weight=1,
             	min_child_weight = elementModel()$bestTune$min_child_weight
             	)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbTree")
 			} else {
             	xgbGrid <- expand.grid(
             	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
@@ -14316,6 +14496,7 @@ shinyServer(function(input, output, session) {
             	subsample = elementModel()$bestTune$subsample,
             	min_child_weight = elementModel()$bestTune$min_child_weight
             	)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbTree")
 			}
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
@@ -14349,7 +14530,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, tree_method=input$treemethod)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -14359,11 +14540,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbTree", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
             }
             
             xgb_model
@@ -14391,7 +14572,7 @@ shinyServer(function(input, output, session) {
             }
             
             
-            if(packageVersion("caret")!="6.0.93.1"){
+            if(packageVersion("caret")=="6.0.93.1"){
             	xgbGrid <- expand.grid(
             	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
             	max_depth = elementModel()$bestTune$max_depth,
@@ -14407,6 +14588,7 @@ shinyServer(function(input, output, session) {
 				scale_pos_weight=1,
             	min_child_weight = elementModel()$bestTune$min_child_weight
             	)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbDART")
 			} else {
             	xgbGrid <- expand.grid(
             	nrounds = seq(50, parameters$ForestTrees, by=parameters$ForestTrees/5),
@@ -14419,6 +14601,7 @@ shinyServer(function(input, output, session) {
             	subsample = elementModel()$bestTune$subsample,
             	min_child_weight = elementModel()$bestTune$min_child_weight
             	)
+            	xgbGrid <- xgbTuneGrid(xgbGrid, "xgbDART")
 			}
             
             tune_control <- if(parameters$ForestTC!="repeatedcv"){
@@ -14452,7 +14635,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -14462,11 +14645,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE, tree_method=input$treemethod)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbDART", preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads, tree_method=input$treemethod)
             }
             
             xgb_model
@@ -14533,7 +14716,7 @@ shinyServer(function(input, output, session) {
                 
             
             if(multicoreBehavior()=="Single Core"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(my.cores)/2)
@@ -14543,11 +14726,11 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, allowParallel=TRUE)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, allowParallel=TRUE)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             } else if(multicoreBehavior()=="OpenMP"){
-                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = "xgbLinear", na.action=na.omit, nthread=input$open_mp_threads)
+                xgb_model <- caret::train(Concentration~., data=data[,-1], trControl = tune_control, tuneGrid = xgbGrid, metric=parameters$ForestMetric, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(parameters$Preprocess), na.action=na.omit, nthread=input$open_mp_threads)
             }
             
             xgb_model
@@ -14575,14 +14758,14 @@ shinyServer(function(input, output, session) {
             predict.frame <- predict.frame[, !colnames(predict.frame) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineIntensityModelSet()$parameters$CalTable
             
-            xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
+            bartalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartAlpha), "-")))
             k.vec <- dnorminv(1-(as.numeric(unlist(strsplit(as.character(parameters$bartK), "-")))/100))
             bartbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartBeta), "-")))
             bartnu.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartNu), "-")))
             
             bart.grid <- expand.grid(
                 num_trees=parameters$ForestTrees,
-                alpha=seq(xgbalpha.vec[1], xgbalpha.vec[2], by=0.1),
+                alpha=seq(bartalpha.vec[1], bartalpha.vec[2], by=0.1),
                 beta=seq(bartbeta.vec[1], bartbeta.vec[2], by=0.1),
                 nu=seq(bartnu.vec[1], bartnu.vec[2], by=0.1),
                 k=seq(k.vec[1], k.vec[2], by=0.5))
@@ -14614,7 +14797,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, serialize = TRUE), error=function(e) NULL)
+            bart_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess), data=predict.frame, method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, serialize = TRUE), error=function(e) NULL)
             
             bart_model
             
@@ -14672,7 +14855,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=c("center", "scale"), trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=caretPreProcess(parameters$Preprocess, none=c("center", "scale")), trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -14682,7 +14865,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=c("center", "scale"), trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., data=predict.frame, method="bayesglm", preProcess=caretPreProcess(parameters$Preprocess, none=c("center", "scale")), trControl=tune_control, metric=parameters$ForestMetric), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -14747,7 +14930,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                bart_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="brnn", trControl=tune_control, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -14757,7 +14940,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="brnn", trControl=tune_control, allowParallel=TRUE, importance=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -14786,14 +14969,14 @@ shinyServer(function(input, output, session) {
             data <- data[, !colnames(data) %in% "Spectrum", drop = FALSE]
             parameters <- bartMachineSpectraModelSet()$parameters$CalTable
             
-            xgbalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$xgbAlpha), "-")))
+            bartalpha.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartAlpha), "-")))
             k.vec <- dnorminv(1-(as.numeric(unlist(strsplit(as.character(parameters$bartK), "-")))/100))
             bartbeta.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartBeta), "-")))
             bartnu.vec <- as.numeric(unlist(strsplit(as.character(parameters$bartNu), "-")))
             
             bart.grid <- expand.grid(
                 num_trees=parameters$ForestTrees,
-                alpha=seq(xgbalpha.vec[1], xgbalpha.vec[2], by=0.1),
+                alpha=seq(bartalpha.vec[1], bartalpha.vec[2], by=0.1),
                 beta=seq(bartbeta.vec[1], bartbeta.vec[2], by=0.1),
                 nu=seq(bartnu.vec[1], bartnu.vec[2], by=0.1),
                 k=seq(k.vec[1], k.vec[2], by=0.5))
@@ -14825,7 +15008,7 @@ shinyServer(function(input, output, session) {
             
             
             
-            bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE), error=function(e) NULL)
+            bart_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="bartMachine", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid, na.action=na.omit, serialize = TRUE), error=function(e) NULL)
             
             
             bart_model
@@ -14884,7 +15067,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -14894,7 +15077,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="bayesglm", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -14958,7 +15141,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="brnn", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -14968,7 +15151,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                bart_model <- tryCatch(caret::train(Concentration~.,data=data[,-1], method="brnn", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
+                bart_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="brnn", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=bart.grid), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15045,7 +15228,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmLinear", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15055,7 +15238,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15124,7 +15307,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15134,7 +15317,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15213,7 +15396,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15223,7 +15406,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15289,7 +15472,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15299,7 +15482,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmBoundrangeString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmBoundrangeString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15365,7 +15548,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmExpoString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15375,7 +15558,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmExpoString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmExpoString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15441,7 +15624,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15451,7 +15634,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- tryCatch(caret::train(Concentration~.,data=predict.frame, method="svmSpectrumString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
+                svm_model <- tryCatch(caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=predict.frame, method="svmSpectrumString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit), error=function(e) NULL)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15534,7 +15717,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="svmLinear", trControl=tune_control,  metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15544,7 +15727,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- caret::train(Concentration~.,data=data[,-1], method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method="svmLinear", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15613,7 +15796,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess), data=data[,-1], method="svmPoly", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15623,7 +15806,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- caret::train(Concentration~., data=data[,-1], method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess), data=data[,-1], method="svmPoly", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15702,7 +15885,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method=svm.flavor, trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15712,7 +15895,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- caret::train(Concentration~.,data=data[,-1], method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(Concentration~., preProcess=caretPreProcess(parameters$Preprocess),data=data[,-1], method=svm.flavor, trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15782,7 +15965,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(x_train, preProcess=caretPreProcess(parameters$Preprocess), y_train, method="svmBoundrangeString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15792,7 +15975,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- caret::train(x_train, y_train, method="svmBoundrangeString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(x_train, preProcess=caretPreProcess(parameters$Preprocess), y_train, method="svmBoundrangeString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15863,7 +16046,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(x_train, preProcess=caretPreProcess(parameters$Preprocess), y_train, method="svmExpoString", type="Regression", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15873,7 +16056,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- caret::train(x_train, y_train, method="svmExpoString", type="Regression", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(x_train, preProcess=caretPreProcess(parameters$Preprocess), y_train, method="svmExpoString", type="Regression", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -15943,7 +16126,7 @@ shinyServer(function(input, output, session) {
             
             
             if(multicoreBehavior()=="Single Core"){
-                svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(x_train, preProcess=caretPreProcess(parameters$Preprocess), y_train, method="svmSpectrumString", trControl=tune_control, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
             } else if(multicoreBehavior()=="Fork" | multicoreBehavior()=="Serialize"){
                 cl <- if(multicoreBehavior()=="Serialize"){
                     parallel::makePSOCKcluster(as.numeric(cores.to.use))
@@ -15953,7 +16136,7 @@ shinyServer(function(input, output, session) {
                 clusterEvalQ(cl, library(foreach))
                 registerDoParallel(cl)
                 
-                svm_model <- caret::train(x_train, y_train, method="svmSpectrumString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
+                svm_model <- caret::train(x_train, preProcess=caretPreProcess(parameters$Preprocess), y_train, method="svmSpectrumString", trControl=tune_control, allowParallel=TRUE, metric=parameters$ForestMetric, tuneGrid=svm.grid, na.action=na.omit)
                 stopCluster(cl)
                 registerDoSEQ()   # reset the foreach backend so later Single Core trains don't reach a dead cluster
             }
@@ -22140,8 +22323,14 @@ content = function(file){
             msgs <- c(msgs, paste0("These models were fitted on split L- or M-line intensities from before a fix (those windows summed the whole spectrum), so their results here are wrong until they are refitted (load the calibration, review and press Update): ",
                 paste(split_old, collapse=", "), "."))
         }
+        # XGBoost models give no results here when this xgboost can't read them, or when caret is too old for this xgboost.
+        xgb_els <- tryCatch(xgbElements(cal), error=function(e) character(0))
+        xgb_bad <- tryCatch(xgbUnusableElements(cal), error=function(e) character(0))
+        if(length(xgb_bad) > 0) msgs <- c(msgs, xgbUnusableMessage(xgb_bad))
+        caret_problem <- if(length(xgb_els) > 0) tryCatch(xgbCaretProblem(), error=function(e) NULL) else NULL
+        if(!is.null(caret_problem)) msgs <- c(msgs, caret_problem)
         stale <- tryCatch(calibrationSelfCheck(cal), error=function(e) NULL)
-        if(is.data.frame(stale)) stale <- stale[!stale$Element %in% split_old, , drop=FALSE]
+        if(is.data.frame(stale)) stale <- stale[!stale$Element %in% c(split_old, xgb_bad, if(!is.null(caret_problem)) xgb_els), , drop=FALSE]
         if(is.data.frame(stale) && nrow(stale) > 0){
             msgs <- c(msgs, paste0("These models no longer reproduce their own standards from the calibration's spectra, so their results are unreliable until they are rebuilt (load the calibration, review and press Update): ",
                 paste0(stale$Element, " (", round(100 * stale$Deviation), "% of range)", collapse=", "), "."))

@@ -17,6 +17,7 @@
 # 15. E1 from a loaded calibration: with no spectra imported, Deconvolute in Handheld mode runs E1 from the .quant's stored LiveTime and offers it as the ROI Type; Legacy mode and a blank kV fit without E1 instead of failing
 # 16. Scatter-angle inference: the batch median over the brightest spectra recovers the Tracer's ~110-115 deg geometry even when the single brightest spectrum is declined, and the deconvolution stores it instead of the 135 deg default
 # 17. Split line windows: L-alpha, L-beta, M and two-line K-beta sum their own line windows (not the whole spectrum, the pre-fix bug), K-alpha and one-line K-beta are unchanged, a split table saved before the fix is rebuilt on load, and models fitted on it are named for refitting until Update stamps them
+# 18. XGBoost across xgboost and caret releases: Bayesian tuning reads xgb.cv's best iteration under xgboost 1.x and 3.x, rawModel is saved as UBJSON, calRDS rebuilds boosters this xgboost can't use from rawModel and names the rest, tuning grids match the installed caret, caret can train XGBoost (fails while caret is older than 7.1 with xgboost 3.x), XGBoost Linear is a real linear booster, the XGBoost Type control shows the type that trains, and the per-element Preprocess setting defaults to None and survives a reload
 # Usage: Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir] [high_energy_mca]
 # Default paths point at local CloudCal Evaluation files; the exit status is nonzero if any check fails.
 
@@ -1174,6 +1175,131 @@ check("models fitted on the old split L/M windows are named for refitting until 
     saved <- calListCompress(reload_new$calList)
     identical(named, "Th.L.alpha") && identical(splitLineRefitElements(reload), "Th.L.alpha") &&
         length(splitLineRefitElements(reload_new)) == 0 && identical(saved$Th.L.alpha$Parameters$LineAlgorithm, LINE_INTENSITY_ALGORITHM)
+})
+
+message("\n-- 18. XGBoost across xgboost and caret releases --")
+# A small xgboost fit stands in for a calibration's XGBoost model. A booster saved under another xgboost release is simulated by a list-shaped booster that the installed xgboost can't predict with, and a copy it can't read by bytes in no model format.
+set.seed(18)
+X18 <- matrix(runif(240), 60, 4, dimnames = list(NULL, paste0("L", 1:4)))
+y18 <- 3 * X18[, 1] + X18[, 2]^2 + rnorm(60, sd = 0.05)
+d18 <- xgboost::xgb.DMatrix(X18, label = y18)
+b18 <- xgboost::xgb.train(params = list(objective = "reg:squarederror", max_depth = 2, eta = 0.3, nthread = 1), data = d18, nrounds = 20, verbose = 0)
+p18 <- predict(b18, xgboost::xgb.DMatrix(X18))
+foreign18 <- structure(list(handle = NULL, raw = as.raw(1:8), xNames = colnames(X18), problemType = "Regression", obsLevels = NA), class = "xgb.Booster")
+model18 <- list(method = "xgbTree", finalModel = foreign18, coefnames = colnames(X18), modelType = "Regression", bestTune = data.frame(nrounds = 20))
+check("xgbBestIteration reads xgb.cv's best iteration (xgboost 1.x and 3.x) or the lowest test error", {
+    cv18 <- suppressWarnings(xgboost::xgb.cv(params = list(objective = "reg:squarederror", eval_metric = "rmse", max_depth = 2, eta = 0.3, nthread = 1),
+        data = d18, nrounds = 150, folds = split(seq_len(60), rep(1:5, length.out = 60)), early_stopping_rounds = 20, verbose = FALSE))
+    xgbBestIteration(cv18) == which.min(cv18$evaluation_log$test_rmse_mean) &&
+        identical(xgbBestIteration(list(best_iteration = 7L)), 7L) &&
+        identical(xgbBestIteration(list(evaluation_log = data.frame(test_mae_mean = c(3, 1, 2)))), 2L)
+})
+check("XGBoost models are saved with a UBJSON rawModel, carrying its intercept, that this xgboost reads back", {
+    raw18 <- modelPack(parameters = list(CalTable = data.frame(CalType = 8)), model = list(finalModel = b18), table = NULL, compress = FALSE)$rawModel
+    is.raw(raw18) && rawToChar(raw18[1]) == "{" && isTRUE(abs(attr(raw18, "base_score") - xgbBaseScore(b18)) < 1e-6) &&
+        isTRUE(all.equal(predict(xgbBoosterFromRaw(raw18), xgboost::xgb.DMatrix(X18)), p18, tolerance = 1e-6))
+})
+check("calRDS rebuilds an unusable XGBoost booster from rawModel and names models with no readable copy", {
+    c18 <- cal
+    xgb_entry <- function(entry, raw){ entry$Parameters$CalTable$CalType <- 8; entry$Model <- model18; entry$rawModel <- raw; entry }
+    c18$calList$Rb.K.alpha <- xgb_entry(cal$calList$Rb.K.alpha, raw18)
+    c18$calList$Th.L.alpha <- xgb_entry(cal$calList$Th.L.alpha, charToRaw("binf-legacy"))
+    msgs18 <- character(0)
+    out18 <- withCallingHandlers(calRDS(Calibration = c18, xgb_raw = FALSE),
+        message = function(m){ msgs18 <<- c(msgs18, conditionMessage(m)); invokeRestart("muffleMessage") })
+    fm <- out18$calList$Rb.K.alpha$Model$finalModel
+    identical(xgbUnusableElements(c18), c("Rb.K.alpha", "Th.L.alpha")) && identical(xgbUnusableElements(out18), "Th.L.alpha") &&
+        any(grepl("XGBoost models.*Th.L.alpha", msgs18)) && identical(attr(fm, "problemType"), "Regression") &&
+        isTRUE(all.equal(predict(fm, xgboost::xgb.DMatrix(X18)), p18, tolerance = 1e-6))
+})
+check("tuning grids are conformed to the installed caret (fork-only columns dropped, missing ones defaulted)", {
+    tuned <- as.character(caret::getModelInfo("xgbDART", regex = FALSE)[[1]]$parameters$parameter)
+    g <- xgbTuneGrid(data.frame(nrounds = 20, max_depth = 2, eta = 0.3, gamma = 0, colsample_bytree = 1, min_child_weight = 1, subsample = 1, scale_pos_weight = 1, bogus = 5), "xgbDART")
+    setequal(names(g), tuned) && nrow(g) == 1 && all(g$rate_drop == 0)
+})
+check("caret trains XGBoost with the installed xgboost, and a rebuilt booster predicts through caret", {
+    problem <- xgbCaretProblem()
+    if (!is.null(problem)) stop(problem)
+    grid <- xgbTuneGrid(data.frame(nrounds = 20, max_depth = 2, eta = 0.3, gamma = 0, colsample_bytree = 1, min_child_weight = 1, subsample = 1), "xgbTree")
+    fit18 <- caret::train(x = as.data.frame(X18), y = y18, method = "xgbTree", tuneGrid = grid, trControl = caret::trainControl(method = "cv", number = 3), nthread = 1)
+    el <- list(Parameters = list(CalTable = data.frame(CalType = 8)), Model = fit18, rawModel = xgbBoosterRaw(fit18$finalModel))
+    el$Model$finalModel <- foreign18
+    rebuilt <- xgbRepairElement(el)$Model
+    isTRUE(all.equal(as.numeric(predict(rebuilt, newdata = as.data.frame(X18))), as.numeric(predict(fit18, newdata = as.data.frame(X18))), tolerance = 1e-6))
+})
+check("XGBoost Linear fits a linear booster that uses eta, with the element's preprocessing stored in the model", {
+    problem <- xgbCaretProblem()
+    if (!is.null(problem)) stop(problem)
+    lin18 <- function(eta, preprocess) caret::train(x = as.data.frame(X18), y = y18, method = xgbCaretMethod("xgbLinear"), preProcess = caretPreProcess(preprocess),
+        tuneGrid = data.frame(nrounds = 30, lambda = 0.1, alpha = 0, eta = eta), trControl = caret::trainControl(method = "none"), nthread = 1)
+    a <- lin18(0.3, "Center and Scale"); b <- lin18(0.05, "Center and Scale"); none <- lin18(0.3, "None")
+    cfg <- xgboost::xgb.config(a$finalModel); if (is.character(cfg)) cfg <- jsonlite::fromJSON(cfg)
+    pa <- as.numeric(predict(a, newdata = as.data.frame(X18))); pb <- as.numeric(predict(b, newdata = as.data.frame(X18)))
+    identical(cfg$learner$gradient_booster$name, "gblinear") && max(abs(pa - pb)) > 1e-3 &&
+        identical(a$preProcess$method$center, colnames(X18)) && is.null(none$preProcess) && cor(pa, y18) > 0.9
+})
+check("the XGBoost Type control shows the type that trains", {
+    shown <- function(tag) sub('.*<option value="([^"]+)" selected>.*', "\\1", gsub("\n", " ", as.character(tag)))
+    identical(shown(xgbTypeUI(8, c("Tree", "Linear"))), "Tree") && identical(shown(xgbTypeUI(9, c("Radial", "Dart"))), "Dart") &&
+        identical(shown(xgbTypeUI(12, "Tree")), "Linear") && is.null(xgbTypeUI(3, "Tree"))
+})
+check("Tree Method offers only what the installed xgboost accepts; saved gpu_hist trains as hist under xgboost 3", {
+    if (xgbReadOnlyBooster()) {
+        !"gpu_hist" %in% xgbTreeMethods() && identical(xgbTreeMethod("gpu_hist"), "hist")
+    } else {
+        "gpu_hist" %in% xgbTreeMethods() && identical(xgbTreeMethod("gpu_hist"), "gpu_hist")
+    } && identical(xgbTreeMethod("approx"), "approx") && identical(xgbTreeMethod(NULL), "auto")
+})
+check("XGBoost Alpha defaults to 0 and BART has its own alpha (0.95; elements saved as BART keep the alpha they trained with)", {
+    bart_old <- cal$calList["Rb.K.alpha"]
+    bart_old$Rb.K.alpha$Parameters$CalTable$CalType <- 10; bart_old$Rb.K.alpha$Parameters$CalTable$xgbType <- "Tree"
+    bart_old$Rb.K.alpha$Parameters$CalTable$xgbAlpha <- "0.1-0.1"; bart_old$Rb.K.alpha$Parameters$CalTable$bartAlpha <- NULL
+    xgb_old <- bart_old; xgb_old$Rb.K.alpha$Parameters$CalTable$CalType <- 8
+    identical(calConditionsTable(cal.type = 8)$xgbAlpha, "0-0") && identical(calConditionsTable(cal.type = 10)$bartAlpha, "0.95-0.95") &&
+        identical(defaultCalConditions("Rb.K.alpha", 10)$CalTable$xgbAlpha, "0-0") &&
+        identical(importCalConditions("Rb.K.alpha", bart_old)$CalTable$bartAlpha, "0.1-0.1") &&
+        identical(importCalConditions("Rb.K.alpha", xgb_old)$CalTable$bartAlpha, "0.95-0.95")
+})
+check("XGBoost penalty sliders reach small values and stretch to fit saved settings instead of clipping them", {
+    attr_of <- function(tag, a) sub(paste0('.*data-', a, '="([^"]+)".*'), "\\1", gsub("\n", " ", as.character(tag)))
+    a_new <- xgbAlphaUI(8, c(0, 0)); a_old <- xgbAlphaUI(8, c(0, 10)); g_old <- xgbGammaUI(8, c(0, 100), "Tree")
+    identical(attr_of(a_new, "max"), "1") && identical(attr_of(a_new, "step"), "0.001") && identical(attr_of(a_old, "max"), "10") &&
+        identical(attr_of(g_old, "max"), "100") && identical(attr_of(xgbGammaUI(8, c(0, 0), "Tree"), "step"), "0.01") &&
+        is.null(xgbAlphaUI(10, c(0.95, 0.95), "Tree")) && !is.null(bartAlphaUI(10, c(0.95, 0.95), "Tree")) && is.null(bartAlphaUI(8, c(0.95, 0.95), "Tree"))
+})
+check("a model that predicts one value is named with its likely cause (linear Alpha limit, splitless trees, SVM tolerance)", {
+    d18p <- xgboost::xgb.DMatrix(X18, label = y18)
+    flat_lin <- xgboost::xgb.train(params = list(booster = "gblinear", objective = "reg:squarederror", alpha = 50, lambda = 0, nthread = 1), data = d18p, nrounds = 20, verbose = 0)
+    flat_tree <- xgboost::xgb.train(params = list(objective = "reg:squarederror", gamma = 1e6, nthread = 1), data = d18p, nrounds = 5, verbose = 0)
+    as_model <- function(b) list(finalModel = b, trainingData = data.frame(X18, .outcome = y18), preProcess = NULL, bestTune = data.frame(alpha = 50), method = "custom")
+    lin_msg <- constantModelMessage(as_model(flat_lin), predict(flat_lin, xgboost::xgb.DMatrix(X18)))
+    limit <- max(abs(colSums((y18 - mean(y18)) * X18))) / length(y18)
+    tree_msg <- constantModelMessage(as_model(flat_tree), predict(flat_tree, xgboost::xgb.DMatrix(X18)))
+    svm_msg <- constantModelMessage(list(method = "svmRadial"), rep(0.5, 10))
+    grepl(paste0("Alpha must be below ", signif(limit, 2)), lin_msg, fixed = TRUE) && grepl("made no splits", tree_msg) &&
+        grepl("SVMs ignore errors", svm_msg) && is.null(constantModelMessage(as_model(b18), p18))
+})
+check("Tuning presets set only tuning settings: Best general single values, Exploration ranges, never resampling, Preprocess, transforms or model type", {
+    poisoned <- cal$calList$Rb.K.alpha$Parameters$CalTable
+    poisoned$xgbAlpha <- "0-10"; poisoned$xgbLambda <- "0-100"; poisoned$bartAlpha <- "0.5-0.5"; poisoned$svmSigma <- "2-2"
+    poisoned$ForestNumber <- 250; poisoned$Preprocess <- "Center and Scale"; poisoned$DepTrans <- "Scale"; poisoned$CalType <- 9
+    defaults <- defaultCalConditions("Rb.K.alpha", 40)$CalTable
+    best <- applyTuningCalTable(poisoned, tuningPresetCalTable("Best general", defaults))
+    explore <- applyTuningCalTable(poisoned, tuningPresetCalTable("Exploration range", defaults))
+    untouched <- function(t) t$ForestNumber == 250 && identical(t$Preprocess, "Center and Scale") && identical(t$DepTrans, "Scale") && t$CalType == 9
+    identical(best$xgbAlpha, "0-0") && identical(best$xgbLambda, defaults$xgbLambda) && identical(best$bartAlpha, "0.95-0.95") && identical(best$svmSigma, defaults$svmSigma) &&
+        identical(explore$xgbAlpha, "0-0.1") && identical(explore$TreeDepth, "2-8") && as.numeric(explore$ForestTrees) == 500 && identical(explore$svmSigma, defaults$svmSigma) &&
+        untouched(best) && untouched(explore) && is.null(tuningPresetCalTable("Saved settings", defaults)) &&
+        identical(tuningValue("TreeDepth", "5-5"), c(5, 5)) && identical(tuningValue("TreeMethod", "hist"), "hist")
+})
+check("Preprocess is saved per element: None by default and for older calibrations, kept on reload", {
+    old <- cal$calList["Rb.K.alpha"]; old$Rb.K.alpha$Parameters$CalTable$Preprocess <- NULL
+    ranged <- old; ranged$Rb.K.alpha$Parameters$CalTable$Preprocess <- "Range"
+    identical(calConditionsTable(cal.type = 8)$Preprocess, "None") &&
+        identical(calConditionsTable(cal.type = 8, preprocess = "Center and Scale")$Preprocess, "Center and Scale") &&
+        identical(importCalConditions("Rb.K.alpha", old)$CalTable$Preprocess, "None") &&
+        identical(importCalConditions("Rb.K.alpha", ranged)$CalTable$Preprocess, "Range") &&
+        is.null(caretPreProcess("None")) && identical(caretPreProcess("Center and Scale"), c("center", "scale")) && identical(caretPreProcess("bogus"), NULL)
 })
 
 n_fail <- sum(!unlist(results))

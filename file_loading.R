@@ -2461,7 +2461,7 @@ wideLineTableSplit <- function(spectra, definition.table, elements, split_buffer
 }
 
 # Calibration Loading
-calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, lt.cross=NULL, lt.weight=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, plsncomp=NULL, cubistcommittees=NULL, cubistneighbors=NULL, glmnetalpha=NULL, glmnetlambda=NULL, marsprune=NULL, marsdegree=NULL){
+calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NULL, gaus.buffer=NULL, split.buffer=NULL, deconvolution=NULL, decon.sigma=NULL, smooth.width=NULL, smooth.alpha=NULL, smooth.iter=NULL, snip.iter=NULL, compress=NULL, transformation=NULL, dependent.transformation=NULL, energy.range=NULL, norm.type=NULL, norm.min=NULL, norm.max=NULL, compton.type=NULL, lt.cross=NULL, lt.weight=NULL, foresttry=NULL, forestmetric=NULL, foresttrain=NULL, forestnumber=NULL, cvrepeats=NULL, foresttrees=NULL, neuralhiddenlayers=NULL, neuralhiddenunits=NULL, neuralweightdecay=NULL, neuralmaxiterations=NULL, xgbtype=NULL, treemethod=NULL, treedepth=NULL, droptree=NULL, skipdrop=NULL, xgbalpha=NULL, xgbgamma=NULL, xgbeta=NULL, xgblambda=NULL, xgbsubsample=NULL, xgbcolsample=NULL, xgbminchild=NULL, xgbmaxdeltastep=NULL, xgbscaleposweight=NULL, bartk=NULL, bartbeta=NULL, bartnu=NULL, svmc=NULL, svmdegree=NULL, svmscale=NULL, svmsigma=NULL, svmlength=NULL, plsncomp=NULL, cubistcommittees=NULL, cubistneighbors=NULL, glmnetalpha=NULL, glmnetlambda=NULL, marsprune=NULL, marsdegree=NULL, preprocess=NULL, bartalpha=NULL){
     
     cal.type <- if(is.null(cal.type)){
         1
@@ -2679,8 +2679,9 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
         xgbtype
     }
     
+    # 0 is xgboost's own default: an L1 penalty sized for one element's units can zero every leaf or coefficient for another.
     xgbalpha <- if(is.null(xgbalpha)){
-        "0.1-0.1"
+        "0-0"
     } else if(!is.null(xgbalpha)){
         xgbalpha
     }
@@ -2824,6 +2825,13 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
         marsdegree
     }
 
+    # BART's split-prior alpha (bartMachine's default 0.95); it used to share xgbAlpha.
+    bartalpha <- if(is.null(bartalpha)){
+        "0.95-0.95"
+    } else {
+        bartalpha
+    }
+
     cal.table <- data.frame(
                 CalType=cal.type,
                 LineType=line.type,
@@ -2885,6 +2893,8 @@ calConditionsTable <- function(cal.type=NULL, line.type=NULL, line.structure=NUL
                 glmnetLambda=glmnetlambda,
                 marsPrune=marsprune,
                 marsDegree=marsdegree,
+                Preprocess=preprocessSetting(preprocess),
+                bartAlpha=bartalpha,
                 stringsAsFactors=FALSE)
 
         return(cal.table)
@@ -3011,7 +3021,7 @@ deleteCalConditions <- function(element, number.of.standards){
     treedepth <- as.character("5-5")
     droptree <- as.character("0.3-0.3")
     skipdrop <- as.character("0.3-0.3")
-    xgbalpha <- as.character("0.1-0.1")
+    xgbalpha <- as.character("0-0")
     xgbgamma <- as.character("0-0")
     xgbeta <- as.character("0.1-0.1")
     xgblambda <- as.character("0.1-0.1")
@@ -3094,6 +3104,8 @@ deleteCalConditions <- function(element, number.of.standards){
     glmnetLambda=glmnetlambda,
     marsPrune=marsprune,
     marsDegree=marsdegree,
+    Preprocess="None",
+    bartAlpha="0.95-0.95",
     Delete=TRUE,
     stringsAsFactors=FALSE)
     
@@ -3151,7 +3163,7 @@ defaultCalConditions <- function(element, number.of.standards){
     treedepth <- as.character("5-5")
     droptree=as.character("0.3-0.3")
     skipdrop=as.character("0.3-0.3")
-    xgbalpha <- as.character("0.1-0.1")
+    xgbalpha <- as.character("0-0")
     xgbgamma <- as.character("0-0")
     xgbeta <- as.character("0.1-0.1")
     xgblambda <- as.character("0.1-0.1")
@@ -3239,6 +3251,8 @@ defaultCalConditions <- function(element, number.of.standards){
         glmnetLambda=glmnetlambda,
         marsPrune=marsprune,
         marsDegree=marsdegree,
+        Preprocess="None",
+        bartAlpha="0.95-0.95",
         stringsAsFactors=FALSE)
     
     slope.corrections <- element
@@ -4178,6 +4192,23 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
         default.cal.conditions$CalTable$xgbMaxDeltaStep
     }
 
+    # BART's alpha was read from xgbAlpha before it had its own setting, so elements saved as BART keep that value (limited to bartMachine's 0-1 range); others start at bartMachine's 0.95.
+    bartalpha <- if("bartAlpha" %in% colnames(imported.cal.conditions$CalTable)){
+        as.character(imported.cal.conditions$CalTable$bartAlpha[1])
+    } else if(isTRUE(cal.condition %in% c(10, 11)) && identical(as.character(xgbtype), "Tree")){
+        legacy <- pmin(pmax(as.numeric(unlist(strsplit(as.character(xgbalpha), "-"))), 0.05), 0.99)
+        paste0(legacy[1], "-", legacy[length(legacy)])
+    } else {
+        "0.95-0.95"
+    }
+
+    # Calibrations saved before the Preprocess setting existed trained without preprocessing.
+    preprocess <- if("Preprocess" %in% colnames(imported.cal.conditions$CalTable)){
+        preprocessSetting(imported.cal.conditions$CalTable$Preprocess[1])
+    } else {
+        "None"
+    }
+
     xgbscaleposweight <- if("xgbScalePosWeight" %in% colnames(imported.cal.conditions$CalTable)){
         if(cal.condition==8 | cal.condition==9 && xgbtype!="Linear"){
             as.numeric(as.character(imported.cal.conditions$CalTable$xgbScalePosWeight[1]))
@@ -4425,6 +4456,8 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     glmnetLambda=glmnetlambda,
     marsPrune=marsprune,
     marsDegree=marsdegree,
+    Preprocess=preprocess,
+    bartAlpha=bartalpha,
     stringsAsFactors=FALSE)
     
     if(temp==TRUE){
@@ -4440,32 +4473,11 @@ calPre <- function(element.model.list, element, temp, env.strip=TRUE, xgb_raw=FA
     temp.list <- list(element.model.list)
     names(temp.list) <- element
         
-        if(xgb_raw==TRUE){
-            if(element.model.list[[1]]$CalTable$CalType==8 | element.model.list[[1]]$CalTable$CalType==9){
-                if("Model" %in% names(element.model.list)){
-                    model.raw <-
-                        tryCatch(
-                            xgb.save.raw(
-                                tryCatch(
-                                    xgb.Booster.complete(element.model.list$Model$finalModel)
-                                    , error=function(e) element.model.list$Model$finalModel))
-                                , error=function(e) NULL)
-                    } else {
-                        model.raw <- NULL
-                    }
-                } else if(!"Model" %in% names(element.model.list)){
-                    model.raw <-
-                        tryCatch(
-                            xgb.save.raw(
-                                tryCatch(
-                                    xgb.Booster.complete(element.model.list[[2]]$finalModel)
-                                    , error=function(e) element.model.list[[2]]$finalModel))
-                                , error=function(e) NULL)
-                    } else {
-                        model.raw <- NULL
-                    }
-                    
-            element.model.list$rawModel <- model.raw
+        # Refresh the XGBoost raw copy from the booster (as UBJSON, see xgbBoosterRaw), keeping the stored copy when this xgboost can't save the booster.
+        if(xgb_raw==TRUE && isTRUE(suppressWarnings(as.numeric(as.character(element.model.list[[1]]$CalTable$CalType)[1])) %in% c(8, 9))){
+            model <- if("Model" %in% names(element.model.list)) element.model.list$Model else element.model.list[[2]]
+            model.raw <- xgbBoosterRaw(tryCatch(model$finalModel, error=function(e) NULL))
+            if(!is.null(model.raw)) element.model.list$rawModel <- model.raw
         }
         
         if(xgb_unserialize==TRUE){
@@ -5106,9 +5118,12 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
         }
 
         Calibration$calList <- calpre
+
+        # XGBoost boosters saved under a different xgboost release are rebuilt from their rawModel copy where this xgboost can read it. Done here in the main process, since OpenMP inside forked workers can hang.
+        Calibration <- repairXGBoostModels(Calibration)
     }
-    
-    
+
+
     if(is.null(Calibration$Definitions)){
         Calibration$Definitions <- data.frame(
         Name=as.vector(as.character(rep("", 75))),
@@ -5128,6 +5143,8 @@ calRDS <- function(calibration.directory=NULL, Calibration=NULL, null.strip=TRUE
     # Models fitted on the old split L/M-line windows (which summed the whole spectrum) no longer match the intensities computed now; the app names them on load, and scripts get this message. message(), not warning(), so a session running with warn = 2 still loads.
     split_old <- tryCatch(splitLineRefitElements(Calibration), error=function(e) character(0))
     if(length(split_old) > 0) message("calRDS: these models were fitted on the old split L/M-line intensities and need refitting (review and press Update): ", paste(split_old, collapse=", "))
+    xgb_unusable <- tryCatch(xgbUnusableElements(Calibration), error=function(e) character(0))
+    if(length(xgb_unusable) > 0) message("calRDS: ", xgbUnusableMessage(xgb_unusable))
 
     
     

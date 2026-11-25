@@ -459,6 +459,12 @@ uiOutput('ltWeightUI'),
 
 uiOutput('xgbtypeui'),
 
+uiOutput('preprocessui'),
+
+uiOutput('modelwarningui'),
+
+uiOutput('tuningpresetui'),
+
 uiOutput('bayesparameterui'),
 
 uiOutput('forestmetricui'),
@@ -490,6 +496,8 @@ uiOutput('droptreeui'),
 uiOutput('skipdropui'),
 
 uiOutput('xgbalphaui'),
+
+uiOutput('bartalphaui'),
 
 uiOutput('xgbgammaui'),
 
