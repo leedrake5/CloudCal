@@ -1093,7 +1093,7 @@ shinyServer(function(input, output, session) {
             if(is.null(md) || !is.data.frame(md))
                 return(data.frame(Message="No metadata parsed for the current source (load spectra or a cal file)."))
             # The scatter geometry is recorded once per run in the deconvolution's Parameters$Physics$.scatter_geometry; prefer the live deconvolution and fall back to the committed one.
-            phys <- tryCatch(dataHoldDeconvolution()$Parameters$Physics, error=function(e) NULL)
+            phys <- tryCatch(lastDeconvolution()$Parameters$Physics, error=function(e) NULL)
             if(is.null(phys)) phys <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$Physics, error=function(e) NULL)
             sg <- tryCatch(phys$.scatter_geometry, error=function(e) NULL)
             # Geometry is recorded for every run, so supplied and default angles show here too; older calibrations carry only the inferred subset of these fields.
@@ -1200,6 +1200,12 @@ shinyServer(function(input, output, session) {
         result
     }
 
+    # The deconvolution most recently computed for the Spectrum page, set by dataHoldDeconvolution() each time it runs. Displays that report on the deconvolution (scatter geometry, metadata, the E1 choice) read this instead, since asking dataHoldDeconvolution() for it re-ran the whole deconvolution after every energy-calibration change.
+    lastDeconvolution <- reactiveVal(NULL)
+    # New spectra or a new calibration have no deconvolution of their own yet, so the displays fall back to the committed one rather than report on other spectra.
+    # High priority, so the reset runs before anything in the same flush computes the new spectra's deconvolution.
+    observeEvent(list(input$file1, input$calfileinput, input$filetype, input$beamno), lastDeconvolution(NULL), ignoreInit = TRUE, priority = 100)
+
     dataHoldDeconvolution <- reactive({
         # Gate deconvolution behind the Deconvolute button: depend on the button and on the data and loaded calibration, but read the parameters with isolate() so editing them does not re-run deconvolution until Deconvolute is pressed.
         input$deconvolutebutton
@@ -1266,13 +1272,16 @@ shinyServer(function(input, output, session) {
         }
 
         print("Finished deconvolution")
+        lastDeconvolution(deconvolution_data)
         deconvolution_data
 
         })
 
         # Offer E1 in the Spectrum page's Compton Type selector only when the live deconvolution computed an E1 baseline (which needs a tube and LiveTime), since without one E1 silently falls back to SNIP; a current E1 selection is kept, as in the calibration-side ROI Type gate. input$compton_type is isolated so updating the selector does not re-trigger this.
         observe({
-            decon <- tryCatch(dataHoldDeconvolution(), error=function(e) NULL)
+            # The last deconvolution run, or the committed one, rather than dataHoldDeconvolution(), which would run a new deconvolution after every energy-calibration change only to set these choices.
+            decon <- lastDeconvolution()
+            if(is.null(decon)) decon <- tryCatch(calMemory$Calibration$Deconvoluted, error=function(e) NULL)
             e1_available <- !is.null(tryCatch(decon$E1, error=function(e) NULL))
             cur <- isolate(input$compton_type)
             ch <- c("Raw"="Raw", "SNIP"="Baseline", "arPLS"="arPLS")
@@ -1348,8 +1357,13 @@ shinyServer(function(input, output, session) {
             if(length(protect_els)) physics_param$abundance_protect <- c(protect_els, paste0(protect_els, "_L"))   # protect target elements from the prior, as template labels
             lt_param <- deconvLiveTime()   # LiveTime for E1 and the $Mass LOD, from the import or the loaded calibration
 
+            # With imported spectra, dataHoldDeconvolution() follows this button and re-runs with the current parameters, so its result is reused rather than deconvoluting twice. For a loaded calibration it returns the stored result, so the new one is computed here.
             new_decon <- withProgress(message="Deconvoluting with current parameters...", value=0.5, {
-                runDeconvGuarded(data_cached, width_param, alpha_param, sigma_param, smooth_param, snip_param, physics_param, mass_param, lt_param)
+                if(!is.null(input$file1)){
+                    tryCatch(dataHoldDeconvolution(), error=function(e) NULL)
+                } else {
+                    runDeconvGuarded(data_cached, width_param, alpha_param, sigma_param, smooth_param, snip_param, physics_param, mass_param, lt_param)
+                }
             })
 
             if(is.null(new_decon)) return()   # runDeconvGuarded already showed the specific error
@@ -1359,6 +1373,7 @@ shinyServer(function(input, output, session) {
             }
 
             calMemory$Calibration$Deconvoluted <- new_decon
+            lastDeconvolution(new_decon)
             showNotification("Deconvolution regenerated with current parameters.", type="message")
             # E1 was requested but did not run: say why, since the fit otherwise falls back to SNIP silently and E1 stays out of the ROI Type and Compton Type choices. SEM-EDS and PIXE have no tube, so E1 never applies there; Legacy gets a plain message because many calibrations use it on purpose.
             mode_now <- physics_param$.mode
@@ -1529,7 +1544,7 @@ shinyServer(function(input, output, session) {
         })
         # Shows the angles the last deconvolution actually used and where each came from, preferring the live run and falling back to the committed calibration, as the Metadata tab does.
         output$deconvolutiongeometryinfo <- renderUI({
-            sg <- tryCatch(dataHoldDeconvolution()$Parameters$Physics$.scatter_geometry, error=function(e) NULL)
+            sg <- tryCatch(lastDeconvolution()$Parameters$Physics$.scatter_geometry, error=function(e) NULL)
             if(is.null(sg)) sg <- tryCatch(calMemory$Calibration$Deconvoluted$Parameters$Physics$.scatter_geometry, error=function(e) NULL)
             if(is.null(sg)) return(helpText(paste("Blank = auto: the file's angles, then the Compton/Rayleigh",
                 "inference for the scatter angle, then 45 / 45 / 135 deg. Angles are measured from the sample",
@@ -1606,6 +1621,13 @@ shinyServer(function(input, output, session) {
                         depth=SPECTRUM_EDGE_DEPTH * top, slots=spectrumLineSlots(), xlim=xlim)
                 }
                 c(edges, spectrumLineLayers(spectrumLineMarkersSelected(), top=0.9 * top, slots=spectrumLineSlots(), xlim=xlim))
+            }
+
+            # A zoomed plot draws only the rows in its window, plus the axis expansion and a bin on each side so lines run to the edges, so a zoomed redraw draws a fraction of the spectra.
+            spectrumInView <- function(frame){
+                if(length(ranges$x) != 2 || !is.data.frame(frame) || !"Energy" %in% names(frame)) return(frame)
+                pad <- 0.06 * diff(ranges$x) + 0.1
+                frame[frame$Energy >= min(ranges$x) - pad & frame$Energy <= max(ranges$x) + pad, , drop=FALSE]
             }
 
             # A zoom window keeps room below zero for the absorption curves while they are shown.
@@ -1737,7 +1759,7 @@ shinyServer(function(input, output, session) {
             
             spectraWithLabels <- reactive({
 
-                data <- spectraPlotData()
+                data <- spectrumInView(spectraPlotData())
 
                 ggplot(data, aes(x = Energy, y = CPS, colour = Spectrum)) +
                 geom_line() +
@@ -1754,7 +1776,7 @@ shinyServer(function(input, output, session) {
 
             spectraNoLabels <- reactive({
 
-                data <- spectraPlotData()
+                data <- spectrumInView(spectraPlotData())
 
                 ggplot(data, aes(x = Energy, y = CPS, colour = Spectrum)) +
                 geom_line() +
@@ -1773,7 +1795,7 @@ shinyServer(function(input, output, session) {
             spectraSummaryPlot <- reactive({
 
                 data <- spectraPlotData()
-                data.summary <- spectraSummary()
+                data.summary <- spectrumInView(spectraSummary())
 
                 ggplot(data.summary) +
                 geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max), alpha=0.2, fill="#619CFF", colour="grey20") +

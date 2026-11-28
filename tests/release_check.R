@@ -20,6 +20,7 @@
 # 18. XGBoost across xgboost and caret releases: Bayesian tuning reads xgb.cv's best iteration under xgboost 1.x and 3.x, rawModel is saved as UBJSON, calRDS rebuilds boosters this xgboost can't use from rawModel and names the rest, tuning grids match the installed caret, caret can train XGBoost (fails while caret is older than 7.1 with xgboost 3.x), XGBoost Linear is a real linear booster, the XGBoost Type control shows the type that trains, and the per-element Preprocess setting defaults to None and survives a reload
 # 19. Normalization defaults: a new curve starts on Total Counts below 17 keV and on ROI +/- 5 keV on the SNIP baseline above, cut where zero-padded spectra's data end (a line past that starts on Total Counts), Cal Curves loads those defaults on an element switch (placeholder models included), and saved or older CalTables keep their normalization
 # 20. Spectrum page element lines: K, L and M pickers take any number of elements, the markers are each series' lines scaled per series with one boxed label drawn in front, marker colours follow the element, and Absorption Edges mirrors the picked elements' absorption below zero with their edges labelled
+# 21. Spectrum page performance: loading spectra and energy alignment run no deconvolution, Deconvolute runs one, displays report the last run without starting one, and a zoomed plot draws only its window
 # Usage: Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir] [high_energy_mca]
 # Default paths point at local CloudCal Evaluation files; the exit status is nonzero if any check fails.
 
@@ -1501,6 +1502,36 @@ check("Absorption Edges on the Spectrum page: curves below zero with edge labels
         identical(unname(tail(sec20$edge_geoms, 1)), "GeomLabelRepel") && length(sec20$zoom_y) == 2 &&
         sec20$zoom_y[1] <= -SPECTRUM_EDGE_DEPTH * sec20$zoom_y[2] && isTRUE(sec20$no_edge_layers)
 })
+
+message("\n-- 21. Spectrum page: deconvolution only when needed, zoomed plots draw only their window --")
+# Each deconvolution run is counted by wrapping spectra_gls_deconvolute for one session; the app re-sources global.R at start, so the wrapper is installed inside the session and removed at its end.
+sec21 <- new.env(); sec21$runs <- 0L
+try(testServer(app, {
+    real21 <- get("spectra_gls_deconvolute", envir = globalenv())
+    assign("spectra_gls_deconvolute", function(...){ sec21$runs <- sec21$runs + 1L; real21(...) }, envir = globalenv())
+    session$setInputs(filetype = "RData", energynudge = 0, file1 = data.frame(name = "zero padded.rds", datapath = pad19_file, stringsAsFactors = FALSE),
+        normspectra = 2, compressplot = "25 eV", comptonminspectra = 10, comptonmaxspectra = 10.2, compton_type = "Raw", deconvolutespectra = "Raw",
+        showlegend = FALSE, variancespectrum = FALSE, spectrumlines_k = "Fe", autoscaley = TRUE,
+        deconvolutionwidth = 5, deconvolutionalpha = 2.5, deconvolutiondefaultsigma = 0.07, deconvolutionsmoothiter = 20, deconvolutionsnipiter = 20)
+    session$elapse(500); sec21$after_load <- sec21$runs
+    session$setInputs(energynudge = 0.1); session$elapse(500)
+    session$setInputs(energynudge = 0.2); session$elapse(500); sec21$after_alignment <- sec21$runs
+    session$setInputs(normspectra = 3); session$elapse(500); sec21$after_compton <- sec21$runs
+    session$setInputs(deconvolutebutton = 1); session$elapse(500); sec21$after_button <- sec21$runs
+    session$setInputs(deconvolutespectra = "Net"); session$elapse(500); invisible(tryCatch(plotInput(), error = function(e) NULL))
+    sec21$after_net <- sec21$runs
+    sec21$reports_last <- identical(lastDeconvolution(), dataHoldDeconvolution()) && !is.null(lastDeconvolution())
+    session$setInputs(deconvolutespectra = "Raw", normspectra = 2, plot1_brush = list(xmin = 6, xmax = 7, ymin = 0, ymax = 50), cropspectra = 1); session$elapse(500)
+    zoomed <- plotInput()
+    sec21$zoom_rows <- c(nrow(zoomed$data), nrow(spectraPlotData())); sec21$zoom_span <- range(zoomed$data$Energy)
+    assign("spectra_gls_deconvolute", real21, envir = globalenv())
+}), silent = TRUE)
+check("with imported spectra, loading them, Energy Offset changes and Compton normalization on a Raw ROI type run no deconvolution",
+    identical(sec21$after_load, 0L) && identical(sec21$after_alignment, 0L) && identical(sec21$after_compton, 0L))
+check("Deconvolute runs one deconvolution (not two), the Net view reuses it, and the geometry and metadata displays report it",
+    identical(sec21$after_button, 1L) && identical(sec21$after_net, 1L) && isTRUE(sec21$reports_last))
+check("a zoomed Spectrum plot draws only its window's rows (plus the axis margin)",
+    length(sec21$zoom_rows) == 2 && sec21$zoom_rows[1] < sec21$zoom_rows[2] / 10 && sec21$zoom_span[1] >= 6 - 0.17 && sec21$zoom_span[2] <= 7 + 0.17)
 
 n_fail <- sum(!unlist(results))
 message(sprintf("\n== %d/%d checks passed ==", sum(unlist(results)), length(results)))
