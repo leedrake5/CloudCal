@@ -2981,7 +2981,63 @@ calConditionCompare <- function(cal.conditions.first, cal.conditions.second){
     all(cal.table.match, use.standards.match)
 }
 
-deleteCalConditions <- function(element, number.of.standards){
+# Energy (keV) of a calibration line: a spectral line's principal emission from fluorescence.lines (K.alpha Ka1, K.beta Kb1, L.alpha La1, L.beta Lb1, M.line Ma1), otherwise the centre of the line's window in custom Definitions (Name, EnergyMin, EnergyMax). NA when neither gives one.
+lineEnergy <- function(element.line, definitions=NULL){
+    element.line <- as.character(element.line)[1]
+    if(is.na(element.line)) return(NA_real_)
+    if(element.line %in% spectralLines){
+        parts <- strsplit(element.line, ".", fixed=TRUE)[[1]]
+        emission <- c(K.alpha="Ka1", K.beta="Kb1", L.alpha="La1", L.beta="Lb1", M.line="Ma1")[paste(parts[2], parts[3], sep=".")]
+        row <- fluorescence.lines[fluorescence.lines$Symbol == parts[1], , drop=FALSE]
+        energy <- if(nrow(row) > 0 && isTRUE(emission %in% colnames(row))) suppressWarnings(as.numeric(row[[emission]][1])) else NA_real_
+        if(isTRUE(energy > 0)) return(energy)
+    }
+    if(is.data.frame(definitions) && all(c("Name", "EnergyMin", "EnergyMax") %in% colnames(definitions))){
+        hit <- which(as.character(definitions$Name) == element.line)
+        if(length(hit) > 0){
+            window <- suppressWarnings(as.numeric(c(definitions$EnergyMin[hit[1]], definitions$EnergyMax[hit[1]])))
+            if(all(is.finite(window))) return(mean(window))
+        }
+    }
+    NA_real_
+}
+
+# Lines above ROI_NORM_ENERGY keV start on ROI normalization, a window of +/- ROI_NORM_HALF_WIDTH keV around the line.
+ROI_NORM_ENERGY <- 17
+ROI_NORM_HALF_WIDTH <- 5
+
+# Energy (keV) where the spectra's data end: the top of the highest 0.1 keV bin in which at least half the channels, pooled across spectra, have counts. Some instruments report zero counts above their usable range (to 40 keV when the data stop near 15 keV), so the axis maximum can sit far above the data. NULL when no channel has counts.
+spectraEnergyTop <- function(spectra, bin=0.1){
+    if(!is.data.frame(spectra) || !all(c("Energy", "CPS") %in% names(spectra))) return(NULL)
+    energy <- suppressWarnings(as.numeric(spectra$Energy))
+    cps <- suppressWarnings(as.numeric(spectra$CPS))
+    ok <- is.finite(energy) & is.finite(cps) & energy >= 0
+    if(!any(ok)) return(NULL)
+    index <- floor(energy[ok] / bin) + 1L
+    channels <- tabulate(index)
+    counted <- tabulate(index[cps[ok] > 0], nbins=length(channels))
+    with_data <- which(channels > 0 & counted >= 0.5 * channels)
+    if(length(with_data) == 0) return(NULL)
+    max(with_data) * bin
+}
+
+# The normalization a new calibration curve starts with, as the CalTable's NormType, Min, Max and ComptonType. Lines above ROI_NORM_ENERGY get ROI normalization around the line on the SNIP baseline ("Baseline"), with the window cut at energy.max, where the spectra's data end (spectraEnergyTop). All other lines get total counts on the raw spectrum, with the old 11-11.2 keV window kept for Min and Max: lines of unknown energy, and lines at or above energy.max, which have no data to normalize around.
+defaultNormalization <- function(element, definitions=NULL, energy.max=NULL){
+    energy <- lineEnergy(element, definitions)
+    top <- suppressWarnings(as.numeric(energy.max)[1])
+    if(!isTRUE(top > 0)) top <- Inf
+    if(isTRUE(energy > ROI_NORM_ENERGY && energy < top)){
+        list(NormType=3, Min=round(energy - ROI_NORM_HALF_WIDTH, 3), Max=round(min(energy + ROI_NORM_HALF_WIDTH, top), 3), ComptonType="Baseline")
+    } else {
+        list(NormType=2, Min=11, Max=11.2, ComptonType="Raw")
+    }
+}
+
+# The normalization defaults before defaultNormalization (time, 11-11.2 keV, raw). importCalConditions reads a CalTable that lacks these columns as this, so a change to the defaults never changes how a saved model is read.
+LEGACY_NORMALIZATION <- list(NormType=1, Min=11, Max=11.2, ComptonType="Raw")
+
+# Settings for the placeholder model defaultCalList gives an element that has values but no saved model. Its CalTable seeds the Cal Curves controls, so it takes the same defaults as a new element; the placeholder lm is fitted on raw intensities whatever the CalTable says, and Delete keeps calListCompress from saving it.
+deleteCalConditions <- function(element, number.of.standards, definitions=NULL, energy.max=NULL){
     cal.condition <- as.numeric(3)
     line.type=as.character("Narrow")
     line.structure <- if(element %in% spectralLines){
@@ -3000,10 +3056,11 @@ deleteCalConditions <- function(element, number.of.standards){
     compress <- as.character("100 eV")
     transformation <- as.character("None")
     energy.range <- as.character("0.7-37")
-    norm.condition <- as.numeric(1)
-    norm.min <- as.numeric(11)
-    norm.max <- as.numeric(11.2)
-    compton.type <- as.character("Raw")
+    norm.defaults <- defaultNormalization(element, definitions, energy.max)
+    norm.condition <- norm.defaults$NormType
+    norm.min <- norm.defaults$Min
+    norm.max <- norm.defaults$Max
+    compton.type <- norm.defaults$ComptonType
     dependent.transformation <- as.character("None")
     
     foresttry <- as.numeric(7)
@@ -3123,7 +3180,8 @@ deleteCalConditions <- function(element, number.of.standards){
     return(cal.mode.list)
 }
 
-defaultCalConditions <- function(element, number.of.standards){
+# Settings for an element without a saved model. definitions (custom lines' Name, EnergyMin, EnergyMax) gives custom lines an energy for defaultNormalization, and energy.max (spectraEnergyTop) is where the spectra's data end.
+defaultCalConditions <- function(element, number.of.standards, definitions=NULL, energy.max=NULL){
     cal.condition <- as.numeric(3)
     line.type=as.character("Narrow")
     line.structure <- if(element %in% spectralLines){
@@ -3142,10 +3200,11 @@ defaultCalConditions <- function(element, number.of.standards){
     compress <- as.character("100 eV")
     transformation <- as.character("None")
     energy.range <- as.character("0.7-37")
-    norm.condition <- as.numeric(1)
-    norm.min <- as.numeric(11)
-    norm.max <- as.numeric(11.2)
-    compton.type <- as.character("Raw")
+    norm.defaults <- defaultNormalization(element, definitions, energy.max)
+    norm.condition <- norm.defaults$NormType
+    norm.min <- norm.defaults$Min
+    norm.max <- norm.defaults$Max
+    compton.type <- norm.defaults$ComptonType
     dependent.transformation <- as.character("None")
 
     foresttry <- as.numeric(7)
@@ -3366,28 +3425,29 @@ importCalConditionsDetail <- function(element, calList, number.of.standards=NULL
     }
     
     
+    # Normalization columns a saved CalTable lacks read as LEGACY_NORMALIZATION, not as the current defaults, so the model is read with the normalization it was trained on.
     norm.condition <- if("NormType" %in% colnames(imported.cal.conditions$CalTable)){
         as.numeric(as.character(imported.cal.conditions$CalTable$NormType[1]))
     } else if(!"NormType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NormType
+        LEGACY_NORMALIZATION$NormType
     }
     
     norm.min <- if("Min" %in% colnames(imported.cal.conditions$CalTable)){
         as.numeric(as.character(imported.cal.conditions$CalTable$Min[1]))
     } else if(!"Min" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Min
+        LEGACY_NORMALIZATION$Min
     }
     
     norm.max <- if("Max" %in% colnames(imported.cal.conditions$CalTable)){
         as.numeric(as.character(imported.cal.conditions$CalTable$Max[1]))
     } else if(!"Max" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Max
+        LEGACY_NORMALIZATION$Max
     }
     
     compton.type <- if("ComptonType" %in% colnames(imported.cal.conditions$CalTable)){
         as.character(imported.cal.conditions$CalTable$ComptonType[1])
     } else if(!"ComptonType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ComptonType
+        LEGACY_NORMALIZATION$ComptonType
     }
     
     dependent.transformation <- if("DepTrans" %in% colnames(imported.cal.conditions$CalTable)){
@@ -3948,28 +4008,29 @@ importCalConditions <- function(element, calList, number.of.standards=NULL, temp
     }
     
     
+    # Normalization columns a saved CalTable lacks read as LEGACY_NORMALIZATION, not as the current defaults, so the model is read with the normalization it was trained on.
     norm.condition <- if("NormType" %in% colnames(imported.cal.conditions$CalTable)){
         as.numeric(as.character(imported.cal.conditions$CalTable$NormType[1]))
     } else if(!"NormType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$NormType
+        LEGACY_NORMALIZATION$NormType
     }
     
     norm.min <- if("Min" %in% colnames(imported.cal.conditions$CalTable)){
         as.numeric(as.character(imported.cal.conditions$CalTable$Min[1]))
     } else if(!"Min" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Min
+        LEGACY_NORMALIZATION$Min
     }
     
     norm.max <- if("Max" %in% colnames(imported.cal.conditions$CalTable)){
         as.numeric(as.character(imported.cal.conditions$CalTable$Max[1]))
     } else if(!"Max" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$Max
+        LEGACY_NORMALIZATION$Max
     }
     
     compton.type <- if("ComptonType" %in% colnames(imported.cal.conditions$CalTable)){
         as.character(imported.cal.conditions$CalTable$ComptonType[1])
     } else if(!"ComptonType" %in% colnames(imported.cal.conditions$CalTable)){
-        default.cal.conditions$CalTable$ComptonType
+        LEGACY_NORMALIZATION$ComptonType
     }
     
     dependent.transformation <- if("DepTrans" %in% colnames(imported.cal.conditions$CalTable)){

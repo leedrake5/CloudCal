@@ -797,6 +797,145 @@ element_line_pull <- function(element.line){
 }
 element_line_pull <- cmpfun(element_line_pull)
 
+# Spectrum page line markers --------------------------------------------------
+# The emission lines the Spectrum page marks for each series, as fluorescence.lines columns, with display weights that set their heights within a series. The K and L weights are those of the per-element line tables (Fe.table and so on) the page drew before; the M weights follow the Ma1 : Mb : Mg : Ma2 ratios xrftools gives for W to U, about 1 : 0.65 : 0.2 : 0.05.
+SPECTRUM_LINE_SET <- data.frame(
+    Series=c(rep("K", 5), rep("L", 10), rep("M", 4)),
+    Column=c("Ka1", "Ka2", "Kb1", "Kb2", "Kb3", "La1", "La2", "Lb1", "Lb2", "Lb3", "Lb4", "Lg1", "Lg2", "Lg3", "Ll", "Ma1", "Ma2", "Mb", "Mg"),
+    Weight=c(56, 29, 9, 2, 5, 68, 8, 78, 17, 40, 34, 17, 11, 15, 4, 100, 5, 65, 20),
+    stringsAsFactors=FALSE)
+
+# A series is labelled at its principal line, or at its strongest line when the principal is out of view.
+SPECTRUM_LINE_PRINCIPAL <- c(K="Ka1", L="La1", M="Ma1")
+
+# Marker colours, one per element: the first three slots of the categorical palette, the most that stay distinguishable for every pair (any two elements' markers can sit side by side). Further elements are grey and told apart by their labels.
+SPECTRUM_LINE_COLOURS <- c("#2a78d6", "#eb6834", "#1baf7a")
+SPECTRUM_LINE_GREY <- "#898781"
+
+# Elements with at least one line of a series in fluorescence.lines, in atomic-number order: the choices of the Spectrum page's K, L and M pickers.
+spectrumLineElements <- function(series){
+    energies <- as.matrix(fluorescence.lines[, SPECTRUM_LINE_SET$Column[SPECTRUM_LINE_SET$Series == series], drop=FALSE])
+    has <- rowSums(is.finite(energies) & energies > 0) > 0
+    as.character(fluorescence.lines$Symbol[has][order(fluorescence.lines$AtomicNumber[has])])
+}
+
+# One row per line to mark (Element, Series, Column, Energy, Weight): each series' lines for the elements picked for it, from fluorescence.lines, without the lines an element lacks. picks is list(K=, L=, M=) of element symbols.
+spectrumLineMarkers <- function(picks){
+    symbols <- as.character(fluorescence.lines$Symbol)
+    rows <- list()
+    for(series in intersect(names(picks), unique(SPECTRUM_LINE_SET$Series))){
+        set <- SPECTRUM_LINE_SET[SPECTRUM_LINE_SET$Series == series, , drop=FALSE]
+        for(el in intersect(unique(as.character(picks[[series]])), symbols)){
+            energy <- suppressWarnings(as.numeric(unlist(fluorescence.lines[match(el, symbols), set$Column])))
+            rows[[length(rows) + 1]] <- data.frame(Element=el, Series=series, Column=set$Column, Energy=energy, Weight=set$Weight, stringsAsFactors=FALSE)
+        }
+    }
+    if(length(rows) == 0) return(data.frame(Element=character(0), Series=character(0), Column=character(0), Energy=numeric(0), Weight=numeric(0), stringsAsFactors=FALSE))
+    out <- do.call(rbind, rows)
+    out[is.finite(out$Energy) & out$Energy > 0, , drop=FALSE]
+}
+
+# A colour mixed toward white (opaque), for the label boxes that carry an element's colour behind ink text.
+spectrumLineTint <- function(colour, amount=0.2){
+    grDevices::rgb(t(255 - amount * (255 - grDevices::col2rgb(colour))), maxColorValue=255)
+}
+
+# Each element's marker colour: its slot's colour in slots (element symbol -> slot), or grey without one.
+spectrumLineColour <- function(elements, slots=NULL){
+    slot <- if(length(slots) > 0) suppressWarnings(as.integer(slots[elements])) else rep(NA_integer_, length(elements))
+    coloured <- !is.na(slot) & slot >= 1 & slot <= length(SPECTRUM_LINE_COLOURS)
+    colour <- rep(SPECTRUM_LINE_GREY, length(elements))
+    colour[coloured] <- SPECTRUM_LINE_COLOURS[slot[coloured]]
+    colour
+}
+
+# ggplot layers for the markers inside xlim, or NULL when none are: a dashed line per emission line, scaled within each element's series so its strongest line reaches top and coloured by the element's slot in slots (grey without one), plus a dot at each series' label line and a boxed ink label such as "Fe K", tinted with the element's colour. The labels are the last layer, so they sit in front of the spectra and the other markers.
+spectrumLineLayers <- function(markers, top, slots=NULL, xlim=NULL){
+    if(!is.data.frame(markers) || nrow(markers) == 0 || !isTRUE(is.finite(top) && top > 0)) return(NULL)
+    if(length(xlim) == 2 && all(is.finite(xlim))) markers <- markers[markers$Energy >= min(xlim) & markers$Energy <= max(xlim), , drop=FALSE]
+    if(nrow(markers) == 0) return(NULL)
+    group <- paste(markers$Element, markers$Series)
+    markers$Height <- markers$Weight / ave(markers$Weight, group, FUN=max) * top
+    markers$Colour <- spectrumLineColour(markers$Element, slots)
+    labels <- do.call(rbind, lapply(split(markers, group), function(g){
+        at <- which(g$Column == SPECTRUM_LINE_PRINCIPAL[[g$Series[1]]])
+        g[if(length(at) > 0) at[1] else which.max(g$Weight), , drop=FALSE]
+    }))
+    labels$Label <- paste(labels$Element, labels$Series)
+    list(
+        geom_segment(data=markers, aes(x=Energy, xend=Energy, y=0, yend=Height), colour=markers$Colour, linetype=2, inherit.aes=FALSE),
+        geom_point(data=labels, aes(x=Energy, y=Height), shape=21, size=2.6, stroke=0.7, fill=labels$Colour, colour="white", inherit.aes=FALSE),
+        ggrepel::geom_label_repel(data=labels, aes(x=Energy, y=Height, label=Label), colour="#0b0b0b", fill=spectrumLineTint(labels$Colour), size=4,
+            nudge_y=0.04 * top, min.segment.length=0.3, segment.colour=SPECTRUM_LINE_GREY, segment.size=0.3, box.padding=0.3, point.padding=0.3,
+            max.overlaps=Inf, seed=1, inherit.aes=FALSE)
+    )
+}
+
+# Absorption edges marked for each picked series, and their energies (keV) from xrftools' tables. K and L come from the NIST X-ray transition energies (Deslattes et al. 2003), measured where available, else combined, else theoretical. M3-M5, which the NIST table lacks, come from xrftools' transition table. Without xrftools the table is empty, and the absorption curves are drawn without edge labels.
+SPECTRUM_EDGE_SHELLS <- list(K="K", L=c("L1", "L2", "L3"), M=c("M3", "M4", "M5"))
+SPECTRUM_EDGES <- tryCatch({
+    nist <- as.data.frame(xrftools::x_ray_energies)
+    nist <- nist[grepl(" edge$", nist$trans), , drop=FALSE]
+    nist <- nist[order(!is.finite(nist$direct_kev)), , drop=FALSE]
+    kl <- data.frame(Element=as.character(nist$element), Shell=sub(" edge$", "", nist$trans),
+        Energy=ifelse(is.finite(nist$direct_kev), nist$direct_kev, ifelse(is.finite(nist$combined_kev), nist$combined_kev, nist$theory_kev)),
+        stringsAsFactors=FALSE)
+    xrf <- as.data.frame(xrftools::x_ray_xrf_energies)
+    m <- unique(xrf[xrf$edge %in% SPECTRUM_EDGE_SHELLS$M, c("element", "edge", "edge_kev")])
+    edges <- rbind(kl, data.frame(Element=as.character(m$element), Shell=as.character(m$edge), Energy=as.numeric(m$edge_kev), stringsAsFactors=FALSE))
+    edges <- edges[is.finite(edges$Energy) & !duplicated(edges[, c("Element", "Shell")]), , drop=FALSE]
+    rownames(edges) <- NULL
+    edges
+}, error=function(e) data.frame(Element=character(0), Shell=character(0), Energy=numeric(0), stringsAsFactors=FALSE))
+
+# Absorption curves reach this fraction of the visible height below zero.
+SPECTRUM_EDGE_DEPTH <- 0.3
+
+# ggplot layers for the absorption (f'' from lineLibrary$Absorption) of the picked elements inside xlim, mirrored below zero, or NULL when none is in view. Each element's curve is drawn on a log scale, from its smallest value in view at zero to its largest at depth below zero, so every edge shows as a step in proportion to its jump ratio: on a linear scale the large low-energy absorption flattens the edges above it. Curves are lightly filled and outlined in the element's colour, and an element with no edge in view is left out. Each edge in view of the series picked for the element gets a dot and a boxed label ("Fe K edge"); an element whose edges in view all belong to other series is labelled once at its deepest point ("Pb absorption"). picks is list(K=, L=, M=) of element symbols.
+spectrumEdgeLayers <- function(picks, depth, slots=NULL, xlim){
+    if(!isTRUE(is.finite(depth) && depth > 0) || length(xlim) != 2 || !all(is.finite(xlim))) return(NULL)
+    lo <- min(xlim); hi <- max(xlim)
+    elements <- intersect(unique(as.character(unlist(picks, use.names=FALSE))), names(lineLibrary$Absorption))
+    layers <- list(); marks <- list()
+    for(el in elements){
+        a <- lineLibrary$Absorption[[el]]
+        a <- a[is.finite(a$Energy) & is.finite(a$f..) & a$f.. > 0, c("Energy", "f..")]
+        a <- a[order(a$Energy), , drop=FALSE]
+        if(nrow(a) < 2 || hi < a$Energy[1] || lo > a$Energy[nrow(a)]) next
+        # Without an edge in view the curve is a featureless slope, so it is left out.
+        if(nrow(SPECTRUM_EDGES) > 0 && !any(SPECTRUM_EDGES$Element == el & SPECTRUM_EDGES$Energy >= lo & SPECTRUM_EDGES$Energy <= hi)) next
+        # log f'' at any energy; the tables list an edge's energy twice (below and above the jump), which approx() would warn about on every draw.
+        log_f <- function(energy) suppressWarnings(stats::approx(a$Energy, log(a$f..), xout=energy, rule=2)$y)
+        # The curve runs exactly across the window, so it never widens the plot's energy axis.
+        inside <- a$Energy > lo & a$Energy < hi
+        curve <- data.frame(Energy=c(lo, a$Energy[inside], hi), LogF=c(log_f(lo), log(a$f..[inside]), log_f(hi)))
+        span <- diff(range(curve$LogF))
+        if(!isTRUE(span > 0)) next
+        to_depth <- function(log_value) -depth * (log_value - min(curve$LogF)) / span
+        curve$Absorption <- to_depth(curve$LogF)
+        colour <- spectrumLineColour(el, slots)
+        layers <- c(layers, list(
+            geom_ribbon(data=curve, aes(x=Energy, ymin=Absorption, ymax=0), fill=colour, alpha=0.15, inherit.aes=FALSE),
+            geom_line(data=curve, aes(x=Energy, y=Absorption), colour=colour, linewidth=0.4, inherit.aes=FALSE)))
+        shells <- unique(unlist(SPECTRUM_EDGE_SHELLS[names(picks)[vapply(picks, function(p) el %in% p, logical(1))]], use.names=FALSE))
+        edge <- SPECTRUM_EDGES[SPECTRUM_EDGES$Element == el & SPECTRUM_EDGES$Shell %in% shells & SPECTRUM_EDGES$Energy >= lo & SPECTRUM_EDGES$Energy <= hi, , drop=FALSE]
+        mark <- if(nrow(edge) > 0){
+            data.frame(Energy=edge$Energy, Absorption=to_depth(log_f(edge$Energy)), Label=paste(el, edge$Shell, "edge"), Colour=colour, stringsAsFactors=FALSE)
+        } else {
+            deepest <- curve[which.min(curve$Absorption), , drop=FALSE]
+            data.frame(Energy=deepest$Energy, Absorption=deepest$Absorption, Label=paste(el, "absorption"), Colour=colour, stringsAsFactors=FALSE)
+        }
+        marks[[length(marks) + 1]] <- mark
+    }
+    if(length(layers) == 0) return(NULL)
+    marks <- do.call(rbind, marks)
+    c(layers, list(
+        geom_point(data=marks, aes(x=Energy, y=Absorption), shape=21, size=2.2, stroke=0.6, fill=marks$Colour, colour="white", inherit.aes=FALSE),
+        ggrepel::geom_label_repel(data=marks, aes(x=Energy, y=Absorption, label=Label), colour="#0b0b0b", fill=spectrumLineTint(marks$Colour), size=3.6,
+            nudge_y=-0.1 * depth, min.segment.length=0.3, segment.colour=SPECTRUM_LINE_GREY, segment.size=0.3, box.padding=0.3, point.padding=0.3,
+            max.overlaps=Inf, seed=1, inherit.aes=FALSE)))
+}
+
 
 Hodder.v.old <- function(y)
 {
@@ -10070,6 +10209,9 @@ defaultCalList <- function(calibration, temp=FALSE){
 
     skipped <- character(0)
     candidates <- character(0)
+    # Where the spectra's data end, for the placeholders' normalization defaults; found once, at the first placeholder.
+    energy.top <- NULL
+    energy.top.found <- FALSE
 
     for(i in variables){
         if(i %in% colnames(calibration$Intensities)){
@@ -10087,7 +10229,11 @@ defaultCalList <- function(calibration, temp=FALSE){
                 cal.df <- cal.df[complete.cases(cal.df[, c(val.col, int.col)]), ]
                 # Skip elements with fewer than two complete standards, since lm() cannot fit them and would abort the whole load.
                 if(nrow(cal.df) >= 2){
-                    calibration$calList[[i]] <- list(Parameters=deleteCalConditions(element=i), Model=lm(cal.df[, val.col]~cal.df[, int.col]), na.action=na.omit)
+                    if(!energy.top.found){
+                        energy.top <- spectraEnergyTop(calibration$Spectra)
+                        energy.top.found <- TRUE
+                    }
+                    calibration$calList[[i]] <- list(Parameters=deleteCalConditions(element=i, definitions=calibration$Definitions, energy.max=energy.top), Model=lm(cal.df[, val.col]~cal.df[, int.col]), na.action=na.omit)
                 } else {
                     skipped <- c(skipped, i)
                 }

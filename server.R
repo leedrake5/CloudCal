@@ -1386,403 +1386,7 @@ shinyServer(function(input, output, session) {
         
         
         
-        # Return the requested dataset
-        datasetInput <- reactive({
-            req(input$element)
-            switch(input$element,
-            "H.table" = H.table,
-            "He.table" = He.table,
-            "Li.table" = Li.table,
-            "Be.table" = Be.table,
-            "B.table" = B.table,
-            "C.table" = C.table,
-            "N.table" = N.table,
-            "O.table" = O.table,
-            "F.table" = F.table,
-            "Ne.table" = Ne.table,
-            "Na.table" = Na.table,
-            "Mg.table" = Mg.table,
-            "Al.table" = Al.table,
-            "Si.table" = Si.table,
-            "P.table" = P.table,
-            "S.table" = S.table,
-            "Cl.table" = Cl.table,
-            "Ar.table" = Ar.table,
-            "K.table" = K.table,
-            "Ca.table" = Ca.table,
-            "Sc.table" = Sc.table,
-            "Ti.table" = Ti.table,
-            "V.table" = V.table,
-            "Cr.table" = Cr.table,
-            "Mn.table" = Mn.table,
-            "Fe.table" = Fe.table,
-            "Co.table" = Co.table,
-            "Ni.table" = Ni.table,
-            "Cu.table" = Cu.table,
-            "Zn.table" = Zn.table,
-            "Ga.table" = Ga.table,
-            "Ge.table" = Ge.table,
-            "As.table" = As.table,
-            "Se.table" = Se.table,
-            "Br.table" = Br.table,
-            "Kr.table" = Kr.table,
-            "Rb.table" = Rb.table,
-            "Sr.table" = Sr.table,
-            "Y.table" = Y.table,
-            "Zr.table" = Zr.table,
-            "Nb.table" = Nb.table,
-            "Mo.table" = Mo.table,
-            "Tc.table" = Tc.table,
-            "Ru.table" = Ru.table,
-            "Rh.table" = Rh.table,
-            "Pd.table" = Pd.table,
-            "Ag.table" = Ag.table,
-            "Cd.table" = Cd.table,
-            "In.table" = In.table,
-            "Sn.table" = Sn.table,
-            "Sb.table" = Sb.table,
-            "Te.table" = Te.table,
-            "I.table" = I.table,
-            "Xe.table" = Xe.table,
-            "Cs.table" = Cs.table,
-            "Ba.table" = Ba.table,
-            "La.table" = La.table,
-            "Ce.table" = Ce.table,
-            "Pr.table" = Pr.table,
-            "Nd.table" = Nd.table,
-            "Pm.table" = Pm.table,
-            "Sm.table" = Sm.table,
-            "Eu.table" = Eu.table,
-            "Gd.table" = Gd.table,
-            "Tb.table" = Tb.table,
-            "Dy.table" = Dy.table,
-            "Ho.table" = Ho.table,
-            "Er.table" = Er.table,
-            "Tm.table" = Tm.table,
-            "Yb.table" = Yb.table,
-            "Lu.table" = Lu.table,
-            "Hf.table" = Hf.table,
-            "Ta.table" = Ta.table,
-            "W.table" = W.table,
-            "Re.table" = Re.table,
-            "Os.table" = Os.table,
-            "Ir.table" = Ir.table,
-            "Pt.table" = Pt.table,
-            "Au.table" = Au.table,
-            "Hg.table" = Hg.table,
-            "Tl.table" = Tl.table,
-            "Pb.table" = Pb.table,
-            "Bi.table" = Bi.table,
-            "Po.table" = Po.table,
-            "At.table" = At.table,
-            "Rn.table" = Rn.table,
-            "Fr.table" = Fr.table,
-            "Ra.table" = Ra.table,
-            "Ac.table" = Ac.table,
-            "Th.table" = Th.table,
-            "Pa.table" = Pa.table,
-            "U.table" = U.table)
-        })
         
-        output$anomscatterokui <- renderUI({
-            if(isTRUE(input$variancespectrum)){
-                checkboxInput("anomscatterok", "Show Element Scatter", value=FALSE)
-            } else {
-                NULL
-            }
-        })
-        
-        output$anomscatterui <- renderUI({
-            if(isTRUE(input$anomscatterok)){
-                element <- selectInput(
-                "anomscatterelement", "Element Scatter:",
-                c("(Ne) Neon" = "Ne",
-                "(Na) Sodium" = "Na",
-                "(Mg) Magnesium" = "Mg",
-                "(Al) Aluminum" = "Al",
-                "(Si) Silicon" = "Si",
-                "(P)  Phosphorous" = "P",
-                "(S)  Sulfur" = "S",
-                "(Cl) Chlorine" = "Cl",
-                "(Ar) Argon" = "Ar",
-                "(K)  Potassium" = "K",
-                "(Ca) Calcium" = "Ca",
-                "(Sc) Scandium" = "Sc",
-                "(Ti) Titanium" = "Ti",
-                "(V)  Vanadium" = "V",
-                "(Cr) Chromium" = "Cr",
-                "(Mn) Manganese" = "Mn",
-                "(Fe) Iron" = "Fe",
-                "(Co) Cobalt" = "Co",
-                "(Ni) Nickel" = "Ni",
-                "(Cu) Copper" = "Cu",
-                "(Zn) Zinc"= "Zn",
-                "(Ga) Gallium" = "Ga",
-                "(Ge) Germanium" = "Ge",
-                "(As) Arsenic" = "As",
-                "(Se) Selenium" = "Se",
-                "(Br) Bromium" = "Br",
-                "(Kr) Krypton" = "Kr",
-                "(Rb) Rubidium" = "Rb",
-                "(Sr) Strontium" = "Sr",
-                "(Y)  Yttrium" = "Y",
-                "(Zr) Zirconium" = "Zr",
-                "(Nb) Niobium" = "Nb",
-                "(Mo) Molybdenum" = "Mo",
-                "(Tc) Technicium" = "Tc",
-                "(Ru) Ruthenium" = "Ru",
-                "(Rh) Rhodium" = "Rh",
-                "(Pd) Paladium" = "Pd",
-                "(Ag) Silver" = "Ag",
-                "(Cd) Cadmium" = "Cd",
-                "(In) Indium" = "In",
-                "(Sn) Tin" = "Sn",
-                "(Sb) Antimony" = "Sb",
-                "(Te) Tellerium" = "Te",
-                "(I) Iodine" = "I",
-                "(Xe) Xenon" = "Xe",
-                "(Cs) Cesium" = "Cs",
-                "(Ba) Barium" = "Ba",
-                "(Ce) Cerium" = "Ce",
-                "(Pr) Praeseodymeum" = "Pr",
-                "(Nd) Neodymeum" = "Nd",
-                "(Pm) Promethium" = "Pm",
-                "(Sm) Samarium" = "Sm",
-                "(Eu) Europium" = "Eu",
-                "(Gd) Gadolinium" = "Gd",
-                "(Tb) Terbium" = "Tb",
-                "(Dy) Dysprosium" = "Dy",
-                "(Ho) Holmium" = "Ho",
-                "(Er) Erbium" = "Er",
-                "(Tm) Thullium" = "Tm",
-                "(Yb) Ytterbium" = "Yb",
-                "(Lu) Lutetium" = "Lu",
-                "(Hf) Halfnium" = "Hf",
-                "(Ta) Tantalum" = "Ta",
-                "(W)  Tungsten" = "W",
-                "(Re) Rhenium" = "Re",
-                "(Os) Osmium" = "Os",
-                "(Ir) Irridium" = "Ir",
-                "(Pt) Platinum" = "Pt",
-                "(Au) Gold" = "Au",
-                "(Hg) Mercury" = "Hg",
-                "(Tl) Thallium" = "Tl",
-                "(Pb) Lead" = "Pb",
-                "(Bi) Bismuth" = "Bi",
-                "(Po) Polonium" = "Po",
-                "(At) Astatine" = "At",
-                "(Rn) Radon" = "Rn",
-                "(Fr) Francium" = "Fr",
-                "(Ra) Radium" = "Ra",
-                "(Ac) Actinum" = "Ac",
-                "(Th) Thorium" = "Th",
-                "(Pa) Proactinum" = "Pa",
-                "(U)  Uranium" = "U"),
-                selected="Fe")
-            } else {
-                NULL
-            }
-        })
-        
-        absorptionInput <- reactive({
-                            req(input$anomscatterelement)
-                            switch(input$anomscatterelement,
-                            "H" = NULL,
-                            "He" = NULL,
-                            "Li" = lineLibrary$Absorption$Li,
-                            "Be" = lineLibrary$Absorption$Be,
-                            "B" = lineLibrary$Absorption$B,
-                            "C" = lineLibrary$Absorption$C,
-                            "N" = lineLibrary$Absorption$N,
-                            "O" = lineLibrary$Absorption$O,
-                            "F" = lineLibrary$Absorption$F,
-                            "Ne" = lineLibrary$Absorption$Ne,
-                            "Na" = lineLibrary$Absorption$Na,
-                            "Mg" = lineLibrary$Absorption$Mg,
-                            "Al" = lineLibrary$Absorption$Al,
-                            "Si" = lineLibrary$Absorption$Si,
-                            "P" = lineLibrary$Absorption$P,
-                            "S" = lineLibrary$Absorption$S,
-                            "Cl" = lineLibrary$Absorption$Cl,
-                            "Ar" = lineLibrary$Absorption$Ar,
-                            "K" = lineLibrary$Absorption$K,
-                            "Ca" = lineLibrary$Absorption$Ca,
-                            "Sc" = lineLibrary$Absorption$Sc,
-                            "Ti" = lineLibrary$Absorption$Ti,
-                            "V" = lineLibrary$Absorption$V,
-                            "Cr" = lineLibrary$Absorption$Cr,
-                            "Mn" = lineLibrary$Absorption$Mn,
-                            "Fe" = lineLibrary$Absorption$Fe,
-                            "Co" = lineLibrary$Absorption$Co,
-                            "Ni" = lineLibrary$Absorption$Ni,
-                            "Cu" = lineLibrary$Absorption$Cu,
-                            "Zn" = lineLibrary$Absorption$Zn,
-                            "Ga" = lineLibrary$Absorption$Ga,
-                            "Ge" = lineLibrary$Absorption$Ge,
-                            "As" = lineLibrary$Absorption$As,
-                            "Se" = lineLibrary$Absorption$Se,
-                            "Br" = lineLibrary$Absorption$Br,
-                            "Kr" = lineLibrary$Absorption$Kr,
-                            "Rb" = lineLibrary$Absorption$Rb,
-                            "Sr" = lineLibrary$Absorption$Sr,
-                            "Y" = lineLibrary$Absorption$Y,
-                            "Zr" = lineLibrary$Absorption$Zr,
-                            "Nb" = lineLibrary$Absorption$Nb,
-                            "Mo" = lineLibrary$Absorption$Mo,
-                            "Tc" = lineLibrary$Absorption$Tc,
-                            "Ru" = lineLibrary$Absorption$Ru,
-                            "Rh" = lineLibrary$Absorption$Rh,
-                            "Pd" = lineLibrary$Absorption$Pd,
-                            "Ag" = lineLibrary$Absorption$Ag,
-                            "Cd" = lineLibrary$Absorption$Cd,
-                            "In" = lineLibrary$Absorption$In,
-                            "Sn" = lineLibrary$Absorption$Sn,
-                            "Sb" = lineLibrary$Absorption$Sb,
-                            "Te" = lineLibrary$Absorption$Te,
-                            "I" = lineLibrary$Absorption$I,
-                            "Xe" = lineLibrary$Absorption$Xe,
-                            "Cs" = lineLibrary$Absorption$Cs,
-                            "Ba" = lineLibrary$Absorption$Ba,
-                            "La" = lineLibrary$Absorption$La,
-                            "Ce" = lineLibrary$Absorption$Ce,
-                            "Pr" = lineLibrary$Absorption$Pr,
-                            "Nd" = lineLibrary$Absorption$Nd,
-                            "Pm" = lineLibrary$Absorption$Pm,
-                            "Sm" = lineLibrary$Absorption$Sm,
-                            "Eu" = lineLibrary$Absorption$Eu,
-                            "Gd" = lineLibrary$Absorption$Gd,
-                            "Tb" = lineLibrary$Absorption$Tb,
-                            "Dy" = lineLibrary$Absorption$Dy,
-                            "Ho" = lineLibrary$Absorption$Ho,
-                            "Er" = lineLibrary$Absorption$Er,
-                            "Tm" = lineLibrary$Absorption$Tm,
-                            "Yb" = lineLibrary$Absorption$Yb,
-                            "Lu" = lineLibrary$Absorption$Lu,
-                            "Hf" = lineLibrary$Absorption$Hf,
-                            "Ta" = lineLibrary$Absorption$Ta,
-                            "W" = lineLibrary$Absorption$W,
-                            "Re" = lineLibrary$Absorption$Re,
-                            "Os" = lineLibrary$Absorption$Os,
-                            "Ir" = lineLibrary$Absorption$Ir,
-                            "Pt" = lineLibrary$Absorption$Pt,
-                            "Au" = lineLibrary$Absorption$Au,
-                            "Hg" = lineLibrary$Absorption$Hg,
-                            "Tl" = lineLibrary$Absorption$Tl,
-                            "Pb" = lineLibrary$Absorption$Pb,
-                            "Bi" = lineLibrary$Absorption$Bi,
-                            "Po" = lineLibrary$Absorption$Po,
-                            "At" = lineLibrary$Absorption$At,
-                            "Rn" = lineLibrary$Absorption$Rn,
-                            "Fr" = lineLibrary$Absorption$Fr,
-                            "Ra" = lineLibrary$Absorption$Ra,
-                            "Ac" = lineLibrary$Absorption$Ac,
-                            "Th" = lineLibrary$Absorption$Th,
-                            "Pa" = lineLibrary$Absorption$Pa,
-                            "U" = lineLibrary$Absorption$U)
-                        })
-        
-        scatterInput <- reactive({
-                            req(input$anomscatterelement)
-                            switch(input$anomscatterelement,
-                            "H" = NULL,
-                            "He" = NULL,
-                            "Li" = lineLibrary$Scatter$Li,
-                            "Be" = lineLibrary$Scatter$Be,
-                            "B" = lineLibrary$Scatter$B,
-                            "C" = lineLibrary$Scatter$C,
-                            "N" = lineLibrary$Scatter$N,
-                            "O" = lineLibrary$Scatter$O,
-                            "F" = lineLibrary$Scatter$F,
-                            "Ne" = lineLibrary$Scatter$Ne,
-                            "Na" = lineLibrary$Scatter$Na,
-                            "Mg" = lineLibrary$Scatter$Mg,
-                            "Al" = lineLibrary$Scatter$Al,
-                            "Si" = lineLibrary$Scatter$Si,
-                            "P" = lineLibrary$Scatter$P,
-                            "S" = lineLibrary$Scatter$S,
-                            "Cl" = lineLibrary$Scatter$Cl,
-                            "Ar" = lineLibrary$Scatter$Ar,
-                            "K" = lineLibrary$Scatter$K,
-                            "Ca" = lineLibrary$Scatter$Ca,
-                            "Sc" = lineLibrary$Scatter$Sc,
-                            "Ti" = lineLibrary$Scatter$Ti,
-                            "V" = lineLibrary$Scatter$V,
-                            "Cr" = lineLibrary$Scatter$Cr,
-                            "Mn" = lineLibrary$Scatter$Mn,
-                            "Fe" = lineLibrary$Scatter$Fe,
-                            "Co" = lineLibrary$Scatter$Co,
-                            "Ni" = lineLibrary$Scatter$Ni,
-                            "Cu" = lineLibrary$Scatter$Cu,
-                            "Zn" = lineLibrary$Scatter$Zn,
-                            "Ga" = lineLibrary$Scatter$Ga,
-                            "Ge" = lineLibrary$Scatter$Ge,
-                            "As" = lineLibrary$Scatter$As,
-                            "Se" = lineLibrary$Scatter$Se,
-                            "Br" = lineLibrary$Scatter$Br,
-                            "Kr" = lineLibrary$Scatter$Kr,
-                            "Rb" = lineLibrary$Scatter$Rb,
-                            "Sr" = lineLibrary$Scatter$Sr,
-                            "Y" = lineLibrary$Scatter$Y,
-                            "Zr" = lineLibrary$Scatter$Zr,
-                            "Nb" = lineLibrary$Scatter$Nb,
-                            "Mo" = lineLibrary$Scatter$Mo,
-                            "Tc" = lineLibrary$Scatter$Tc,
-                            "Ru" = lineLibrary$Scatter$Ru,
-                            "Rh" = lineLibrary$Scatter$Rh,
-                            "Pd" = lineLibrary$Scatter$Pd,
-                            "Ag" = lineLibrary$Scatter$Ag,
-                            "Cd" = lineLibrary$Scatter$Cd,
-                            "In" = lineLibrary$Scatter$In,
-                            "Sn" = lineLibrary$Scatter$Sn,
-                            "Sb" = lineLibrary$Scatter$Sb,
-                            "Te" = lineLibrary$Scatter$Te,
-                            "I" = lineLibrary$Scatter$I,
-                            "Xe" = lineLibrary$Scatter$Xe,
-                            "Cs" = lineLibrary$Scatter$Cs,
-                            "Ba" = lineLibrary$Scatter$Ba,
-                            "La" = lineLibrary$Scatter$La,
-                            "Ce" = lineLibrary$Scatter$Ce,
-                            "Pr" = lineLibrary$Scatter$Pr,
-                            "Nd" = lineLibrary$Scatter$Nd,
-                            "Pm" = lineLibrary$Scatter$Pm,
-                            "Sm" = lineLibrary$Scatter$Sm,
-                            "Eu" = lineLibrary$Scatter$Eu,
-                            "Gd" = lineLibrary$Scatter$Gd,
-                            "Tb" = lineLibrary$Scatter$Tb,
-                            "Dy" = lineLibrary$Scatter$Dy,
-                            "Ho" = lineLibrary$Scatter$Ho,
-                            "Er" = lineLibrary$Scatter$Er,
-                            "Tm" = lineLibrary$Scatter$Tm,
-                            "Yb" = lineLibrary$Scatter$Yb,
-                            "Lu" = lineLibrary$Scatter$Lu,
-                            "Hf" = lineLibrary$Scatter$Hf,
-                            "Ta" = lineLibrary$Scatter$Ta,
-                            "W" = lineLibrary$Scatter$W,
-                            "Re" = lineLibrary$Scatter$Re,
-                            "Os" = lineLibrary$Scatter$Os,
-                            "Ir" = lineLibrary$Scatter$Ir,
-                            "Pt" = lineLibrary$Scatter$Pt,
-                            "Au" = lineLibrary$Scatter$Au,
-                            "Hg" = lineLibrary$Scatter$Hg,
-                            "Tl" = lineLibrary$Scatter$Tl,
-                            "Pb" = lineLibrary$Scatter$Pb,
-                            "Bi" = lineLibrary$Scatter$Bi,
-                            "Po" = lineLibrary$Scatter$Po,
-                            "At" = lineLibrary$Scatter$At,
-                            "Rn" = lineLibrary$Scatter$Rn,
-                            "Fr" = lineLibrary$Scatter$Fr,
-                            "Ra" = lineLibrary$Scatter$Ra,
-                            "Ac" = lineLibrary$Scatter$Ac,
-                            "Th" = lineLibrary$Scatter$Th,
-                            "Pa" = lineLibrary$Scatter$Pa,
-                            "U" = lineLibrary$Scatter$U)
-                        })
-        
-        output$anomtest <- renderDataTable({
-            
-            anomScatterInput()
-            
-        })
         
         deconvolutionFunnel <- reactive({
             # Reads the stored deconvolution parameters from Deconvoluted$Parameters (set by spectra_gls_deconvolute, not Calibration$Parameters) so the controls open at the calibration's values. Do not req(input$calfileinput) here: it is only set when a .quant is loaded, and every deconvolution control depends on this reactive.
@@ -1974,9 +1578,46 @@ shinyServer(function(input, output, session) {
             
             # Spectrum plot: ranges holds the zoom window (NULL shows the full range).
             ranges <- reactiveValues(x = NULL, y = NULL)
-            
-            
-            
+
+            # Element lines picked on the Spectrum page for the K, L and M series.
+            spectrumLineMarkersSelected <- reactive({
+                spectrumLineMarkers(list(K=input$spectrumlines_k, L=input$spectrumlines_l, M=input$spectrumlines_m))
+            })
+
+            # Marker colours follow the element, not its place in the pickers: an element keeps its colour while it stays picked in any series, a newly picked element takes the first free colour, and one picked while all colours are taken stays grey.
+            spectrumLineSlots <- reactiveVal(integer(0))
+            observe({
+                picked <- unique(c(input$spectrumlines_k, input$spectrumlines_l, input$spectrumlines_m))
+                held <- isolate(spectrumLineSlots())
+                slots <- held[names(held) %in% picked]
+                for(el in setdiff(picked, names(slots))){
+                    free <- setdiff(seq_along(SPECTRUM_LINE_COLOURS), slots)
+                    slots[el] <- if(length(free) > 0) free[1] else NA_integer_
+                }
+                if(!identical(slots, held)) spectrumLineSlots(slots)
+            })
+
+            # Marker layers for a spectrum plot whose curve has these energies and heights. The picked lines reach 90% of the visible height so their labels fit; with Absorption Edges on, the picked elements' absorption is mirrored below zero. Both stay inside the zoom window, or the spectrum's energy range when not zoomed, and the line labels come last, in front.
+            spectrumLineOverlay <- function(energy, height){
+                xlim <- if(!is.null(ranges$x)) ranges$x else range(energy, na.rm=TRUE)
+                top <- if(length(ranges$y) == 2 && is.finite(ranges$y[2])) ranges$y[2] else max(height, na.rm=TRUE)
+                edges <- if(isTRUE(input$spectrumedges)){
+                    spectrumEdgeLayers(list(K=input$spectrumlines_k, L=input$spectrumlines_l, M=input$spectrumlines_m),
+                        depth=SPECTRUM_EDGE_DEPTH * top, slots=spectrumLineSlots(), xlim=xlim)
+                }
+                c(edges, spectrumLineLayers(spectrumLineMarkersSelected(), top=0.9 * top, slots=spectrumLineSlots(), xlim=xlim))
+            }
+
+            # A zoom window keeps room below zero for the absorption curves while they are shown.
+            spectrumEdgeRoom <- function(y){
+                if(isTRUE(input$spectrumedges) && length(y) == 2 && all(is.finite(y))) y[1] <- min(y[1], -(SPECTRUM_EDGE_DEPTH + 0.05) * y[2])
+                y
+            }
+            observeEvent(input$spectrumedges, {
+                if(!is.null(ranges$y)) ranges$y <- spectrumEdgeRoom(ranges$y)
+            }, ignoreInit = TRUE)
+
+
             # Cache energy range to avoid repeated min/max scans of entire vector
             energyRangeCache <- reactive({
                 data <- dataHold()
@@ -2098,20 +1739,13 @@ shinyServer(function(input, output, session) {
 
                 data <- spectraPlotData()
 
-                element <- datasetInput()
-                element <- element[is.finite(element$Line) & element$Line > 0, ]
-                if (nrow(element) > 0) {
-                    intensity.norm <- (element$Intensity/max(element$Intensity))*max(data$CPS, na.rm=TRUE)
-                    element$Intensity <- intensity.norm
-                }
-
                 ggplot(data, aes(x = Energy, y = CPS, colour = Spectrum)) +
                 geom_line() +
                 comboBaselineLayer() +
                 xlab("Energy (keV)") + ylab(yLabel()) +
                 theme_light(base_size = 15) +
                 theme(legend.position="bottom") +
-                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2, inherit.aes = FALSE)  +
+                spectrumLineOverlay(data$Energy, data$CPS) +
                 scale_colour_discrete("Spectrum") +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y)
 
@@ -2122,20 +1756,13 @@ shinyServer(function(input, output, session) {
 
                 data <- spectraPlotData()
 
-                element <- datasetInput()
-                element <- element[is.finite(element$Line) & element$Line > 0, ]
-                if (nrow(element) > 0) {
-                    intensity.norm <- (element$Intensity/max(element$Intensity))*max(data$CPS, na.rm=TRUE)
-                    element$Intensity <- intensity.norm
-                }
-
                 ggplot(data, aes(x = Energy, y = CPS, colour = Spectrum)) +
                 geom_line() +
                 comboBaselineLayer() +
                 xlab("Energy (keV)") + ylab(yLabel()) +
                 theme_light(base_size = 15) +
                 theme(legend.position="bottom") +
-                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2, inherit.aes = FALSE)  +
+                spectrumLineOverlay(data$Energy, data$CPS) +
                 scale_colour_discrete("Spectrum") +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y) +
                 guides(colour=FALSE)
@@ -2148,18 +1775,11 @@ shinyServer(function(input, output, session) {
                 data <- spectraPlotData()
                 data.summary <- spectraSummary()
 
-                element <- datasetInput()
-                element <- element[is.finite(element$Line) & element$Line > 0, ]
-                if (nrow(element) > 0) {
-                    intensity.norm <- (element$Intensity/max(element$Intensity))*max(data.summary$Mean, na.rm=TRUE)
-                    element$Intensity <- intensity.norm
-                }
-
                 ggplot(data.summary) +
                 geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max), alpha=0.2, fill="#619CFF", colour="grey20") +
                 geom_line(aes(Energy, Mean), lty=2) +
                 comboBaselineLayer() +
-                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
+                spectrumLineOverlay(data.summary$Energy, data.summary$Mean) +
                 scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
                 scale_y_continuous(yLabel()) +
                 coord_cartesian(xlim = ranges$x, ylim = ranges$y) +
@@ -2180,61 +1800,6 @@ shinyServer(function(input, output, session) {
             })
             
             
-            spectraAnomSummaryPlot <- reactive({
-
-                data <- spectraPlotData()
-                data.summary <- spectraSummary()
-
-                element <- datasetInput()
-                element <- element[is.finite(element$Line) & element$Line > 0, ]
-                if (nrow(element) > 0) {
-                    intensity.norm <- (element$Intensity/max(element$Intensity))*max(data.summary$Mean, na.rm=TRUE)
-                    element$Intensity <- intensity.norm
-                }
-
-                # Cache energy bounds to avoid duplicate min/max scans
-                energy_min <- my.min(data.summary$Energy)
-                energy_max <- my.max(data.summary$Energy)
-
-                element_absorption <- absorptionInput()
-                element_absorption <- element_absorption[element_absorption$Energy > energy_min & element_absorption$Energy < energy_max,]
-                f..norm <- (element_absorption$f../max(element_absorption$f.., na.rm=TRUE))*max(data.summary$Mean, na.rm=TRUE)
-                element_absorption$f.. <- f..norm
-                element_absorption$f.. <- element_absorption$f..*-1
-                element_absorption$Base <- 0
-
-                element_scatter <- scatterInput()
-                element_scatter <- element_scatter[element_scatter$Energy > energy_min & element_scatter$Energy < energy_max,]
-                f.norm <- (element_scatter$f./max(element_scatter$f., na.rm=TRUE))*max(data.summary$Mean, na.rm=TRUE)
-                element_scatter$f. <- f.norm
-                element_scatter$Base <- 0
-                
-                                
-                
-                
-                cols <- c("Absorption" = "red", "Scatter" = "blue", "Spectra" = "darkgreen")
-                
-                ggplot(data.summary) +
-                geom_ribbon(data=element_scatter, mapping=aes(x=Energy, ymin=Base, ymax=f./10, fill="Scatter (f')", colour="Scatter (f')"), alpha=0.2) +
-                geom_ribbon(data=element_absorption, mapping=aes(x=Energy, ymin=f.., ymax=Base, fill="Absorption (f'')", colour="Absorption (f'')"), alpha=0.2) +
-                geom_ribbon(aes(x=Energy, ymin=Min, ymax=Max, fill="Spectra", colour="Spectra"), alpha=0.2) +
-                geom_line(aes(Energy, Mean), lty=2) +
-                geom_segment(data=element, aes(x=Line, xend=Line, y = 0, yend=Intensity), colour="grey50", linetype=2)  +
-                scale_x_continuous("Energy (keV)", breaks=scales::pretty_breaks()) +
-                scale_y_continuous(yLabel()) +
-                scale_colour_manual(
-                  values = cols,
-                  breaks = c("Absorption", "Scatter", "Spectra")
-                ) +
-                coord_cartesian(xlim = ranges$x, ylim = ranges$y) +
-                theme_light(base_size = 15) +
-                theme(legend.position = c(0.9, 0.1), legend.title=element_blank()) +
-                  guides(colour = FALSE)
-
-                
-            })
-            
-            
             plotInput <- reactive({
 
                 #"Starting spectral plot"
@@ -2246,12 +1811,7 @@ shinyServer(function(input, output, session) {
                 } else if(input$showlegend == FALSE && input$variancespectrum == FALSE){
                     spectraNoLabels()
                 } else if(input$showlegend == FALSE && input$variancespectrum == TRUE){
-                    if(input$anomscatterok==FALSE){
-                        spectraSummaryPlot()
-                    } else if(input$anomscatterok==TRUE){
-                        spectraAnomSummaryPlot()
-                    }
-                    
+                    spectraSummaryPlot()
                 }
                 
                 #"Finished spectral plot"
@@ -2305,7 +1865,7 @@ shinyServer(function(input, output, session) {
                         y_bot <- min(0, min(win_cps))
                         pad <- 0.05 * (y_top - y_bot)
                         if (!is.finite(pad) || pad == 0) pad <- 0.05 * abs(y_top)
-                        ranges$y <- c(y_bot, y_top + pad)
+                        ranges$y <- spectrumEdgeRoom(c(y_bot, y_top + pad))
                     } else {
                         ranges$y <- c(coords$ymin, coords$ymax)
                     }
@@ -4270,12 +3830,17 @@ shinyServer(function(input, output, session) {
             n
         })
 
+        # Where the loaded spectra's data end, for the normalization defaults; NULL (no cut) until spectra load.
+        spectraUsableTop <- reactive({
+            spectraEnergyTop(tryCatch(dataHold(), error=function(e) NULL))
+        })
+
         # Runs first on every element switch, so the selected element has a calList entry before any per-element reactive reads calSettings$calList[[element]][[1]].
         observeEvent(input$calcurveelement, priority=200, {
             req(input$calcurveelement)
             if(!is.null(calSettings$calList) && !(input$calcurveelement %in% names(calSettings$calList))){
                 calSettings$calList[[input$calcurveelement]] <- list(
-                    defaultCalConditions(element=input$calcurveelement, number.of.standards=robustStandardCount())
+                    defaultCalConditions(element=input$calcurveelement, number.of.standards=robustStandardCount(), definitions=linevalues[["DF"]], energy.max=spectraUsableTop())
                 )
             }
         })
@@ -4285,7 +3850,7 @@ shinyServer(function(input, output, session) {
             calConditions$hold <- if(input$calcurveelement %in% names(calSettings$calList)){
                 calSettings$calList[[input$calcurveelement]][[1]]
             } else if(!input$calcurveelement %in% names(calSettings$calList)){
-                defaultCalConditions(element=input$calcurveelement, number.of.standards=robustStandardCount())
+                defaultCalConditions(element=input$calcurveelement, number.of.standards=robustStandardCount(), definitions=linevalues[["DF"]], energy.max=spectraUsableTop())
             }
 
         })
@@ -10698,7 +10263,7 @@ shinyServer(function(input, output, session) {
         observeEvent(input$trainslopes, priority=95, {
             foresthold$foresttrain <- "cv"
             xgboosthold$xgbtype <- "Linear"
-            calMemory$Calibration$calList[[input$calcurveelement]] <- list(Parameters=defaultCalConditions(element=input$calcurveelement, number.of.standards=length(holdFrame()$Spectrum)), Model=NULL)
+            calMemory$Calibration$calList[[input$calcurveelement]] <- list(Parameters=defaultCalConditions(element=input$calcurveelement, number.of.standards=length(holdFrame()$Spectrum), definitions=linevalues[["DF"]], energy.max=spectraUsableTop()), Model=NULL)
 
             # Errors are caught and reported so a failing candidate model type cannot abort the remaining Train observers, such as the normalization and intercept sweep.
             tryCatch({

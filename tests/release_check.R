@@ -18,6 +18,8 @@
 # 16. Scatter-angle inference: the batch median over the brightest spectra recovers the Tracer's ~110-115 deg geometry even when the single brightest spectrum is declined, and the deconvolution stores it instead of the 135 deg default
 # 17. Split line windows: L-alpha, L-beta, M and two-line K-beta sum their own line windows (not the whole spectrum, the pre-fix bug), K-alpha and one-line K-beta are unchanged, a split table saved before the fix is rebuilt on load, and models fitted on it are named for refitting until Update stamps them
 # 18. XGBoost across xgboost and caret releases: Bayesian tuning reads xgb.cv's best iteration under xgboost 1.x and 3.x, rawModel is saved as UBJSON, calRDS rebuilds boosters this xgboost can't use from rawModel and names the rest, tuning grids match the installed caret, caret can train XGBoost (fails while caret is older than 7.1 with xgboost 3.x), XGBoost Linear is a real linear booster, the XGBoost Type control shows the type that trains, and the per-element Preprocess setting defaults to None and survives a reload
+# 19. Normalization defaults: a new curve starts on Total Counts below 17 keV and on ROI +/- 5 keV on the SNIP baseline above, cut where zero-padded spectra's data end (a line past that starts on Total Counts), Cal Curves loads those defaults on an element switch (placeholder models included), and saved or older CalTables keep their normalization
+# 20. Spectrum page element lines: K, L and M pickers take any number of elements, the markers are each series' lines scaled per series with one boxed label drawn in front, marker colours follow the element, and Absorption Edges mirrors the picked elements' absorption below zero with their edges labelled
 # Usage: Rscript tests/release_check.R [path/to/cal.quant] [path/to/spectra_dir] [fp_quant] [examples_dir] [high_energy_mca]
 # Default paths point at local CloudCal Evaluation files; the exit status is nonzero if any check fails.
 
@@ -1330,6 +1332,174 @@ check("Preprocess is saved per element: None by default and for older calibratio
         identical(importCalConditions("Rb.K.alpha", old)$CalTable$Preprocess, "None") &&
         identical(importCalConditions("Rb.K.alpha", ranged)$CalTable$Preprocess, "Range") &&
         is.null(caretPreProcess("None")) && identical(caretPreProcess("Center and Scale"), c("center", "scale")) && identical(caretPreProcess("bogus"), NULL)
+})
+
+message("\n-- 19. Normalization defaults for new calibration curves --")
+same19 <- function(a, b) isTRUE(all.equal(a, b))
+norm19 <- function(ct) list(as.numeric(ct$NormType[1]), as.numeric(ct$Min[1]), as.numeric(ct$Max[1]), as.character(ct$ComptonType[1]))
+tc19 <- list(2, 11, 11.2, "Raw")
+check("new curves start on Total Counts below 17 keV and on ROI +/- 5 keV around the line on the SNIP baseline above, by the line's own emission (a custom line's by its window centre)", {
+    defs19 <- data.frame(Name = c("HighWindow", "LowWindow"), EnergyMin = c(20, 5), EnergyMax = c(21, 6), stringsAsFactors = FALSE)
+    d19 <- function(el) norm19(defaultCalConditions(el, 10, definitions = defs19)$CalTable)
+    same19(d19("Fe.K.alpha"), tc19) && same19(d19("Nb.K.alpha"), tc19) && same19(d19("Pb.L.beta"), tc19) && same19(d19("Total"), tc19) &&
+        same19(d19("Mo.K.alpha"), list(3, 12.48, 22.48, "Baseline")) && same19(d19("Sn.K.alpha"), list(3, 20.27, 30.27, "Baseline")) &&
+        same19(d19("U.L.beta"), list(3, 12.22, 22.22, "Baseline")) && same19(d19("HighWindow"), list(3, 15.5, 25.5, "Baseline")) &&
+        same19(d19("LowWindow"), tc19) && same19(norm19(deleteCalConditions("Sn.K.alpha")$CalTable), list(3, 20.27, 30.27, "Baseline"))
+})
+check("a CalTable saved without normalization columns still reads as Time, 11-11.2 keV and Raw for any line, and saved normalization is kept", {
+    read19 <- function(el, saved = NULL){
+        p <- defaultCalConditions(el, 5)
+        keep <- setdiff(colnames(p$CalTable), c("NormType", "Min", "Max", "ComptonType"))
+        p$CalTable <- if (is.null(saved)) p$CalTable[, keep] else cbind(p$CalTable[, keep], as.data.frame(saved, stringsAsFactors = FALSE))
+        cl <- list(); cl[[el]] <- list(p)
+        norm19(importCalConditions(el, cl)$CalTable)
+    }
+    legacy <- list(1, 11, 11.2, "Raw")
+    same19(read19("Fe.K.alpha"), legacy) && same19(read19("Sn.K.alpha"), legacy) &&
+        same19(read19("Sn.K.alpha", list(NormType = 2, Min = 2.5, Max = 2.8, ComptonType = "arPLS")), list(2, 2.5, 2.8, "arPLS"))
+})
+# An element switch pushes the element's normalization to its controls. The mock session keeps no input messages, so these masks record the pushes for one session; the defaults need no spectra.
+sec19 <- new.env()
+sec19$pushed <- list()
+updateSelectInput <- function(session, inputId, label = NULL, choices = NULL, selected = NULL){
+    sec19$pushed[[inputId]] <- selected
+    shiny::updateSelectInput(session, inputId, label = label, choices = choices, selected = selected)
+}
+updateNumericInput <- function(session, inputId, label = NULL, value = NULL, min = NULL, max = NULL, step = NULL){
+    sec19$pushed[[inputId]] <- value
+    shiny::updateNumericInput(session, inputId, label = label, value = value, min = min, max = max, step = step)
+}
+try(testServer(app, {
+    shown19 <- function(){
+        roi_type <- sub('.*<option value="([^"]+)" selected>.*', "\\1", gsub("\n", " ", as.character(output$comptonType$html)))
+        list(held = list(as.numeric(basichold$normtype), as.numeric(basichold$normmin), as.numeric(basichold$normmax), roi_type),
+             pushed = list(as.numeric(sec19$pushed$normcal), as.numeric(sec19$pushed$comptonmin), as.numeric(sec19$pushed$comptonmax), sec19$pushed$comptontype))
+    }
+    visit19 <- function(el){ session$setInputs(calcurveelement = el); session$flushReact(); shown19() }
+    # The static controls report at session start, before the Element selector exists.
+    session$setInputs(radiocal = 3, normcal = 1, comptonmin = 0, comptonmax = 0, comptontype = "Raw"); session$flushReact()
+    sec19$fresh_fe <- visit19("Fe.K.alpha"); sec19$fresh_sn <- visit19("Sn.K.alpha")
+    saved19 <- defaultCalConditions("Fe.K.alpha", 1)
+    saved19$CalTable$NormType <- 1; saved19$CalTable$Min <- 2.5; saved19$CalTable$Max <- 2.8; saved19$CalTable$ComptonType <- "arPLS"
+    calSettings$calList <- list(Fe.K.alpha = list(saved19), Cd.K.alpha = list(deleteCalConditions("Cd.K.alpha")))
+    sec19$loaded_ag <- visit19("Ag.K.alpha"); sec19$loaded_cd <- visit19("Cd.K.alpha")
+    sec19$loaded_rb <- visit19("Rb.K.alpha"); sec19$loaded_fe <- visit19("Fe.K.alpha")
+}), silent = TRUE)
+rm(updateSelectInput, updateNumericInput)
+shows19 <- function(x, want) !is.null(x) && same19(x$held, want) && same19(x$pushed, want)
+check("Cal Curves loads a new element's defaults on a switch, in a fresh calibration and in a loaded one",
+    shows19(sec19$fresh_fe, tc19) && shows19(sec19$fresh_sn, list(3, 20.27, 30.27, "Baseline")) &&
+    shows19(sec19$loaded_ag, list(3, 17.16, 27.16, "Baseline")) && shows19(sec19$loaded_rb, tc19))
+check("Cal Curves gives an element with only a placeholder model the defaults, and keeps an element's saved normalization",
+    shows19(sec19$loaded_cd, list(3, 18.17, 28.17, "Baseline")) && shows19(sec19$loaded_fe, list(1, 2.5, 2.8, "arPLS")))
+# Spectra that report zero counts above their data (here from 20 keV to 40 keV), saved for the RData file type.
+e19 <- seq(0.7, 40, by = 0.02)
+pad19 <- function(cut) do.call(rbind, lapply(c("A", "B", "C"), function(s) data.frame(Spectrum = s, Energy = e19, CPS = ifelse(e19 < cut, 50 + 10 * sin(e19), 0))))
+pad19_file <- file.path(tempdir(), "cloudcal_zero_padded.rds")
+saveRDS(pad19(20), pad19_file)
+check("spectraEnergyTop finds where zero-padded spectra's data end (ignoring a stray count), and the defaults cut the ROI there and give a line past it Total Counts", {
+    stray <- pad19(15); stray$CPS[stray$Spectrum == "A" & abs(stray$Energy - 39) < 0.011] <- 3
+    top20 <- spectraEnergyTop(pad19(20))
+    abs(top20 - 20) <= 0.1 && abs(spectraEnergyTop(stray) - 15) <= 0.1 && spectraEnergyTop(pad19(41)) >= 40 && is.null(spectraEnergyTop(pad19(0))) &&
+        same19(norm19(defaultCalConditions("Mo.K.alpha", 3, energy.max = top20)$CalTable), list(3, 12.48, top20, "Baseline")) &&
+        same19(norm19(defaultCalConditions("Sn.K.alpha", 3, energy.max = top20)$CalTable), tc19) &&
+        same19(norm19(defaultCalConditions("Sn.K.alpha", 3, energy.max = 40)$CalTable), list(3, 20.27, 30.27, "Baseline")) &&
+        same19(norm19(deleteCalConditions("Mo.K.alpha", energy.max = top20)$CalTable), list(3, 12.48, top20, "Baseline"))
+})
+try(testServer(app, {
+    session$setInputs(filetype = "RData", energynudge = 0, file1 = data.frame(name = "zero padded.rds", datapath = pad19_file, stringsAsFactors = FALSE),
+        radiocal = 3, normcal = 1, comptonmin = 0, comptonmax = 0, comptontype = "Raw"); session$flushReact()
+    held19 <- function() list(as.numeric(basichold$normtype), as.numeric(basichold$normmin), as.numeric(basichold$normmax))
+    session$setInputs(calcurveelement = "Mo.K.alpha"); session$flushReact(); sec19$padded_mo <- held19()
+    session$setInputs(calcurveelement = "Sn.K.alpha"); session$flushReact(); sec19$padded_sn <- held19()
+    sec19$padded_top <- spectraUsableTop()
+}), silent = TRUE)
+check("Cal Curves on spectra that stop at 20 keV: Mo K-alpha's ROI ends at 20 keV and Sn K-alpha (25 keV) starts on Total Counts",
+    isTRUE(abs(sec19$padded_top - 20) <= 0.1) && same19(sec19$padded_mo, list(3, 12.48, sec19$padded_top)) && same19(sec19$padded_sn, list(2, 11, 11.2)))
+
+message("\n-- 20. Spectrum page element lines (K, L and M pickers) --")
+check("the K, L and M pickers offer each element that has lines in the series, and the markers are that series' lines from fluorescence.lines", {
+    k <- spectrumLineElements("K"); l <- spectrumLineElements("L"); m <- spectrumLineElements("M")
+    mk <- spectrumLineMarkers(list(K = c("Fe", "Nope"), L = "Pb", M = "Pb"))
+    fe <- mk[mk$Element == "Fe", ]
+    all(c("Fe", "Pb", "U") %in% k) && all(c("Pb", "U") %in% l) && all(c("Pb", "U") %in% m) && !"Fe" %in% m &&
+        identical(k[1:3], c("H", "He", "Li")) && identical(fe$Column, c("Ka1", "Ka2", "Kb1")) && same19(fe$Energy, c(6.40, 6.39, 7.06)) &&
+        sum(mk$Element == "Pb" & mk$Series == "L") == 10 && sum(mk$Element == "Pb" & mk$Series == "M") == 4 && !"Nope" %in% mk$Element &&
+        nrow(spectrumLineMarkers(list(K = NULL, L = character(0)))) == 0
+})
+check("marker layers scale each element's series to the given height, colour by slot (grey past three), label each series once at its principal line, skip lines outside the window, and draw", {
+    mk <- spectrumLineMarkers(list(K = c("Fe", "Sr", "Zr"), L = "Pb", M = "Pb"))
+    lay <- spectrumLineLayers(mk, top = 100, slots = c(Fe = 1L, Pb = 2L, Sr = 3L, Zr = NA), xlim = c(0.7, 40))
+    seg <- lay[[1]]$data; lab <- lay[[2]]$data
+    seg_colour <- setNames(lay[[1]]$aes_params$colour, seg$Element)
+    boxed <- inherits(lay[[3]]$geom, "GeomLabelRepel") && identical(lay[[3]]$aes_params$fill, spectrumLineTint(lab$Colour)) && identical(lay[[3]]$aes_params$colour, "#0b0b0b")
+    e20 <- seq(0.7, 40, by = 0.05)
+    p20 <- ggplot(data.frame(Energy = e20, CPS = 50 + 900 * exp(-0.5 * ((e20 - 6.4) / 0.08)^2), Spectrum = "S1"), aes(Energy, CPS, colour = Spectrum)) + geom_line() + lay
+    png20 <- tempfile(fileext = ".png"); ggsave(png20, p20, width = 10, height = 5, dpi = 72)
+    all(tapply(seg$Height, paste(seg$Element, seg$Series), max) == 100) && !any(seg$Element == "Pb" & seg$Series == "K") &&
+        identical(unname(seg_colour[c("Fe", "Pb", "Sr", "Zr")]), c(SPECTRUM_LINE_COLOURS, SPECTRUM_LINE_GREY)) &&
+        setequal(paste(lab$Element, lab$Series), c("Fe K", "Sr K", "Zr K", "Pb L", "Pb M")) && identical(lab$Column[lab$Element == "Pb" & lab$Series == "L"], "La1") &&
+        is.null(spectrumLineLayers(mk, top = 100, xlim = c(90, 120))) && is.null(spectrumLineLayers(mk[0, ], top = 100)) && file.exists(png20) && file.size(png20) > 0 &&
+        boxed && identical(spectrumLineTint("#ffffff"), "#FFFFFF") && all(grDevices::col2rgb(spectrumLineTint(SPECTRUM_LINE_COLOURS)) > grDevices::col2rgb(SPECTRUM_LINE_COLOURS))
+})
+sec20 <- new.env()
+try(testServer(app, {
+    slots20 <- function(){ s <- spectrumLineSlots(); s[order(names(s))] }
+    session$setInputs(spectrumlines_k = "Fe"); session$setInputs(spectrumlines_l = "Pb"); session$setInputs(spectrumlines_k = c("Fe", "Sr"))
+    session$setInputs(spectrumlines_k = c("Fe", "Sr", "Zr"), spectrumlines_m = "Pb"); sec20$full <- slots20()
+    session$setInputs(spectrumlines_k = c("Sr", "Zr")); sec20$removed <- slots20()
+    session$setInputs(spectrumlines_k = c("Sr", "Zr", "Rb")); sec20$added <- slots20()
+    session$setInputs(spectrumlines_l = character(0)); sec20$still_m <- slots20()
+    sec20$markers <- spectrumLineMarkersSelected()
+    # The Spectrum page's own plot, on the zero-padded spectra from section 19: the boxed labels are its last layer, in front of everything else.
+    session$setInputs(filetype = "RData", energynudge = 0, file1 = data.frame(name = "zero padded.rds", datapath = pad19_file, stringsAsFactors = FALSE),
+        normspectra = 1, compressplot = "25 eV", comptonminspectra = 10, comptonmaxspectra = 10.2, compton_type = "Raw", deconvolutespectra = "Raw",
+        showlegend = FALSE, variancespectrum = FALSE)
+    session$elapse(400)
+    last_layer <- function() { p <- plotInput(); class(p$layers[[length(p$layers)]]$geom)[1] }
+    sec20$plot_lines <- tryCatch(last_layer(), error = function(e) conditionMessage(e))
+    session$setInputs(variancespectrum = TRUE); session$elapse(400)
+    sec20$plot_variance <- tryCatch(last_layer(), error = function(e) conditionMessage(e))
+    # Absorption Edges on: the picked elements' absorption below zero, edge labels for their picked series, line labels still last.
+    session$setInputs(variancespectrum = FALSE, spectrumedges = TRUE, spectrumlines_k = c("Sr", "Zr", "Rb"), spectrumlines_m = "Pb"); session$elapse(400)
+    p <- tryCatch(plotInput(), error = function(e) e)
+    if (!inherits(p, "error")) {
+        geoms <- vapply(p$layers, function(l) class(l$geom)[1], "")
+        labels <- unlist(lapply(p$layers[geoms == "GeomLabelRepel"], function(l) l$data$Label))
+        ribbons <- p$layers[geoms == "GeomRibbon"]
+        sec20$edge_geoms <- geoms; sec20$edge_labels <- labels
+        sec20$edge_below <- length(ribbons) > 0 && all(vapply(ribbons, function(l) max(l$data$Absorption) <= 0, TRUE))
+    }
+    # Zooming keeps room below zero for the curves.
+    session$setInputs(plot1_brush = list(xmin = 12, xmax = 16, ymin = 0, ymax = 50), autoscaley = TRUE, cropspectra = 1); session$elapse(400)
+    sec20$zoom_y <- isolate(ranges$y)
+    session$setInputs(spectrumedges = FALSE); session$elapse(400)
+    sec20$no_edge_layers <- !any(vapply(plotInput()$layers, function(l) inherits(l$geom, "GeomRibbon"), TRUE))
+}), silent = TRUE)
+check("marker colours follow the element: survivors keep theirs when one is removed, a new element takes the free colour, and grey ones stay grey", {
+    identical(sec20$full, c(Fe = 1L, Pb = 2L, Sr = 3L, Zr = NA)) && identical(sec20$removed, c(Pb = 2L, Sr = 3L, Zr = NA)) &&
+        identical(sec20$added, c(Pb = 2L, Rb = 1L, Sr = 3L, Zr = NA)) && identical(sec20$still_m, sec20$added) &&
+        setequal(unique(paste(sec20$markers$Element, sec20$markers$Series)), c("Sr K", "Zr K", "Rb K", "Pb M"))
+})
+check("the Spectrum page's plot draws the boxed line labels last, in front of the spectra, in line and variance views",
+    identical(sec20$plot_lines, "GeomLabelRepel") && identical(sec20$plot_variance, "GeomLabelRepel"))
+check("absorption edges: K/L energies are NIST's (measured where available) and M3-M5 xrftools'; each picked element's absorption sits below zero within the depth, with a label per edge of its picked series, or one label when none is in view", {
+    edge20 <- function(el, sh) SPECTRUM_EDGES$Energy[SPECTRUM_EDGES$Element == el & SPECTRUM_EDGES$Shell == sh]
+    lay <- spectrumEdgeLayers(list(K = "Fe", L = "Pb", M = NULL), depth = 30, slots = c(Fe = 1L, Pb = 2L), xlim = c(0.7, 40))
+    geoms <- vapply(lay, function(l) class(l$geom)[1], "")
+    ribbons <- lay[geoms == "GeomRibbon"]
+    in_view <- function(d) d$Absorption[d$Energy >= 0.7 & d$Energy <= 40]
+    only_m <- spectrumEdgeLayers(list(K = NULL, L = "Pb", M = NULL), depth = 30, xlim = c(2, 5))
+    same19(edge20("Fe", "K"), 7.110747) && same19(edge20("Pb", "L3"), 13.035064) && same19(edge20("Pb", "M5"), 2.489) && same19(edge20("U", "K"), 115.60109) &&
+        setequal(lay[[length(lay)]]$data$Label, c("Fe K edge", "Pb L1 edge", "Pb L2 edge", "Pb L3 edge")) && length(ribbons) == 2 &&
+        all(vapply(ribbons, function(l) max(l$data$Absorption) <= 0 && min(in_view(l$data)) >= -30 - 1e-9, TRUE)) &&
+        identical(only_m[[length(only_m)]]$data$Label, "Pb absorption") && is.null(spectrumEdgeLayers(list(K = "Fe"), depth = 0, xlim = c(0.7, 40))) &&
+        is.null(spectrumEdgeLayers(list(L = "Pb"), depth = 30, xlim = c(5, 10)))
+})
+check("Absorption Edges on the Spectrum page: curves below zero with edge labels, line labels still in front, a zoom keeps room below zero, and off removes the curves", {
+    is.character(sec20$edge_labels) && all(c("Sr K edge", "Zr K edge", "Rb K edge", "Pb M5 edge") %in% sec20$edge_labels) && isTRUE(sec20$edge_below) &&
+        identical(unname(tail(sec20$edge_geoms, 1)), "GeomLabelRepel") && length(sec20$zoom_y) == 2 &&
+        sec20$zoom_y[1] <= -SPECTRUM_EDGE_DEPTH * sec20$zoom_y[2] && isTRUE(sec20$no_edge_layers)
 })
 
 n_fail <- sum(!unlist(results))
